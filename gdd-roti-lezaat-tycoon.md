@@ -669,11 +669,169 @@ Hari hujan adalah **hari paling dramatis dan menguntungkan** bagi toko yang suda
 
 Lonjakan pengunjung fisik secara masif di seluruh kota. Ini adalah momen terbaik untuk mengaktifkan Iklan Tier 3–5 dan memaksimalkan profit dari kedua saluran (fisik + online) secara bersamaan. Pemain harus sanggup mengelola gelombang antrean fisik yang brutal **sekaligus** banjir pesanan online yang tak kalah deras.
 
-# **11\. Spesifikasi Teknis & Multiplatform (Godot 4)**
+# **11\. Sistem Laporan Harian (Daily Summary)**
+
+Tepat saat jarum jam in-game menyentuh **18:00**, pintu toko otomatis tertutup dengan bunyi *"klik"* yang memuaskan, dan layar transisi hangat muncul: latar memudar ke suasana sore dalam toko yang senyap, cahaya keemasan dari lampu etalase bersinar lembut, dan karakter pemain berdiri lelah namun tersenyum puas sambil membuka buku catatan besar di meja kasir.
+
+Inilah **Daily Summary** — laporan harian menyeluruh yang merangkum seluruh aktivitas dan kinerja toko dalam satu hari penuh.
+
+---
+
+## **11.1 Tampilan Layar Daily Summary**
+
+Layar Daily Summary ditampilkan sebagai **selembar kertas nota/struk kasir berukuran besar** dengan desain bergaya toko kelontong tempo dulu — dicetak di atas kertas berwarna krem kekuningan (*parchment*), font typewriter bulat, dan ornamen bingkai tanaman sulur daun kecil di sekelilingnya.
+
+```
+╔══════════════════════════════════════════════════╗
+║       🍞  ROTI LEZAT — LAPORAN HARI KE-{N}  🍞   ║
+║           📅 {Nama Hari}, {Tanggal In-Game}       ║
+║           ☀️ Cuaca: {Cerah / Hujan / Liburan}     ║
+╠══════════════════════════════════════════════════╣
+║  PEMASUKAN (INCOME)                              ║
+║  ─────────────────────────────────────────────  ║
+║  🏪 Penjualan Toko Fisik       :  +X.XXX KR      ║
+║     └ Roti Terlaris: {Nama Resep} ({N} buah)     ║
+║  📱 Pesanan Online (RotiFood)  :  +X.XXX KR      ║
+║     └ Total Order Selesai: {N} pesanan           ║
+║     └ Tip Delivery Bonus       :     +XX KR      ║
+║  ─────────────────────────────────────────────  ║
+║  TOTAL PEMASUKAN               : +XX.XXX KR      ║
+╠══════════════════════════════════════════════════╣
+║  PENGELUARAN (EXPENSES)                          ║
+║  ─────────────────────────────────────────────  ║
+║  🧂 Bahan Baku Terpakai        :   -X.XXX KR     ║
+║  ⚡ Biaya Utilitas (Listrik+Gas):    -XXX KR     ║
+║  👷 Gaji Karyawan              :   -X.XXX KR     ║
+║     └ {Nama Kasir} (Kasir T{N}):    -XXX KR     ║
+║     └ {Nama Baker} (Baker T{N}):    -XXX KR     ║
+║  ─────────────────────────────────────────────  ║
+║  TOTAL PENGELUARAN             :  -X.XXX KR      ║
+╠══════════════════════════════════════════════════╣
+║  LABA / RUGI HARI INI          : ±XX.XXX KR      ║
+║  SALDO AKHIR                   :  XX.XXX KR 🪙   ║
+╠══════════════════════════════════════════════════╣
+║  STATISTIK HARI INI                              ║
+║  ─────────────────────────────────────────────  ║
+║  👥 Total Pelanggan Fisik      :  {N} orang      ║
+║  📦 Order Delivery Selesai     :  {N} pesanan    ║
+║  ❌ Order Delivery Batal       :  {N} pesanan    ║
+║  🍞 Total Roti Terjual         :  {N} buah       ║
+║  🗑️ Roti Tidak Laku (Sisa)     :  {N} buah       ║
+║  ⭐ Rating Toko Hari Ini       :  {X.X} / 5.0    ║
+║  ⭐ Rating RotiFood Hari Ini   :  {X.X} / 5.0    ║
+╚══════════════════════════════════════════════════╝
+```
+
+---
+
+## **11.2 Indikator Mood Toko (Daily Performance Emoji)**
+
+Di bagian atas kertas nota, muncul **ikon ekspresi wajah besar** yang merangkum kinerja hari itu secara emosional — sesuai tema cute & cozy:
+
+| Kondisi Hari Itu | Emoji Mood | Warna Latar | Keterangan |
+| :--- | :---: | :---: | :--- |
+| Laba bersih > 2.000 KR & rating naik | 🤩 | Kuning keemasan | *"Hari yang luar biasa! Rotimu laris manis!"* |
+| Laba bersih positif, rating stabil | 😊 | Hijau pastel | *"Hari yang baik. Terus pertahankan ya!"* |
+| Impas / laba sangat kecil | 😐 | Krem netral | *"Lumayan. Besok coba bikin lebih banyak!"* |
+| Rugi, tapi masih ada saldo | 😟 | Oranye hangat | *"Hari yang berat. Jangan menyerah, ya!"* |
+| Saldo 0 KR / bailout terpicu | 🥺 | Merah muda lembut | *"Pak Lurah sedang dalam perjalanan..."* |
+
+---
+
+## **11.3 Panel Sorotan Hari Ini (Daily Highlights)**
+
+Tepat di bawah tabel angka, muncul 1–3 kotak **"Momen Istimewa"** yang merayakan atau mencatat kejadian unik hari itu:
+
+| Jenis Highlight | Ikon | Contoh Teks |
+| :--- | :---: | :--- |
+| Roti terlaris hari ini | 🏆 | *"Donat Gula jadi bintang hari ini! Terjual 24 buah."* |
+| Pelanggan VIP hadir | ⭐ | *"Food Vlogger mampir! Rating toko melonjak besok."* |
+| Delivery surge saat hujan | 🌧️ | *"Hujan deras, RotiFood meledak! +180% order online."* |
+| Order delivery batal | ⚠️ | *"3 pesanan RotiFood batal karena stok habis. Hati-hati!"* |
+| Roti gosong terjual | 🔥 | *"Pelanggan komplain roti gosong. Jaga oven berikutnya!"* |
+| Karyawan sangat produktif | 💪 | *"Aris bekerja luar biasa hari ini! Produksi roti x1.6."* |
+| Stok gudang hampir habis | 📦 | *"Bahan baku menipis! Jangan lupa belanja di Pasar."* |
+| Hari pertama Mode Solo | 🧑‍🍳 | *"Kamu kerja sendiri hari ini. Keren banget, semangat!"* |
+| Kampanye iklan aktif | 📢 | *"Iklan Spanduk Jalanan masih berjalan (hari ke-3/5)."* |
+
+---
+
+## **11.4 Catatan & Tips dari Pak Lurah 📋**
+
+Di pojok kanan bawah nota, muncul **amplop kecil atau sticky note kuning** dari Pak Lurah. Berisi satu kalimat tip kontekstual yang relevan dengan kondisi hari itu:
+
+| Kondisi Pemicu | Contoh Tip Pak Lurah |
+| :--- | :--- |
+| Banyak roti sisa tidak laku | *"Coba kurangi produksi besok, Nak. Bikin sesuai perkiraan pembeli saja."* |
+| Order RotiFood banyak batal | *"Stok harus selalu siap untuk ojol juga loh. Mereka tidak sabaran!"* |
+| Saldo di bawah 500 KR | *"Wah, hampir tipis nih. Fokus bikin Donat Gula dulu ya, margin-nya paling oke!"* |
+| Rating toko turun | *"Kecepatan kasir sangat pengaruh ke rating. Coba upgrade kasir jika bisa."* |
+| Cuaca hujan besok (prakiraan) | *"Besok kelihatannya hujan. Persiapkan stok roti lebih banyak untuk ojol ya!"* |
+| Hari pertama, saldo awal | *"Selamat memulai, Nak! Roti Tawar dan Donat Gula itu modal paling hemat."* |
+| Profit sangat tinggi | *"Wah, hebat sekali! Sudah siap upgrade toko ke level berikutnya belum?"* |
+| Mode Solo aktif | *"Tidak apa-apa kerja sendiri dulu. Setiap pengusaha besar pernah ada di posisi ini!"* |
+
+---
+
+## **11.5 Tombol Aksi Setelah Daily Summary**
+
+Setelah pemain selesai membaca laporan, tiga tombol besar muncul di bagian bawah layar dengan desain *pill button* cozy:
+
+| Tombol | Ikon | Fungsi |
+| :--- | :---: | :--- |
+| **🛒 Buka Pasar** | 🧺 | Masuk ke menu Pasar Bahan Baku untuk belanja bahan, upgrade resep, dan beli peralatan |
+| **👷 Kelola Karyawan** | 📋 | Shortcut ke menu manajemen staf untuk hire, libur, atau upgrade karyawan |
+| **⏭️ Lanjut ke Besok** | ☀️ | Lewati Pasar dan langsung lanjut ke hari berikutnya (bisa dilakukan jika stok sudah cukup) |
+
+> **Catatan UX**: Tombol "Lanjut ke Besok" akan berwarna abu-abu/nonaktif jika stok bahan baku di gudang **kosong total**, memaksa pemain untuk setidaknya mampir ke Pasar sebelum melanjutkan permainan.
+
+---
+
+## **11.6 Alur Transisi Lengkap (End-of-Day Flow)**
+
+```
+18:00 — Pintu Toko Tutup Otomatis
+    ↓
+Animasi Transisi: Karyawan beres-beres, lampu etalase dipadamkan satu per satu
+    ↓
+📊 Layar Daily Summary muncul (kertas nota bergaya vintage)
+    ↓  
+[Pemain membaca & menikmati laporan]
+    ↓
+[ Pilih Aksi ]
+    ├──► 🛒 Buka Pasar Bahan Baku
+    │        ↓
+    │   Belanja bahan, upgrade alat, beli resep baru
+    │        ↓
+    │   Pasar Tutup → Lanjut ke Besok
+    │
+    ├──► 👷 Kelola Karyawan (lalu ke Pasar / Lanjut)
+    │
+    └──► ⏭️ Langsung Lanjut ke Besok
+              ↓
+         Animasi malam → Fajar → 04:00 Persiapan Hari Baru
+```
+
+---
+
+## **11.7 Desain Visual Daily Summary (Warm, Cozy & Cute)**
+
+Seluruh elemen Daily Summary dirender **100% prosedural** melalui `ProceduralUIFactory`:
+
+* **Kertas Nota**: Panel `StyleBoxFlat` berlapis dengan warna krem `#FFF8EA`, efek *grain/noise* prosedural yang mensimulasikan tekstur kertas berserat vintage.
+* **Font Typewriter**: Font rounded (*chunky cozy*) yang dirender dengan `Label` Godot, dengan efek muncul karakter per karakter (*typewriter reveal animation*) menggunakan `Tween` yang lambat dan menenangkan.
+* **Garis Pemisah**: Digambar dengan `draw_line()` bergaya putus-putus (*dashed*) berwarna cokelat tinta lembut `#8C5835`.
+* **Emoji Mood**: Wajah emoji digambar prosedural menggunakan `draw_circle()` + `draw_arc()` untuk ekspresi mata dan mulut yang berubah sesuai kondisi finansial.
+* **Animasi Muncul**: Seluruh layar Daily Summary muncul dengan animasi *unfold* dari atas seperti kertas nota yang terbuka perlahan — digerakkan oleh `Tween` dengan easing `EASE_OUT`.
+* **Suara Latar**: Saat Daily Summary terbuka, terdengar suara *"kertas direntangkan"* lembut, diikuti musik lo-fi menenangkan yang lebih pelan dari saat jam jualan.
+
+
+
+# **12\. Spesifikasi Teknis & Multiplatform (Godot 4)**
 
 Game ini dikembangkan menggunakan **Godot Engine 4.x** dengan fokus rilis ganda: **Web Browser (itch.io)** dan **Mobile Android (Google Play Store)** dari satu basis kode (single codebase).
 
-## **11.1 Target & Deployment Platform**
+## **12.1 Target & Deployment Platform**
 
 * **Web Browser (itch.io)**:
   * **Format Ekspor**: HTML5 / WebAssembly / WebGL2.
@@ -686,7 +844,7 @@ Game ini dikembangkan menggunakan **Godot Engine 4.x** dengan fokus rilis ganda:
   * **Siklus Hidup Aplikasi (Android Lifecycle)**: Fitur auto-pause saat aplikasi beralih ke background (misal: saat menerima panggilan telepon atau menekan tombol home).
   * **Penanganan Tombol Back Android**: Tombol navigasi / gestur "Back" pada perangkat Android dapat digunakan untuk menutup dialog / pop-up menu yang aktif, atau menampilkan dialog konfirmasi keluar di menu utama.
 
-## **11.2 Rendering Pipeline & Optimasi Grafis**
+## **12.2 Rendering Pipeline & Optimasi Grafis**
 
 * **Mode Renderer Godot: Compatibility (`gl_compatibility` / OpenGL ES 3.0 / WebGL 2.0)**:
   * *Rasional*: Renderer Vulkan (`Mobile` / `Forward+`) di Godot 4 memerlukan WebGPU yang belum stabil dan belum didukung secara luas di browser web (HTML5 itch.io) serta sering mengalami kendala performa pada ponsel Android entry-level. Renderer *Compatibility* memastikan performa stabil 60 FPS di kedua platform tanpa glitch visual.
@@ -697,7 +855,7 @@ Game ini dikembangkan menggunakan **Godot Engine 4.x** dengan fokus rilis ganda:
   * Geometri dibentuk secara matematis dengan jumlah poligon terkontrol (500 – 2.000 tris per perakitan objek).
   * Shading menggunakan `StandardMaterial3D` berbasis parameter warna solid/roughness dan vertex coloring, meminimalkan kompleksitas komputasi GPU.
 
-## **11.3 Arsitektur Pemrograman Prosedural (Procedural Pipeline)**
+## **12.3 Arsitektur Pemrograman Prosedural (Procedural Pipeline)**
 
 Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembentukan visual dipisahkan ke dalam kelas-kelas factory khusus:
 
@@ -711,28 +869,28 @@ Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembent
    * Animasi berjalan menggunakan modulasi fungsi trigonometri matematika (`sin(time * speed)` untuk ayunan kaki & tangan, serta anggukan kepala).
    * Interaksi dapur (adukan mixer memutar, pintu oven berayun, reaksi emosional pelanggan melompat gembira atau menggeleng kecewa) digerakkan oleh `Tween` bawaan Godot (*squash & stretch interpolation*).
 3. **`ProceduralUIFactory` (Pembangkit UI & Grafis 2D)**:
-   * Pembuatan seluruh komponen UI (tombol rounded, panel modal, kartu staf, frame resep) memanfaatkan `StyleBoxFlat` dengan *corner radius*, warna tema pastel, dan bayangan (*drop shadow*) dinamis.
-   * Rendering Ikon Vektor: Ikon-ikon in-game (koin emas, bintang rating, jam dinding, balon pesanan, ikon hati/marah) digambar secara prosedural menggunakan fungsi CanvasItem `_draw()` (`draw_circle`, `draw_arc`, `draw_line`, `draw_colored_polygon`).
+   * Pembuatan seluruh komponen UI (tombol rounded, panel modal, kartu staf, frame resep, kertas nota Daily Summary) memanfaatkan `StyleBoxFlat` dengan *corner radius*, warna tema pastel, dan bayangan (*drop shadow*) dinamis.
+   * Rendering Ikon Vektor: Ikon-ikon in-game (koin emas, bintang rating, jam dinding, balon pesanan, ikon hati/marah, emoji mood Daily Summary) digambar secara prosedural menggunakan fungsi CanvasItem `_draw()` (`draw_circle`, `draw_arc`, `draw_line`, `draw_colored_polygon`).
    * Pasar Bahan Baku: Tampilan katalog bahan baku dengan harga tetap, kartu item berpola rounded lembut, ikon bahan prosedural, serta bar visual kapasitas penyimpanan gudang (*pantry bar*).
 
-## **11.4 Skema Kontrol Universal (Tap-First & Mouse)**
+## **12.4 Skema Kontrol Universal (Tap-First & Mouse)**
 
 * **Prinsip Kontrol Sentuh Universal**: Seluruh mekanisme gameplay (klik balon pesanan kasir, mengambil bahan, memilih resep, navigasi menu) dirancang 100% dapat dioperasikan hanya dengan satu jari (layar sentuh Android) atau satu klik kiri mouse (browser PC).
 * **Bebas Ketergantungan Keyboard**: Tidak ada kontrol krusial yang mewajibkan tombol keyboard fisik. Shortcut keyboard (seperti tombol Spasi atau Esc) hanya disediakan sebagai fitur tambahan (*Quality-of-Life*) pada versi Web.
 
-## **11.5 Orientasi & Tampilan Layar Responsif**
+## **12.5 Orientasi & Tampilan Layar Responsif**
 
 * **Orientasi**: Landscape (16:9 resolusi referensi 1280x720 / 1920x1080).
 * **Mode Stretch Godot**: `canvas_items` dengan konfigurasi aspect `expand` agar tata letak UI menyesuaikan berbagai rasio layar ponsel (18:9, 19.5:9, 20:9) maupun jendela browser tanpa distorsi atau gambar gepeng.
 
-## **11.6 Sistem Penyimpanan Data (Save System)**
+## **12.6 Sistem Penyimpanan Data (Save System)**
 
 * **Abstraksi Path Virtual `user://`**:
   * **Web (itch.io)**: Otomatis dipetakan oleh Godot Web Export ke IndexedDB browser, sehingga progres pemain tersimpan selama cache/data situs tidak dibersihkan.
   * **Android**: Disimpan ke direktori internal privat aplikasi (`user://savegame.json`).
 * **Format Data**: Berbasis JSON serializable yang ringan, portabel, dan tahan terhadap pembaruan versi game (*backward compatible*).
 
-## **11.7 Kesiapan Monetisasi & Distribusi**
+## **12.7 Kesiapan Monetisasi & Distribusi**
 
 * **itch.io**: Menyediakan rilis game gratis / web demo dengan opsi donasi atau link komunitas.
 * **Google Play Store**: Arsitektur modular disiapkan untuk monetisasi ramah pemain:
