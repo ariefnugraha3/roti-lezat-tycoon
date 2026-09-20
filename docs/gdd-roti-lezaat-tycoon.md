@@ -16,15 +16,45 @@ Roti Lezat Tycoon adalah game simulasi manajemen di mana pemain membangun keraja
   * **Warm**: Sehangat aroma roti yang baru matang dari oven.
   * **Cozy**: Sesantai suasana Minggu sore yang damai di era tahun 2000-an.
   * **Cute**: Semanis dan selembut roti manis kesukaan anak-anak.
+* **Karakter Pemain**: Pemain memilih satu karakter—**Pria** atau **Wanita**—saat menekan tombol **Main Baru**. Karakter inilah yang berjalan sendiri di dalam toko: mengambil bahan dari gudang, mengoperasikan mixer dan oven, menata roti ke rak, dan berjaga di meja kasir. Pilihan ini murni penampilan (gaya rambut, penutup kepala, warna celemek); ia tidak memengaruhi kecepatan kerja maupun ekonomi sedikit pun.
 * **Mata Uang Fiksi In-Game**: **Koin Roti** (disingkat **KR**, simbol: 🪙). Seluruh transaksi ekonomi—mulai dari penjualan roti, pembelian bahan baku di pasar, gaji karyawan, hingga biaya ekspansi toko—menggunakan satuan mata uang fiksi ini.
 
 # **2\. Core Gameplay Loop**
 
 Siklus permainan utama terbagi dalam tiga tahap operasional harian:
 
-1. Tahap Persiapan (04:00 - 08:00): Pemain membuka buku resep, memilih roti/kue dan jumlahnya (bahan seperti telur dan tepung otomatis dikalikan). Pemain mengambil bahan dari gudang, mengklik alat, dan mengikuti instruksi resep hingga selesai. Roti ditaruh di slot etalase (posisi penempatan mempengaruhi penjualan). Tepat jam 08:00 toko otomatis buka meski ada roti belum selesai.  
-2. Tahap Jualan (08:00 - 18:00): Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memilih roti dari etalase, dan mengantre di kasir; serta (b) Pesanan digital dari aplikasi online modern di tablet kasir yang dijemput langsung oleh Driver Ojek Online. Pemain klik bubble pesanan, menyiapkan atau mengemas roti, klik OK, lalu uang masuk. UI counter stok roti di kanan layar menunjukkan sisa roti di etalase. Pemain bisa membuat roti lagi di tahap ini, tapi jika ditinggal melayani kasir atau orderan delivery, roti berisiko gosong.  
-3. Tahap Tutup (18:00): Muncul Daily Summary. Pemain masuk ke menu Pasar untuk membeli bahan baku, upgrade resep, upgrade peralatan, atau upgrade toko sesuai jumlah uang. Setelah pasar ditutup, siklus kembali ke pagi hari.
+**1\. Tahap Persiapan (04:00 – 08:00)**
+
+Pemain tidak menekan tombol di menu untuk berproduksi—ia menggerakkan **karakternya** langsung di dalam toko. Seluruh produksi berjalan sebagai rantai ketukan, **satu ketukan per perabot**:
+
+1. **Ketuk Gudang Penyimpanan** → karakter berjalan ke sana, pintu kulkas dan lemarinya berayun terbuka, lalu **Buku Resep** muncul.
+2. **Pilih resep dan jumlah batch** (x1 / x3 / x5; bahan seperti telur dan tepung otomatis dikalikan) → daftar dan pintu gudang tertutup, bahan terpotong dari stok, lalu **gelembung tanda seru "!"** muncul mengambang di atas **Mixer** yang harus dihampiri.
+3. **Ketuk Mixer** → karakter berjalan ke sana dan mulai mengaduk. Sebuah **bar progres tanpa angka dan tanpa hitung mundur** mengambang di atas alat yang sedang bekerja—pemain hanya perlu tahu "masih jalan" atau "sudah penuh".
+4. **Adukan selesai** → tanda "!" berpindah ke **Oven**. Ketuk oven → karakter mampir dulu ke mixer mengambil mangkuk adonan (bawaannya terlihat di tangannya), lalu mengantarnya ke oven dan mulai memanggang.
+5. **Roti matang** → tanda "!" berpindah ke **Rak Display**. Ketuk rak → karakter mengambil loyang dari oven, membawanya ke rak, lalu layar **Pemilih Petak Rak** terbuka dan pemain menentukan roti ditaruh di petak yang mana (posisi penempatan mempengaruhi penjualan).
+
+*Aturan tetap:* tanda "!" **selalu muncul di stasiun BERIKUTNYA**, bukan di stasiun yang baru selesai. Pemain membaca "ke mana barang ini harus pergi", bukan "di mana ia sekarang"—dan itulah yang membuat langkah terakhir (rak) sama bentuknya dengan langkah-langkah sebelumnya.
+
+*Berjalan paralel:* yang mengantre hanyalah **kaki karakter**. Mixer dan oven berdetak sendiri setelah dinyalakan, jadi selagi roti dipanggang pemain tetap bisa memilih resep baru dan mengaduk adonan berikutnya. Beberapa pesanan berjalan sekaligus, masing-masing dengan tandanya sendiri.
+
+Tepat jam 08:00 toko otomatis buka meski ada roti belum selesai.
+
+**2\. Tahap Jualan (08:00 – 18:00)**
+
+Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memilih roti dari etalase, dan mengantre di kasir; serta (b) Pesanan digital dari aplikasi online modern di tablet kasir yang dijemput langsung oleh Driver Ojek Online. Pemain klik bubble pesanan, menyiapkan atau mengemas roti, klik OK, lalu uang masuk. UI counter stok roti di kanan layar menunjukkan sisa roti di etalase.
+
+**Siapa yang melayani meja kasir ditentukan satu aturan sederhana:**
+
+* **Ada Asisten Kasir yang bertugas → pembeli dilayani OTOMATIS.** Kasir berdiri sendiri di mejanya sepanjang jam buka; pemain tidak perlu menyentuh meja kasir sama sekali dan bebas berada di dapur. Inilah yang sesungguhnya dibeli pemain saat menggaji kasir (3.1).
+* **Tidak ada Asisten Kasir → karakter pemain harus berdiri di meja kasir.** Ketuk meja kasir → karakter berjalan ke posisi melayani di sisi dapur meja dan berbalik menghadap antrean. **Transaksi hanya berjalan selama ia berdiri di sana.** Begitu ia dipanggil pergi ke mixer atau oven, antrean berhenti bergerak dan pembeli mulai kehilangan kesabaran; transaksi yang sedang berjalan **membeku di tempat**—tidak dibatalkan, karena pembelinya masih berdiri menunggu ia kembali.
+
+Aturan ini juga berlaku saat kasir sedang **diliburkan** (Mode Solo, 3.0.C): kasir yang tidak bertugas sama dengan tidak ada kasir, dan meja kembali menuntut kehadiran pemain.
+
+Di sinilah tekanan utama tahap jualan selama toko belum mampu menggaji kasir: **memanggang dan melayani memperebutkan satu pasang kaki yang sama**. Pemain bisa membuat roti lagi di tahap ini, tapi setiap menit yang ia habiskan di dapur adalah antrean kasir yang mengular—dan roti yang ditinggal di oven tetap berisiko gosong. Menyewa Asisten Kasir adalah yang membebaskan kakinya, dan itulah alasan ekonomis utama untuk menggajinya.
+
+**3\. Tahap Tutup (18:00)**
+
+Muncul Daily Summary. Pemain masuk ke menu Pasar untuk membeli bahan baku, upgrade resep, upgrade peralatan, atau upgrade toko sesuai jumlah uang. Setelah pasar ditutup, siklus kembali ke pagi hari.
 
 # **3\. Key Features & Mechanics**
 
@@ -63,7 +93,8 @@ Pemain menerima paket bantuan yang cukup untuk bertahan—namun tidak lebih dari
 Saat saldo berada di kisaran 0–500 KR pasca-bailout, toko memasuki **Mode Solo**:
 
 * **Semua karyawan aktif diliburkan sementara** (bukan dipecat; mereka akan kembali saat pemain punya cukup dana untuk menggaji lagi). Karakter karyawan yang sedang diliburkan muncul sebagai ikon tidur kecil di panel Manajemen Karyawan.
-* **Pemain melakukan semua pekerjaan sendiri**: mengaduk adonan, membakar roti, melayani kasir, dan mengemas pesanan ojol—semua dilakukan secara manual seperti hari-hari pertama bermain.
+* **Pemain melakukan semua pekerjaan sendiri**: mengaduk adonan, membakar roti, melayani kasir, dan mengemas pesanan ojol—semua dilakukan secara manual seperti hari-hari pertama bermain. Ini berlaku **harfiah**: karakter pemain harus benar-benar berjalan ke tiap perabot, dan meja kasir hanya melayani selama ia berdiri di depannya (lihat Tahap Jualan pada Seksi 2).
+* **Kecepatan layan manual**: 10,5 detik per pembeli—yaitu kecepatan Asisten Kasir Tier 1 (7,0 detik) dikali penalti manual 1,5x. Pemain memang lebih lambat daripada kasir yang digaji, dan itu disengaja: itulah harga yang dibayar saat kas sedang kosong.
 * **Tidak ada utilitas yang diputus**: Listrik dan gas tetap menyala agar produksi bisa berjalan.
 * **Bonus "Semangat Bangkit" (+Mood)**: Selama Mode Solo aktif, setiap roti yang berhasil dijual memunculkan animasi semangat kecil di atas karakter pemain (bintang kecil berkilauan ✨) sebagai bentuk apresiasi perjuangan bangkit dari nol.
 
@@ -90,7 +121,9 @@ Karyawan bertindak sebagai Asisten berdedikasi yang membantu otomatisasi operasi
 
 ### **3.1 Asisten Kasir (Cashier Assistant)**
 
-Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli secara otomatis. Keberadaan kasir membebaskan pemain dari keharusan mengklik balon pesanan secara manual dan menjaga agar antrean toko tidak macet.
+Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara otomatis**. Keberadaan kasir membebaskan pemain dari keharusan mengklik balon pesanan secara manual dan menjaga agar antrean toko tidak macet.
+
+**Arti "otomatis" di sini harfiah:** begitu seorang Asisten Kasir bertugas, jalur kasirnya berjalan sendiri sepanjang jam buka—karakter pemain boleh berada di mana saja di dalam toko, bahkan sibuk di dapur, dan antrean tetap mengalir. Sebaliknya, **tanpa kasir yang bertugas, meja itu hanya melayani selama karakter pemain berdiri di depannya** (lihat Tahap Jualan pada Seksi 2 dan Mode Solo pada 3.0.C). Membandingkan dua keadaan inilah yang membuat gaji kasir terasa sepadan.
 
 | Tingkat / Jabatan | Gaji Harian (Per Hari) | Kecepatan Transaksi (Work Speed) | Kemampuan Khusus & Efek | Cocok untuk Lokasi |
 | :--- | :---: | :---: | :--- | :--- |
@@ -101,6 +134,8 @@ Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli secara oto
 | **Tier 5: Kasir Superstar** | **4.000 KR** | **1.2 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
 
 *Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
+
+*Batas yang berlaku saat ini:* jumlah jalur kasir yang terbuka = jumlah **kasir yang bertugas**, dibatasi jumlah meja yang dimiliki lokasi. Meja yang tidak ada kasirnya tetap tertutup—karakter pemain tidak bisa membuka jalur kedua di samping kasir yang sedang bekerja. Pemain hanya menggantikan kasir ketika **tidak ada kasir bertugas sama sekali**, dan saat itu ia melayani satu jalur.
 
 ---
 
@@ -238,8 +273,11 @@ Sistem online delivery memiliki sinergi gameplay yang sangat krusial dengan sist
 
 Tata letak toko tidak hanya soal visual, tetapi juga soal optimasi alur kerja (workflow):
 
-* Kitchen Layout: Menata posisi oven, mixer, dan meja kerja agar staf tidak perlu berjalan jauh.  
-* Storefront Aesthetics: Meletakkan rak roti dan mesin kasir di posisi strategis untuk menghindari antrean yang menumpuk di depan pintu.
+* Kitchen Layout: Menata posisi oven, mixer, **Gudang Penyimpanan**, dan meja kerja agar staf tidak perlu berjalan jauh.
+* Storefront Aesthetics: Meletakkan rak roti di posisi strategis untuk menghindari antrean yang menumpuk di depan pintu.
+* **Perabot yang bisa dipindah**: Mixer, Oven, Rak Display, dan Gudang Penyimpanan. **Meja kasir pembatas TIDAK bisa digeser**—ia bagian dari bangunan, bukan perabot lepas.
+* **Zona penempatan**: alat masak dan gudang hanya boleh berdiri di area dapur; rak display hanya di area toko. Satu baris ubin tepat di belakang meja kasir selalu disisakan sebagai lorong jalan.
+* **Jarak jalan itu nyata**: karakter pemain, pelanggan, karyawan, dan driver ojol **tidak bisa menembus perabot**—mereka mengitarinya. Denah yang berantakan benar-benar memperlambat kaki, jadi menata dapur bukan sekadar soal rapi dipandang.
 
 # **4\. Art Direction & Generasi Objek Prosedural**
 
@@ -272,6 +310,10 @@ Identitas visual dan atmosfer game dibangun di atas tiga pilar emosional yang sa
 * **Peralatan Dapur (Mixer, Oven, Display)**: Dirakit secara algoritmik dari mesh primitif Godot (`BoxMesh`, `CylinderMesh`, `TorusMesh`, `SphereMesh`) dengan `StandardMaterial3D` bertekstur warna pastel kayu dan logam tembaga/krom klasik. Bentuk alat bermutasi secara parametrik saat di-upgrade dari perabot tradisional berbahan kayu di Tier 1 hingga teknologi modern di Tier 5.
 * **Varian Roti & Pastry**: Mesh geometri dibentuk prosedural. Material memiliki parameter gradasi suhu kematangan: mentah (kuning pucat adonan) $\rightarrow$ matang sempurna (cokelat keemasan menggoda) $\rightarrow$ gosong (hitam gelap berjelaga).
 * **Karakter & NPC**: Model chibi dirakit dari komponen badan dan kepala bulat tanpa skeletal armature.
+* **Karakter Pemain (Pria / Wanita)**: Dua pilihan dirakit dari **satu perakit karakter yang sama** dengan masukan berbeda—gaya rambut, penutup kepala (topi koki / bandana), warna celemek, dan proporsi badan. Tidak ada model terpisah yang di-impor.
+* **Barang Bawaan**: Saat memindahkan hasil kerja, karakter benar-benar **menjunjung barangnya**—mangkuk adonan dari mixer ke oven, loyang roti dari oven ke rak. Bawaan ini bukan hiasan: ia menandai tahap mana yang sedang ditempuh.
+* **Penanda Stasiun**: Gelembung tanda seru "!" dan bar progres di atas perabot dirakit dari mesh primitif tipis bermaterial *unshaded*, lalu **seluruh penandanya diputar sekaligus** menghadap kamera. Memutar tiap lapisan sendiri-sendiri (billboard per-material) membuat isi bar progres melenceng keluar dari alurnya.
+* **Proporsi Perabot Terikat Karakter**: Setiap meja tempat orang berdiri melayani—meja kasir pembatas, meja kasir, meja ojol—**tingginya dibatasi garis dada karakter chibi** (±0,44 m; permukaan meja 0,42 m). Meja yang melewati garis itu menenggelamkan orang yang berdiri di baliknya.
 * **Animasi Prosedural**: Berjalan menggunakan gelombang sinus matematika (`sin(time * speed)` untuk ayunan langkah dan anggukan ceria), sedangkan ekspresi emosional dianimasikan dengan `Tween` squash & stretch.
 
 ## **4.3 Estetika Elemen 2D & UI Prosedural**
@@ -308,6 +350,22 @@ Peralatan dibagi menjadi lima tingkatan (tier). Tier 1 adalah peralatan bawaan (
   * **Mixer:** Automated Mixing Robot (Waktu proses: 3 detik | Harga: 35.000 KR)  
   * **Oven:** Conveyor Belt Oven (Waktu panggang: 5 detik | Harga: 50.000 KR)  
   * **Display:** Premium Auto-Dispenser Showcase (Kapasitas: 600 roti | Harga: 30.000 KR)
+
+### **5.1.1 Gudang Penyimpanan (Storage) — Kulkas & Lemari Bahan**
+
+Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dijual di Pasar**. Ia sepaket dengan bangunan: nama, bentuk, dan kapasitasnya ikut naik sendiri begitu pemain meng-upgrade tier toko. Yang tetap milik pemain hanyalah **tempatnya**—gudang boleh digeser di Mode Dekorasi seperti perabot lepas lainnya.
+
+* **Satu perabot, dua fungsi**: kulkas (bahan dingin) dan lemari bahan kering **menyatu menjadi satu entitas** bernama Gudang Penyimpanan.
+* **Susunan**: seluruh unitnya **berjajar dalam satu baris** dan semua pintunya menghadap ke depan, bersebelahan—kulkas, lalu lemari di sampingnya. Karena itu jejak lantainya selalu **N × 1 ubin** dan bertambah besar dengan **melebar ke samping**, bukan menebal ke belakang. Menyusunnya depan-belakang akan membuat separuh pintunya membelakangi kamera isometrik dan mustahil diraih pemain.
+* **Pintu masuk Buku Resep**: Buku Resep **tidak punya tombol di Quick Menu**. Ia dibuka dengan mengetuk gudang ini—karakter berjalan ke sana, pintunya berayun terbuka, barulah daftar resep muncul (lihat Seksi 2).
+
+| Tier Toko | Nama Gudang Penyimpanan | Jejak Lantai | Kapasitas Bahan |
+| :--- | :--- | :---: | :---: |
+| **Tier 1: Garasi Rumah** | Kulkas Bekas & Rak Kayu | 2 × 1 ubin | 150 unit |
+| **Tier 2: Ruko 1 Pintu** | Kulkas Dua Pintu & Lemari Bahan | 3 × 1 ubin | 400 unit |
+| **Tier 3: Toko Bakery Mandiri** | Chiller Tegak & Lemari Stainless | 4 × 1 ubin | 1.000 unit |
+| **Tier 4: Flagship Store** | Chiller Ganda & Lemari Bahan Segar | 4 × 1 ubin | 2.500 unit |
+| **Tier 5: Mega Bakery Landmark** | Cold Room & Rak Gudang Industri | 5 × 1 ubin | 6.000 unit |
 
 ## **5.2 Sistem Bahan Baku (Fixed Price Ingredients)**
 
@@ -365,6 +423,8 @@ Pemain dapat membeli bahan baku sesuai ketersediaan modal uang, namun kapasitas 
 
 *Aturan Pembelian:* Pemain dapat membeli bahan baku kapan saja di Tahap Tutup selama saldo mencukupi dan total stok di gudang belum melampaui batas kapasitas Tier Toko yang aktif.
 
+*Wujud Fisiknya:* Kapasitas di atas bukan angka abstrak—ia melekat pada perabot **Gudang Penyimpanan** yang benar-benar berdiri di dapur (lihat 5.1.1). Perabot itulah yang diketuk pemain untuk membuka Buku Resep, dan bentuknya ikut membesar seiring kapasitasnya.
+
 ## **5.3 Buku Resep (Recipe Book)**
 
 Resep adalah jantung bisnis *Roti Lezat Tycoon*. Setiap resep memiliki **modal bahan baku**, **harga jual yang bisa diatur pemain**, **rentang profit**, **waktu produksi**, **peralatan minimum**, dan **pelanggan target** masing-masing.
@@ -373,6 +433,8 @@ Resep adalah jantung bisnis *Roti Lezat Tycoon*. Setiap resep memiliki **modal b
 * **Harga Jual Fleksibel**: Pemain bebas mengatur harga jual sendiri di menu Buku Resep, dengan slider harga yang menampilkan emoji reaksi pelanggan (terlalu mahal → wajah cemberut 😤; pas → senyum puas 😊; murah → wajah bahagia bersemangat 🤩).
 * **Rentang Harga Wajar**: Tiap resep memiliki *Sweet Spot* harga—kisaran di mana pembeli tetap senang dan margin tetap menguntungkan.
 * **Penguncian Resep**: Resep Tier 2, 3, 4, dan 5 perlu **dibeli/dibuka** terlebih dahulu menggunakan KR di menu Buku Resep sebelum bisa diproduksi.
+* **Cara Membuka Buku Resep**: Buku Resep hanya bisa dibuka dengan **mengetuk Gudang Penyimpanan** di dapur dan menunggu karakter tiba di sana—tidak ada tombol pintasnya di HUD. Menutup daftar tanpa memilih apa pun akan menutup kembali pintu gudang dan membebaskan karakter untuk tugas lain.
+* **Menekan "Buat" ≠ Langsung Mengaduk**: Tombol Buat hanya **memesan**. Bahan dipotong dari gudang, daftar tertutup, lalu tanda seru "!" muncul di mixer yang harus dihampiri karakter. Adukan baru benar-benar dimulai setelah pemain mengetuk mixer itu dan karakternya tiba di sana.
 
 ---
 
@@ -509,6 +571,9 @@ Sistem properti menggunakan mekanisme **Beli Putus (Hak Milik)** sehingga pemain
 | **Slot Oven (Dapur)** | **1 Unit** | **2 Unit** | **3 Unit** | **4 Unit** | **5 Unit** |
 | **Slot Rak Display** | **1 Rak** | **2 Rak** | **3 Rak** | **4 Rak** | **6 Rak** |
 | **Slot Meja Kasir** | **1 Kasir** | **1 Kasir** | **2 Kasir** | **2 Kasir** | **3 Kasir** |
+| **Gudang Penyimpanan** | Kulkas Bekas & Rak Kayu | Kulkas Dua Pintu & Lemari | Chiller Tegak & Lemari Stainless | Chiller Ganda & Lemari Segar | Cold Room & Rak Industri |
+| **Jejak Gudang (ubin)** | **2 × 1** | **3 × 1** | **4 × 1** | **4 × 1** | **5 × 1** |
+| **Kapasitas Gudang** | **150 Unit** | **400 Unit** | **1.000 Unit** | **2.500 Unit** | **6.000 Unit** |
 | **Maks. Asisten Dapur** | 1 Orang | 2 Orang | 2 Orang | 3 Orang | 4 Orang |
 | **Maks. Asisten Kasir** | 1 Orang | 1 Orang | 2 Orang | 2 Orang | 3 Orang |
 | **Kapasitas Antrean Toko**| 4 Pembeli | 8 Pembeli | 14 Pembeli | 20 Pembeli | 35+ Pembeli |
@@ -547,15 +612,19 @@ Sistem properti menggunakan mekanisme **Beli Putus (Hak Milik)** sehingga pemain
 
 # **7\. UI/UX Design**
 
-* **Main HUD (Layar Utama)**: Menampilkan informasi esensial. Pojok kiri atas untuk Saldo Koin Roti (KR) dan Rating Toko. Pojok kanan atas untuk Jam In-Game dan Meteran Biaya Utilitas (menampilkan akumulasi biaya listrik & gas harian yang sedang berjalan). Bagian kanan layar terdapat Counter Stok Roti: Menampilkan sisa jumlah roti di etalase secara real-time agar pemain tahu mana yang laku dan tidak. Pojok kanan bawah untuk Quick Menu (Pasar, Buku Resep, Karyawan, Dekorasi).  
+* **Layar Pemilihan Karakter**: Muncul sekali saat menekan **Main Baru**. Dua kartu besar berisi potret chibi Pria dan Wanita yang digambar prosedural; kartu terpilih diberi bingkai emas. Pilihan ikut tersimpan di berkas simpanan.
+* **Main HUD (Layar Utama)**: Menampilkan informasi esensial. Pojok kiri atas untuk Saldo Koin Roti (KR) dan Rating Toko. Pojok kanan atas untuk Jam In-Game dan Meteran Biaya Utilitas (menampilkan akumulasi biaya listrik & gas harian yang sedang berjalan). Bagian kanan layar terdapat Counter Stok Roti: Menampilkan sisa jumlah roti di etalase secara real-time agar pemain tahu mana yang laku dan tidak. Pojok kanan bawah untuk Quick Menu: **Pasar, Karyawan, Iklan, Dekorasi**. **Buku Resep sengaja TIDAK ada di sini**—ia dibuka lewat Gudang Penyimpanan di dapur (lihat Seksi 2).    
 * **Desain Menu Utama**:  
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, dan tombol beli jumlah porsi (+ / - / Max).  
   * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal).  
   * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid, lengkap dengan indikator skill dan kecepatan proses.  
-  * Mode Dekorasi: Kamera berubah menjadi top-down isometric, lantai memunculkan grid penempatan barang ala The Sims.  
+  * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya.
+  * Pemilih Petak Rak: Muncul setelah karakter tiba di rak sambil membawa loyang. Kisi enam tombol besar menyalin susunan petak rak yang sesungguhnya (kiri ke kanan), lengkap dengan isi tiap petak. Satu loyang boleh disebar ke beberapa petak—layarnya tidak menutup sampai loyangnya habis.    
 * **UX Feedback & In-Game Indicators**:  
   * Balon Pikiran Pelanggan (Thought Bubbles) untuk menunjukkan keluhan seperti antrean lama (ikon jam pasir) atau harga mahal (ikon uang terbang).  
-  * Indikator Oven berupa progress bar melingkar yang berubah dari hijau, kuning, hingga merah berkedip sebagai tanda roti matang/gosong.  
+  * Indikator Oven berupa progress bar melingkar yang berubah dari hijau, kuning, hingga merah berkedip sebagai tanda roti matang/gosong.
+  * **Gelembung Tanda Seru "!"** mengambang di atas perabot yang menunggu diketuk, berdenyut pelan agar tertangkap sudut mata tanpa menjerit.
+  * **Bar Progres Perabot** mengambang di atas alat yang sedang bekerja, tumbuh dari kiri ke kanan dan berubah dari hijau ke keemasan. **Tanpa angka dan tanpa hitung mundur**: pemain hanya perlu tahu "masih jalan" atau "sudah penuh", dan angka detik hanya akan menarik matanya dari dapur ke teks.  
 * **UI Art Style (Warm, Cozy Y2K, & Cute)**:
   * Bentuk tombol membulat empuk (*pillow rounded*), menghindari sudut lancip yang kaku.
   * Nuansa palet warna UI: krem mentega lembut (`#FFF8EA`), cokelat kayu hangat (`#8C5835`), serta aksen pastel merah muda stroberi dan hijau matcha.
@@ -863,7 +932,8 @@ Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembent
    * Menggunakan modulasi primitif (`BoxMesh`, `CylinderMesh`, `SphereMesh`, `TorusMesh`) dan `SurfaceTool` untuk merakit objek 3D secara dinamis.
    * Parameterisasi Tier: Peralatan dapur (Mixer, Oven, Display) dan tata ruang toko memiliki parameter generator yang langsung mengubah bentuk fisik dan warna materialnya saat pemain melakukan upgrade tier (misal: Tier 1 Oven Tangkring manual $\rightarrow$ Tier 5 Conveyor Belt Oven otomatis).
    * Generator Bentuk Roti: Membentuk mesh roti tawar, donat bulat bolong, croissant berlapis, hingga sourdough artisanal secara matematis, termasuk perubahan warna panggang (*baking shade*).
-   * Generator Karakter: Merakit karakter *chibi* (kepala, badan, topi koki, celemek) dengan randomisasi warna kulit, rambut, dan pakaian.
+   * Generator Karakter: Merakit karakter *chibi* (kepala, badan, topi koki, celemek) dengan randomisasi warna kulit, rambut, dan pakaian—termasuk **karakter pemain** (Pria/Wanita) dan barang bawaannya (mangkuk adonan, loyang roti).
+   * Generator Gudang Penyimpanan: Diparameteri **tier lokasi**, bukan tier alat, karena ia sepaket dengan bangunan. Seluruh unitnya berjajar sebaris dengan pintu menghadap depan.
 2. **`ProceduralAnimationSystem` (Animasi Berbasis Kode)**:
    * Menghilangkan kebutuhan rig skeleton 3D eksternal.
    * Animasi berjalan menggunakan modulasi fungsi trigonometri matematika (`sin(time * speed)` untuk ayunan kaki & tangan, serta anggukan kepala).
@@ -872,10 +942,20 @@ Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembent
    * Pembuatan seluruh komponen UI (tombol rounded, panel modal, kartu staf, frame resep, kertas nota Daily Summary) memanfaatkan `StyleBoxFlat` dengan *corner radius*, warna tema pastel, dan bayangan (*drop shadow*) dinamis.
    * Rendering Ikon Vektor: Ikon-ikon in-game (koin emas, bintang rating, jam dinding, balon pesanan, ikon hati/marah, emoji mood Daily Summary) digambar secara prosedural menggunakan fungsi CanvasItem `_draw()` (`draw_circle`, `draw_arc`, `draw_line`, `draw_colored_polygon`).
    * Pasar Bahan Baku: Tampilan katalog bahan baku dengan harga tetap, kartu item berpola rounded lembut, ikon bahan prosedural, serta bar visual kapasitas penyimpanan gudang (*pantry bar*).
+   * Potret Karakter: Potret chibi pada layar pemilihan karakter digambar dengan `_draw()` (lingkaran dan poligon), bukan hasil render 3D—dua gambar diam tidak sepadan dengan biaya satu `SubViewport`.
+4. **Lapisan Tugas Pemain (`PlayerTaskSystem`)**:
+   * Menerjemahkan **ketukan** pemain di dunia 3D menjadi perintah produksi, dan sebaliknya menerjemahkan keadaan produksi menjadi penanda yang mengambang di atas perabot.
+   * Rantai satu pesanan: gudang → mixer → oven → rak. Tanda seru selalu di stasiun **berikutnya**; ketukan pada stasiun berikutnya membuat karakter mampir dulu ke stasiun sebelumnya untuk mengambil barangnya.
+   * Beberapa pesanan berjalan sekaligus; yang antre hanyalah kaki karakter.
+   * Perabot yang **tidak** sedang menunggu pekerjaan tetap dihampiri saat diketuk—perabot di dunia 3D adalah tombolnya sendiri, dan tombol yang kadang menjawab kadang tidak membuat pemain mengira ketukannya tidak terbaca.
+5. **Navigasi Aktor (`ShopWorld`)**:
+   * Aktor berjalan di **kisi ubin yang sama** dengan Mode Dekorasi, bukan di atas collider fisika. Perabot di proyek ini memang tidak punya collider, dan menambahkannya hanya demi tabrakan pejalan kaki berarti dua sumber kebenaran bentuk per perabot yang pasti berbeda diam-diam.
+   * Petak terhuni ditandai pada `AStarGrid2D`, lalu rute hasilnya diluruskan kembali dengan uji garis pandang supaya karakter tidak melangkah zig-zag dari pusat ubin ke pusat ubin.
 
 ## **12.4 Skema Kontrol Universal (Tap-First & Mouse)**
 
 * **Prinsip Kontrol Sentuh Universal**: Seluruh mekanisme gameplay (klik balon pesanan kasir, mengambil bahan, memilih resep, navigasi menu) dirancang 100% dapat dioperasikan hanya dengan satu jari (layar sentuh Android) atau satu klik kiri mouse (browser PC).
+* **Perabot Adalah Tombolnya Sendiri**: Gudang Penyimpanan, Mixer, Oven, Rak Display, dan Meja Kasir semuanya bisa diketuk langsung di dunia 3D. Ketukan dihitung saat jari **dilepas** dan hampir tidak bergeser, sehingga usaha menggeser layar tidak pernah salah terbaca sebagai perintah.
 * **Bebas Ketergantungan Keyboard**: Tidak ada kontrol krusial yang mewajibkan tombol keyboard fisik. Shortcut keyboard (seperti tombol Spasi atau Esc) hanya disediakan sebagai fitur tambahan (*Quality-of-Life*) pada versi Web.
 
 ## **12.5 Orientasi & Tampilan Layar Responsif**

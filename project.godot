@@ -10,20 +10,41 @@ config_version=5
 
 [application]
 
-config/name="Roti Lezaat Tycoon"
-config/features=PackedStringArray("4.7", "Mobile")
+config/name="Roti Lezat Tycoon"
+config/version="0.1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(1, 0.972549, 0.917647, 1)
+boot_splash/show_image=false
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameConfig="*res://scripts/core/game_config.gd"
+Palette="*res://scripts/core/palette.gd"
+EventBus="*res://scripts/core/event_bus.gd"
+GameState="*res://scripts/core/game_state.gd"
+SaveManager="*res://scripts/core/save_manager.gd"
+AudioBus="*res://scripts/audio/audio_bus.gd"
+ScreenRouter="*res://scripts/ui/screen_router.gd"
 
 [display]
 
+window/size/viewport_width=1280
+window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
-[physics]
+[input_devices]
 
-3d/physics_engine="Jolt Physics"
+pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
-rendering_device/driver.windows="d3d12"
-renderer/rendering_method="mobile"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+; MSAA 2D tidak didukung renderer Compatibility (GLES3/WebGL2) dan hanya
+; memunculkan warning saat boot. MSAA 3D tetap menyala untuk menghaluskan
+; tepi mesh prosedural.
+anti_aliasing/quality/msaa_3d=1
