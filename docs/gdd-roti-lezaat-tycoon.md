@@ -23,25 +23,58 @@ Roti Lezat Tycoon adalah game simulasi manajemen di mana pemain membangun keraja
 
 Siklus permainan utama terbagi dalam tiga tahap operasional harian:
 
-**1\. Tahap Persiapan (04:00 – 08:00)**
+*Kecepatan jam:* **1 jam in-game = 3 menit nyata**, sehingga satu hari penuh (05:00–18:00) berlangsung **39 menit nyata**—9 menit persiapan dan 30 menit jualan. Seluruh arus yang ditulis "per jam" (kedatangan pembeli, pesanan RotiFood) mengikuti jam in-game, jadi jumlah pembeli **per hari** tidak berubah; yang berubah adalah berapa lama pemain punya waktu untuk melayani mereka.
+
+**1\. Tahap Persiapan (05:00 – 08:00)**
 
 Pemain tidak menekan tombol di menu untuk berproduksi—ia menggerakkan **karakternya** langsung di dalam toko. Seluruh produksi berjalan sebagai rantai ketukan, **satu ketukan per perabot**:
 
 1. **Ketuk Gudang Penyimpanan** → karakter berjalan ke sana, pintu kulkas dan lemarinya berayun terbuka, lalu **Buku Resep** muncul.
 2. **Pilih resep dan jumlah batch** (x1 / x3 / x5; bahan seperti telur dan tepung otomatis dikalikan) → daftar dan pintu gudang tertutup, bahan terpotong dari stok, lalu **gelembung tanda seru "!"** muncul mengambang di atas **Mixer** yang harus dihampiri.
 3. **Ketuk Mixer** → karakter berjalan ke sana dan mulai mengaduk. Sebuah **bar progres tanpa angka dan tanpa hitung mundur** mengambang di atas alat yang sedang bekerja—pemain hanya perlu tahu "masih jalan" atau "sudah penuh".
-4. **Adukan selesai** → tanda "!" berpindah ke **Oven**. Ketuk oven → karakter mampir dulu ke mixer mengambil mangkuk adonan (bawaannya terlihat di tangannya), lalu mengantarnya ke oven dan mulai memanggang.
-5. **Roti matang** → tanda "!" berpindah ke **Rak Display**. Ketuk rak → karakter mengambil loyang dari oven, membawanya ke rak, lalu layar **Pemilih Petak Rak** terbuka dan pemain menentukan roti ditaruh di petak yang mana (posisi penempatan mempengaruhi penjualan).
+4. **Adukan selesai** → tanda "!" **tetap di Mixer**: adonannya masih terkunci di dalam alat. **Ketuk Mixer lagi** → karakter mengambil mangkuk adonan, bawaannya terlihat di tangannya, dan barulah tanda "!" berpindah ke **Oven**.
+5. **Ketuk Oven** → karakter mengantarkan adonan yang sedang ia bawa ke oven dan mulai memanggang.
+6. **Roti matang** → tanda "!" **tetap di Oven**. **Ketuk Oven lagi** → karakter mengangkat loyang roti, dan tanda "!" berpindah ke **Rak Display**. (Selama loyang belum ditata, rotinya masih di oven yang panas dan tetap bisa gosong—mengangkatnya bukan berarti aman.)
+7. **Ketuk Rak Display** → karakter mengantar loyang ke rak, lalu layar **Pemilih Petak Rak** terbuka dan pemain menentukan roti ditaruh di petak yang mana (posisi penempatan mempengaruhi penjualan).
 
-*Aturan tetap:* tanda "!" **selalu muncul di stasiun BERIKUTNYA**, bukan di stasiun yang baru selesai. Pemain membaca "ke mana barang ini harus pergi", bukan "di mana ia sekarang"—dan itulah yang membuat langkah terakhir (rak) sama bentuknya dengan langkah-langkah sebelumnya.
+*Aturan tetap:* **alat yang selesai bekerja menahan isinya sampai diambil.** Tanda "!" berpindah ke stasiun berikutnya hanya SESUDAH barangnya benar-benar ada di tangan karakter. Jadi tanda yang sama dibaca dua cara: "ambil dari sini" saat tangannya kosong, dan "antar ke sini" saat ia sudah menenteng sesuatu.
+
+*Tangannya cuma sepasang:* selama satu bawaan belum diantar, alat lain yang juga sudah selesai tidak bisa diambil isinya—dan adonan kedua yang menunggu di mixer itulah yang membuat pemain harus memilih urutan kerjanya sendiri.
 
 *Berjalan paralel:* yang mengantre hanyalah **kaki karakter**. Mixer dan oven berdetak sendiri setelah dinyalakan, jadi selagi roti dipanggang pemain tetap bisa memilih resep baru dan mengaduk adonan berikutnya. Beberapa pesanan berjalan sekaligus, masing-masing dengan tandanya sendiri.
 
 Tepat jam 08:00 toko otomatis buka meski ada roti belum selesai.
 
+**Tiga Hari Pembukaan — "jangan sampai gosong"**
+
+Hari 1 sampai 3 **tidak diundi**. Permintaan hari itu sudah ditetapkan—siapa yang datang, jam berapa, membeli berapa, plus pesanan RotiFood-nya—dan gudang diisi **pas sebanyak itu, tanpa sebutir pun cadangan**:
+
+| Hari | Resep | Bahan | Permintaan |
+| :---- | :---- | :---- | :---- |
+| **1** | Roti Tawar Polos | 6 batch = **36 roti** | 8 pembeli (26 roti) + 2 pesanan ojol (10 roti) |
+| **2** | Roti Goreng Polos | 7 batch = **42 roti** | 9 pembeli (30 roti) + 3 pesanan ojol (12 roti) |
+| **3** | Donat Gula | 9 batch = **45 roti** | 10 pembeli (34 roti) + 3 pesanan ojol (11 roti) |
+
+Karena bahannya pas, **satu loyang yang dibiarkan gosong di oven berarti ada pembeli atau pesanan yang tidak kebagian hari itu**. Di sinilah pemain belajar bahwa mengangkat loyang tepat waktu bukan formalitas. Pagi hari angka targetnya diumumkan, dan HUD menampilkan "Permintaan: x / N roti" sepanjang hari supaya pemain tahu sisa kewajibannya.
+
+Hari 1 sengaja diisi pembeli sabar (anak sekolah, emak-emak arisan, si galau). Pekerja kantoran yang kesabarannya hanya 18 detik baru muncul di hari 2. Mulai hari 4, permintaan kembali acak mengikuti rating, cuaca, dan kampanye (Seksi 8, 9, 10), dan pemain berbelanja bahan sendiri di Pasar.
+
 **2\. Tahap Jualan (08:00 – 18:00)**
 
 Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memilih roti dari etalase, dan mengantre di kasir; serta (b) Pesanan digital dari aplikasi online modern di tablet kasir yang dijemput langsung oleh Driver Ojek Online. Pemain klik bubble pesanan, menyiapkan atau mengemas roti, klik OK, lalu uang masuk. UI counter stok roti di kanan layar menunjukkan sisa roti di etalase.
+
+**Satu pembeli fisik, langkah demi langkah:**
+
+1. **Pembeli masuk** lewat pintu depan dan berjalan ke rak display.
+2. **Memilih roti di rak** — dan ia **mengambil rotinya sendiri saat itu juga**. Stok etalase berkurang sejak detik itu, bukan nanti di kasir.
+3. **Membawa belanjaannya ke meja kasir** dan berdiri di antrean; roti yang ditentengnya terlihat di tangannya.
+4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean.
+5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
+6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
+7. **Tekan OK** → karakter membungkus belanjaan ke dalam kantong kertas (animasi membungkus, lama sesuai kecepatan layan kasir).
+8. **Pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang.
+
+*Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
 
 **Siapa yang melayani meja kasir ditentukan satu aturan sederhana:**
 
@@ -253,6 +286,10 @@ Meskipun bernuansa retro-cozy tahun 2000, dunia *Roti Lezat Tycoon* berlatar di 
 #### **A. Alur Siklus Pesanan Online (The Delivery Order Loop)**
 1. **Notifikasi Masuk (Chime Alert)**: Tablet digital di samping kasir berdering dengan nada ceria (*ting-ting-ting!*). Balon pesanan digital muncul di atas tablet, menampilkan icon kantong kemasan, daftar roti yang dipesan warga kota, dan *Preparation Timer* (misal: 60 - 90 detik).
 2. **Pengemasan Roti (Packing & Bagging)**: Pemain (atau Asisten Kasir/Dapur yang bertugas) mengklik pesanan untuk mengemas roti dari stok etalase display ke dalam kantong kardus cokelat berpita manis (*Procedural Paper Bag*). Roti yang dikemas langsung mengurangi stok display toko.
+
+   *Bentuk ketukannya sama persis dengan pembeli fisik:* ketuk balon → **popup pesanan** memperlihatkan daftar roti beserta sisa stok etalase untuk tiap butirnya → satu tombol menyelesaikan langkah itu. Balonnya bisa diketuk di dua tempat yang sama-sama membuka popup yang sama: panel "Pesanan RotiFood" di HUD, dan tanda "!" yang mengambang di atas tablet di ujung meja kasir. Roti yang kurang ditandai merah di dalam popup, jadi pemain tahu resep mana yang harus dipanggang lebih dulu—tombolnya tidak pernah mati tanpa alasan.
+
+   Berbeda dari pembeli fisik, pesanan aplikasi **tidak menuntut karakter berdiri di meja kasir**: yang bekerja di sini tablet, bukan mesin kasir.
 3. **Kedatangan Driver Ojol**: Karakter chibi Driver Ojek Online tiba di toko dengan langkah riang membawa nomor pesanan digital di ponsel pintarnya.
 4. **Serah Terima Cepat (Handover)**: Pemain atau kasir menyerahkan kantong roti kepada driver. Driver memasukkan bungkusan ke dalam tas termal punggungnya, melambaikan tangan dengan senyum puas, lalu bergegas mengantarkannya ke pelanggan. Koin Roti (KR) hasil penjualan langsung masuk ke kas kasir.
 
@@ -878,7 +915,7 @@ Animasi Transisi: Karyawan beres-beres, lampu etalase dipadamkan satu per satu
     │
     └──► ⏭️ Langsung Lanjut ke Besok
               ↓
-         Animasi malam → Fajar → 04:00 Persiapan Hari Baru
+         Animasi malam → Fajar → 05:00 Persiapan Hari Baru
 ```
 
 ---

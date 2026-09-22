@@ -9,6 +9,13 @@ extends RefCounted
 ##
 ## Invarian yang sudah diverifikasi untuk ke-23 resep: profit == batch_price - modal.
 ##
+## CATATAN `time_sec`: kolom ini angka TABEL GDD, bukan angka simulasi.
+## ProductionSystem tidak pernah membacanya — lama mengaduk dan memanggang
+## diambil dari EquipmentDB menurut tier mixer/oven, lalu dibagi kecepatan
+## Asisten Dapur. Buku Resep karena itu menampilkan waktu alat yang sebenarnya,
+## bukan kolom ini. Kolomnya dipertahankan supaya tabel di sini tetap bisa
+## diadu dengan GDD 5.3 baris per baris (tools/data_audit.gd).
+##
 ## ---------------------------------------------------------------------------
 ## CATATAN: `modal` GDD vs `modal_computed()` (Sigma harga bahan x qty)
 ## ---------------------------------------------------------------------------

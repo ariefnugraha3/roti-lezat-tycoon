@@ -37,6 +37,7 @@ scripts/data/marketing_db.gd         class_name MarketingDB
 scripts/data/customer_db.gd          class_name CustomerDB
 scripts/data/weather_db.gd           class_name WeatherDB
 scripts/data/dialog_db.gd            class_name DialogDB
+scripts/data/opening_db.gd           class_name OpeningDB
 scripts/audio/synth.gd               class_name Synth
 scripts/audio/audio_bus.gd           AudioBus     (autoload)
 scripts/procgen/mesh_factory.gd      class_name ProceduralMeshFactory
@@ -72,6 +73,8 @@ scripts/ui/market_screen.gd          class_name MarketScreen
 scripts/ui/recipe_book_screen.gd     class_name RecipeBookScreen
 scripts/ui/staff_screen.gd           class_name StaffScreen
 scripts/ui/marketing_screen.gd       class_name MarketingScreen
+scripts/ui/customer_order_screen.gd  class_name CustomerOrderScreen
+scripts/ui/delivery_order_screen.gd  class_name DeliveryOrderScreen
 scripts/ui/daily_summary_screen.gd   class_name DailySummaryScreen
 scripts/ui/decoration_screen.gd      class_name DecorationScreen
 scripts/ui/bailout_cutscene.gd       class_name BailoutCutscene
@@ -129,7 +132,9 @@ entry(id) -> {
   modal: int,                # "Modal Bahan (KR)" PERSIS dari tabel GDD
   batch_price: int,          # "Harga Jual Sweet Spot (KR)" PERSIS dari GDD (harga SATU BATCH)
   profit: int,               # "Profit Bersih (KR)" PERSIS dari GDD (= batch_price - modal)
-  time_sec: float,           # "Waktu Produksi"
+  time_sec: float,           # "Waktu Produksi" tabel GDD — TIDAK dipakai simulasi:
+                             # durasi nyata diambil dari EquipmentDB per tier alat
+                             # (lihat Buku Resep: ia menampilkan waktu alat, bukan kolom ini)
   yield_count: int,          # "Hasil per Batch"
   unlock_price: int,         # "Harga Beli Resep" (0 untuk Tier 1)
   targets: Array,            # customer id
@@ -208,6 +213,41 @@ cashier_time_mult, spawn_weight, pickup_window, refuse_quality: Array, walk_in: 
 - `hujan`: foot `(0.20, 0.40)`, delivery `(2.50, 3.00)`
 - `liburan`: foot `(1.8, 2.2)`, delivery `(1.3, 1.6)`
 
+### OpeningDB — tiga hari pembukaan (hari 1-3)
+
+Hari 1-3 **tidak diundi**. Permintaannya ditulis pasti, dan gudang diisi PAS sebanyak itu: satu
+loyang gosong berarti ada pembeli atau pesanan RotiFood yang tidak kebagian.
+
+```gdscript
+static func has_plan(day: int) -> bool
+static func plan(day: int) -> Dictionary   # {recipe_id, batches, walk_ins, deliveries}
+static func recipe_id(day: int) -> String  # SATU resep starter per hari
+static func batches(day: int) -> int
+static func walk_ins(day: int) -> Array    # [{hour, archetype, count}]
+static func deliveries(day: int) -> Array  # [{hour, count}]
+static func demand(day: int) -> int        # total roti yang diminta hari itu
+static func supply(day: int) -> int        # batches x yield_count
+static func pantry_for(day: int) -> Dictionary
+```
+
+**Invarian yang tidak boleh dilanggar: `demand(day) == supply(day)`.** Lebih sebutir, hari itu bisa
+diselesaikan sambil menggosongkan roti dan pelajarannya hilang; kurang sebutir, hari itu mustahil
+diselesaikan sempurna. `tools/data_audit.gd` (`_audit_opening`) menguncinya, lengkap dengan:
+jumlah belanja tiap arketipe harus di dalam rentang `bulk_min..bulk_max`-nya, arketipe yang menolak
+resep Tier 1 tidak boleh dijadwalkan, seluruh jam kedatangan di dalam jam buka, dan jatah bahannya
+muat di gudang Tier 1.
+
+Satu hari memakai SATU resep saja: dengan dua resep, pembeli yang mengambil roti "yang salah" dari
+rak membuat hitungan per resep meleset walau totalnya pas.
+
+Pelaksananya tersebar sesuai kepemilikan masing-masing: `CustomerSim` dan `DeliverySim` memuat
+jadwalnya di `on_day_start()` dan mematikan undian kedatangan selama jadwal itu ada
+(`scheduled_today()`), sementara `EconomySystem.on_day_start()` mengisi gudang lewat
+`GameState.stock_opening_pantry(day)` lalu mengumumkan angkanya lewat toast. Pada hari terjadwal
+`CustomerSim` TIDAK menjalankan `_apply_price_mood()` — jumlah belanja yang bergeser berarti
+permintaan tidak lagi sama dengan bahan. HUD menampilkan baris "Permintaan: x / N roti" selama
+hari terjadwal; tanpa angka itu di layar, "bahan pas permintaan" hanya jebakan.
+
 ### DialogDB
 - `static func lurah_bailout(times: int) -> String` (dialog GDD 3.0.A; kunjungan berulang beri tip spesifik)
 - `static func lurah_tip(ctx: Dictionary) -> String` (tabel GDD 11.4)
@@ -217,20 +257,29 @@ cashier_time_mult, spawn_weight, pickup_window, refuse_quality: Array, walk_in: 
 ## 4. GameConfig (autoload)
 
 ```gdscript
-const SECONDS_PER_GAME_HOUR := 30.0  # 1 jam in-game = 30 detik nyata → hari 04:00-18:00 = 7 menit
-const HOUR_START := 4.0
+const SECONDS_PER_GAME_HOUR := 180.0 # 1 jam in-game = 3 menit nyata → hari 05:00-18:00 = 39 menit
+                                     # (persiapan 9 menit + jualan 30 menit)
+const HOUR_START := 5.0
 const HOUR_OPEN := 8.0
 const HOUR_CLOSE := 18.0
 const SLOTS_PER_RACK := 6
 const STARTING_COINS := 2000.0
 const BAILOUT_COINS := 650.0
 const SOLO_MODE_MAX_COINS := 500.0
-const UTILITY_MIXER_PER_SEC := 0.8    # KR per detik alat aktif
-const UTILITY_OVEN_PER_SEC := 1.6
-const UTILITY_DISPLAY_PER_SEC := 0.25
+const UTILITY_MIXER_PER_SEC := 0.8    # KR per DETIK NYATA alat bekerja
+const UTILITY_OVEN_PER_SEC := 1.6     # (lama kerja alat = detik nyata, GDD 5.3)
+const UTILITY_DISPLAY_PER_HOUR := 7.5 # KR per JAM TOKO, bukan per detik
 const BURN_GRACE_RATIO := 0.35        # roti mulai gosong setelah 35% waktu panggang terlewat
 var rng: RandomNumberGenerator
 ```
+**Beban BERDIRI ditulis per jam in-game, beban PEMAKAIAN per detik nyata.** Etalase menyala
+sepanjang toko buka, jadi tagihannya ditentukan jam toko (10 jam × 7,5 KR = 75 KR/hari per rak) dan
+tidak ikut berubah saat `SECONDS_PER_GAME_HOUR` diubah. Mixer dan oven ditagih per detik nyata
+karena lama kerjanya memang ditetapkan dalam detik nyata oleh tabel resep GDD 5.3 — ongkos per
+batch harus tetap sama. Menulis beban berdiri "per detik" akan melarkan tagihan sepuluh kali lipat
+begitu jam diperlambat, dan toko bangkrut tiap hari tanpa satu pun angka balans sengaja diubah;
+`tools/sim_test.gd` (`_check_beban_etalase`) menjaganya.
+
 Util (method di GameConfig, bukan class terpisah):
 `kr(v: float) -> String` → `"1.234 KR"`; `clock(hour: float) -> String` → `"08:30"`;
 `day_name(day: int) -> String` → Senin..Minggu; `date_label(day: int) -> String`.
@@ -383,6 +432,20 @@ pembatas (celah jalan sisi +X tetap terbuka) + meja khusus ojol. `AStarGrid2D` d
 `DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES`, lalu hasilnya diluruskan kembali dengan uji garis pandang
 supaya karakter tidak melangkah zig-zag dari pusat ubin ke pusat ubin.
 
+**Aktor yang BERHENTI MENUNGGU wajib ditetapkan arah hadapnya**, tidak dibiarkan memakai sisa
+langkah terakhir. Kamera isometrik melayang di kuadran (+X, +Z): aktor yang berhenti menghadap −Z
+hanya memperlihatkan punggungnya. Untuk driver ojol punggung itu adalah kotak ransel termal
+sebesar badannya — model yang dibangun benar pun terbaca "terpasang terbalik" oleh pemain.
+`DriverActor.wait_facing_entrance()` (dipanggil saat `arrived("jemput")`) dan
+`_player.rotation.y = PI` pada kelahiran karakter pemain adalah penerapan aturan yang sama.
+Pembeli di antrean justru dibiarkan menghadap meja kasir (jadi memunggungi kamera): itu yang
+membuat mereka terbaca sedang dilayani. `tools/sim_test.gd` menguji arah hadap driver sebagai
+KESEJAJARAN dengan arah kamera, bukan sudut tetap.
+
+Sisi DEPAN karakter ada di −Z (`CharacterFactory.FRONT = -1.0`). Setiap barang yang dipegang atau
+dipakai di depan badan wajib memakai `FRONT * jarak`, bukan nilai +Z — kantong serah terima driver
+pernah mendarat persis di balik ranselnya karena ini.
+
 `ActorBase.nav` diisi ShopWorld saat aktor lahir; `goto()` memperluas rutenya sendiri, jadi seluruh
 pemanggil `goto()` yang sudah ada ikut berhenti menembus perabot tanpa diubah. Hanya titik
 TERAKHIR yang membawa tag, sehingga tiap `goto()` tetap memicu tepat satu `arrived`.
@@ -410,6 +473,75 @@ supaya menambah sasaran ketukan tidak diam-diam membuat sesuatu bisa diseret.
 disewa) **hanya selama `PlayerTaskSystem.manning_lane()` menunjuk lane itu**. Transaksi yang sedang
 berjalan MEMBEKU saat pemain pergi, tidak dibatalkan — pembelinya masih berdiri menunggu.
 
+### 7.0.07 Melayani pembeli fisik (GDD 2 "Tahap Jualan")
+
+Urutan satu pembeli, dari pintu sampai pulang:
+
+1. **masuk** — berjalan dari pintu ke rak display.
+2. **memilih** — di depan rak; selesai memilih ia **MENGAMBIL rotinya dari rak saat itu juga**
+   (`_fill_basket` dipanggil di `_finish_browsing`, bukan di meja kasir). Stok etalase berkurang
+   sejak detik itu, dan yang ia bawa ke antrean memang sudah ada di tangannya.
+3. **antre** — berdiri di depan meja kasir.
+4. **balon "!"** muncul DI ATAS KEPALANYA begitu ia menjadi kepala antrean jalur manual.
+5. Pemain mengetuk balon itu. Ketukan hanya membuka popup bila karakter sedang berjaga di meja
+   kasir tersebut; bila tidak, ketukan itu menyuruh karakter berjalan ke sana.
+6. **popup pesanan** (`customer_order`) menampilkan isi keranjang + total; tombol OK.
+7. OK → `confirm_service()` → **dilayani**: karakter membungkus (`PlayerActor.set_wrapping(true)`,
+   kantong kertas di tangan) selama `base_time` jalur itu.
+8. **selesai** — uang masuk, pembeli pergi.
+
+Aturan yang tidak boleh dibalik:
+
+- **Jalur manual TIDAK PERNAH memulai transaksi sendiri.** `_update_lanes()` hanya memanggil
+  `_start_service()` untuk lane yang dijaga staf. Inilah yang benar-benar dibeli pemain saat
+  menggaji Asisten Kasir (GDD 3.1: "membebaskan pemain dari keharusan mengklik balon pesanan").
+- **Roti yang sudah diambil WAJIB kembali ke rak** bila pembelinya batal membayar
+  (`_return_basket()` di `_leave_angry()`, termasuk saat toko tutup lewat `_flush_customers()`).
+  Kualitas dan `baked_hour` ikut dikembalikan apa adanya. Invarian yang diuji `tools/sim_test.gd`:
+  selama belum ada yang membayar, **isi rak + isi seluruh keranjang pembeli tidak pernah berubah**.
+
+### 7.0.08 Pesanan RotiFood mengikuti bentuk yang sama (GDD 3.6.A)
+
+Pesanan ojol memakai POLA KETUKAN yang sama dengan pembeli fisik: balon → popup
+(`delivery_order`) → satu tombol yang menyelesaikannya. Dua arus pembeli yang berbeda tidak boleh
+menuntut dua cara berpikir yang berbeda. Bedanya hanya jumlah ketukan: ojol butuh dua kali
+(`pack()` lalu `handover()`), dengan jeda pengemasan dan penantian driver di antaranya.
+
+```gdscript
+func waiting_for_player() -> Array[int]   # id pesanan yang menunggu ketukan,
+                                          # yang paling mendesak (driver menunggu) di depan
+func needs_player(order_id: int) -> bool
+```
+
+Balonnya muncul di DUA tempat, keduanya membuka popup yang sama:
+- panel "Pesanan RotiFood" di HUD, dan
+- tanda "!" di atas **tablet** di ujung meja kasir (`ShopWorld._refresh_tablet()`,
+  `tap_pick_at_screen()` → `PlayerTaskSystem.tap("tablet", order_id)` → `delivery_requested`).
+
+Berbeda dari balon pembeli fisik, balon tablet TIDAK menuntut karakter berdiri di meja kasir:
+GDD 3.6 tidak pernah mengikat pesanan aplikasi ke posisi karakter.
+
+**Tombol HUD yang berubah setiap 0,15 detik WAJIB dipakai ulang, bukan dibangun ulang.** Tombol
+yang di-`queue_free()` di sela jari menekan dan melepas tidak pernah sempat mengirim `pressed`:
+ketukan pemain hilang tanpa jejak. `HUD._order_buttons` memetakan `order_id -> Button` dan hanya
+memperbarui `text`/`modulate`; hal yang sama berlaku untuk tombol di dalam popup mana pun yang
+menyegarkan dirinya sendiri (lihat `DeliveryOrderScreen`).
+
+API `CustomerSim` untuk jalur ini:
+```gdscript
+func waiting_for_player() -> Array[int]        # id pembeli berbalon "!" (kepala tiap lane manual)
+func waiting_lane(customer_id: int) -> int     # lane manual tempat ia menunggu, -1 bila bukan
+func confirm_service(customer_id: int) -> bool # pemain menekan OK; false = sudah tidak sah
+func serving_id(lane_index: int) -> int        # pembeli yang sedang diproses, -1 bila menganggur
+func customer(customer_id: int) -> Dictionary  # salinan untuk UI
+```
+
+Dunia 3D tidak menghitung sendiri kapan balon muncul — `ShopWorld.refresh_service()` menggambar
+apa yang dilaporkan `waiting_for_player()`, persis seperti `refresh_markers()` terhadap perabot.
+Balonnya `StationMarker` yang sama (`CustomerActor.show_alert/hide_alert/has_alert`), dan ketukan
+layar mengenalinya lewat `ShopWorld.tap_pick_at_screen()` yang MENDAHULUKAN pembeli berbalon di
+atas perabot di belakangnya.
+
 `manning_lane()` DITURUNKAN dari posisi karakter (tidak sibuk + berada dalam `DEKAT` dari titik
 layan), bukan disimpan sebagai penanda. Penanda harus dibersihkan di setiap jalur yang menyuruh
 karakter pergi, dan satu jalur yang terlupa berarti pemain terus "melayani" dari seberang dapur.
@@ -421,21 +553,43 @@ KETUKAN di dunia 3D menjadi perintah ke `ProductionSystem`, dan sebaliknya mener
 produksi menjadi penanda yang mengambang di atas perabot.
 
 Rantai satu pesanan:
-`ketuk gudang → pilih resep → ketuk mixer → (aduk) → ketuk oven → (panggang) → ketuk rak → pilih petak`
+`ketuk gudang → pilih resep → ketuk mixer → (aduk) → ketuk mixer (AMBIL adonan) → ketuk oven →
+(panggang) → ketuk oven (ANGKAT loyang) → ketuk rak → pilih petak`
 
-Aturan yang tidak boleh dibalik: **tanda seru selalu di stasiun BERIKUTNYA**, bukan di stasiun yang
-baru selesai. Pemain membaca "ke mana barang ini harus pergi". Ketukan pada stasiun berikutnya
-membuat karakter mampir dulu ke stasiun sebelumnya untuk mengambil barangnya — itulah sebabnya ia
-terlihat membawa mangkuk adonan atau loyang roti.
+Aturan yang tidak boleh dibalik: **alat yang selesai bekerja MENAHAN isinya sampai diambil.**
+Tanda seru tetap di alat itu (`ambil == true`), dan baru berpindah ke stasiun berikutnya SESUDAH
+barangnya ada di tangan karakter (`ditangan == true`). Satu tanda, dua bacaan: "ambil dari sini"
+saat tangannya kosong, "antar ke sini" saat ia sudah menenteng sesuatu.
+
+Sepasang tangan, satu bawaan: selama `ditangan` masih menunjuk satu pesanan, ketukan untuk
+MENGAMBIL pesanan lain ditolak (karakter tetap dihampirkan ke sana + toast). Mengantar tidak
+pernah ditolak.
+
+Barangnya tidak berpindah di mata `ProductionSystem` saat diambil — adonan tetap tercatat di mixer
+sampai `move_to_oven()`, dan loyang tetap di oven (**tetap bisa gosong**) sampai `collect_to_slot()`.
+Yang berubah hanyalah siapa yang memegangnya.
+
+Bawaan tangan DITURUNKAN dari keadaan pesanan lewat `_segarkan_bawaan()`, bukan disimpan di aktor:
+karakter yang sedang menenteng adonan boleh disuruh mampir ke gudang atau berjaga di kasir di tengah
+jalan, dan satu jalur yang lupa memasang ulang bawaannya berarti adonan itu lenyap dari tangannya
+padahal pesanannya masih berjalan. `refresh_carry()` adalah pintu publiknya (dipakai ShopWorld
+sesudah kantong kertas pembungkus pesanan pembeli dilepas).
+
+Pesanan yang barangnya sudah di tangan tetapi alat tujuannya penuh berstatus `STATE_TERTAHAN`
+(tanpa tanda seru) dan dicoba ulang tiap tick oleh `_maju_tahap()`.
 
 Beberapa pesanan berjalan SEKALIGUS; yang antre hanyalah kaki karakter. Mixer dan oven terus
 berdetak sendiri, jadi selagi roti dipanggang pemain tetap bisa memilih resep baru.
 
 ```gdscript
 func tap(kind: String, index: int) -> bool          # "storage"|"mixer"|"oven"|"display"|"cashier"
+    #                                                 |"customer" (index = ID PELANGGAN)
+    #                                                 |"tablet"   (index = ID PESANAN OJOL)
     # Perabot yang tidak menunggu pekerjaan tetap DIHAMPIRI karakter (TASK_HAMPIRI).
     # Kunjungan kosong yang belum selesai diganti ketukan terbaru; tugas KERJA
     # tidak pernah ikut dibatalkan. false = ketukan tidak mengubah apa pun.
+    # "customer": balon "!" pembeli. Sedang berjaga -> customer_requested;
+    # masih di dapur -> karakter disuruh berjalan ke meja kasir itu.
 func manning_lane() -> int                          # mesin kasir yang sedang dijaga, -1 bila tidak
 func choose_recipe(recipe_id: String, batches: int) -> bool
 func place_bread(order_id: int, global_slot: int) -> int
@@ -447,6 +601,8 @@ func on_actor_arrived(tag: String) -> void
 signal orders_changed()
 signal storage_opened()
 signal rack_requested(order_id: int, rack_index: int)
+signal customer_requested(customer_id: int)
+signal delivery_requested(order_id: int)
 signal storage_door(open: bool)
 ```
 Sistem sim TIDAK memanggil `ScreenRouter` sendiri: ia hanya melapor lewat signal, dan `Main` yang
@@ -714,14 +870,26 @@ func close_all() -> void
 var current: String
 ```
 Screen: `main_menu`, `character_select`, `hud`, `market`, `recipe_book`, `staff`, `marketing`,
-`daily_summary`, `decoration`, `bailout`, `rack`.
+`daily_summary`, `decoration`, `bailout`, `rack`, `customer_order`, `delivery_order`.
+
+`ScreenRouter.POPUP_SCREENS` (`recipe_book`, `staff`, `marketing`, `customer_order`,
+`delivery_order`) TIDAK
+menyembunyikan layar di bawahnya: kartunya mengambang di tengah dengan HUD dan dapur tetap terlihat
+di belakangnya. Kerangkanya satu, `ProceduralUIFactory.popup(judul, ukuran)`, dengan meta
+`"body"` / `"head"` / `"scrim"` / `"kartu"`. **Ukuran kartu dipatok** (`POPUP_SIZE`), tidak
+mengikuti isi: kartu yang mengembang mengikuti teks terpanjang akan melar melewati tepi layar, dan
+tepi yang lewat itu tidak bisa digulir kembali. `tools/sim_test.gd` mengukur
+`get_combined_minimum_size()` tiap kartu terhadap patokan itu.
 `character_select` muncul saat menekan "Main Baru" dan memanggil `Main.new_game(gender)`.
-`recipe_book` dan `rack` TIDAK punya tombol di mana pun: keduanya dibuka oleh `PlayerTaskSystem`
-setelah karakter pemain benar-benar TIBA di gudang / di rak (GDD 2). `ShopWorld` melaporkan
-ketukan lewat signal lokalnya sendiri `fixture_tapped(kind: String, index: int)` — bukan lewat
-EventBus — `HUD` meneruskannya ke `PlayerTaskSystem.tap()`, dan sistem itu yang memutuskan apakah
-ketukan tersebut berarti sesuatu. Perabot yang bisa diketuk/digeser ada di `ShopWorld.DECOR_KINDS`
-(`mixer`, `oven`, `display`, `storage`).
+`recipe_book`, `rack`, dan `customer_order` TIDAK punya tombol di mana pun: ketiganya dibuka oleh
+`PlayerTaskSystem` setelah karakter pemain benar-benar TIBA di gudang / di rak / di meja kasir
+(GDD 2). `ShopWorld` melaporkan ketukan lewat signal lokalnya sendiri
+`fixture_tapped(kind: String, index: int)` — bukan lewat EventBus — `HUD` meneruskannya ke
+`PlayerTaskSystem.tap()`, dan sistem itu yang memutuskan apakah ketukan tersebut berarti sesuatu.
+Perabot yang bisa diketuk/digeser ada di `ShopWorld.DECOR_KINDS` (`mixer`, `oven`, `display`,
+`storage`); sasaran ketukan lain (meja kasir, pembeli berbalon, tablet RotiFood) punya jalur
+pemilihannya sendiri. `delivery_order` dibuka dari DUA tempat: panel pesanan di HUD dan balon di
+atas tablet.
 Tombol Back Android (`NOTIFICATION_WM_GO_BACK_REQUEST` / `ui_cancel`) → `back()`;
 di `main_menu` → dialog konfirmasi keluar.
 Setiap layar `extends Control`, membangun UI sendiri di `_ready()` via `ProceduralUIFactory`,

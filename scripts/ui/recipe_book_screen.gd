@@ -19,9 +19,16 @@ extends Control
 ##
 ## Angka modal, harga sweet spot, dan profit ditampilkan PERSIS seperti tabel GDD.
 
+## Tinggi rak "Isi Gudang" di kepala popup, piksel. Cukup untuk dua baris chip;
+## sisanya digulir supaya daftar resep tidak terdesak keluar kartu.
+const BAHAN_TINGGI: int = 76
+## Lebar tombol saringan tier. Enam tombol harus muat dalam satu baris kartu.
+const TAB_LEBAR: int = 88
+
 var _content: VBoxContainer = null
 var _coin_label: Label = null
 var _gudang_label: Label = null
+var _bahan_box: HFlowContainer = null
 var _tier_filter: int = 0  ## 0 = semua
 var _main: Node = null
 
@@ -39,30 +46,13 @@ func setup(_args: Dictionary) -> void:
 
 
 func _build_shell() -> void:
-	var bg := ColorRect.new()
-	bg.color = Palette.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	var popup: Control = ProceduralUIFactory.popup("Buku Resep")
+	add_child(popup)
+	var head: HBoxContainer = popup.get_meta("head")
+	var v: VBoxContainer = popup.get_meta("body")
+	# Mengetuk kaca gelap di luar kartu sama artinya dengan menekan "Tutup".
+	(popup.get_meta("scrim") as Control).gui_input.connect(_on_scrim_input)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var safe: Vector4 = ProceduralUIFactory.safe_area_margin()
-	margin.add_theme_constant_override("margin_left", int(safe.x) + 20)
-	margin.add_theme_constant_override("margin_top", int(safe.y) + 16)
-	margin.add_theme_constant_override("margin_right", int(safe.z) + 20)
-	margin.add_theme_constant_override("margin_bottom", int(safe.w) + 16)
-	add_child(margin)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	margin.add_child(v)
-
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 10)
-	v.add_child(head)
-	var judul: Label = ProceduralUIFactory.title("Buku Resep", 28)
-	judul.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(judul)
 	head.add_child(ProceduralUIFactory.icon("coin", 22, Palette.GOLD_STAR))
 	_coin_label = ProceduralUIFactory.label(GameConfig.kr(GameState.coins), 18)
 	head.add_child(_coin_label)
@@ -75,14 +65,30 @@ func _build_shell() -> void:
 	v.add_child(gudang)
 	gudang.add_child(ProceduralUIFactory.icon("box", 18, Palette.UI_WOOD))
 	_gudang_label = ProceduralUIFactory.label(_gudang_text(), 13, Palette.TEXT_MUTED)
+	_gudang_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gudang_label.clip_text = true
 	gudang.add_child(_gudang_label)
+
+	# Isi gudang yang sebenarnya, bukan cuma totalnya: pemain harus bisa
+	# menghitung sendiri apakah bahannya cukup SEBELUM menekan "Buat"
+	# (GDD 2 "Tahap Persiapan": resep yang bahannya habis harus terbaca duluan).
+	var rak_bahan := ScrollContainer.new()
+	rak_bahan.custom_minimum_size = Vector2(0, BAHAN_TINGGI)
+	rak_bahan.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(rak_bahan)
+	_bahan_box = HFlowContainer.new()
+	_bahan_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bahan_box.add_theme_constant_override("h_separation", 6)
+	_bahan_box.add_theme_constant_override("v_separation", 6)
+	rak_bahan.add_child(_bahan_box)
 
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 6)
 	v.add_child(tabs)
 	for t in range(0, 6):
-		var teks: String = "Semua" if t == 0 else "Tier %d" % t
+		var teks: String = "Semua" if t == 0 else "T%d" % t
 		var b: Button = ProceduralUIFactory.button(teks, "secondary")
+		b.custom_minimum_size = Vector2(TAB_LEBAR, ProceduralUIFactory.TOUCH_MIN)
 		b.pressed.connect(_on_filter.bind(t))
 		tabs.add_child(b)
 
@@ -95,6 +101,15 @@ func _build_shell() -> void:
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 8)
 	scroll.add_child(_content)
+
+
+## Ketukan pada kaca gelap di luar kartu = tutup (GDD 12.4: satu ketukan).
+func _on_scrim_input(event: InputEvent) -> void:
+	var tekan: bool = (event is InputEventMouseButton
+			and (event as InputEventMouseButton).pressed) \
+		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+	if tekan:
+		_on_close()
 
 
 func _on_filter(t: int) -> void:
@@ -120,6 +135,7 @@ func _render() -> void:
 	_coin_label.text = GameConfig.kr(GameState.coins)
 	if _gudang_label != null:
 		_gudang_label.text = _gudang_text()
+	_render_bahan()
 	for c in _content.get_children():
 		c.queue_free()
 	for rid in RecipeDB.ids():
@@ -165,14 +181,25 @@ func _recipe_card(rid: String, e: Dictionary) -> Control:
 	v.add_child(head)
 
 	# Angka ekonomi PERSIS dari tabel GDD 5.3.
-	v.add_child(ProceduralUIFactory.label(
-		"Modal %s  •  Sweet spot %s / batch  •  Profit %s  •  %.0f detik  •  %d per batch"
+	var angka: Label = ProceduralUIFactory.label(
+		"Modal %s  •  Sweet spot %s / batch  •  Profit %s"
 		% [GameConfig.kr(float(e.get("modal", 0))),
 			GameConfig.kr(float(e.get("batch_price", 0))),
-			GameConfig.kr(float(e.get("profit", 0))),
-			float(e.get("time_sec", 0.0)), int(e.get("yield_count", 1))],
-		12, Palette.TEXT_MUTED))
-	v.add_child(ProceduralUIFactory.label(_ingredient_text(e), 12, Palette.TEXT_MUTED))
+			GameConfig.kr(float(e.get("profit", 0)))],
+		12, Palette.TEXT_MUTED)
+	angka.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(angka)
+
+	# Waktu yang BENAR-BENAR terjadi di dapur, bukan `time_sec` tabel GDD.
+	var d: Dictionary = _durasi_alat()
+	var waktu: Label = ProceduralUIFactory.label(
+		"Aduk %.0f dtk + panggang %.0f dtk = %.0f dtk per siklus  •  %d roti per batch"
+		% [float(d["aduk"]), float(d["panggang"]), float(d["total"]),
+			int(e.get("yield_count", 1))],
+		12, Palette.TEXT_MUTED)
+	waktu.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(waktu)
+	v.add_child(_ingredient_chips(e))
 
 	if not terbuka:
 		var harga: int = int(e.get("unlock_price", 0))
@@ -202,13 +229,88 @@ func _recipe_card(rid: String, e: Dictionary) -> Control:
 	return pc
 
 
-func _ingredient_text(e: Dictionary) -> String:
-	var parts: PackedStringArray = []
+## Rak "Isi Gudang": seluruh bahan yang benar-benar dimiliki, beserta sisanya.
+##
+## Hanya bahan yang stoknya ada yang ditampilkan — daftar 18 bahan dengan
+## belasan angka nol lebih sulit dibaca daripada empat angka yang berarti.
+func _render_bahan() -> void:
+	if _bahan_box == null:
+		return
+	for c in _bahan_box.get_children():
+		c.queue_free()
+
+	var ada: int = 0
+	for id in IngredientDB.ids():
+		var n: int = int(GameState.pantry.get(id, 0))
+		if n <= 0:
+			continue
+		ada += 1
+		_bahan_box.add_child(_chip("%s %d" % [_nama_bahan(id), n],
+			Palette.PANEL_ALT, Palette.TEXT))
+	if ada == 0:
+		_bahan_box.add_child(_chip("Gudang kosong — belanja dulu di Pasar.",
+			Palette.PANEL_ALT, Palette.DANGER))
+
+
+## Kebutuhan satu resep, DIBANDINGKAN dengan isi gudang: "Tepung 3 / 12".
+## Bahan yang kurang diberi warna bahaya, jadi penyebab tombol "Buat" mati
+## terbaca tanpa perlu menghitung sendiri.
+func _ingredient_chips(e: Dictionary) -> Control:
+	var flow := HFlowContainer.new()
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 4)
+
 	var ings: Dictionary = e.get("ingredients", {})
-	for id in ings.keys():
-		parts.append("%s (%d)" % [
-			String(IngredientDB.entry(id).get("name", id)), int(ings[id])])
-	return "Bahan: " + " + ".join(parts)
+	for id_v in ings.keys():
+		var id: String = String(id_v)
+		var butuh: int = int(ings[id_v])
+		var punya: int = int(GameState.pantry.get(id, 0))
+		var cukup: bool = punya >= butuh
+		flow.add_child(_chip("%s %d / %d" % [_nama_bahan(id), butuh, punya],
+			Palette.PANEL_ALT if cukup else Color(Palette.DANGER, 0.16),
+			Palette.TEXT_MUTED if cukup else Palette.DANGER))
+	return flow
+
+
+## Satu kapsul kecil berisi teks. Dipakai untuk daftar bahan supaya angka
+## stoknya terbaca sebagai butiran terpisah, bukan satu kalimat panjang.
+func _chip(teks: String, latar: Color, tinta: Color) -> Control:
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", ProceduralUIFactory.panel(latar, 10, false))
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_left", 8)
+	m.add_theme_constant_override("margin_right", 8)
+	m.add_theme_constant_override("margin_top", 2)
+	m.add_theme_constant_override("margin_bottom", 2)
+	pc.add_child(m)
+	m.add_child(ProceduralUIFactory.label(teks, 12, tinta))
+	return pc
+
+
+func _nama_bahan(id: String) -> String:
+	return String(IngredientDB.entry(id).get("name", id))
+
+
+## Lama satu siklus produksi yang SEBENARNYA, menurut alat yang dimiliki pemain
+## sekarang: {"aduk", "panggang", "total"} dalam detik nyata.
+##
+## Bukan `time_sec` dari tabel GDD. ProductionSystem tidak pernah membaca kolom
+## itu — durasinya diambil dari EquipmentDB menurut tier mixer/oven, lalu dibagi
+## kecepatan Asisten Dapur (GDD 3.2). Menampilkan angka tabel di sini berarti
+## Buku Resep menjanjikan durasi yang tidak pernah terjadi: Roti Goreng tertulis
+## 35 detik padahal di dapur Tier 1 ia sama-sama 50 detik seperti yang lain.
+##
+## Karena diturunkan dari alat, angkanya ikut mengecil begitu pemain meng-upgrade
+## oven atau menyewa baker — dan itu justru memperlihatkan gunanya belanja.
+func _durasi_alat() -> Dictionary:
+	var speed: float = 1.0
+	var prod: ProductionSystem = _production()
+	if prod != null:
+		speed = maxf(0.05, prod.baker_speed())
+	var aduk: float = EquipmentDB.mixer_time(GameState.mixer_tier) / speed
+	var panggang: float = EquipmentDB.oven_time(GameState.oven_tier) / speed
+	return {"aduk": aduk, "panggang": panggang, "total": aduk + panggang}
 
 
 ## GDD 5.3 "Cara Kerja Resep": slider harga memunculkan emoji reaksi pelanggan.

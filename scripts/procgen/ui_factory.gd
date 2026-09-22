@@ -41,6 +41,13 @@ const PANTRY_WARN: float = 0.75
 ## Rasio isi gudang saat bar kapasitas berwarna bahaya (hampir penuh).
 const PANTRY_FULL: float = 0.92
 
+## Ukuran baku kartu popup dalam piksel GUI pada resolusi acuan 1280x720
+## (GDD 12.5). Sengaja jauh lebih kecil dari layar: popup harus menyisakan
+## dapur dan HUD tetap terlihat di belakangnya.
+const POPUP_SIZE: Vector2 = Vector2(760.0, 520.0)
+## Jarak isi dari tepi kartu popup.
+const POPUP_PAD: int = 18
+
 
 # Cache agar objek berat (Theme, FontVariation, tekstur grabber) dibuat sekali.
 static var _theme_cache: Theme = null
@@ -111,6 +118,84 @@ static func card(title_text: String, radius := 22) -> PanelContainer:
 		root.set_meta("title_label", cap)
 
 	root.set_meta("body", body)
+	return root
+
+
+## Kerangka POPUP: kaca gelap tembus pandang + satu kartu di tengah layar.
+##
+## Bedanya dengan layar penuh: dapur dan HUD tetap TERLIHAT di belakangnya, jadi
+## pemain tidak kehilangan pandangan atas oven yang sedang memanggang hanya
+## karena ia membuka daftar karyawan. Ketukan tetap tertahan di sini — kartu
+## boleh tembus pandang, tetapi tidak boleh tembus jari.
+##
+## UKURANNYA DIPATOK, bukan mengikuti isi. Kartu yang mengembang mengikuti teks
+## terpanjang akan melar melewati tepi layar pada resep bernama panjang, dan
+## yang melar itu tidak bisa digulir kembali. Isi yang kepanjangan digulir di
+## dalam kartu; isi yang kelebaran dipotong tepinya.
+##
+## Mengembalikan Control akar penuh layar dengan tiga meta:
+##   "body"  VBoxContainer — tempat pemanggil menaruh isinya
+##   "head"  HBoxContainer — baris judul, tempat menambahkan tombol tutup
+##   "scrim" ColorRect     — sambungkan `gui_input` untuk "ketuk di luar = tutup"
+static func popup(title_text: String, ukuran: Vector2 = POPUP_SIZE) -> Control:
+	var root: Control = Control.new()
+	root.name = "Popup"
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var scrim: ColorRect = ColorRect.new()
+	scrim.name = "Scrim"
+	scrim.color = Color(Palette.DARK_CHOCOLATE.r, Palette.DARK_CHOCOLATE.g,
+		Palette.DARK_CHOCOLATE.b, 0.45)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(scrim)
+
+	var kartu: PanelContainer = PanelContainer.new()
+	kartu.name = "Kartu"
+	kartu.add_theme_stylebox_override("panel", panel(Palette.PANEL, 24, true))
+	kartu.clip_contents = true
+	kartu.anchor_left = 0.5
+	kartu.anchor_right = 0.5
+	kartu.anchor_top = 0.5
+	kartu.anchor_bottom = 0.5
+	kartu.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	kartu.grow_vertical = Control.GROW_DIRECTION_BOTH
+	kartu.offset_left = -ukuran.x * 0.5
+	kartu.offset_right = ukuran.x * 0.5
+	kartu.offset_top = -ukuran.y * 0.5
+	kartu.offset_bottom = ukuran.y * 0.5
+	root.add_child(kartu)
+
+	var pad: MarginContainer = MarginContainer.new()
+	_set_margins(pad, POPUP_PAD, POPUP_PAD, POPUP_PAD, POPUP_PAD)
+	kartu.add_child(pad)
+
+	var kolom: VBoxContainer = VBoxContainer.new()
+	kolom.add_theme_constant_override("separation", 10)
+	pad.add_child(kolom)
+
+	var head: HBoxContainer = HBoxContainer.new()
+	head.name = "Head"
+	head.add_theme_constant_override("separation", 10)
+	kolom.add_child(head)
+	var judul: Label = title(title_text, 24)
+	judul.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	judul.clip_text = true
+	head.add_child(judul)
+
+	kolom.add_child(_line_separator(Color(Palette.UI_WOOD, 0.22)))
+
+	var body: VBoxContainer = VBoxContainer.new()
+	body.name = "Body"
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 10)
+	kolom.add_child(body)
+
+	root.set_meta("body", body)
+	root.set_meta("head", head)
+	root.set_meta("scrim", scrim)
+	root.set_meta("kartu", kartu)
 	return root
 
 

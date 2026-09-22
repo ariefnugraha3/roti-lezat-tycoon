@@ -35,6 +35,20 @@ func tick(delta: float) -> void:
 			FX.sweat_drop(self)
 
 
+## Berjaga di tempat jemput sambil menghadap PINTU MASUK.
+##
+## Arah hadapnya ditetapkan, bukan dibiarkan sisa langkah terakhir. Kamera
+## isometrik melayang di kuadran (+X, +Z), jadi driver yang berhenti menghadap
+## -Z memperlihatkan punggungnya saja — dan punggung driver adalah kotak ransel
+## termal sebesar badannya. Yang terlihat pemain bukan orang menunggu, melainkan
+## kardus hijau: model yang benar pun terbaca "terpasang terbalik".
+##
+## Menghadap pintu juga masuk akal untuk driver yang motornya diparkir di luar
+## dan sebentar lagi berangkat mengantar.
+func wait_facing_entrance() -> void:
+	face_towards(global_position + Vector3(0.0, 0.0, 1.0))
+
+
 ## Serah terima berhasil: driver menerima paper bag, melambai, lalu pergi.
 func receive_bag() -> void:
 	_waiting_t = 0.0
@@ -42,7 +56,10 @@ func receive_bag() -> void:
 	if _bag == null or not is_instance_valid(_bag):
 		_bag = BreadFactory.build_paper_bag()
 		if _bag != null:
-			_bag.position = Vector3(0.16, 0.38, 0.10)
+			# Bagian DEPAN karakter ada di sisi -Z (CharacterFactory.FRONT).
+			# Nilai +Z di sini dulu menaruh kantongnya di punggung driver,
+			# mengambang di belakang ransel termal.
+			_bag.position = Vector3(0.16, 0.38, CharacterFactory.FRONT * 0.12)
 			add_child(_bag)
 	react("senang")
 	FX.sugar_sparkle(self, Vector3(0.0, 0.6, 0.0))

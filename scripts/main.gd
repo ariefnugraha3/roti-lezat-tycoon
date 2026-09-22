@@ -167,6 +167,8 @@ func _connect_player_tasks() -> void:
 		return
 	pt.storage_opened.connect(_on_storage_opened)
 	pt.rack_requested.connect(_on_rack_requested)
+	pt.customer_requested.connect(_on_customer_requested)
+	pt.delivery_requested.connect(_on_delivery_requested)
 	pt.storage_door.connect(_on_storage_door)
 
 
@@ -176,6 +178,14 @@ func _on_storage_opened() -> void:
 
 func _on_rack_requested(order_id: int, rack_index: int) -> void:
 	ScreenRouter.go("rack", {"order_id": order_id, "rack": rack_index})
+
+
+func _on_customer_requested(customer_id: int) -> void:
+	ScreenRouter.go("customer_order", {"customer_id": customer_id})
+
+
+func _on_delivery_requested(order_id: int) -> void:
+	ScreenRouter.go("delivery_order", {"order_id": order_id})
 
 
 func _on_storage_door(open: bool) -> void:
@@ -189,6 +199,10 @@ func _register_screens() -> void:
 	ScreenRouter.register("character_select",
 		func() -> Control: return CharacterSelectScreen.new())
 	ScreenRouter.register("rack", func() -> Control: return RackScreen.new())
+	ScreenRouter.register("customer_order",
+		func() -> Control: return CustomerOrderScreen.new())
+	ScreenRouter.register("delivery_order",
+		func() -> Control: return DeliveryOrderScreen.new())
 	ScreenRouter.register("hud", func() -> Control: return HUD.new())
 	ScreenRouter.register("market", func() -> Control: return MarketScreen.new())
 	ScreenRouter.register("recipe_book", func() -> Control: return RecipeBookScreen.new())

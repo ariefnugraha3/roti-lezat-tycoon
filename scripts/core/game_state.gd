@@ -21,8 +21,9 @@ const BASIC_INGREDIENTS: Array[String] = [
 	"air_garam",
 ]
 
-# Jumlah tiap bahan dasar yang diberikan saat permainan baru dimulai.
-const STARTER_PANTRY_QTY: int = 2
+# Isi gudang awal TIDAK lagi berupa jatah rata tiap bahan: tiga hari pertama
+# terjadwal, dan gudangnya diisi pas sebanyak permintaan hari itu lewat
+# stock_opening_pantry() (OpeningDB).
 
 # Pilihan karakter pemain, ditetapkan sekali saat menekan "Main Baru".
 const PLAYER_GENDERS: Array[String] = ["pria", "wanita"]
@@ -120,10 +121,9 @@ func reset_new_game() -> void:
 	for rid2: String in RecipeDB.ids():
 		recipe_prices[rid2] = RecipeDB.unit_price_default(rid2)
 
-	# Gudang awal: sedikit bahan dasar agar pemain bisa langsung berproduksi.
+	# Gudang awal diisi PAS sebanyak permintaan hari pertama (OpeningDB).
 	pantry = {}
-	for ing: String in BASIC_INGREDIENTS:
-		pantry[ing] = STARTER_PANTRY_QTY
+	stock_opening_pantry(day)
 
 	display_slots = []
 	staff = []
@@ -225,6 +225,25 @@ func pantry_total() -> int:
 func pantry_capacity() -> int:
 	var loc: Dictionary = LocationDB.entry(location_tier)
 	return int(loc.get("pantry_cap", 0))
+
+
+# Mengisi gudang PAS sebanyak kebutuhan hari terjadwal (OpeningDB), lalu
+# mengembalikan jumlah roti yang bisa dipanggang darinya. 0 = hari ini tidak
+# terjadwal dan gudang tidak disentuh sama sekali.
+#
+# Bahan DITAMBAH sampai jatah hari itu terpenuhi, bukan ditimpa: bahan yang
+# dibeli pemain sendiri di Pasar adalah miliknya, dan pagi hari tidak boleh
+# menyitanya. Yang dijamin cuma satu — tidak ada pemain yang memulai hari
+# terjadwal dengan bahan KURANG dari permintaan hari itu.
+func stock_opening_pantry(for_day: int) -> int:
+	var butuh: Dictionary = OpeningDB.pantry_for(for_day)
+	if butuh.is_empty():
+		return 0
+	for k: Variant in butuh:
+		var ing: String = String(k)
+		pantry[ing] = maxi(int(pantry.get(ing, 0)), int(butuh[k]))
+	EventBus.pantry_changed.emit()
+	return OpeningDB.supply(for_day)
 
 
 # Menambah bahan ke gudang sebatas kapasitas; mengembalikan jumlah yang benar-benar masuk.

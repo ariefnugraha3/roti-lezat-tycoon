@@ -29,6 +29,11 @@ var _weather_icon: IconCanvas = null
 var _weather_label: Label = null
 var _stock_box: VBoxContainer = null
 var _order_box: VBoxContainer = null
+var _order_empty: Label = null
+## Baris "Permintaan hari ini", hanya tampil pada tiga hari pembukaan.
+var _target_label: Label = null
+## order_id -> Button. Tombol dipakai ULANG antar penyegaran; lihat _refresh_orders().
+var _order_buttons: Dictionary = {}
 var _pause_btn: Button = null
 var _speed_btn: Button = null
 var _view_buttons: Dictionary = {}
@@ -195,7 +200,7 @@ func _build_top_right(parent: Node) -> void:
 	var h1 := HBoxContainer.new()
 	h1.add_theme_constant_override("separation", 8)
 	h1.add_child(ProceduralUIFactory.icon("clock", 24, Palette.UI_WOOD))
-	_clock_label = ProceduralUIFactory.label("04:00", 22)
+	_clock_label = ProceduralUIFactory.label("05:00", 22)
 	h1.add_child(_clock_label)
 	_phase_label = ProceduralUIFactory.label("Persiapan", 14, Palette.TEXT_MUTED)
 	h1.add_child(_phase_label)
@@ -227,6 +232,25 @@ func _build_top_right(parent: Node) -> void:
 	v.add_child(h4)
 
 
+## Baris "Permintaan hari ini" untuk tiga hari pembukaan (OpeningDB).
+##
+## Tanpa angka ini di layar, "bahan pas permintaan" berubah menjadi tebak-tebakan:
+## pemain baru tahu kurang roti ketika sudah ada yang pulang dengan tangan kosong.
+func _refresh_target() -> void:
+	if _target_label == null or not is_instance_valid(_target_label):
+		return
+	var day: int = GameState.day
+	if not OpeningDB.has_plan(day):
+		_target_label.visible = false
+		return
+	var minta: int = OpeningDB.demand(day)
+	var terjual: int = int(GameState.stats.get("bread_sold", 0))
+	_target_label.visible = true
+	_target_label.text = "Permintaan: %d / %d roti" % [mini(terjual, minta), minta]
+	_target_label.add_theme_color_override("font_color",
+		Palette.SUCCESS if terjual >= minta else Palette.TEXT)
+
+
 func _build_stock_panel(parent: Node) -> void:
 	var v: VBoxContainer = _panel_box(parent)
 	var t: Label = ProceduralUIFactory.label("Stok Etalase", 14, Palette.TEXT_MUTED)
@@ -234,6 +258,9 @@ func _build_stock_panel(parent: Node) -> void:
 	_stock_box = VBoxContainer.new()
 	_stock_box.add_theme_constant_override("separation", 2)
 	v.add_child(_stock_box)
+	_target_label = ProceduralUIFactory.label("", 13)
+	_target_label.visible = false
+	v.add_child(_target_label)
 
 
 func _build_order_panel(parent: Node) -> void:
@@ -243,6 +270,10 @@ func _build_order_panel(parent: Node) -> void:
 	_order_box = VBoxContainer.new()
 	_order_box.add_theme_constant_override("separation", 4)
 	v.add_child(_order_box)
+	# Label "tidak ada" dibuat SEKALI dan disembunyikan, bukan dibuat-buang tiap
+	# penyegaran — satu-satunya anak _order_box yang bukan tombol pesanan.
+	_order_empty = ProceduralUIFactory.label("tidak ada", 13, Palette.TEXT_MUTED)
+	_order_box.add_child(_order_empty)
 
 
 ## Pemindah sudut pandang kamera (GDD 2: persiapan di dapur, jualan di kasir).
@@ -380,6 +411,7 @@ func _refresh() -> void:
 	_weather_icon.icon_name = _weather_icon_name(GameState.weather)
 
 	_refresh_stock()
+	_refresh_target()
 	_refresh_orders(sys)
 	_sync_view_buttons()
 
@@ -421,26 +453,77 @@ func _refresh_stock() -> void:
 		_stock_box.add_child(l)
 
 
+## Menyegarkan balon pesanan RotiFood.
+##
+## Tombolnya DIPAKAI ULANG, tidak dibangun ulang tiap 0,15 detik seperti dulu.
+## Tombol yang di-queue_free() di sela jari menekan dan melepas tidak pernah
+## sempat mengirim sinyal `pressed`: ketukan pemain hilang tanpa jejak, dan
+## pesanan ojol terasa "tidak bisa diklik" — persis bug yang dilaporkan.
 func _refresh_orders(sys: Dictionary) -> void:
-	for c in _order_box.get_children():
-		c.queue_free()
 	var deliv: Variant = sys.get("deliv")
-	if deliv == null or not (deliv as Object).has_method("orders"):
-		return
-	var list: Array = (deliv as Object).call("orders")
-	if list.is_empty():
-		_order_box.add_child(ProceduralUIFactory.label("tidak ada", 13, Palette.TEXT_MUTED))
-		return
+	var list: Array = []
+	if deliv != null and (deliv as Object).has_method("orders"):
+		list = (deliv as Object).call("orders")
+
+	var hidup: Dictionary = {}
 	for o_v in list:
 		var o: Dictionary = o_v
 		var state: String = String(o.get("state", ""))
 		if state == "selesai" or state == "batal":
 			continue
-		var sisa: float = maxf(0.0, float(o.get("prep_window", 0.0)) - float(o.get("elapsed", 0.0)))
-		var teks: String = "#%d  %ds" % [int(o.get("id", 0)), int(sisa)]
-		var b: Button = ProceduralUIFactory.button(teks, "primary" if state == "masuk" else "secondary")
-		b.pressed.connect(_on_order_tap.bind(int(o.get("id", 0))))
-		_order_box.add_child(b)
+		var id: int = int(o.get("id", 0))
+		hidup[id] = true
+		var b: Button = _tombol_pesanan(id)
+		b.text = _teks_pesanan(o)
+		# Terang = menunggu ketukan pemain, redup = sedang berjalan sendiri.
+		b.modulate = Color.WHITE if _pesanan_minta_ketukan(o) \
+			else Color(1.0, 1.0, 1.0, 0.55)
+
+	for id_v in _order_buttons.keys():
+		if hidup.has(int(id_v)):
+			continue
+		var mati: Variant = _order_buttons[id_v]
+		if mati != null and is_instance_valid(mati):
+			(mati as Node).queue_free()
+		_order_buttons.erase(id_v)
+
+	if _order_empty != null and is_instance_valid(_order_empty):
+		_order_empty.visible = hidup.is_empty()
+
+
+## Tombol satu pesanan; dibuat sekali lalu dipakai ulang.
+func _tombol_pesanan(order_id: int) -> Button:
+	var ada: Variant = _order_buttons.get(order_id)
+	if ada != null and is_instance_valid(ada):
+		return ada as Button
+	var b: Button = ProceduralUIFactory.button("", "primary")
+	b.pressed.connect(_on_order_tap.bind(order_id))
+	_order_box.add_child(b)
+	_order_buttons[order_id] = b
+	return b
+
+
+## Isi tombol: nomor pesanan + keadaannya sekarang (ARCHITECTURE 7.1).
+func _teks_pesanan(o: Dictionary) -> String:
+	var id: int = int(o.get("id", 0))
+	match String(o.get("state", "")):
+		"masuk":
+			var sisa: float = maxf(0.0,
+				float(o.get("prep_window", 0.0)) - float(o.get("elapsed", 0.0)))
+			return "#%d  %ds" % [id, int(sisa)]
+		"dikemas":
+			return "#%d  dikemas" % id
+		"siap":
+			return "#%d  siap" % id
+		"driver_menunggu":
+			return "#%d  driver!" % id
+	return "#%d" % id
+
+
+## Apakah pesanan ini sedang menunggu ketukan pemain (GDD 3.6.A langkah 2 & 4).
+func _pesanan_minta_ketukan(o: Dictionary) -> bool:
+	var state: String = String(o.get("state", ""))
+	return state == "masuk" or state == "driver_menunggu"
 
 
 # ===========================================================================
@@ -489,23 +572,13 @@ func _on_speed() -> void:
 	AudioBus.sfx("tap")
 
 
-## Tap balon pesanan: kemas bila belum dikemas, serahkan bila driver menunggu
-## (GDD 3.6.A langkah 2 dan 4).
+## Tap balon pesanan ojol: membuka popup pesanan, PERSIS seperti balon pembeli
+## fisik. Yang memutuskan "kemas" atau "serahkan" adalah popup itu, bukan HUD —
+## satu ketukan tidak boleh berarti dua aksi yang berbeda tergantung keadaan
+## yang tidak terlihat pemain (GDD 3.6.A: klik bubble, lalu klik OK).
 func _on_order_tap(order_id: int) -> void:
-	var deliv: Variant = _systems().get("deliv")
-	if deliv == null:
-		return
-	var obj: Object = deliv
-	var o: Dictionary = obj.call("order_by_id", order_id) if obj.has_method("order_by_id") else {}
-	var state: String = String(o.get("state", ""))
-	if state == "driver_menunggu" or state == "siap":
-		if obj.has_method("handover") and bool(obj.call("handover", order_id)):
-			AudioBus.sfx("coin")
-			return
-	if obj.has_method("pack") and bool(obj.call("pack", order_id)):
-		AudioBus.sfx("paper")
-	else:
-		EventBus.toast.emit("Stok roti tidak cukup untuk pesanan ini.", "warning")
+	AudioBus.sfx("tap")
+	ScreenRouter.go("delivery_order", {"order_id": order_id})
 
 
 func _on_toast(text: String, icon: String) -> void:

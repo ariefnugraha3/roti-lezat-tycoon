@@ -505,7 +505,7 @@ func _test_player_visuals() -> void:
 
 		# Barang bawaan MENAMBAH geometri, bukan menggantinya: karakter yang
 		# membawa loyang harus tetap punya seluruh anggota badannya.
-		for bawaan in ["mangkuk_adonan", "loyang_roti"]:
+		for bawaan in ["mangkuk_adonan", "loyang_roti", "kantong_kertas"]:
 			var s2: Dictionary = CharacterFactory.spec_for_player(gender)
 			s2["prop"] = PackedStringArray([bawaan])
 			var n: Node3D = CharacterFactory.build(s2)
@@ -536,6 +536,40 @@ func _test_player_visuals() -> void:
 	_ok("penanda punya geometri", ProceduralMeshFactory.tri_count(marker) > 0)
 	_ok("penanda hemat (<= 200 tris)", ProceduralMeshFactory.tri_count(marker) <= 200)
 	marker.free()
+
+	_cek_balon_pembeli()
+
+
+## Balon "!" di atas kepala pembeli yang menunggu dilayani (GDD 2).
+##
+## Memakai penanda yang sama dengan perabot dapur, jadi yang diuji di sini
+## bukan bentuknya melainkan PEMASANGANNYA: balon harus melayang di atas kepala
+## dan hilang lagi tanpa meninggalkan node menggantung.
+func _cek_balon_pembeli() -> void:
+	var a := CustomerActor.new()
+	a.setup_customer({"id": 1, "archetype": "anak_sekolah"}, 7)
+	add_child(a)
+
+	_ok("pembeli lahir tanpa balon '!'", not a.has_alert())
+	a.show_alert()
+	_ok("balon '!' bisa ditampilkan", a.has_alert())
+
+	var kepala: Node3D = CharacterFactory.part(a.model, "Head")
+	var balon: Node3D = a.get_node_or_null("AlertPembeli") as Node3D
+	_ok("balon terpasang sebagai anak pembeli", balon != null)
+	if balon != null and kepala != null:
+		_ok("balon melayang DI ATAS kepala (%.2f m vs %.2f m)"
+			% [balon.position.y, kepala.global_position.y - a.global_position.y],
+			balon.position.y > kepala.global_position.y - a.global_position.y)
+
+	a.show_alert()
+	_ok("memanggil show_alert() dua kali tidak menumpuk balon kedua",
+		a.get_children().filter(func(n: Node) -> bool:
+			return n is StationMarker).size() == 1)
+
+	a.hide_alert()
+	_ok("balon bisa disembunyikan lagi", not a.has_alert())
+	a.free()
 
 
 ## Tidak satu pun meja layan boleh lebih tinggi dari DADA orang yang berdiri di
@@ -672,6 +706,52 @@ func _cek_sisi_depan() -> void:
 		_ok("%s: celemek menempel di badan, tidak melayang di depan wajah" % nama,
 			z_celemek > z_wajah)
 		n.free()
+
+	_cek_sisi_depan_driver()
+
+
+## Driver ojol punya bagian yang HARUS berada di sisi berlawanan: helm dan tali
+## ransel di depan, kotak termalnya di PUNGGUNG. Dites terpisah karena ia
+## satu-satunya karakter tanpa celemek dan satu-satunya yang membawa beban di
+## belakang badan — justru di sanalah sisi depan-belakang paling mudah tertukar.
+func _cek_sisi_depan_driver() -> void:
+	var n: Node3D = CharacterFactory.build(CharacterFactory.spec_for_driver(false))
+	add_child(n)
+
+	var z_wajah: float = _z_tengah(CharacterFactory.part(n, "Face"))
+	var z_visor: float = _z_tengah(n.find_child("HelmetVisor", true, false) as Node3D)
+	var z_kotak: float = _z_tengah(n.find_child("ThermalBox", true, false) as Node3D)
+	var z_logo: float = _z_tengah(n.find_child("ThermalLogo", true, false) as Node3D)
+	var z_tali: float = _z_tengah(n.find_child("ThermalStrap", true, false) as Node3D)
+	var z_ponsel: float = _z_tengah(n.find_child("Phone", true, false) as Node3D)
+	print("  driver: wajah %+.3f  visor %+.3f  ransel %+.3f  logo %+.3f  tali %+.3f  ponsel %+.3f"
+		% [z_wajah, z_visor, z_kotak, z_logo, z_tali, z_ponsel])
+	_ok("driver: ponsel dipegang di depan badan (z = %+.3f)" % z_ponsel, z_ponsel < 0.0)
+
+	_ok("driver: wajah di sisi depan (z = %+.3f)" % z_wajah, z_wajah < -0.02)
+	_ok("driver: kaca helm di depan wajah (z = %+.3f)" % z_visor, z_visor < z_wajah)
+	_ok("driver: ransel termal di PUNGGUNG (z = %+.3f)" % z_kotak, z_kotak > 0.02)
+	_ok("driver: logo ransel di sisi luar ransel (z = %+.3f)" % z_logo, z_logo > z_kotak)
+	_ok("driver: tali ransel menyilang di DADA (z = %+.3f)" % z_tali, z_tali < 0.0)
+	n.free()
+
+	# Paper bag hasil serah terima harus ada DI TANGAN, bukan menempel di
+	# punggung. Nilai +Z pernah menaruhnya persis di balik ransel termal.
+	var aktor := DriverActor.new()
+	aktor.setup_driver({"id": 1}, false)
+	add_child(aktor)
+	aktor.receive_bag()
+	var tas: Node3D = aktor.get_node_or_null("PaperBag") as Node3D
+	if tas == null:
+		for c in aktor.get_children():
+			if c is Node3D and c != aktor.model:
+				tas = c as Node3D
+				break
+	_ok("driver: kantong serah terima terpasang", tas != null)
+	if tas != null:
+		_ok("driver: kantong dipegang di DEPAN badan (z = %+.3f)" % tas.position.z,
+			tas.position.z < 0.0)
+	aktor.free()
 
 
 ## Titik tengah sumbu Z seluruh mesh keturunan satu bagian tubuh.

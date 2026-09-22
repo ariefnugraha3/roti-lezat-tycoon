@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_audit_marketing()
 	_audit_customers()
 	_audit_weather()
+	_audit_opening()
 	_audit_cross_references()
 
 	print("")
@@ -339,6 +340,77 @@ const CUSTOMER_IDS: Array = [
 	"anak_sekolah", "pekerja_kantoran", "emak_arisan", "sosialita",
 	"si_galau", "food_vlogger", "driver_ojol",
 ]
+
+
+## Tiga hari pembukaan (OpeningDB): bahan yang disediakan harus PAS sebanyak
+## permintaan hari itu.
+##
+## Ini satu-satunya tabel di proyek ini yang angkanya saling mengunci: permintaan
+## ditulis butir per butir, pasokan ditulis sebagai jumlah batch, dan keduanya
+## harus bertemu PERSIS. Lebih satu butir, hari itu bisa diselesaikan sambil
+## menggosongkan roti — pelajarannya hilang. Kurang satu butir, hari itu mustahil
+## diselesaikan sempurna sekalipun pemain tidak berbuat salah.
+func _audit_opening() -> void:
+	print("\n-- Skenario Tiga Hari Pembukaan --")
+	_ok("ada hari terjadwal", OpeningDB.DAYS.size() > 0)
+
+	for day: int in range(OpeningDB.FIRST_DAY, OpeningDB.last_day() + 1):
+		var rid: String = OpeningDB.recipe_id(day)
+		var rec: Dictionary = RecipeDB.entry(rid)
+		_ok("hari %d: resep '%s' ada" % [day, rid], not rec.is_empty())
+		if rec.is_empty():
+			continue
+
+		# Resepnya wajib resep bawaan: hari pembukaan tidak boleh menuntut
+		# pembelian resep lebih dulu.
+		_ok("hari %d: '%s' resep starter Tier 1" % [day, rid],
+			RecipeDB.starter().has(rid))
+
+		var minta: int = OpeningDB.demand(day)
+		var punya: int = OpeningDB.supply(day)
+		_eq("hari %d: permintaan == pasokan (%d roti)" % [day, minta], minta, punya)
+		_ok("hari %d: permintaan masuk akal untuk Tier 1 (%d roti)" % [day, minta],
+			minta > 0 and minta <= LocationDB.display_capacity(1, 1))
+
+		# Gudang Tier 1 harus sanggup menampung jatah sehari.
+		var gudang: Dictionary = OpeningDB.pantry_for(day)
+		var unit: int = 0
+		for k: Variant in gudang:
+			unit += int(gudang[k])
+		_ok("hari %d: jatah bahan %d unit muat di gudang Tier 1 (%d)"
+			% [day, unit, LocationDB.pantry_cap(1)], unit <= LocationDB.pantry_cap(1))
+
+		for e: Variant in OpeningDB.walk_ins(day):
+			var w: Dictionary = e
+			var arch: String = String(w.get("archetype", ""))
+			var db: Dictionary = CustomerDB.entry(arch)
+			var n: int = int(w.get("count", 0))
+			var jam: float = float(w.get("hour", 0.0))
+			_ok("hari %d: arketipe '%s' dikenal" % [day, arch], not db.is_empty())
+			if db.is_empty():
+				continue
+			# Jumlah belanja harus masuk akal untuk arketipe itu, kalau tidak
+			# angkanya cuma tempelan yang kebetulan berjumlah pas.
+			_ok("hari %d: %s membeli %d roti, dalam rentang %d-%d"
+				% [day, arch, n, int(db.get("bulk_min", 1)), int(db.get("bulk_max", 1))],
+				n >= int(db.get("bulk_min", 1)) and n <= int(db.get("bulk_max", 1)))
+			# Arketipe yang menolak resep Tier 1 tidak boleh dijadwalkan sama
+			# sekali: ia akan datang, menolak, lalu pulang marah tanpa bisa dicegah.
+			_ok("hari %d: %s mau membeli resep Tier 1" % [day, arch],
+				CustomerDB.accepts_recipe_tier(arch, 1))
+			_ok("hari %d: %s datang dalam jam buka (%.2f)" % [day, arch, jam],
+				jam >= GameConfig.HOUR_OPEN and jam < GameConfig.HOUR_CLOSE)
+
+		for d2: Variant in OpeningDB.deliveries(day):
+			var o: Dictionary = d2
+			var jam2: float = float(o.get("hour", 0.0))
+			_ok("hari %d: pesanan ojol berisi roti (%d)" % [day, int(o.get("count", 0))],
+				int(o.get("count", 0)) > 0)
+			_ok("hari %d: pesanan ojol masuk dalam jam buka (%.2f)" % [day, jam2],
+				jam2 >= GameConfig.HOUR_OPEN and jam2 < GameConfig.HOUR_CLOSE)
+
+		print("  hari %d: %d roti diminta, %d batch %s disediakan"
+			% [day, minta, OpeningDB.batches(day), String(rec.get("name", rid))])
 
 
 func _audit_customers() -> void:

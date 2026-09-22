@@ -74,11 +74,17 @@ func sim_tick(delta: float, hour: float) -> void:
 	if mixers <= 0 and ovens <= 0 and displays <= 0:
 		return
 
+	# Mixer & oven: per detik NYATA alat bekerja (lama kerjanya memang ditulis
+	# dalam detik nyata oleh tabel resep GDD 5.3).
 	var per_sec: float = (
 		float(mixers) * GameConfig.UTILITY_MIXER_PER_SEC
 		+ float(ovens) * GameConfig.UTILITY_OVEN_PER_SEC
-		+ float(displays) * GameConfig.UTILITY_DISPLAY_PER_SEC
 	)
+	# Etalase: beban berdiri per JAM IN-GAME, jadi tagihan hariannya tetap sama
+	# pada kecepatan jam mana pun (lihat GameConfig.UTILITY_DISPLAY_PER_HOUR).
+	if displays > 0 and GameConfig.SECONDS_PER_GAME_HOUR > 0.0:
+		per_sec += float(displays) * GameConfig.UTILITY_DISPLAY_PER_HOUR \
+			/ GameConfig.SECONDS_PER_GAME_HOUR
 	if per_sec <= 0.0:
 		return
 
@@ -92,6 +98,25 @@ func on_day_start(_day: int) -> void:
 	GameState.reset_daily_stats()
 	_weather_today = GameState.weather
 	_forecast_today = GameState.forecast
+	_bagikan_jatah_pembukaan(_day)
+
+
+## Tiga hari pembukaan: gudang diisi PAS sebanyak permintaan hari itu, lalu
+## pemain diberi tahu angkanya. Tanpa pemberitahuan ini, "bahan pas permintaan"
+## cuma jebakan — pemain tidak punya cara mengetahui berapa yang harus dipanggang
+## sampai ada yang kehabisan.
+func _bagikan_jatah_pembukaan(day: int) -> void:
+	if not OpeningDB.has_plan(day):
+		return
+	var roti: int = GameState.stock_opening_pantry(day)
+	if roti <= 0:
+		return
+	var rec: Dictionary = RecipeDB.entry(OpeningDB.recipe_id(day))
+	EventBus.toast.emit(
+		"Permintaan hari ini %d roti. Bahan di gudang pas %d batch %s — jangan sampai gosong."
+			% [OpeningDB.demand(day), OpeningDB.batches(day),
+				String(rec.get("name", "roti"))],
+		"note")
 
 
 ## Pukul 18:00: susun ledger lengkap, simpan ke riwayat, siarkan day_ended.

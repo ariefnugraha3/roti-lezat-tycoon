@@ -18,7 +18,7 @@ signal phase_changed(phase: String)
 ## Detak jam in-game, dikirim setiap _process oleh DayCycle.
 signal clock_tick(hour: float)
 
-## Hari baru dimulai pada pukul 04:00.
+## Hari baru dimulai pada pukul 05:00.
 signal day_started(day: int)
 
 ## Hari berakhir pada pukul 18:00, membawa ledger untuk Daily Summary.

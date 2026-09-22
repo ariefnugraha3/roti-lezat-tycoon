@@ -16,6 +16,16 @@ extends ActorBase
 const CARRY_NONE: String = ""
 const CARRY_DOUGH: String = "mangkuk_adonan"
 const CARRY_TRAY: String = "loyang_roti"
+## Kantong kertas berpita: belanjaan pembeli yang sedang dibungkus di meja kasir
+## (GDD 3.6.A "Procedural Paper Bag").
+const CARRY_BAG: String = "kantong_kertas"
+
+## Kecepatan gerak tangan saat membungkus pesanan, radian per detik.
+const WRAP_SPEED: float = 9.0
+## Simpangan ayunan tangan saat membungkus, radian.
+const WRAP_SWING: float = 0.38
+## Kemiringan badan saat menunduk ke meja, radian.
+const WRAP_LEAN: float = 0.12
 
 ## Pemain berjalan sedikit lebih cepat dari pelanggan: ia yang ditunggu, bukan
 ## sebaliknya, dan ritme dapur langsung terasa lamban kalau ia selambat mereka.
@@ -35,6 +45,8 @@ var idle_pos: Vector3 = Vector3.ZERO
 var _carry: String = CARRY_NONE
 var _busy_t: float = 0.0
 var _working: bool = false
+var _wrapping: bool = false
+var _wrap_t: float = 0.0
 
 
 func setup_player(gender: String) -> void:
@@ -112,8 +124,38 @@ func is_working() -> bool:
 	return _working
 
 
+## Menandai karakter sedang MEMBUNGKUS pesanan pembeli di meja kasir.
+##
+## Dibedakan dari set_working(): mengaduk adonan dan membungkus belanjaan
+## terlihat berbeda, dan yang di tangannya pun berbeda — kantong kertas, bukan
+## mangkuk. Bungkusan itu jugalah yang membuat pemain tahu transaksinya masih
+## berjalan tanpa perlu melihat satu pun angka.
+func set_wrapping(v: bool) -> void:
+	if _wrapping == v:
+		return
+	_wrapping = v
+	_wrap_t = 0.0
+	if v:
+		set_carry(CARRY_BAG)
+		return
+	# Hanya kantongnya sendiri yang dilepas: bila sementara itu PlayerTaskSystem
+	# sudah menaruh mangkuk adonan di tangannya, bawaan itu tidak boleh ikut
+	# lenyap hanya karena transaksi di kasir usai.
+	if _carry == CARRY_BAG:
+		set_carry(CARRY_NONE)
+	_reset_wrap_pose()
+
+
+func is_wrapping() -> bool:
+	return _wrapping
+
+
 func tick(delta: float) -> void:
 	super.tick(delta)
+	if _wrapping and not is_walking:
+		_wrap_t += delta
+		_animate_wrap()
+		return
 	if not _working or is_walking:
 		return
 	_busy_t += delta
@@ -124,3 +166,34 @@ func tick(delta: float) -> void:
 		var lengan: Node3D = CharacterFactory.part(model, nama)
 		if lengan != null:
 			lengan.rotation.x = sin(_busy_t * 7.5) * 0.55
+
+
+## Gerak membungkus: kedua tangan menekuk ke depan dan bergantian naik-turun,
+## badan sedikit menunduk ke arah meja. Trigonometri, bukan rig (GDD 12.3).
+##
+## Kedua lengan sengaja BERLAWANAN fase: tangan yang sama-sama naik-turun
+## terbaca seperti orang bertepuk tangan, bukan melipat kantong.
+func _animate_wrap() -> void:
+	if model == null or not is_instance_valid(model):
+		return
+	var gelombang: float = sin(_wrap_t * WRAP_SPEED)
+	var kiri: Node3D = CharacterFactory.part(model, "ArmL")
+	if kiri != null:
+		kiri.rotation.x = -WRAP_SWING + gelombang * WRAP_SWING * 0.5
+	var kanan: Node3D = CharacterFactory.part(model, "ArmR")
+	if kanan != null:
+		kanan.rotation.x = -WRAP_SWING - gelombang * WRAP_SWING * 0.5
+	var badan: Node3D = CharacterFactory.part(model, "Body")
+	if badan != null:
+		badan.rotation.x = WRAP_LEAN
+
+
+## Mengembalikan lengan dan badan ke sikap diam setelah selesai membungkus.
+## Tanpa ini karakter tetap menunduk dengan tangan menekuk sepanjang hari.
+func _reset_wrap_pose() -> void:
+	if model == null or not is_instance_valid(model):
+		return
+	for nama in ["ArmL", "ArmR", "Body"]:
+		var bagian: Node3D = CharacterFactory.part(model, nama)
+		if bagian != null:
+			bagian.rotation.x = 0.0

@@ -11,11 +11,18 @@ extends Node
 # Ritme waktu harian (GDD Seksi 2 -- Core Gameplay Loop)
 # ---------------------------------------------------------------------------
 
-## 1 jam in-game = 30 detik nyata -> satu hari 04:00-18:00 = 7 menit nyata.
-const SECONDS_PER_GAME_HOUR: float = 30.0
+## 1 jam in-game = 3 MENIT nyata -> satu hari 05:00-18:00 = 39 menit nyata
+## (persiapan 9 menit, jualan 30 menit).
+##
+## Seluruh arus yang ditulis "per jam" — kedatangan pembeli (GDD 9.1), pesanan
+## RotiFood (GDD 3.6) — otomatis ikut melambat karena dihitung dari konstanta
+## ini, jadi jumlah pembeli PER HARI tidak berubah; yang berubah hanyalah berapa
+## lama pemain punya waktu untuk menanganinya.
+const SECONDS_PER_GAME_HOUR: float = 180.0
 
-## Tahap Persiapan dimulai pukul 04:00.
-const HOUR_START: float = 4.0
+## Tahap Persiapan dimulai pukul 05:00 -> 3 jam in-game (9 menit nyata) untuk
+## menyiapkan stok sebelum pintu dibuka.
+const HOUR_START: float = 5.0
 
 ## Tahap Jualan dimulai pukul 08:00 (toko buka otomatis meski roti belum siap).
 const HOUR_OPEN: float = 8.0
@@ -51,9 +58,21 @@ const SOLO_MODE_MAX_COINS: float = 500.0
 # Biaya utilitas real-time (KR per detik alat aktif) -- GDD "Utility Cost"
 # ---------------------------------------------------------------------------
 
+## Mixer dan oven ditagih per DETIK NYATA alat benar-benar bekerja. Lama
+## kerjanya memang ditetapkan dalam detik nyata oleh tabel resep GDD 5.3
+## ("waktu panggang 22 detik"), jadi ongkos per batch tidak berubah walau
+## kecepatan jam diubah — pemain membayar apa yang ia pakai.
 const UTILITY_MIXER_PER_SEC: float = 0.8
 const UTILITY_OVEN_PER_SEC: float = 1.6
-const UTILITY_DISPLAY_PER_SEC: float = 0.25
+
+## Etalase beda sifatnya: ia beban BERDIRI yang menyala sepanjang toko buka,
+## jadi besarnya ditentukan JAM TOKO (10 jam, 08:00-18:00), bukan lamanya pemain
+## duduk di depan layar. Karena itu ditulis per JAM IN-GAME, bukan per detik:
+## 7,5 KR/jam x 10 jam = 75 KR/hari per rak, tetap segitu pada kecepatan jam
+## mana pun. Ditulis per detik, tagihan ini akan ikut melar sepuluh kali lipat
+## begitu satu jam in-game diperlambat — dan toko bangkrut tiap hari tanpa ada
+## satu pun angka balans yang sengaja diubah.
+const UTILITY_DISPLAY_PER_HOUR: float = 7.5
 
 # ---------------------------------------------------------------------------
 # Pemanggangan

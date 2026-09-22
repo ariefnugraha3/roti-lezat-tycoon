@@ -12,11 +12,22 @@ extends Node
 const SCREENS: Array[String] = [
 	"main_menu", "character_select", "hud", "market", "recipe_book", "staff",
 	"marketing", "daily_summary", "decoration", "bailout", "rack",
+	"customer_order", "delivery_order",
 ]
 
 ## Layar yang menutupi seluruh layar; HUD di bawahnya disembunyikan.
 const FULLSCREEN_SCREENS: Array[String] = [
 	"main_menu", "character_select", "daily_summary", "bailout", "decoration",
+]
+
+## Layar POPUP: kartu di tengah layar yang TIDAK menyembunyikan layar di
+## bawahnya. Dapur dan HUD tetap terlihat di belakangnya, sehingga pemain bisa
+## mengawasi oven yang sedang memanggang sambil membuka daftar resep.
+##
+## Hanya `go()` yang menghormati daftar ini. `back()` dan `close_all()` tetap
+## menyembunyikan layar teratas apa pun jenisnya — itu memang cara popup ditutup.
+const POPUP_SCREENS: Array[String] = [
+	"recipe_book", "staff", "marketing", "customer_order", "delivery_order",
 ]
 
 ## Nama layar yang sedang tampil paling atas ("" bila tidak ada).
@@ -68,7 +79,10 @@ func go(screen: String, args: Dictionary = {}) -> void:
 		_setup(_live.get(screen), args)
 		return
 
-	_hide_top()
+	# Popup dibiarkan menumpuk DI ATAS layar yang sedang tampil; layar biasa
+	# menggantikannya seperti sebelumnya.
+	if not POPUP_SCREENS.has(screen):
+		_hide_top()
 	if _stack.has(screen):
 		_stack.erase(screen)
 	_stack.append(screen)

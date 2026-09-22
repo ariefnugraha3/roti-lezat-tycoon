@@ -1334,6 +1334,26 @@ static func _attach_prop(id: String, s: Dictionary, parts: Dictionary) -> void:
 				bun.scale = Vector3(1.0, 0.70, 1.0)
 				bun.position = Vector3(-0.072 + float(i) * 0.072, 0.152, FRONT * 0.170)
 				body.add_child(bun)
+		"kantong_kertas":
+			# Kantong kardus cokelat berpita yang sedang dibungkus di meja kasir
+			# (GDD 3.6.A "Procedural Paper Bag"). Ditempel ke BADAN, bukan ke
+			# satu lengan: kedua tangan yang sedang melipat tepinya bergerak
+			# berlawanan arah, dan kantong yang ikut salah satu lengan akan
+			# terlihat dikibas-kibaskan alih-alih dipegangi.
+			var sack: MeshInstance3D = _box("PaperBag", Vector3(0.150, 0.170, 0.105),
+				Palette.CARAMEL.lightened(0.28))
+			sack.position = Vector3(0.0, 0.130, FRONT * 0.175)
+			body.add_child(sack)
+			# Bibir kantong yang terlipat ke luar.
+			var lipat: MeshInstance3D = _box("PaperBagFold", Vector3(0.162, 0.034, 0.115),
+				Palette.CARAMEL.lightened(0.42))
+			lipat.position = Vector3(0.0, 0.222, FRONT * 0.175)
+			body.add_child(lipat)
+			# Pita manis melintang di badan kantong.
+			var pita: MeshInstance3D = _box("PaperBagRibbon", Vector3(0.158, 0.026, 0.113),
+				Palette.ROSY_CHEEK)
+			pita.position = Vector3(0.0, 0.150, FRONT * 0.176)
+			body.add_child(pita)
 		"koper":
 			# Koper kecil (Pak Lurah GDD 3.0.A / tas kerja pekerja kantoran).
 			var case_mesh: MeshInstance3D = _box("Suitcase", Vector3(0.175, 0.130, 0.058),

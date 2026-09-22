@@ -124,7 +124,7 @@ func on_day_start(day: int) -> void:
 	_phase = GameConfig.PHASE_PREP
 	_fired_today.clear()
 	_pending_collect.clear()
-	# Semua baker boleh langsung menaruh adonan pertama pukul 04:00.
+	# Semua baker boleh langsung menaruh adonan pertama pukul 05:00.
 	_baker_cooldown.clear()
 	_release_all_lanes(false)
 	_enforce_solo()

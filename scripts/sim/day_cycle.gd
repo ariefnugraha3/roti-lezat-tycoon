@@ -12,7 +12,7 @@ extends Node
 ## -> bailout. Berkat itu simulasi bisa dijalankan headless dan diulang persis.
 ##
 ## Tiga tahap harian (GDD Seksi 2):
-##   04:00-08:00  "prep"   Tahap Persiapan — pemain membakar stok pagi.
+##   05:00-08:00  "prep"   Tahap Persiapan — pemain membakar stok pagi.
 ##   08:00-18:00  "sell"   Tahap Jualan — toko buka OTOMATIS pukul 08:00 meski
 ##                         masih ada roti yang belum selesai dipanggang.
 ##   18:00        "close"  Tahap Tutup — pintu terkunci, Daily Summary (GDD 11.6).
@@ -39,7 +39,7 @@ const DAY_START_ORDER: Array[String] = [
 const DAY_END_BEFORE: Array[String] = ["weather", "mkt", "prod", "staff", "cust", "deliv"]
 const DAY_END_AFTER: Array[String] = ["rep", "bailout"]
 
-## Jam in-game berjalan, 4.0 = 04:00. Hanya kelas ini yang boleh mengubahnya.
+## Jam in-game berjalan, 5.0 = 05:00. Hanya kelas ini yang boleh mengubahnya.
 var hour: float = GameConfig.HOUR_START
 
 ## Fase hari kanonik: "prep" | "sell" | "close" (ARCHITECTURE 2.5).
@@ -87,7 +87,7 @@ func sim_tick(delta: float, _hour_in: float) -> void:
 	EventBus.clock_tick.emit(hour)
 
 
-## Dipanggil Main (atau start_day()) saat hari baru dimulai pukul 04:00.
+## Dipanggil Main (atau start_day()) saat hari baru dimulai pukul 05:00.
 func on_day_start(_day: int) -> void:
 	hour = GameConfig.HOUR_START
 	_day_ended = false
@@ -114,7 +114,7 @@ func reset() -> void:
 
 # --- Kendali hari ----------------------------------------------------------
 
-## Membuka hari baru pada pukul 04:00 (Tahap Persiapan).
+## Membuka hari baru pada pukul 05:00 (Tahap Persiapan).
 func start_day() -> void:
 	# DayCycle adalah pemilik tunggal penghitung hari. Hari baru hanya dinaikkan
 	# bila hari sebelumnya memang sudah ditutup, sehingga start_day() pertama
@@ -201,7 +201,7 @@ func hours_left() -> float:
 	return maxf(0.0, GameConfig.HOUR_CLOSE - hour)
 
 
-## Kemajuan hari 0.0 (04:00) sampai 1.0 (18:00) untuk bilah jam di HUD.
+## Kemajuan hari 0.0 (05:00) sampai 1.0 (18:00) untuk bilah jam di HUD.
 func day_progress() -> float:
 	var span: float = GameConfig.HOUR_CLOSE - GameConfig.HOUR_START
 	if span <= 0.0:

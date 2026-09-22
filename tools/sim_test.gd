@@ -7,12 +7,33 @@ extends Node
 ##
 ## Jalankan: godot --headless --path . res://tools/sim_test.tscn
 
-## Delta tetap. Bukan 1/60 supaya tes selesai cepat, tapi cukup halus agar
-## timer produksi dan kesabaran pelanggan tetap masuk akal.
+## Delta tetap untuk uji RINCI (ketukan, perjalanan kaki, animasi). Bukan 1/60
+## supaya tes selesai cepat, tapi cukup halus agar timer produksi dan kesabaran
+## pelanggan tetap masuk akal.
 const DT: float = 0.05
+
+## Delta untuk menjalankan HARI PENUH. Satu hari in-game kini 70 menit nyata
+## (GameConfig.SECONDS_PER_GAME_HOUR = 300 detik/jam), jadi menjalankannya
+## dengan butiran 0,05 detik berarti 84.000 langkah per hari — suite yang
+## seharusnya dijalankan sesudah SETIAP perubahan berubah jadi belasan menit.
+## Butiran 0,5 detik masih jauh lebih halus daripada peristiwa tersingkat di
+## dalam simulasi (layan Kasir Superstar 1,2 detik).
+const DT_HARI: float = 0.5
+
+## Seberapa sering "pemain" meniru ketukan (angkat roti, layani antrean, kemas
+## pesanan) selama hari penuh, dalam detik simulasi.
+const AKSI_TIAP_DETIK: float = 2.0
+
 const DAYS_TO_RUN: int = 3
 ## Pagar pengaman supaya tes tidak menggantung bila jam tidak pernah maju.
 const MAX_STEPS_PER_DAY: int = 40000
+
+## Pengali kecepatan untuk uji yang MENUNGGU ARUS PEMBELI. Kedatangan dihitung
+## per jam in-game (GDD 9.1), jadi memperlambat jam otomatis memperlambat
+## kedatangan dalam detik nyata. Tanpa percepatan ini, uji yang dulu cukup
+## menunggu satu menit harus menunggu sepuluh menit untuk melihat pembeli yang
+## sama — bukan karena perilakunya berubah, melainkan karena jamnya.
+const SKALA_UJI_PEMBELI: float = 8.0
 
 ## --- Spesifikasi kamera isometrik ---
 ## Angka-angka ini sengaja ditulis ulang di sini alih-alih dibaca dari
@@ -79,6 +100,15 @@ func _ready() -> void:
 		is_equal_approx(GameState.coins, GameConfig.STARTING_COINS))
 	_ok("resep starter terbuka", GameState.unlocked_recipes.size() == 3)
 
+	# Tiga hari pembukaan: gudang awal diisi PAS sebanyak permintaan hari itu.
+	# Kalau ada kelebihan sebutir saja, hari pertama bisa diselesaikan sambil
+	# menggosongkan roti dan pelajarannya hilang.
+	_ok("hari pertama terjadwal", OpeningDB.has_plan(1))
+	_ok("jatah bahan hari 1 = permintaan hari 1 (%d roti)" % OpeningDB.demand(1),
+		OpeningDB.supply(1) == OpeningDB.demand(1))
+	_ok("gudang awal berisi PERSIS jatah hari 1, tanpa bahan lain",
+		_gudang_persis(OpeningDB.pantry_for(1)))
+
 	for day_i in DAYS_TO_RUN:
 		_run_one_day(day_i + 1)
 
@@ -93,8 +123,12 @@ func _ready() -> void:
 	_check_storage()
 	_check_player_flow()
 	_check_hampiri_perabot()
+	_check_alur_pembeli()
 	_check_kasir_manual()
 	_check_kasir_asisten()
+	_check_popup_layar()
+	_check_pesanan_ojol()
+	_check_beban_etalase()
 	_check_actor_facing()
 	_check_actor_collision()
 	_check_camera_views()
@@ -132,16 +166,17 @@ func _run_one_day(day_num: int) -> void:
 	if pt != null:
 		pt.tap(PlayerTaskSystem.STATION_CASHIER, 0)
 
+	var tiap: int = maxi(1, int(round(AKSI_TIAP_DETIK / DT_HARI)))
 	while day.phase != GameConfig.PHASE_CLOSE and steps < MAX_STEPS_PER_DAY:
-		_main.step(DT)
+		_main.step(DT_HARI)
 		# Dunia 3D ikut dimajukan: tanpa ini kaki karakter tidak pernah melangkah
 		# dan ia tidak akan pernah sampai ke meja kasir.
 		if world != null:
-			world.tick_world(DT)
+			world.tick_world(DT_HARI)
 		steps += 1
 		_check_invariants_fast()
 		# Sesekali kumpulkan roti matang dan kemas pesanan, meniru pemain aktif.
-		if steps % 40 == 0:
+		if steps % tiap == 0:
 			_player_actions()
 
 	_ok("hari %d mencapai fase tutup" % day_num, day.phase == GameConfig.PHASE_CLOSE)
@@ -163,6 +198,20 @@ func _run_one_day(day_num: int) -> void:
 
 ## Membeli bahan dasar sampai gudang terisi wajar, persis seperti pemain
 ## berbelanja di Pasar Bahan Baku pada Tahap Tutup.
+## Apakah isi gudang PERSIS sama dengan `harap` — tidak kurang, dan tidak ada
+## bahan lain yang menempel sebagai cadangan diam-diam.
+func _gudang_persis(harap: Dictionary) -> bool:
+	for k: Variant in harap:
+		if int(GameState.pantry.get(String(k), 0)) != int(harap[k]):
+			return false
+	for k2: Variant in GameState.pantry:
+		if int(GameState.pantry[k2]) <= 0:
+			continue
+		if not harap.has(String(k2)):
+			return false
+	return true
+
+
 func _restock_pantry() -> void:
 	var dasar: Array[String] = IngredientDB.by_category("dasar")
 	var target: int = int(float(GameState.pantry_capacity()) * 0.6)
@@ -186,6 +235,14 @@ func _restock_pantry() -> void:
 
 func _queue_some_bread() -> void:
 	var prod: ProductionSystem = _main.systems["prod"]
+	# Hari terjadwal (OpeningDB): panggang PERSIS sebanyak jatahnya, resep hari
+	# itu saja. Menyenggol resep lain berarti memakan bahan yang sudah dihitung
+	# pas untuk permintaan hari ini — persis kesalahan yang diajarkan hari-hari
+	# pembukaan untuk dihindari.
+	if OpeningDB.has_plan(GameState.day):
+		prod.queue_batch(OpeningDB.recipe_id(GameState.day),
+			OpeningDB.batches(GameState.day))
+		return
 	for rid in GameState.unlocked_recipes:
 		prod.queue_batch(String(rid), 2)
 
@@ -194,8 +251,16 @@ func _player_actions() -> void:
 	var prod: ProductionSystem = _main.systems["prod"]
 	if prod.has_method("collect_all"):
 		prod.call("collect_all")
-	# Antre ulang bila mixer menganggur dan bahan masih ada.
-	if prod.free_mixer_slots() > 0 and not GameState.unlocked_recipes.is_empty():
+
+	# Pembeli fisik tidak lagi terlayani sendiri: sejak balon pesanan harus
+	# diketuk (GDD 2 "Tahap Jualan"), hari yang dijalankan tanpa menekan OK
+	# hanya mensimulasikan kasir yang bengong. Di sinilah tes meniru jari pemain.
+	_layani_antrean()
+	# Antre ulang bila mixer menganggur dan bahan masih ada. Hari terjadwal
+	# dilewati: jatahnya sudah dipanggang sekaligus di awal hari.
+	if OpeningDB.has_plan(GameState.day):
+		pass
+	elif prod.free_mixer_slots() > 0 and not GameState.unlocked_recipes.is_empty():
 		var rid: String = String(GameState.unlocked_recipes[
 			GameConfig.rng.randi_range(0, GameState.unlocked_recipes.size() - 1)])
 		prod.queue_batch(rid, 1)
@@ -266,6 +331,29 @@ func _check_ledgers() -> void:
 
 		_ok("ledger %d: mood terisi" % [i + 1],
 			(l.get("mood", {}) as Dictionary).size() > 0)
+
+		# Tiga hari pembukaan: bahan disediakan PAS sebanyak permintaan, jadi
+		# hari yang dijalani tanpa menggosongkan apa pun harus berakhir dengan
+		# seluruh permintaan terpenuhi DAN tanpa sisa roti satu butir pun.
+		# Kalau salah satunya meleset, "pas" itu cuma klaim di komentar.
+		var d: int = int(l.get("day", 0))
+		if not OpeningDB.has_plan(d):
+			continue
+		var minta: int = OpeningDB.demand(d)
+		_ok("hari terjadwal %d: seluruh permintaan terpenuhi (%d dari %d roti)"
+			% [d, int(l.get("bread_sold", 0)), minta],
+			int(l.get("bread_sold", 0)) == minta)
+		_ok("hari terjadwal %d: tidak ada pembeli yang pulang marah (%d)"
+			% [d, int(l.get("customers_angry", 0))],
+			int(l.get("customers_angry", 0)) == 0)
+		_ok("hari terjadwal %d: tidak ada pesanan ojol yang batal (%d)"
+			% [d, int(l.get("delivery_cancelled", 0))],
+			int(l.get("delivery_cancelled", 0)) == 0)
+		_ok("hari terjadwal %d: tidak ada roti tersisa (%d)"
+			% [d, int(l.get("bread_left", 0))],
+			int(l.get("bread_left", 0)) == 0)
+		_ok("hari terjadwal %d: tidak ada roti gosong (%d)"
+			% [d, int(l.get("burned", 0))], int(l.get("burned", 0)) == 0)
 
 		print("  hari %d: toko %s + ojol %s, laba %s, pelanggan %d (marah %d), ojol %d/%d"
 			% [int(l.get("day", 0)),
@@ -904,6 +992,537 @@ func _check_hampiri_perabot() -> void:
 ## kasir yang disewa, pembeli hanya terlayani bila karakter benar-benar berdiri
 ## di mejanya. Itu seluruh arti fiturnya — kalau transaksi tetap jalan saat ia
 ## pergi, mengetuk meja kasir tidak berarti apa-apa.
+## Alur pembeli fisik dari pintu sampai membayar (GDD 2 "Tahap Jualan").
+##
+## Yang diuji di sini bukan "apakah pembeli terlayani" — itu urusan
+## _check_kasir_manual() — melainkan URUTANNYA: roti berpindah tangan di RAK,
+## bukan di meja kasir, dan roti yang sudah terlanjur diambil wajib kembali ke
+## raknya begitu pembelinya batal membayar.
+##
+## Invarian pokoknya satu kalimat: selama belum ada yang membayar, jumlah roti
+## di rak DITAMBAH roti di tangan seluruh pembeli tidak pernah berubah. Tanpa
+## penjaga ini, pembeli yang kehabisan kesabaran diam-diam memusnahkan stok dan
+## baru ketahuan berhari-hari kemudian sebagai "roti sisa" yang tidak masuk akal.
+func _check_alur_pembeli() -> void:
+	print("\n-- Alur Pembeli: Rak -> Kasir -> Bayar --")
+	var world: ShopWorld = _main.world as ShopWorld
+	var pt: PlayerTaskSystem = _main.systems.get("player") as PlayerTaskSystem
+	var prod: ProductionSystem = _main.systems.get("prod") as ProductionSystem
+	var day: DayCycle = _main.systems.get("day") as DayCycle
+	var cust: CustomerSim = _main.systems.get("cust") as CustomerSim
+	if world == null or pt == null or prod == null or day == null or cust == null:
+		_ok("sistem tersedia untuk uji alur pembeli", false)
+		return
+
+	_siapkan_dapur(world, pt, prod)
+	_siapkan_toko_ramai()
+	var rid: String = _resep_uji(prod)
+	if rid == "":
+		_ok("ada resep untuk diisi ke rak", false)
+		return
+
+	_maju_ke_jualan(world, day)
+	_ok("toko sudah masuk tahap jualan", day.phase == GameConfig.PHASE_SELL)
+
+	GameState.display_slots.clear()
+	GameState.display_add(rid, 40, ProductionSystem.QUALITY_PRIME, day.hour)
+	var stok_awal: int = GameState.display_total()
+	_ok("rak terisi %d roti sebelum toko didatangi" % stok_awal, stok_awal > 0)
+	_ok("karakter pemain sedang TIDAK berjaga di kasir", pt.manning_lane() < 0)
+
+	# --- 1. Roti diambil DI RAK, bukan di meja kasir ---
+	_pompa_sampai(world, func() -> bool:
+		return not _pembeli_antre(cust).is_empty(), 120.0)
+	var c: Dictionary = _pembeli_antre(cust)
+	_ok("ada pembeli yang sudah masuk antrean kasir", not c.is_empty())
+	_ok("pembeli mengantre sambil MEMBAWA rotinya (%d buah)" % _isi_keranjang(c),
+		_isi_keranjang(c) > 0)
+	_ok("stok rak sudah berkurang sejak ia masih berjalan ke kasir",
+		GameState.display_total() < stok_awal)
+
+	# --- 2. Balon "!" muncul di atas kepalanya, bukan di atas perabot ---
+	var cid: int = int(c.get("id", -1))
+	_ok("pembeli itu tercatat menunggu ketukan pemain",
+		cust.waiting_for_player().has(cid))
+	_pompa_sampai(world, func() -> bool:
+		var a: CustomerActor = _aktor_pembeli(world, cid)
+		return a != null and a.has_alert(), 20.0)
+	var aktor_c: CustomerActor = _aktor_pembeli(world, cid)
+	_ok("balon '!' tampil di atas pembeli yang sudah berdiri di meja",
+		aktor_c != null and aktor_c.has_alert())
+	_ok("rotinya TERLIHAT di tangannya, bukan sekadar angka di simulasi",
+		aktor_c != null and aktor_c.has_belanjaan())
+
+	# Ketukan layar pada badan/balonnya memang mengenai PEMBELI, bukan perabot
+	# di belakangnya.
+	if aktor_c != null and world.camera != null:
+		var titik: Vector2 = world.camera.unproject_position(
+			aktor_c.global_position + Vector3(0.0, CustomerActor.ALERT_Y, 0.0))
+		var kena: Dictionary = world.tap_pick_at_screen(titik)
+		_ok("ketukan pada balon terbaca sebagai pembeli, bukan perabot",
+			String(kena.get("kind", "")) == PlayerTaskSystem.STATION_CUSTOMER
+				and int(kena.get("index", -1)) == cid)
+
+	# --- 3. Balon hanya membuka popup bila pemain berdiri di mejanya ---
+	var diminta: Array = []
+	var tangkap := func(id: int) -> void: diminta.append(id)
+	pt.customer_requested.connect(tangkap)
+
+	_ok("ketukan balon dari dapur tetap dilayani", pt.tap(
+		PlayerTaskSystem.STATION_CUSTOMER, cid))
+	_ok("tapi popup pesanan TIDAK terbuka dari seberang dapur", diminta.is_empty())
+	_pompa_sampai(world, func() -> bool: return pt.manning_lane() == 0, 30.0)
+	_ok("ketukan itu menyuruh karakter berjalan ke meja kasir",
+		pt.manning_lane() == 0)
+
+	# Pembeli bisa saja sudah pulang selama karakter berjalan; yang diuji di
+	# sini adalah siapa pun yang sedang menunggu sekarang.
+	var menunggu: Array[int] = cust.waiting_for_player()
+	if menunggu.is_empty():
+		_pompa_sampai(world, func() -> bool:
+			return not cust.waiting_for_player().is_empty(), 90.0)
+		menunggu = cust.waiting_for_player()
+	var cid2: int = menunggu[0] if not menunggu.is_empty() else -1
+	diminta.clear()
+	_ok("ketukan balon saat berjaga diterima",
+		cid2 >= 0 and pt.tap(PlayerTaskSystem.STATION_CUSTOMER, cid2))
+	_ok("popup pesanan terbuka untuk pembeli yang tepat",
+		diminta.size() == 1 and int(diminta[0]) == cid2)
+	pt.customer_requested.disconnect(tangkap)
+
+	# Layar popupnya benar-benar dibangun Main — sistem sim tidak pernah
+	# memanggil ScreenRouter sendiri (ARCHITECTURE 7.0.1) — dan isinya memang
+	# belanjaan pembeli itu, bukan angka kosong.
+	_ok("layar 'customer_order' terbuka lewat ScreenRouter",
+		ScreenRouter.current == "customer_order")
+	if cid2 >= 0:
+		var total: float = 0.0
+		var isi: Dictionary = cust.customer(cid2).get("basket", {})
+		for k: Variant in isi:
+			total += GameState.recipe_price(String(k)) * float(isi[k])
+		_ok("popup menampilkan total belanja %s" % GameConfig.kr(total),
+			_ada_teks(ScreenRouter, GameConfig.kr(total)))
+	ScreenRouter.go("hud")
+
+	# --- 4. Roti yang tidak jadi dibayar KEMBALI ke rak ---
+	# Karakter sengaja ditarik ke dapur supaya tidak ada satu pun transaksi yang
+	# selesai: seluruh pembeli akan pulang marah, dan seluruh rotinya wajib
+	# kembali utuh ke etalase.
+	pt.tap("mixer", 0)
+	_pompa_sampai(world, func() -> bool: return not pt.is_busy(), 30.0)
+	var seimbang: bool = true
+	var marah: Array = [0]
+	var hitung_marah := func(_c: Dictionary, _r: String) -> void: marah[0] += 1
+	EventBus.customer_left_angry.connect(hitung_marah)
+	for _i: int in range(int(140.0 / DT)):
+		_main.step(DT)
+		world.tick_world(DT)
+		if GameState.display_total() + _roti_di_tangan(cust) != stok_awal:
+			seimbang = false
+			break
+	EventBus.customer_left_angry.disconnect(hitung_marah)
+	_ok("roti tidak pernah lenyap: isi rak + isi tangan pembeli tetap %d"
+		% stok_awal, seimbang)
+	_ok("memang ada pembeli yang pulang marah selama uji (%d orang)" % marah[0],
+		marah[0] > 0)
+
+	# Pukul 18:00 pintu ditutup: pembeli yang masih di dalam pulang membawa apa
+	# pun yang ada di tangannya, dan seluruhnya wajib kembali ke rak. Ditutup
+	# paksa, bukan ditunggu, karena pembeli baru terus berdatangan selama toko
+	# masih buka dan "tangan semua orang kosong" tidak pernah benar-benar terjadi.
+	day.end_day()
+	_ok("tidak ada lagi pembeli di dalam toko setelah tutup",
+		cust.queue_length() == 0)
+	_ok("seluruh roti kembali ke rak setelah toko tutup (%d dari %d)"
+		% [GameState.display_total(), stok_awal],
+		GameState.display_total() == stok_awal)
+
+	print("  %d roti di rak, %d pembeli pulang marah, tidak satu pun roti hilang"
+		% [GameState.display_total(), marah[0]])
+
+	_bersihkan_dapur(pt, prod)
+	day.start_day()
+
+
+## Pembeli pertama yang sudah berdiri di antrean kasir; {} bila belum ada.
+func _pembeli_antre(cust: CustomerSim) -> Dictionary:
+	for e: Variant in cust.customers():
+		var c: Dictionary = e
+		if String(c.get("state", "")) == "antre":
+			return c
+	return {}
+
+
+## Jumlah roti di keranjang satu pembeli.
+func _isi_keranjang(c: Dictionary) -> int:
+	var n: int = 0
+	for k: Variant in (c.get("basket", {}) as Dictionary):
+		n += int((c["basket"] as Dictionary)[k])
+	return n
+
+
+## Jumlah roti yang sedang dipegang SELURUH pembeli di dalam toko.
+func _roti_di_tangan(cust: CustomerSim) -> int:
+	var n: int = 0
+	for e: Variant in cust.customers():
+		n += _isi_keranjang(e)
+	return n
+
+
+## Layar resep, karyawan, dan iklan adalah POPUP, bukan layar penuh.
+##
+## Dua hal yang diuji, dan keduanya pernah rusak sendiri-sendiri:
+##
+##   1. HUD di belakangnya TETAP TERLIHAT. Itulah bedanya popup dengan layar
+##      penuh — pemain tidak boleh kehilangan pandangan atas oven yang sedang
+##      memanggang hanya karena ia membuka daftar karyawan.
+##   2. Kartunya TIDAK MELAR melewati ukuran patokan. Ukuran minimum isi diukur
+##      langsung: sebuah label panjang yang lupa dibungkus akan mendorong kartu
+##      melewati tepi layar, dan tepi yang lewat itu tidak bisa digulir kembali.
+func _check_popup_layar() -> void:
+	print("\n-- Popup: Resep / Karyawan / Iklan --")
+	ScreenRouter.go("hud")
+	var hud: Control = _layar_hidup("hud")
+	_ok("HUD tersedia sebagai latar popup", hud != null)
+
+	for nama: String in ["recipe_book", "staff", "marketing"]:
+		_ok("'%s' terdaftar sebagai popup" % nama,
+			ScreenRouter.POPUP_SCREENS.has(nama))
+		ScreenRouter.go(nama)
+		_ok("popup '%s' terbuka" % nama, ScreenRouter.current == nama)
+		_ok("HUD tetap terlihat di belakang popup '%s'" % nama,
+			hud != null and hud.visible)
+
+		var layar: Control = _layar_hidup(nama)
+		var kartu: Control = _kartu_popup(layar)
+		_ok("popup '%s' memakai kartu popup bersama" % nama, kartu != null)
+		if kartu != null:
+			var minimum: Vector2 = kartu.get_combined_minimum_size()
+			_ok("kartu '%s' tidak melar melebihi lebar patokan (%.0f <= %.0f px)"
+				% [nama, minimum.x, ProceduralUIFactory.POPUP_SIZE.x],
+				minimum.x <= ProceduralUIFactory.POPUP_SIZE.x + 0.5)
+			_ok("kartu '%s' tidak melar melebihi tinggi patokan (%.0f <= %.0f px)"
+				% [nama, minimum.y, ProceduralUIFactory.POPUP_SIZE.y],
+				minimum.y <= ProceduralUIFactory.POPUP_SIZE.y + 0.5)
+
+		if kartu != null:
+			var m: Vector2 = kartu.get_combined_minimum_size()
+			print("  %s: isi minimum %.0f x %.0f px di dalam kartu %.0f x %.0f"
+				% [nama, m.x, m.y, ProceduralUIFactory.POPUP_SIZE.x,
+					ProceduralUIFactory.POPUP_SIZE.y])
+
+		ScreenRouter.back()
+		_ok("popup '%s' menutup kembali ke HUD" % nama,
+			ScreenRouter.current == "hud" and hud != null and hud.visible)
+
+	# Buku resep harus memperlihatkan ISI GUDANG, bukan cuma totalnya (permintaan
+	# pemain: "tampilkan juga sisa bahan baku yang dimiliki").
+	GameState.pantry["tepung_terigu"] = 42
+	ScreenRouter.go("recipe_book")
+	var resep: Control = _layar_hidup("recipe_book")
+	_ok("popup resep menampilkan sisa bahan yang dimiliki",
+		_ada_teks(resep, "%s 42" % String(
+			IngredientDB.entry("tepung_terigu").get("name", "tepung_terigu"))))
+	ScreenRouter.back()
+	ScreenRouter.go("hud")
+	print("  tiga popup tampil di atas HUD tanpa menutupinya")
+
+
+## Biaya etalase adalah beban BERDIRI: besarnya ditentukan JAM TOKO, bukan
+## lamanya pemain duduk di depan layar.
+##
+## Penjaga ini ada karena satu konstanta bisa diam-diam menjungkirkan seluruh
+## ekonomi: ditulis "KR per detik nyata", tagihan etalase ikut melar sepuluh
+## kali lipat begitu satu jam in-game diperlambat dari 30 detik menjadi 5 menit
+## — toko bangkrut tiap hari tanpa ada satu pun angka balans yang sengaja
+## diubah. Mixer dan oven sengaja TIDAK ikut aturan ini: lama kerjanya memang
+## ditulis dalam detik nyata oleh tabel resep GDD 5.3, jadi ongkos per batch-nya
+## harus tetap sama.
+func _check_beban_etalase() -> void:
+	print("\n-- Beban Berdiri Etalase --")
+	var world: ShopWorld = _main.world as ShopWorld
+	var pt: PlayerTaskSystem = _main.systems.get("player") as PlayerTaskSystem
+	var prod: ProductionSystem = _main.systems.get("prod") as ProductionSystem
+	var day: DayCycle = _main.systems.get("day") as DayCycle
+	var econ: EconomySystem = _main.systems.get("econ") as EconomySystem
+	if world == null or pt == null or prod == null or day == null or econ == null:
+		_ok("sistem tersedia untuk uji beban etalase", false)
+		return
+
+	_siapkan_dapur(world, pt, prod)
+	_maju_ke_jualan(world, day)
+	day.set_time_scale(1.0)
+	# Dapur dikosongkan: yang diukur hanya etalase, bukan mixer/oven yang bekerja.
+	prod.reset()
+	econ.reset()
+
+	var rak: int = maxi(0, int(LocationDB.entry(GameState.location_tier).get("rack_slots", 0)))
+	var langkah: int = 240
+	for _i: int in range(langkah):
+		econ.sim_tick(GameConfig.SECONDS_PER_GAME_HOUR / float(langkah), day.hour)
+
+	var harap: float = GameConfig.UTILITY_DISPLAY_PER_HOUR * float(rak)
+	var nyata: float = econ.utility_today()
+	_ok("satu JAM TOKO menagih %.1f KR untuk %d rak (terukur %.1f)"
+		% [harap, rak, nyata], absf(nyata - harap) < 0.01)
+
+	var sehari: float = harap * (GameConfig.HOUR_CLOSE - GameConfig.HOUR_OPEN)
+	_ok("tagihan sehari penuh masuk akal untuk toko Tier 1 (%s)"
+		% GameConfig.kr(sehari), sehari > 0.0 and sehari < GameConfig.STARTING_COINS * 0.1)
+	print("  %d rak: %s per jam toko -> %s per hari, tidak terikat kecepatan jam"
+		% [rak, GameConfig.kr(harap), GameConfig.kr(sehari)])
+
+	_bersihkan_dapur(pt, prod)
+	day.start_day()
+
+
+## Pesanan RotiFood: ketuk balon -> popup -> selesaikan (GDD 3.6.A).
+##
+## Uji ini lahir dari bug yang dilaporkan pemain: "klik pesanan RotiFood tidak
+## terjadi apa-apa". Penyebabnya bukan logika pesanan, melainkan HUD yang
+## MEMBANGUN ULANG seluruh tombol balon tiap 0,15 detik — tombol yang dibuang
+## di sela jari menekan dan melepas tidak pernah sempat mengirim `pressed`.
+##
+## Karena itu yang dijaga di sini dua-duanya: tombolnya harus BERTAHAN antar
+## penyegaran, dan menekannya harus benar-benar membuka popup lalu
+## menyelesaikan pesanan sampai koin masuk.
+func _check_pesanan_ojol() -> void:
+	print("\n-- Pesanan RotiFood: Klik -> Popup -> Selesai --")
+	var world: ShopWorld = _main.world as ShopWorld
+	var pt: PlayerTaskSystem = _main.systems.get("player") as PlayerTaskSystem
+	var prod: ProductionSystem = _main.systems.get("prod") as ProductionSystem
+	var day: DayCycle = _main.systems.get("day") as DayCycle
+	var deliv: DeliverySim = _main.systems.get("deliv") as DeliverySim
+	if world == null or pt == null or prod == null or day == null or deliv == null:
+		_ok("sistem tersedia untuk uji pesanan ojol", false)
+		return
+
+	_siapkan_dapur(world, pt, prod)
+	_siapkan_toko_ramai()
+	var rid: String = _resep_uji(prod)
+	if rid == "":
+		_ok("ada resep untuk diisi ke rak", false)
+		return
+
+	_maju_ke_jualan(world, day)
+	GameState.display_slots.clear()
+	GameState.display_add(rid, 40, ProductionSystem.QUALITY_PRIME, day.hour)
+
+	ScreenRouter.go("hud")
+	var hud: HUD = _layar_hidup("hud") as HUD
+	if hud == null:
+		_ok("HUD tersedia sebagai pembawa balon pesanan", false)
+		return
+
+	# Satu pesanan dipaksa masuk: uji tidak boleh bergantung pada undian jam
+	# kedatangan, tapi jalurnya tetap jalur sungguhan (_spawn_order).
+	deliv.call("_spawn_order", day.hour)
+	_ok("satu pesanan RotiFood masuk ke tablet", deliv.pending_count() > 0)
+	if deliv.pending_count() <= 0:
+		return
+	var oid: int = int((deliv.orders()[0] as Dictionary).get("id", -1))
+
+	# --- 1. Tombol balon BERTAHAN antar penyegaran (inti bug-nya) ---
+	hud.call("_refresh")
+	var b1: Button = _tombol_ojol(hud, oid)
+	_ok("balon pesanan muncul di HUD", b1 != null)
+	for _i: int in range(3):
+		hud.call("_refresh")
+	var b2: Button = _tombol_ojol(hud, oid)
+	_ok("tombol balon TIDAK dibangun ulang tiap penyegaran",
+		b1 != null and b2 != null and b1 == b2)
+	_ok("tombol balon masih hidup setelah penyegaran berulang",
+		b2 != null and is_instance_valid(b2))
+	if b2 == null:
+		return
+
+	# --- 2. Ketukan membuka popup, bukan langsung beraksi diam-diam ---
+	b2.pressed.emit()
+	_ok("popup pesanan ojol terbuka", ScreenRouter.current == "delivery_order")
+	var layar: Control = _layar_hidup("delivery_order")
+	_ok("popup menyebut nomor pesanannya",
+		_ada_teks(layar, "Pesanan RotiFood #%d" % oid))
+
+	var items: Dictionary = deliv.order_by_id(oid).get("items", {})
+	var baris_ada: bool = false
+	for k: Variant in items:
+		var nama: String = String(RecipeDB.entry(String(k)).get("name", String(k)))
+		if _ada_teks(layar, "%s  x%d" % [nama, int(items[k])]):
+			baris_ada = true
+	_ok("popup merinci roti yang dipesan", baris_ada)
+
+	# --- 2b. Balon yang sama juga menyala DI DUNIA 3D, di atas tablet ---
+	ScreenRouter.go("hud")
+	world.tick_world(DT)
+	_ok("balon '!' menyala di atas tablet RotiFood", world.tablet_alert())
+	if world.camera != null:
+		var tablet_n: Node3D = world.get("_tablet") as Node3D
+		var titik: Vector2 = world.camera.unproject_position(
+			tablet_n.global_position + Vector3(0.0, ShopWorld.TABLET_ALERT_Y, 0.0))
+		var kena: Dictionary = world.tap_pick_at_screen(titik)
+		_ok("ketukan pada balon tablet terbaca sebagai tablet, bukan meja kasir",
+			String(kena.get("kind", "")) == PlayerTaskSystem.STATION_TABLET
+				and int(kena.get("index", -1)) == oid)
+	var diminta: Array = []
+	var tangkap := func(id: int) -> void: diminta.append(id)
+	pt.delivery_requested.connect(tangkap)
+	_ok("ketukan tablet diterima", pt.tap(PlayerTaskSystem.STATION_TABLET, oid))
+	_ok("ketukan tablet membuka popup pesanan yang tepat",
+		diminta.size() == 1 and int(diminta[0]) == oid)
+	pt.delivery_requested.disconnect(tangkap)
+	_ok("popup terbuka lewat jalur dunia 3D juga",
+		ScreenRouter.current == "delivery_order")
+
+	# --- 3. "Kemas Pesanan" benar-benar mengemas ---
+	var aksi: Button = layar.get("_aksi_btn") as Button
+	_ok("tombol aksi menawarkan pengemasan",
+		aksi != null and aksi.text == "Kemas Pesanan" and not aksi.disabled)
+	var stok_sebelum: int = GameState.display_total()
+	if aksi != null:
+		aksi.pressed.emit()
+	_ok("pesanan tidak lagi berstatus 'masuk'",
+		String(deliv.order_by_id(oid).get("state", "")) != "masuk")
+	_ok("roti pesanan diambil dari etalase",
+		GameState.display_total() < stok_sebelum)
+	_ok("popup menutup kembali ke HUD", ScreenRouter.current == "hud")
+
+	# --- 4. Driver tiba: popup yang sama menawarkan serah terima ---
+	_pompa_sampai(world, func() -> bool:
+		return String(deliv.order_by_id(oid).get("state", "")) == "driver_menunggu", 240.0)
+	_ok("driver tiba dan menunggu di kasir",
+		String(deliv.order_by_id(oid).get("state", "")) == "driver_menunggu")
+	_cek_hadap_driver(world, oid)
+	hud.call("_refresh")
+	var b3: Button = _tombol_ojol(hud, oid)
+	_ok("balon pesanan masih ada saat driver menunggu", b3 != null)
+	if b3 == null:
+		return
+	b3.pressed.emit()
+	_ok("popup terbuka lagi untuk serah terima",
+		ScreenRouter.current == "delivery_order")
+	var aksi2: Button = layar.get("_aksi_btn") as Button
+	_ok("tombol aksi berubah menjadi serah terima",
+		aksi2 != null and aksi2.text == "Serahkan ke Driver" and not aksi2.disabled)
+
+	var koin: float = GameState.coins
+	if aksi2 != null:
+		aksi2.pressed.emit()
+	_ok("uang pesanan masuk ke kas (%s -> %s)"
+		% [GameConfig.kr(koin), GameConfig.kr(GameState.coins)],
+		GameState.coins > koin)
+	_ok("pesanan hilang dari tablet setelah diserahkan",
+		deliv.order_by_id(oid).is_empty())
+	_ok("popup menutup kembali ke HUD", ScreenRouter.current == "hud")
+	hud.call("_refresh")
+	_ok("balon pesanannya ikut hilang dari HUD", _tombol_ojol(hud, oid) == null)
+
+	print("  pesanan #%d: klik balon -> kemas -> driver -> serahkan, kas +%s"
+		% [oid, GameConfig.kr(GameState.coins - koin)])
+
+	_bersihkan_dapur(pt, prod)
+	day.start_day()
+
+
+## Driver yang menunggu harus MENGHADAP KAMERA, bukan memunggunginya.
+##
+## Punggung driver adalah kotak ransel termal sebesar badannya. Driver yang
+## berhenti menghadap -Z hanya memperlihatkan kardus hijau itu, dan model yang
+## dibangun benar pun terbaca "terpasang terbalik" — persis keluhan yang masuk.
+##
+## Diuji sebagai ARAH HADAP terhadap kamera, bukan sebagai sudut tetap: kelak
+## tempat jemputnya boleh pindah, yang tidak boleh berubah adalah wajahnya tetap
+## terlihat. Sekalian dipastikan bagian depan modelnya memang di sisi -Z.
+func _cek_hadap_driver(world: ShopWorld, order_id: int) -> void:
+	var drv: DriverActor = _aktor_driver(world, order_id)
+	_ok("aktor driver ada di dunia 3D", drv != null)
+	if drv == null or world.camera == null:
+		return
+
+	var hadap: Vector3 = drv.global_transform.basis * Vector3(0.0, 0.0, -1.0)
+	var ke_kamera: Vector3 = world.camera.global_position - drv.global_position
+	ke_kamera.y = 0.0
+	var sejajar: float = hadap.normalized().dot(ke_kamera.normalized())
+	_ok("driver menunggu sambil menghadap kamera, bukan memunggunginya (%.2f)"
+		% sejajar, sejajar > 0.3)
+
+	var wajah: Node3D = CharacterFactory.part(drv.model, "Face")
+	var ransel: Node3D = drv.find_child("ThermalBox", true, false) as Node3D
+	if wajah != null and ransel != null:
+		var ke_wajah: Vector3 = _world_aabb(wajah).get_center() - drv.global_position
+		var ke_ransel: Vector3 = _world_aabb(ransel).get_center() - drv.global_position
+		ke_wajah.y = 0.0
+		ke_ransel.y = 0.0
+		_ok("wajah driver di sisi yang menghadap kamera",
+			ke_wajah.normalized().dot(ke_kamera.normalized()) > 0.0)
+		_ok("ransel termal di sisi SEBERANG wajah (punggung)",
+			ke_ransel.normalized().dot(ke_wajah.normalized()) < -0.5)
+
+	print("  driver #%d berdiri di %s, wajahnya menghadap kamera (%.2f)"
+		% [order_id, str(drv.global_position), sejajar])
+
+
+## Aktor 3D driver ojol untuk satu pesanan; null bila ia sudah tidak di layar.
+func _aktor_driver(world: ShopWorld, order_id: int) -> DriverActor:
+	var raw: Variant = world.get("_drivers")
+	if not (raw is Dictionary):
+		return null
+	return (raw as Dictionary).get(order_id) as DriverActor
+
+
+## Tombol balon satu pesanan ojol di HUD; null bila tidak ada.
+func _tombol_ojol(hud: HUD, order_id: int) -> Button:
+	var raw: Variant = hud.get("_order_buttons")
+	if not (raw is Dictionary):
+		return null
+	var b: Variant = (raw as Dictionary).get(order_id)
+	if b == null or not is_instance_valid(b):
+		return null
+	return b as Button
+
+
+## Instance layar yang sedang hidup di ScreenRouter; null bila belum dibangun.
+func _layar_hidup(nama: String) -> Control:
+	var raw: Variant = ScreenRouter.get("_live")
+	if not (raw is Dictionary):
+		return null
+	return (raw as Dictionary).get(nama) as Control
+
+
+## Kartu popup di dalam satu layar; null bila layar itu bukan popup.
+func _kartu_popup(layar: Control) -> Control:
+	if layar == null:
+		return null
+	for c in layar.get_children():
+		if c is Control and (c as Control).has_meta("kartu"):
+			return (c as Control).get_meta("kartu") as Control
+	return null
+
+
+## Apakah ada satu Label / Button keturunan `akar` yang teksnya PERSIS `teks`.
+## Dipakai untuk memeriksa isi layar tanpa mengintip variabel dalamnya.
+func _ada_teks(akar: Node, teks: String) -> bool:
+	var antrean: Array[Node] = [akar]
+	while not antrean.is_empty():
+		var n: Node = antrean.pop_back()
+		for c in n.get_children():
+			antrean.append(c)
+		var l := n as Label
+		if l != null and l.text == teks:
+			return true
+		var b := n as Button
+		if b != null and b.text == teks:
+			return true
+	return false
+
+
+## Aktor 3D satu pembeli menurut idnya; null bila ia sudah tidak di layar.
+func _aktor_pembeli(world: ShopWorld, cid: int) -> CustomerActor:
+	var raw: Variant = world.get("_customers")
+	if not (raw is Dictionary):
+		return null
+	return (raw as Dictionary).get(cid) as CustomerActor
+
+
 func _check_kasir_manual() -> void:
 	print("\n-- Berjaga di Meja Kasir --")
 	var world: ShopWorld = _main.world as ShopWorld
@@ -915,6 +1534,7 @@ func _check_kasir_manual() -> void:
 		return
 
 	_siapkan_dapur(world, pt, prod)
+	_siapkan_toko_ramai()
 	_ok("tidak ada kasir yang disewa (jalur manual aktif)",
 		GameState.active_staff(StaffDB.ROLE_KASIR).is_empty())
 
@@ -962,10 +1582,7 @@ func _check_kasir_manual() -> void:
 	# Maju ke tahap jualan dengan rak yang penuh terisi. Tahap persiapan
 	# dilewati dengan tombol percepat -- tidak ada pembeli sebelum pukul 08:00,
 	# jadi mempercepatnya tidak mengubah apa pun yang sedang diuji.
-	day.set_time_scale(8.0)
-	_pompa_sampai(world, func() -> bool:
-		return day.phase == GameConfig.PHASE_SELL, 60.0)
-	day.set_time_scale(1.0)
+	_maju_ke_jualan(world, day)
 	_ok("toko sudah masuk tahap jualan", day.phase == GameConfig.PHASE_SELL)
 	GameState.display_add(rid, 60, ProductionSystem.QUALITY_PRIME, day.hour)
 	_ok("rak terisi roti untuk dijual", GameState.display_total() > 0)
@@ -988,17 +1605,72 @@ func _check_kasir_manual() -> void:
 		% permintaan, permintaan > 0)
 	EventBus.customer_left_angry.disconnect(hitung_marah)
 
-	# B) Karakter kembali berjaga: antrean mengalir lagi.
+	# B) Karakter kembali berjaga -- TAPI diam saja. Balon pesanan yang belum
+	#    diketuk tidak pernah berjalan sendiri (GDD 2: klik bubble, klik OK).
 	pt.tap(PlayerTaskSystem.STATION_CASHIER, 0)
 	_pompa_sampai(world, func() -> bool: return pt.manning_lane() == 0, 30.0)
 	_ok("karakter kembali berjaga", pt.manning_lane() == 0)
 	terlayani[0] = 0
-	_pompa(world, 70.0)
-	_ok("dengan penjaga kasir, pembeli terlayani (%d orang)" % terlayani[0],
-		terlayani[0] > 0)
+	var cust: CustomerSim = _main.systems.get("cust") as CustomerSim
+	if cust == null:
+		_ok("CustomerSim tersedia untuk uji balon pesanan", false)
+		EventBus.customer_served.disconnect(hitung)
+		return
+	_pompa_sampai(world, func() -> bool:
+		return not cust.waiting_for_player().is_empty(), 90.0)
+	_ok("ada pembeli yang menunggu dengan balon pesanan",
+		not cust.waiting_for_player().is_empty())
+	_pompa(world, 30.0)
+	_ok("balon yang tidak diketuk tidak pernah melayani dirinya sendiri (%d)"
+		% terlayani[0], terlayani[0] == 0)
+	_ok("jalur kasir tetap menganggur selama balon belum diketuk",
+		cust.serving_id(0) < 0)
+
+	# C) Ketukan balon + OK: barulah roti dibungkus dan uang masuk.
+	#    Pembeli yang tadi menunggu bisa saja keburu pulang selama 30 detik
+	#    pembuktian di atas — yang dilayani adalah siapa pun yang menunggu kini.
+	if cust.waiting_for_player().is_empty():
+		_pompa_sampai(world, func() -> bool:
+			return not cust.waiting_for_player().is_empty(), 90.0)
+	var menunggu: Array[int] = cust.waiting_for_player()
+	var cid: int = menunggu[0] if not menunggu.is_empty() else -1
+	_ok("ketukan balon pembeli diterima saat berjaga",
+		cid >= 0 and pt.tap(PlayerTaskSystem.STATION_CUSTOMER, cid))
+	_ok("popup pesanan tahu isi keranjang pembeli",
+		cid >= 0 and not (cust.customer(cid).get("basket", {}) as Dictionary).is_empty())
+	_ok("konfirmasi OK memulai transaksi", cid >= 0 and cust.confirm_service(cid))
+	_ok("jalur kasir sedang memproses pembeli itu",
+		cid >= 0 and cust.serving_id(0) == cid)
+	# Gerak membungkus disetel dunia 3D saat menyegarkan diri, bukan oleh
+	# simulasi — satu detak dulu sebelum ia terlihat memegang kantong.
+	_pompa(world, 0.2)
+	_ok("karakter terlihat membungkus pesanan",
+		aktor.is_wrapping() and aktor.carrying() == PlayerActor.CARRY_BAG)
+	_pompa(world, 30.0)
+	var dibayar: int = terlayani[0]
+	_ok("pembeli yang dikonfirmasi akhirnya membayar (%d orang)" % dibayar,
+		dibayar > 0)
+
+	# D) Balon yang sama tidak bisa dikonfirmasi dua kali.
+	_ok("konfirmasi ulang pembeli yang sudah dilayani ditolak",
+		cid >= 0 and not cust.confirm_service(cid))
+
+	# E) Dari seberang dapur, OK ditolak -- tangannya tidak sampai ke meja.
+	terlayani[0] = 0
+	pt.tap("mixer", 0)
+	_pompa_sampai(world, func() -> bool: return not pt.is_busy(), 30.0)
+	_pompa_sampai(world, func() -> bool:
+		return not cust.waiting_for_player().is_empty(), 90.0)
+	var jauh: Array[int] = cust.waiting_for_player()
+	_ok("pembeli tetap menunggu walau pemain di dapur", not jauh.is_empty())
+	_ok("OK ditolak saat karakter tidak berjaga di meja kasir",
+		jauh.is_empty() or not cust.confirm_service(jauh[0]))
+	_ok("tidak ada yang terbayar dari seberang dapur (%d)" % terlayani[0],
+		terlayani[0] == 0)
 
 	EventBus.customer_served.disconnect(hitung)
-	print("  tanpa penjaga: 0 terlayani; dengan penjaga: %d terlayani" % terlayani[0])
+	print("  tanpa penjaga: 0 terlayani; balon tanpa ketukan: 0 terlayani; "
+		+ "sesudah ditekan OK: %d terlayani" % dibayar)
 
 	# --- 4. Meja kasir tetap TIDAK bisa dipindah di Mode Dekorasi ---
 	_ok("meja kasir bukan perabot yang bisa digeser",
@@ -1008,6 +1680,27 @@ func _check_kasir_manual() -> void:
 
 	_bersihkan_dapur(pt, prod)
 	day.start_day()
+
+
+## Meniru pemain yang menekan "Bungkus & Terima" pada setiap balon pesanan yang
+## sedang menyala. Mengembalikan jumlah pesanan yang benar-benar mulai dibungkus.
+func _layani_antrean() -> int:
+	var cust: CustomerSim = _main.systems.get("cust") as CustomerSim
+	if cust == null:
+		return 0
+	var n: int = 0
+	for cid: int in cust.waiting_for_player():
+		if cust.confirm_service(cid):
+			n += 1
+	return n
+
+
+## Memajukan simulasi sambil terus menekan OK pada balon pesanan yang muncul.
+func _pompa_melayani(world: ShopWorld, detik: float) -> void:
+	for _i: int in range(int(detik / DT)):
+		_layani_antrean()
+		_main.step(DT)
+		world.tick_world(DT)
 
 
 ## Berapa pembeli yang sedang mengantre di kasir.
@@ -1048,13 +1741,21 @@ func _check_kasir_asisten() -> void:
 		return
 
 	_siapkan_dapur(world, pt, prod)
+	_siapkan_toko_ramai()
 
 	# --- Sewa satu Asisten Kasir termurah yang tersedia ---
 	var kandidat: String = _kasir_termurah()
 	_ok("ada kandidat Asisten Kasir di roster", kandidat != "")
 	if kandidat == "":
 		return
+
+	# Modal dulu, baru merekrut. Karyawan yang direkrut SELAMA Mode Solo memang
+	# langsung diliburkan (GDD 3.0.C), dan uji ini menguji meja kasir yang
+	# dijaga asisten — bukan Mode Solo. BailoutSystem baru menilai ulang saldo
+	# pada detak berikutnya, jadi simulasi dimajukan sebentar sampai padam.
 	GameState.coins = maxf(GameState.coins, 50000.0)
+	_pompa_sampai(world, func() -> bool: return not GameState.solo_mode, 5.0)
+	_ok("Mode Solo padam setelah kas terisi", not GameState.solo_mode)
 	_ok("Asisten Kasir '%s' berhasil disewa" % kandidat, staff.hire(kandidat))
 	_ok("kasir tercatat aktif",
 		GameState.active_staff(StaffDB.ROLE_KASIR).size() == 1)
@@ -1072,10 +1773,7 @@ func _check_kasir_asisten() -> void:
 	if rid == "":
 		_ok("ada resep untuk diisi ke rak", false)
 		return
-	day.set_time_scale(8.0)
-	_pompa_sampai(world, func() -> bool:
-		return day.phase == GameConfig.PHASE_SELL, 60.0)
-	day.set_time_scale(1.0)
+	_maju_ke_jualan(world, day)
 	_ok("toko sudah masuk tahap jualan", day.phase == GameConfig.PHASE_SELL)
 	GameState.display_add(rid, 60, ProductionSystem.QUALITY_PRIME, day.hour)
 	_ok("rak terisi roti untuk dijual", GameState.display_total() > 0)
@@ -1491,20 +2189,44 @@ func _check_player_flow() -> void:
 	_ok("bar progres menggantikan tanda seru di mixer",
 		_penanda(pt, "mixer:0") == StationMarker.MODE_PROGRESS)
 
-	# --- 4. Aduk selesai: tanda "!" PINDAH ke oven, bukan tinggal di mixer.
+	# --- 4. Aduk selesai: tanda "!" TETAP di mixer — adonannya harus diambil.
 	_pompa_sampai(world, func() -> bool:
-		return _stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_OVEN, 120.0)
-	_ok("tanda seru pindah ke oven setelah adukan selesai",
-		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_OVEN
-			and _penanda(pt, "oven:0") == StationMarker.MODE_ALERT)
+		return _menunggu_diambil(pt, oid), 120.0)
+	_ok("tanda seru tetap di mixer setelah adukan selesai",
+		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_MIXER
+			and _penanda(pt, "mixer:0") == StationMarker.MODE_ALERT
+			and _penanda(pt, "oven:0") == "")
+	_ok("pesanan berstatus 'menunggu diambil'", _menunggu_diambil(pt, oid))
 	_ok("adonan manual TIDAK melompat sendiri ke oven",
 		String(_job(prod, pt, oid).get("stage", "")) == ProductionSystem.STAGE_MIXING)
 
-	# --- 5. Ketuk oven: karakter mampir ke mixer mengambil adonan lebih dulu.
-	_ok("ketukan oven diterima", pt.tap("oven", 0))
+	# Mengetuk oven sebelum adonannya diambil TIDAK memindahkan apa pun: yang
+	# terjadi paling jauh hanya karakter berjalan ke sana dengan tangan kosong.
+	# (Nilai balik tap() sengaja tidak diuji: di dapur Garasi yang sempit, titik
+	# berdiri mixer dan oven bisa jatuh di petak yang sama, dan ketukan pada
+	# tempat yang sudah ditempati karakter memang mengembalikan false.)
+	pt.tap("oven", 0)
+	_pompa_sampai(world, func() -> bool: return not pt.is_busy(), 20.0)
+	_ok("adonan tidak berpindah hanya karena oven diketuk",
+		String(_job(prod, pt, oid).get("stage", "")) == ProductionSystem.STAGE_MIXING
+			and not aktor.is_carrying())
+	_ok("tanda serunya pun tidak bergeser dari mixer",
+		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_MIXER)
+
+	# --- 5. Ketuk MIXER: karakter mengambil adonannya, tanda pindah ke oven.
+	_ok("ketukan mixer untuk mengambil adonan diterima", pt.tap("mixer", 0))
 	_pompa_sampai(world, func() -> bool: return aktor.is_carrying(), 20.0)
-	_ok("karakter membawa mangkuk adonan dari mixer",
+	_ok("karakter memegang mangkuk adonan",
 		aktor.carrying() == PlayerActor.CARRY_DOUGH)
+	_ok("tanda seru baru pindah ke oven SESUDAH adonan di tangan",
+		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_OVEN
+			and _penanda(pt, "oven:0") == StationMarker.MODE_ALERT
+			and _penanda(pt, "mixer:0") == "")
+	_ok("adonan masih tercatat di mixer selama dibawa, bukan di oven",
+		String(_job(prod, pt, oid).get("stage", "")) == ProductionSystem.STAGE_MIXING)
+
+	# --- 6. Ketuk OVEN: adonan diantar dan mulai dipanggang.
+	_ok("ketukan oven diterima", pt.tap("oven", 0))
 	_pompa_sampai(world, func() -> bool:
 		return String(_job(prod, pt, oid).get("stage", "")) == ProductionSystem.STAGE_BAKING,
 		20.0)
@@ -1513,7 +2235,7 @@ func _check_player_flow() -> void:
 	_ok("tangan karakter kosong lagi setelah menaruh adonan", not aktor.is_carrying())
 	_ok("mixer kembali bebas", prod.free_mixer_slots() == prod.mixer_slot_count())
 
-	# --- 6. Paralel: selagi memanggang, pesanan kedua bisa dimulai.
+	# --- 7. Paralel: selagi memanggang, pesanan kedua bisa dimulai.
 	_ok("resep kedua bisa dipilih selagi oven bekerja", pt.choose_recipe(rid, 1))
 	_ok("dua pesanan berjalan bersamaan", pt.order_count() == 2)
 	var oid2: int = _pesanan_lain(pt, oid)
@@ -1526,14 +2248,35 @@ func _check_player_flow() -> void:
 		_state_pesanan(pt, oid2) == PlayerTaskSystem.STATE_BEKERJA
 			and String(_job(prod, pt, oid).get("stage", "")) == ProductionSystem.STAGE_BAKING)
 
-	# --- 7. Matang: tanda "!" pindah ke RAK, bukan ke oven.
+	# --- 8. Matang: tanda "!" TETAP di oven — loyangnya harus diangkat.
 	_pompa_sampai(world, func() -> bool:
-		return _stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_DISPLAY, 200.0)
-	_ok("tanda seru pindah ke rak setelah roti matang",
+		return _menunggu_diambil(pt, oid), 200.0)
+	_ok("tanda seru tetap di oven setelah roti matang",
+		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_OVEN
+			and _penanda(pt, "oven:0") == StationMarker.MODE_ALERT
+			and _penanda(pt, "display:0") == "")
+
+	# Tangan cuma sepasang: pesanan kedua yang juga selesai diaduk tidak bisa
+	# diambil sampai loyang ini diantar.
+	_pompa_sampai(world, func() -> bool: return _menunggu_diambil(pt, oid2), 200.0)
+	_ok("pesanan kedua ikut menunggu diambil di mixer", _menunggu_diambil(pt, oid2))
+
+	# --- 9. Ketuk OVEN: loyang diangkat, tanda pindah ke rak.
+	_ok("ketukan oven untuk mengangkat loyang diterima", pt.tap("oven", 0))
+	_pompa_sampai(world, func() -> bool: return aktor.is_carrying(), 20.0)
+	_ok("karakter memegang loyang roti", aktor.carrying() == PlayerActor.CARRY_TRAY)
+	_ok("tanda seru pindah ke rak sesudah loyang di tangan",
 		_stasiun_pesanan(pt, oid) == PlayerTaskSystem.STATION_DISPLAY
 			and _penanda(pt, "display:0") == StationMarker.MODE_ALERT)
 
-	# --- 8. Ketuk rak: karakter mengambil loyang lalu layar rak terbuka.
+	pt.tap("mixer", 0)
+	_ok("adonan kedua TIDAK ikut terangkat selagi tangannya penuh",
+		_menunggu_diambil(pt, oid2))
+	_pompa_sampai(world, func() -> bool: return not pt.is_busy(), 20.0)
+	_ok("loyang tetap di tangan setelah ketukan yang ditolak itu",
+		aktor.carrying() == PlayerActor.CARRY_TRAY and _menunggu_diambil(pt, oid2))
+
+	# --- 10. Ketuk rak: karakter mengantar loyang, layar rak terbuka.
 	_ok("ketukan rak diterima", pt.tap("display", 0))
 	_pompa_sampai(world, func() -> bool: return not rak_diminta.is_empty(), 20.0)
 	_ok("layar rak diminta setelah karakter tiba", rak_diminta.size() == 1)
@@ -1543,7 +2286,7 @@ func _check_player_flow() -> void:
 		aktor.carrying() == PlayerActor.CARRY_TRAY
 			or _state_pesanan(pt, oid) == PlayerTaskSystem.STATE_MEMILIH)
 
-	# --- 9. Pilih petak: roti mendarat PERSIS di petak yang ditunjuk.
+	# --- 11. Pilih petak: roti mendarat PERSIS di petak yang ditunjuk.
 	var petak: int = 3
 	var sebelum: int = GameState.display_total()
 	var masuk: int = pt.place_bread(oid, petak)
@@ -1556,9 +2299,11 @@ func _check_player_flow() -> void:
 		pt.order(oid).is_empty() and pt.order_count() == 1)
 	_ok("tidak ada lagi penanda untuk pesanan yang sudah selesai",
 		_penanda(pt, "display:0") == "")
+	_ok("tangan karakter kosong lagi setelah loyangnya ditata",
+		not aktor.is_carrying())
 
-	print("  rantai penuh gudang -> mixer -> oven -> rak tuntas, "
-		+ "%d roti mendarat di petak %d" % [masuk, petak])
+	print("  rantai penuh gudang -> mixer -> (ambil) -> oven -> (angkat) -> rak "
+		+ "tuntas, %d roti mendarat di petak %d" % [masuk, petak])
 
 	_bersihkan_dapur(pt, prod)
 
@@ -1566,6 +2311,22 @@ func _check_player_flow() -> void:
 # --- Pembantu alur pemain ---------------------------------------------------
 
 ## Menyiapkan dapur bersih: tahap persiapan, gudang penuh bahan, tanpa job sisa.
+## Melewati tahap persiapan sampai toko buka, lalu MENAHAN pengali kecepatan di
+## SKALA_UJI_PEMBELI untuk sisa uji.
+##
+## Anggaran waktunya dihitung dari konstanta jam, bukan angka tetap. Begitu
+## kecepatan jam diubah — satu jam in-game kini 5 menit nyata — angka tetap apa
+## pun kedaluwarsa diam-diam, dan uji gagal karena kehabisan sabar, bukan karena
+## ada yang rusak.
+func _maju_ke_jualan(world: ShopWorld, day: DayCycle) -> void:
+	day.set_time_scale(DayCycle.TIME_SCALE_MAX)
+	var prep: float = (GameConfig.HOUR_OPEN - GameConfig.HOUR_START) \
+		* GameConfig.SECONDS_PER_GAME_HOUR / DayCycle.TIME_SCALE_MAX
+	_pompa_sampai(world, func() -> bool:
+		return day.phase == GameConfig.PHASE_SELL, prep * 1.5)
+	day.set_time_scale(SKALA_UJI_PEMBELI)
+
+
 func _siapkan_dapur(world: ShopWorld, pt: PlayerTaskSystem, prod: ProductionSystem) -> void:
 	GameState.location_tier = 1
 	GameState.decor.clear()
@@ -1577,13 +2338,36 @@ func _siapkan_dapur(world: ShopWorld, pt: PlayerTaskSystem, prod: ProductionSyst
 	world.rebuild()
 	var day: DayCycle = _main.systems.get("day") as DayCycle
 	if day != null:
+		day.set_time_scale(1.0)
 		day.start_day()
+
+
+## Menjadikan toko RAMAI: cuaca cerah dan rating toko yang sehat.
+##
+## Arus pembeli berbanding lurus dengan rating toko (GDD 9.1) dan anjlok 60-80%
+## saat hujan (GDD 10.2). Uji-uji pelayanan di bawah ini justru sengaja membuat
+## pembeli pulang marah berkali-kali, jadi tanpa dipulihkan setiap uji
+## berikutnya menunggu pembeli yang datangnya makin jarang — dan yang gagal
+## bukan lagi perilaku yang sedang diuji, melainkan kesabaran tesnya.
+##
+## Dipanggil SESUDAH _siapkan_dapur(): start_day() mengundi cuaca baru, dan
+## sinyal weather_changed di bawah inilah yang menyuruh CustomerSim menghitung
+## ulang pengali pejalan kakinya.
+func _siapkan_toko_ramai() -> void:
+	GameState.weather = WeatherDB.CERAH
+	GameState.store_rating = 4.5
+	EventBus.weather_changed.emit(WeatherDB.CERAH, WeatherDB.CERAH)
 
 
 func _bersihkan_dapur(pt: PlayerTaskSystem, prod: ProductionSystem) -> void:
 	pt.reset()
 	prod.reset()
 	GameState.display_slots.clear()
+	# Kembalikan kecepatan normal supaya percepatan _maju_ke_jualan() tidak
+	# bocor ke uji berikutnya.
+	var day: DayCycle = _main.systems.get("day") as DayCycle
+	if day != null:
+		day.set_time_scale(1.0)
 
 
 ## Memajukan simulasi DAN dunia 3D dengan delta tetap sampai `cond` terpenuhi.
@@ -1610,6 +2394,13 @@ func _state_pesanan(pt: PlayerTaskSystem, oid: int) -> String:
 
 func _stasiun_pesanan(pt: PlayerTaskSystem, oid: int) -> String:
 	return String(pt.order(oid).get("station", ""))
+
+
+## Apakah pesanan itu sedang MENUNGGU DIAMBIL dari alat yang baru selesai.
+func _menunggu_diambil(pt: PlayerTaskSystem, oid: int) -> bool:
+	var o: Dictionary = pt.order(oid)
+	return not o.is_empty() and bool(o.get("ambil", false)) \
+		and String(o.get("state", "")) == PlayerTaskSystem.STATE_MENUNGGU
 
 
 ## Mode penanda pada satu stasiun; "" berarti tidak ada penanda sama sekali.

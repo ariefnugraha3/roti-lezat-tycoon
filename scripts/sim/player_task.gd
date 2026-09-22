@@ -10,16 +10,22 @@ extends Node
 ##   1. ketuk GUDANG      -> karakter ke gudang, pintunya terbuka, daftar resep muncul
 ##   2. pilih resep       -> daftar & pintu tertutup, tanda "!" muncul di MIXER
 ##   3. ketuk MIXER       -> karakter ke mixer, adonan mulai diaduk (bar progres)
-##   4. aduk selesai      -> tanda "!" pindah ke OVEN
-##   5. ketuk OVEN        -> karakter mampir ke mixer mengambil adonan, lalu ke oven
-##   6. panggang selesai  -> tanda "!" pindah ke RAK
-##   7. ketuk RAK         -> karakter mengambil loyang dari oven lalu ke rak,
-##                           layar rak terbuka, pemain memilih petaknya
+##   4. aduk selesai      -> tanda "!" tetap di MIXER: adonannya harus DIAMBIL
+##   5. ketuk MIXER lagi  -> karakter mengambil mangkuk adonan, tanda "!" pindah ke OVEN
+##   6. ketuk OVEN        -> karakter mengantar adonan dan mulai memanggang
+##   7. panggang selesai  -> tanda "!" tetap di OVEN: loyangnya harus DIANGKAT
+##   8. ketuk OVEN lagi   -> karakter mengangkat loyang, tanda "!" pindah ke RAK
+##   9. ketuk RAK         -> karakter mengantar loyang, layar rak terbuka,
+##                           pemain memilih petaknya
 ##
-## PENTING: penandanya selalu di stasiun BERIKUTNYA, bukan di stasiun yang baru
-## selesai. Pemain membaca "ke mana barang ini harus pergi", bukan "di mana ia
-## sekarang" — dan itu yang membuat langkah terakhir (rak) sama bentuknya dengan
-## langkah-langkah sebelumnya.
+## PENTING: satu alat yang SELESAI BEKERJA menahan barangnya sampai diambil.
+## Tanda "!" berpindah ke stasiun berikutnya hanya SESUDAH barangnya benar-benar
+## ada di tangan karakter — jadi pemain membaca dua hal berbeda dengan tanda yang
+## sama: "ambil dari sini" saat tangannya kosong, dan "antar ke sini" saat ia
+## sudah menenteng sesuatu.
+##
+## Tangannya cuma sepasang: selama satu barang masih dibawa, alat lain yang juga
+## sudah selesai TIDAK bisa diambil isinya sampai bawaan itu diantar.
 ##
 ## Beberapa pesanan berjalan SEKALIGUS. Yang antre hanyalah kaki karakter: satu
 ## perjalanan diselesaikan dulu baru perjalanan berikutnya, sementara mixer dan
@@ -36,17 +42,30 @@ const STATION_DISPLAY: String = "display"
 ## pesanan, hanya tempat karakter berjaga melayani pembeli (GDD 3.0.C).
 const STATION_CASHIER: String = "cashier"
 
+## Balon "!" di atas kepala seorang PEMBELI yang sudah menunggu di meja kasir.
+## Bukan perabot: `index` pada tap() berisi id pelanggan, bukan indeks stasiun.
+const STATION_CUSTOMER: String = "customer"
+
+## Balon "!" di atas TABLET RotiFood (GDD 3.6.A). Seperti STATION_CUSTOMER,
+## `index` berisi id PESANAN, bukan indeks perabot.
+const STATION_TABLET: String = "tablet"
+
 ## Perjalanan yang tidak membawa pekerjaan apa pun: pemain sekadar menyuruh
 ## karakternya berdiri di depan satu perabot. Dibedakan dari stasiun kerja agar
 ## penyelesaiannya tidak memicu langkah produksi apa pun.
 const TASK_HAMPIRI: String = "hampiri"
+
+## Perjalanan MENGAMBIL barang dari alat yang sudah selesai bekerja. Tujuannya
+## stasiun tempat barang itu sekarang, bukan stasiun berikutnya.
+const TASK_AMBIL: String = "ambil"
 
 ## Jarak yang sudah dianggap "sudah berdiri di sana", meter.
 const DEKAT: float = 0.35
 
 # --- Keadaan satu pesanan --------------------------------------------------
 
-## Menunggu diketuk pemain; tanda "!" tampil di stasiun tujuan.
+## Menunggu diketuk pemain; tanda "!" tampil di stasiun tujuan. Bila `ambil`
+## bernilai true, stasiun itu adalah tempat barangnya MENUNGGU DIAMBIL.
 const STATE_MENUNGGU: String = "menunggu"
 ## Karakter sedang berjalan ke stasiun tujuan.
 const STATE_BERJALAN: String = "berjalan"
@@ -65,6 +84,11 @@ signal orders_changed()
 signal storage_opened()
 ## Karakter sudah sampai di rak sambil membawa loyang: tampilkan pemilih petak.
 signal rack_requested(order_id: int, rack_index: int)
+## Pemain mengetuk balon pembeli sambil berjaga di mejanya: tampilkan popup
+## pesanan yang harus ia bungkus.
+signal customer_requested(customer_id: int)
+## Pemain mengetuk balon di atas tablet RotiFood: tampilkan popup pesanan ojol.
+signal delivery_requested(order_id: int)
 ## Karakter membuka/menutup pintu gudang. Dunia 3D memakai ini untuk animasinya.
 signal storage_door(open: bool)
 
@@ -139,11 +163,26 @@ func sim_tick(delta: float, hour: float) -> void:
 ## adalah tombolnya sendiri, dan tombol yang kadang menjawab kadang tidak
 ## membuat pemain mengira ketukannya tidak terbaca.
 func tap(kind: String, index: int) -> bool:
+	if kind == STATION_CUSTOMER:
+		return _tap_pembeli(index)
+	if kind == STATION_TABLET:
+		return _tap_tablet(index)
 	if kind == STATION_STORAGE:
 		return _tap_gudang(index)
 	var pesanan: Dictionary = _pesanan_menunggu(kind, index)
 	if pesanan.is_empty():
 		return _hampiri(kind, index)
+
+	# Sepasang tangan, satu bawaan. Alat lain yang juga sudah selesai harus
+	# menunggu giliran — dan pemain diberi tahu APA yang sedang ia bawa, bukan
+	# sekadar ditolak diam-diam.
+	if bool(pesanan.get("ambil", false)):
+		var tangan: Dictionary = _pesanan_di_tangan()
+		if not tangan.is_empty():
+			EventBus.toast.emit("Tanganmu masih penuh — antar dulu %s."
+				% _nama_bawaan(tangan), "warning")
+			return _hampiri(kind, index)
+
 	pesanan["state"] = STATE_BERJALAN
 	_antre(_rencana(pesanan))
 	orders_changed.emit()
@@ -174,7 +213,7 @@ func _hampiri(kind: String, index: int) -> bool:
 	_antre({
 		"jenis": TASK_HAMPIRI,
 		"order_id": -1,
-		"kaki": [{"di": kind, "i": index, "bawa": ""}],
+		"kaki": [{"di": kind, "i": index}],
 	})
 	return true
 
@@ -193,6 +232,50 @@ func _sudah_di(kind: String, index: int) -> bool:
 	if a == null or not a.is_inside_tree():
 		return false
 	return a.global_position.distance_to(_titik_berdiri(kind, index)) < DEKAT
+
+
+## Pemain mengetuk balon "!" di atas kepala seorang pembeli (GDD 2 "Tahap
+## Jualan": pemain klik bubble pesanan, klik OK, lalu uang masuk).
+##
+## Balon itu hanya membuka popup pesanan bila karakter memang sedang BERJAGA di
+## meja kasir tempat pembeli itu berdiri (GDD 3.0.C: transaksi hanya berjalan
+## selama ia berdiri di sana). Bila ia masih di dapur, ketukannya tetap berarti
+## sesuatu: karakter disuruh berjalan ke meja kasir itu. Ketukan yang diam saja
+## akan terbaca sebagai ketukan yang tidak terbaca — dan pemain akan mengetuk
+## lagi dan lagi sambil mengira layarnya yang rusak.
+func _tap_pembeli(customer_id: int) -> bool:
+	var cust: CustomerSim = customers()
+	if cust == null:
+		return false
+	var lane: int = cust.waiting_lane(customer_id)
+	if lane < 0:
+		return false
+	if manning_lane() == lane:
+		customer_requested.emit(customer_id)
+		return true
+	_hampiri(STATION_CASHIER, lane)
+	EventBus.toast.emit("Berdiri dulu di meja kasir untuk melayani pembeli.", "warning")
+	return true
+
+
+## Pemain mengetuk balon di atas tablet RotiFood (GDD 3.6.A langkah 1).
+##
+## Berbeda dari balon pembeli fisik, ini TIDAK menuntut karakter berdiri di meja
+## kasir: yang dikerjakan tablet adalah pesanan aplikasi, dan GDD 3.6 tidak
+## pernah mengikatnya ke posisi karakter. Kalau id-nya tidak lagi menunggu
+## (keburu ditangani asisten kasir), pesanan mendesak berikutnya yang dibuka.
+func _tap_tablet(order_id: int) -> bool:
+	var deliv: DeliverySim = deliveries()
+	if deliv == null:
+		return false
+	var id: int = order_id
+	if id < 0 or not deliv.needs_player(id):
+		var antre: Array[int] = deliv.waiting_for_player()
+		if antre.is_empty():
+			return false
+		id = antre[0]
+	delivery_requested.emit(id)
+	return true
 
 
 func _tap_gudang(index: int) -> bool:
@@ -231,6 +314,9 @@ func choose_recipe(recipe_id: String, batches: int) -> bool:
 		"station": STATION_MIXER,
 		"index": slot,
 		"state": STATE_MENUNGGU,
+		# Mixer adalah stasiun PERTAMA: tidak ada apa pun untuk diambil dulu.
+		"ambil": false,
+		"ditangan": false,
 	})
 	_next_id += 1
 
@@ -354,30 +440,22 @@ func manning_lane() -> int:
 
 ## Menyusun rencana perjalanan untuk satu pesanan yang baru diketuk.
 ##
-## Setiap tahap selain yang pertama punya DUA kaki: mampir ke alat sebelumnya
-## untuk mengambil barangnya, lalu mengantarnya ke alat berikutnya. Itulah
-## sebabnya karakter terlihat membawa mangkuk adonan atau loyang roti — bawaan
-## itu bukan hiasan, ia menandai kaki mana yang sedang ditempuh.
+## Selalu SATU kaki, dan artinya ditentukan oleh `ambil`:
+##   ambil = true  -> pergi MENGAMBIL barang dari alat yang menahannya,
+##   ambil = false -> pergi MENGANTAR barang yang sudah ada di tangan
+##                    (atau, untuk mixer, sekadar menyalakan alatnya).
+##
+## Karena itu bawaan tangan tidak lagi ditempel pada kaki perjalanan: ia
+## diturunkan dari keadaan pesanan lewat `_segarkan_bawaan()`, satu sumber
+## kebenaran yang sama untuk perjalanan, pembatalan, maupun muat ulang.
 func _rencana(pesanan: Dictionary) -> Dictionary:
 	var station: String = String(pesanan.get("station", ""))
-	var kaki: Array = []
-	var prod: ProductionSystem = production()
-	var job: Dictionary = {}
-	if prod != null:
-		job = prod.job(int(pesanan.get("job_id", 0)))
-
-	match station:
-		STATION_MIXER:
-			kaki.append({"di": STATION_MIXER, "i": int(pesanan.get("index", 0)), "bawa": ""})
-		STATION_OVEN:
-			kaki.append({"di": STATION_MIXER, "i": int(job.get("slot_index", 0)),
-				"bawa": PlayerActor.CARRY_DOUGH})
-			kaki.append({"di": STATION_OVEN, "i": int(pesanan.get("index", 0)), "bawa": ""})
-		STATION_DISPLAY:
-			kaki.append({"di": STATION_OVEN, "i": int(job.get("slot_index", 0)),
-				"bawa": PlayerActor.CARRY_TRAY})
-			kaki.append({"di": STATION_DISPLAY, "i": int(pesanan.get("index", 0)), "bawa": ""})
-	return {"jenis": station, "order_id": int(pesanan.get("id", -1)), "kaki": kaki}
+	var jenis: String = TASK_AMBIL if bool(pesanan.get("ambil", false)) else station
+	return {
+		"jenis": jenis,
+		"order_id": int(pesanan.get("id", -1)),
+		"kaki": [{"di": station, "i": int(pesanan.get("index", 0))}],
+	}
 
 
 func _antre(tugas: Dictionary) -> void:
@@ -448,9 +526,6 @@ func on_actor_arrived(tag: String) -> void:
 	# ia operasikan -- dan di meja kasir, membelakangi pembelinya.
 	if a != null:
 		a.face_towards(_titik(String(kaki.get("di", "")), int(kaki.get("i", 0))))
-	var bawa: String = String(kaki.get("bawa", ""))
-	if a != null and bawa != "":
-		a.set_carry(bawa)
 	if _kaki.is_empty():
 		_tugas_selesai()
 		return
@@ -470,6 +545,8 @@ func _tugas_selesai() -> void:
 			storage_opened.emit()
 			# Karakter berdiri menunggu di depan gudang selama daftar terbuka.
 			return
+		TASK_AMBIL:
+			_selesai_ambil(order_id)
 		STATION_MIXER:
 			_mulai_aduk(order_id)
 		STATION_OVEN:
@@ -481,6 +558,27 @@ func _tugas_selesai() -> void:
 			return
 
 	_mulai_tugas_berikutnya()
+
+
+## Karakter sudah tiba di alat yang menahan barangnya dan mengangkatnya.
+##
+## Barangnya BELUM lepas dari alat itu di mata ProductionSystem — adonan tetap
+## tercatat di mixer sampai ia benar-benar masuk oven, dan loyang tetap di oven
+## (dan tetap bisa gosong!) sampai rotinya ditata ke rak. Yang berpindah di sini
+## hanyalah "siapa yang memegangnya", dan itulah yang membuat tanda "!"
+## sekarang menunjuk ke stasiun berikutnya.
+func _selesai_ambil(order_id: int) -> void:
+	var pesanan: Dictionary = _pesanan(order_id)
+	if pesanan.is_empty():
+		return
+	pesanan["ambil"] = false
+	pesanan["ditangan"] = true
+	AudioBus.sfx("pop")
+	if String(pesanan.get("station", "")) == STATION_MIXER:
+		_pindah_ke(pesanan, STATION_OVEN, _slot_oven_bebas())
+	else:
+		_pindah_ke(pesanan, STATION_DISPLAY, _rak_tujuan(pesanan))
+	_segarkan_bawaan()
 
 
 func _mulai_aduk(order_id: int) -> void:
@@ -515,16 +613,17 @@ func _mulai_panggang(order_id: int) -> void:
 		return
 	var slot: int = prod.move_to_oven(
 		int(pesanan.get("job_id", 0)), int(pesanan.get("index", -1)))
-	var a: PlayerActor = actor()
-	if a != null:
-		a.set_carry(PlayerActor.CARRY_NONE)
 	if slot < 0:
-		# Oven keburu dipakai orang lain: kembalikan tanda serunya.
+		# Oven keburu dipakai orang lain: adonannya TETAP di tangan dan tanda
+		# serunya kembali, jadi pemain bisa mengantarnya ke oven yang lain.
 		pesanan["state"] = STATE_MENUNGGU
 		orders_changed.emit()
 		return
 	pesanan["index"] = slot
 	pesanan["state"] = STATE_BEKERJA
+	pesanan["ditangan"] = false
+	_segarkan_bawaan()
+	var a: PlayerActor = actor()
 	if a != null:
 		a.set_working(true)
 	orders_changed.emit()
@@ -543,7 +642,8 @@ func _buka_rak(order_id: int) -> void:
 # KEMAJUAN TAHAP
 # ===========================================================================
 
-# Memindahkan tanda seru ke stasiun berikutnya begitu satu tahap rampung.
+# Menyalakan tanda seru begitu satu tahap rampung, dan mencoba lagi pesanan yang
+# tertahan karena alat berikutnya penuh.
 func _maju_tahap() -> void:
 	var prod: ProductionSystem = production()
 	if prod == null:
@@ -551,20 +651,50 @@ func _maju_tahap() -> void:
 	for e: Variant in _orders.duplicate():
 		var o: Dictionary = e
 		var state: String = String(o.get("state", ""))
-		if state != STATE_BEKERJA and state != STATE_TERTAHAN:
-			continue
 		var jid: int = int(o.get("job_id", 0))
 		if jid <= 0:
 			continue
 
-		if String(o.get("station", "")) == STATION_MIXER and prod.mixing_done(jid):
+		# Alat selesai bekerja: barangnya MENUNGGU DIAMBIL di alat itu juga.
+		if state == STATE_BEKERJA:
+			if String(o.get("station", "")) == STATION_MIXER and prod.mixing_done(jid):
+				_minta_ambil(o, STATION_MIXER)
+			elif String(o.get("station", "")) == STATION_OVEN and prod.baking_done(jid):
+				_minta_ambil(o, STATION_OVEN)
+			continue
+
+		# Barang sudah di tangan tapi alat tujuannya tadi penuh. Dicoba lagi tiap
+		# tick; tanpa ini, adonan yang selesai diaduk tepat saat seluruh oven
+		# sibuk akan menggantung selamanya tanpa satu pun tanda di layar.
+		if state == STATE_TERTAHAN and String(o.get("station", "")) == STATION_OVEN:
 			_pindah_ke(o, STATION_OVEN, _slot_oven_bebas())
-		elif String(o.get("station", "")) == STATION_OVEN and prod.baking_done(jid):
-			_pindah_ke(o, STATION_DISPLAY, _rak_tujuan(o))
 
 
-# Menetapkan stasiun berikutnya. Indeks -1 berarti belum ada alat kosong:
-# pesanan menunggu tanpa tanda seru, dan dicoba lagi tick berikutnya.
+# Menahan barang di alat yang baru selesai: tanda "!" tetap di situ sampai
+# pemain mengetuknya untuk mengambil isinya.
+func _minta_ambil(o: Dictionary, station: String) -> void:
+	var prod: ProductionSystem = production()
+	var job: Dictionary = prod.job(int(o.get("job_id", 0))) if prod != null else {}
+	o["station"] = station
+	o["index"] = int(job.get("slot_index", o.get("index", 0)))
+	o["ambil"] = true
+	o["state"] = STATE_MENUNGGU
+
+	var a: PlayerActor = actor()
+	if a != null and not is_busy():
+		a.set_working(false)
+	if station == STATION_MIXER:
+		EventBus.toast.emit("%s selesai diaduk — ketuk Mixer untuk mengambil adonannya."
+			% _nama_resep(String(o.get("recipe_id", ""))), "bread")
+	else:
+		EventBus.toast.emit("%s matang — ketuk Oven untuk mengangkat loyangnya."
+			% _nama_resep(String(o.get("recipe_id", ""))), "bread")
+	orders_changed.emit()
+
+
+# Menetapkan stasiun TUJUAN barang yang sudah ada di tangan karakter. Indeks -1
+# berarti belum ada alat kosong: pesanan menunggu tanpa tanda seru (barangnya
+# tetap di tangan), dan dicoba lagi tick berikutnya oleh _maju_tahap().
 func _pindah_ke(o: Dictionary, station: String, index: int) -> void:
 	var sebelumnya: String = String(o.get("state", ""))
 	o["station"] = station
@@ -577,12 +707,64 @@ func _pindah_ke(o: Dictionary, station: String, index: int) -> void:
 	if a != null and not is_busy():
 		a.set_working(false)
 	if station == STATION_OVEN:
-		EventBus.toast.emit("%s selesai diaduk — ketuk Oven."
+		EventBus.toast.emit("Adonan %s di tangan — ketuk Oven."
 			% _nama_resep(String(o.get("recipe_id", ""))), "bread")
 	else:
-		EventBus.toast.emit("%s matang — ketuk Rak Display."
+		EventBus.toast.emit("Loyang %s di tangan — ketuk Rak Display."
 			% _nama_resep(String(o.get("recipe_id", ""))), "bread")
 	orders_changed.emit()
+
+
+# ===========================================================================
+# BAWAAN TANGAN
+# ===========================================================================
+
+## Pesanan yang barangnya sedang berada di tangan karakter; {} bila kosong.
+## Hanya boleh ada satu — sepasang tangan tidak bisa membawa dua loyang.
+func _pesanan_di_tangan() -> Dictionary:
+	for e: Variant in _orders:
+		var o: Dictionary = e
+		if bool(o.get("ditangan", false)):
+			return o
+	return {}
+
+
+## Menyamakan barang di tangan aktor dengan keadaan pesanan.
+##
+## Bawaan DITURUNKAN, tidak disimpan terpisah: karakter yang sedang menenteng
+## adonan boleh saja disuruh mampir ke gudang atau berjaga di kasir di tengah
+## jalan, dan setiap jalur yang lupa memasang ulang bawaannya akan membuat
+## adonan itu lenyap dari tangannya padahal pesanannya masih berjalan.
+func _segarkan_bawaan() -> void:
+	var a: PlayerActor = actor()
+	if a == null:
+		return
+	var o: Dictionary = _pesanan_di_tangan()
+	if o.is_empty():
+		a.set_carry(PlayerActor.CARRY_NONE)
+		return
+	a.set_carry(_bawaan_untuk(o))
+
+
+## Wujud barang satu pesanan di tangan: adonan menuju oven, loyang menuju rak.
+func _bawaan_untuk(o: Dictionary) -> String:
+	if String(o.get("station", "")) == STATION_OVEN:
+		return PlayerActor.CARRY_DOUGH
+	return PlayerActor.CARRY_TRAY
+
+
+## Nama barang yang sedang dibawa, untuk pesan di layar.
+func _nama_bawaan(o: Dictionary) -> String:
+	var nama: String = _nama_resep(String(o.get("recipe_id", "")))
+	if _bawaan_untuk(o) == PlayerActor.CARRY_DOUGH:
+		return "adonan %s ke oven" % nama
+	return "loyang %s ke rak" % nama
+
+
+## Memasang ulang bawaan tangan dari luar (ShopWorld, sesudah karakter selesai
+## membungkus pesanan pembeli dan kantong kertasnya dilepas).
+func refresh_carry() -> void:
+	_segarkan_bawaan()
 
 
 # Membuang pesanan yang job-nya sudah lenyap (gosong, dibatalkan, atau diangkat
@@ -602,6 +784,8 @@ func _sapu_pesanan_mati() -> void:
 		_buang(o)
 		berubah = true
 	if berubah:
+		# Loyang yang gosong di tengah perjalanan ikut lenyap dari tangannya.
+		_segarkan_bawaan()
 		orders_changed.emit()
 
 
@@ -650,11 +834,15 @@ func _buang(pesanan: Dictionary) -> void:
 
 
 # Melepaskan karakter dari tempatnya berdiri sekarang dan melanjutkan antrean.
+#
+# Bawaannya DISAMAKAN ULANG dengan keadaan pesanan, bukan dikosongkan: membatalkan
+# layar rak atau menutup buku resep tidak boleh membuat loyang yang masih ia
+# pegang menguap dari tangannya.
 func _lepas_karakter() -> void:
 	var a: PlayerActor = actor()
 	if a != null:
-		a.set_carry(PlayerActor.CARRY_NONE)
 		a.set_working(false)
+	_segarkan_bawaan()
 	_mulai_tugas_berikutnya()
 
 
@@ -771,6 +959,24 @@ func production() -> ProductionSystem:
 	if not (sys is Dictionary):
 		return null
 	return (sys as Dictionary).get("prod") as ProductionSystem
+
+
+func customers() -> CustomerSim:
+	if _main == null or not is_instance_valid(_main):
+		return null
+	var sys: Variant = _main.get("systems")
+	if not (sys is Dictionary):
+		return null
+	return (sys as Dictionary).get("cust") as CustomerSim
+
+
+func deliveries() -> DeliverySim:
+	if _main == null or not is_instance_valid(_main):
+		return null
+	var sys: Variant = _main.get("systems")
+	if not (sys is Dictionary):
+		return null
+	return (sys as Dictionary).get("deliv") as DeliverySim
 
 
 func world() -> ShopWorld:

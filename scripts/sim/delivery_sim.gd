@@ -105,6 +105,11 @@ var _meta: Dictionary = {}
 
 var _next_id: int = 1
 var _next_in: float = 0.0
+
+## Pesanan yang SUDAH DITETAPKAN untuk hari ini (OpeningDB), urut jam. Selama
+## daftar ini dipakai, undian kedatangan order tidak berjalan sama sekali.
+var _jadwal: Array = []
+var _terjadwal: bool = false
 var _weather_mult: float = 1.0
 var _hour: float = GameConfig.HOUR_START
 
@@ -154,6 +159,7 @@ func on_day_start(day: int) -> void:
 	_delivery_tally.clear()
 	_hour = GameConfig.HOUR_START
 	_resample_weather()
+	_muat_jadwal(day)
 	_next_in = _next_interval()
 	print_verbose("[delivery] hari %d: pengali order cuaca %.2f (%s)" % [
 		day, _weather_mult, GameState.weather,
@@ -179,6 +185,7 @@ func reset() -> void:
 	_weather_mult = 1.0
 	_hour = GameConfig.HOUR_START
 	_walk_in_inside = 0
+	_muat_jadwal(GameState.day)
 	_delivery_tally.clear()
 	_rep_cache = null
 	_staff_cache = null
@@ -287,6 +294,37 @@ func handover(order_id: int) -> bool:
 		return false
 	_complete(order, meta)
 	return true
+
+
+## Pesanan yang sedang menunggu KETUKAN pemain (GDD 3.6.A langkah 2 dan 4):
+## baru masuk dan belum dikemas, atau sudah dikemas dan drivernya menunggu.
+##
+## Yang paling mendesak di depan — driver yang sudah berdiri menunggu lebih
+## rugi daripada pesanan yang jendela persiapannya masih panjang. Dipakai HUD
+## untuk menyalakan balonnya, dan ShopWorld untuk tanda "!" di atas tablet.
+##
+## Pesanan yang stoknya belum cukup TETAP masuk daftar: pemain berhak melihat
+## bahwa ada pesanan menunggu, dan popup-nya yang menjelaskan roti mana yang
+## kurang — bukan balon yang diam-diam tidak muncul.
+func waiting_for_player() -> Array[int]:
+	var mendesak: Array[int] = []
+	var biasa: Array[int] = []
+	for e: Variant in _orders:
+		var o: Dictionary = e
+		var id: int = int(o.get("id", -1))
+		match String(o.get("state", "")):
+			"driver_menunggu":
+				mendesak.append(id)
+			"masuk":
+				biasa.append(id)
+	mendesak.append_array(biasa)
+	return mendesak
+
+
+## Apakah satu pesanan sedang menunggu ketukan pemain.
+func needs_player(order_id: int) -> bool:
+	var state: String = String(order_by_id(order_id).get("state", ""))
+	return state == "masuk" or state == "driver_menunggu"
 
 
 ## Pesanan dengan id tertentu; {} bila sudah tidak ada di tablet.
@@ -425,10 +463,34 @@ func _tick_orders(delta: float) -> void:
 		_refresh_state(order, meta)
 
 
+## Memuat jadwal pesanan hari terjadwal (OpeningDB). Hari biasa mengosongkan
+## daftar ini dan kembali memakai undian kedatangan.
+func _muat_jadwal(day: int) -> void:
+	_jadwal = OpeningDB.deliveries(day)
+	_terjadwal = not _jadwal.is_empty()
+
+
+## Apakah hari ini memakai jadwal pasti, bukan undian.
+func scheduled_today() -> bool:
+	return _terjadwal
+
+
 func _tick_arrivals(delta: float, hour: float) -> void:
 	# Aplikasi hanya menerima order selama toko buka (GDD Seksi 2: 08:00-18:00).
 	if hour < GameConfig.HOUR_OPEN or hour >= GameConfig.HOUR_CLOSE:
 		return
+
+	# Hari pembukaan: pesanan datang tepat pada jam yang sudah ditulis, berisi
+	# resep hari itu sebanyak yang sudah ditetapkan. Tidak ada undian.
+	if _terjadwal:
+		while not _jadwal.is_empty():
+			var e: Dictionary = _jadwal[0]
+			if hour < float(e.get("hour", 0.0)):
+				return
+			_jadwal.remove_at(0)
+			_spawn_order(hour, _items_terjadwal(int(e.get("count", 0))))
+		return
+
 	_next_in -= delta
 	var guard: int = 0
 	while _next_in <= 0.0 and guard < 16:
@@ -460,8 +522,19 @@ func _tablet_capacity() -> int:
 # Pembuatan pesanan
 # ---------------------------------------------------------------------------
 
-func _spawn_order(hour: float) -> void:
-	var items: Dictionary = _compose_items(hour)
+## Isi pesanan hari terjadwal: resep hari itu, sebanyak `count`.
+func _items_terjadwal(count: int) -> Dictionary:
+	var rid: String = OpeningDB.recipe_id(GameState.day)
+	if rid.is_empty() or count <= 0:
+		return {}
+	return {rid: count}
+
+
+## `items_paksa` diisi hanya oleh jadwal hari pembukaan; hari biasa menyusun
+## isinya sendiri dari etalase dan daftar menu aplikasi.
+func _spawn_order(hour: float, items_paksa: Dictionary = {}) -> void:
+	var items: Dictionary = items_paksa if not items_paksa.is_empty() \
+		else _compose_items(hour)
 	if items.is_empty():
 		return
 

@@ -23,30 +23,12 @@ func setup(_args: Dictionary) -> void:
 
 
 func _build_shell() -> void:
-	var bg := ColorRect.new()
-	bg.color = Palette.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	var popup: Control = ProceduralUIFactory.popup("Pemasaran & Iklan")
+	add_child(popup)
+	var head: HBoxContainer = popup.get_meta("head")
+	var v: VBoxContainer = popup.get_meta("body")
+	(popup.get_meta("scrim") as Control).gui_input.connect(_on_scrim_input)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var safe: Vector4 = ProceduralUIFactory.safe_area_margin()
-	margin.add_theme_constant_override("margin_left", int(safe.x) + 20)
-	margin.add_theme_constant_override("margin_top", int(safe.y) + 16)
-	margin.add_theme_constant_override("margin_right", int(safe.z) + 20)
-	margin.add_theme_constant_override("margin_bottom", int(safe.w) + 16)
-	add_child(margin)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	margin.add_child(v)
-
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 10)
-	v.add_child(head)
-	var judul: Label = ProceduralUIFactory.title("Pemasaran & Iklan", 28)
-	judul.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(judul)
 	var tutup: Button = ProceduralUIFactory.button("Tutup", "ghost")
 	tutup.pressed.connect(_on_close)
 	head.add_child(tutup)
@@ -66,6 +48,15 @@ func _on_close() -> void:
 	AudioBus.sfx("tap")
 	if not ScreenRouter.back():
 		ScreenRouter.go("hud")
+
+
+## Ketukan pada kaca gelap di luar kartu = tutup (GDD 12.4: satu ketukan).
+func _on_scrim_input(event: InputEvent) -> void:
+	var tekan: bool = (event is InputEventMouseButton
+			and (event as InputEventMouseButton).pressed) \
+		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+	if tekan:
+		_on_close()
 
 
 func _render() -> void:

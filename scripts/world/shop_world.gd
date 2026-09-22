@@ -26,6 +26,9 @@ const CASHIER_STAND_GAP: float = 0.28
 ## diketuk supaya karakter bisa disuruh berjaga di sana.
 const KIND_CASHIER: String = "cashier"
 
+## Tinggi balon pesanan di atas tablet RotiFood, meter dari alas tablet.
+const TABLET_ALERT_Y: float = 0.36
+
 # --- Kamera isometrik ----------------------------------------------------
 # Isometrik yang sebenarnya = proyeksi ORTOGRAFIK + yaw 45 derajat. Kamera
 # perspektif yang sekadar diputar 45 derajat hanya menghasilkan tampilan 3/4:
@@ -101,6 +104,8 @@ var _mixers: Array[Node3D] = []
 var _ovens: Array[Node3D] = []
 var _displays: Array[Node3D] = []
 var _storages: Array[Node3D] = []
+var _tablet: Node3D = null          # tablet RotiFood di ujung meja kasir
+var _tablet_marker: StationMarker = null
 var _customers: Dictionary = {}     # customer_id -> CustomerActor
 var _drivers: Dictionary = {}       # order_id -> DriverActor
 var _staff: Dictionary = {}         # staff_id -> StaffActor
@@ -826,6 +831,9 @@ func _place_counters(loc: Dictionary) -> void:
 	else:
 		tablet.position = counter.position + Vector3(0.0, EquipmentFactory.DIVIDER_HEIGHT, 0.0)
 		fixtures.add_child(tablet)
+	# Disimpan supaya balon pesanan RotiFood punya tempat bergantung (GDD 3.6.A).
+	_tablet = tablet
+	_tablet_marker = null
 
 	if LocationDB.has_pickup_counter(tier):
 		var p: Node3D = EquipmentFactory.build_pickup_counter()
@@ -1196,10 +1204,95 @@ func _tap(titik: Vector2, ditekan: bool) -> void:
 ## menyuruh karakternya berjaga di sana. Dua daftar terpisah supaya menambah
 ## sasaran ketukan tidak diam-diam membuatnya bisa diseret.
 func tap_pick_at_screen(titik: Vector2) -> Dictionary:
+	# Pembeli yang sedang memanggil didahulukan: ia berdiri TEPAT di depan meja
+	# kasir, dan sinar yang menembus badannya pasti juga mengenai meja di
+	# belakangnya. Yang bisa ditangkap hanyalah pembeli yang balonnya menyala,
+	# jadi ketukan pada pengunjung yang masih melihat-lihat tetap jatuh ke
+	# perabot di belakangnya seperti sebelumnya.
+	var pembeli: Dictionary = _pick_customer_at_screen(titik)
+	if not pembeli.is_empty():
+		return pembeli
+	# Tablet RotiFood berdiri DI ATAS meja kasir: ia harus diperiksa lebih dulu,
+	# kalau tidak setiap ketukan padanya berubah menjadi "berjaga di kasir".
+	var tablet: Dictionary = _pick_tablet_at_screen(titik)
+	if not tablet.is_empty():
+		return tablet
 	var kena: Dictionary = decor_pick_at_screen(titik)
 	if not kena.is_empty():
 		return kena
 	return _pick_cashier_at_screen(titik)
+
+
+## Balon pesanan RotiFood di atas tablet; {} bila tidak ada yang menunggu.
+## `index` berisi id PESANAN paling mendesak (DeliverySim yang mengurutkannya).
+func _pick_tablet_at_screen(titik: Vector2) -> Dictionary:
+	if camera == null or not is_instance_valid(camera):
+		return {}
+	if _tablet == null or not is_instance_valid(_tablet) or not tablet_alert():
+		return {}
+	var pusat: Vector3 = _tablet.global_position + Vector3(0.0, TABLET_ALERT_Y, 0.0)
+	var kotak := AABB(pusat - Vector3(0.22, 0.22, 0.22), Vector3(0.44, 0.44, 0.44))
+	kotak = kotak.merge((_tablet.global_transform * _local_aabb(_tablet)).grow(PICK_PADDING))
+	if kotak.intersects_ray(camera.project_ray_origin(titik),
+			camera.project_ray_normal(titik)) == null:
+		return {}
+	var antre: Array[int] = _delivery_orders()
+	if antre.is_empty():
+		return {}
+	return {"kind": PlayerTaskSystem.STATION_TABLET, "index": antre[0]}
+
+
+func _delivery_orders() -> Array[int]:
+	if main == null or not is_instance_valid(main):
+		return [] as Array[int]
+	var sys: Variant = main.get("systems")
+	if not (sys is Dictionary):
+		return [] as Array[int]
+	var deliv: DeliverySim = (sys as Dictionary).get("deliv") as DeliverySim
+	if deliv == null or not is_instance_valid(deliv):
+		return [] as Array[int]
+	return deliv.waiting_for_player()
+
+
+## Pembeli berbalon "!" yang tersentuh ketukan; {} bila tidak ada.
+##
+## `index` berisi ID PELANGGAN, bukan indeks perabot — PlayerTaskSystem yang
+## menerjemahkannya lewat CustomerSim.
+func _pick_customer_at_screen(titik: Vector2) -> Dictionary:
+	if camera == null or not is_instance_valid(camera):
+		return {}
+	var asal: Vector3 = camera.project_ray_origin(titik)
+	var arah: Vector3 = camera.project_ray_normal(titik)
+	var terbaik: int = -1
+	var terdekat: float = INF
+	for cid: Variant in _customers:
+		var a: CustomerActor = _customers[cid]
+		if a == null or not is_instance_valid(a) or not a.is_inside_tree():
+			continue
+		if not a.has_alert():
+			continue
+		var kena: Variant = _kotak_pembeli(a).intersects_ray(asal, arah)
+		if kena == null:
+			continue
+		var d: float = asal.distance_to(kena as Vector3)
+		if d < terdekat:
+			terdekat = d
+			terbaik = int(cid)
+	if terbaik < 0:
+		return {}
+	return {"kind": PlayerTaskSystem.STATION_CUSTOMER, "index": terbaik}
+
+
+## Kotak ketukan seorang pembeli: badannya DITAMBAH balon di atas kepalanya.
+## Balon itulah yang sebenarnya diincar jari pemain, dan ia melayang di luar
+## kotak badan.
+func _kotak_pembeli(a: CustomerActor) -> AABB:
+	var badan: AABB = (a.global_transform * _local_aabb(a)).grow(PICK_PADDING)
+	var pusat: Vector3 = a.global_position + Vector3(0.0, CustomerActor.ALERT_Y, 0.0)
+	var balon := AABB(pusat - Vector3(0.20, 0.20, 0.20), Vector3(0.40, 0.40, 0.40))
+	if badan.size == Vector3.ZERO:
+		return balon
+	return badan.merge(balon)
 
 
 ## Mesin kasir mana yang tersentuh, bila sinarnya mengenai meja pembatas.
@@ -1371,6 +1464,12 @@ func _spawn_driver(order: Dictionary) -> void:
 	d.global_position = door_pos + Vector3(0.6, 0.0, 0.6)
 	_drivers[oid] = d
 	d.goto(_driver_wait_spot(), "jemput", 0.0)
+	# Sesampainya di tempat jemput ia BERBALIK menghadap pintu, tidak berhenti
+	# dengan arah sisa langkah terakhir yang memunggungi kamera.
+	d.arrived.connect(func(tag: String) -> void:
+		if tag == "jemput" and is_instance_valid(d):
+			d.wait_facing_entrance()
+	)
 
 
 ## Tempat driver ojol menunggu pesanan.
@@ -2028,3 +2127,99 @@ func tick_world(delta: float) -> void:
 			ProceduralAnimationSystem.mixer_spin(whisk, _t)
 
 	refresh_markers()
+	refresh_service(sys)
+
+
+# ---------------------------------------------------------------------------
+# Pelayanan di meja kasir
+# ---------------------------------------------------------------------------
+
+## Menyegarkan dua hal yang sama-sama bersumber dari CustomerSim: balon "!" di
+## atas kepala pembeli yang menunggu, dan gerakan membungkus karakter pemain.
+##
+## Seperti penanda perabot, dunia TIDAK menghitung sendiri kapan balon muncul —
+## ia hanya menggambar apa yang dilaporkan simulasi. Satu sumber kebenaran.
+func refresh_service(sys: Variant) -> void:
+	if not (sys is Dictionary):
+		return
+	var cust: CustomerSim = (sys as Dictionary).get("cust") as CustomerSim
+	if cust == null or not is_instance_valid(cust):
+		return
+
+	var menunggu: Dictionary = {}
+	for id: int in cust.waiting_for_player():
+		menunggu[id] = true
+
+	# Siapa yang sudah menenteng roti dari rak. Dibaca dari keranjang di
+	# simulasi, bukan ditebak dari posisi aktor: yang menentukan roti sudah
+	# berpindah tangan adalah CustomerSim.
+	var bawa: Dictionary = {}
+	for e: Variant in cust.customers():
+		var c: Dictionary = e
+		if not (c.get("basket", {}) as Dictionary).is_empty():
+			bawa[int(c.get("id", -1))] = true
+
+	_refresh_tablet((sys as Dictionary).get("deliv") as DeliverySim)
+
+	for cid: Variant in _customers:
+		var a: CustomerActor = _customers[cid]
+		if a == null or not is_instance_valid(a):
+			continue
+		a.set_belanjaan(bool(bawa.get(int(cid), false)))
+		# Balon baru muncul setelah kakinya benar-benar sampai di antrean:
+		# tanda seru yang ikut berjalan terbaca seperti pembeli yang memanggil
+		# dari tengah ruangan, padahal ia belum sampai ke meja.
+		if bool(menunggu.get(int(cid), false)) and a.waypoints.is_empty():
+			a.show_alert()
+		else:
+			a.hide_alert()
+
+	_refresh_bungkus(cust)
+
+
+## Balon "!" di atas tablet RotiFood: ada pesanan aplikasi yang menunggu
+## diketuk (GDD 3.6.A langkah 1: "Balon pesanan digital muncul di atas tablet").
+##
+## Tanda yang sama dengan perabot dapur dan pembeli fisik, di tempat yang
+## berbeda — pemain tidak perlu belajar bahasa isyarat ketiga.
+func _refresh_tablet(deliv: DeliverySim) -> void:
+	if _tablet == null or not is_instance_valid(_tablet):
+		return
+	var perlu: bool = deliv != null and is_instance_valid(deliv) \
+		and not deliv.waiting_for_player().is_empty()
+	if not perlu:
+		if _tablet_marker != null and is_instance_valid(_tablet_marker):
+			_tablet_marker.hide_marker()
+		return
+	if _tablet_marker == null or not is_instance_valid(_tablet_marker):
+		_tablet_marker = StationMarker.new()
+		_tablet_marker.name = "MarkerTablet"
+		_tablet_marker.position = Vector3(0.0, TABLET_ALERT_Y, 0.0)
+		_tablet.add_child(_tablet_marker)
+	_tablet_marker.show_alert()
+
+
+## Apakah balon tablet sedang menyala. Dipakai pemilihan ketukan dan uji.
+func tablet_alert() -> bool:
+	return _tablet_marker != null and is_instance_valid(_tablet_marker) \
+		and _tablet_marker.mode == StationMarker.MODE_ALERT
+
+
+## Karakter pemain terlihat membungkus pesanan selama transaksi di mejanya
+## berjalan. Diturunkan dari keadaan simulasi, bukan disimpan sebagai penanda:
+## begitu ia melangkah pergi, manning_lane() berubah dan gerakannya berhenti
+## sendiri — persis seperti transaksinya yang ikut membeku (GDD 3.0.C).
+func _refresh_bungkus(cust: CustomerSim) -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	var pt: PlayerTaskSystem = _player_tasks()
+	var lane: int = pt.manning_lane() if pt != null else -1
+	var bungkus: bool = lane >= 0 and cust.serving_id(lane) >= 0
+	if bungkus == _player.is_wrapping():
+		return
+	_player.set_wrapping(bungkus)
+	# Kantong kertas menggantikan apa pun yang sedang ia pegang. Begitu
+	# bungkusannya selesai, adonan atau loyang yang tertunda harus kembali ke
+	# tangannya — pesanan dapurnya belum ke mana-mana.
+	if not bungkus and pt != null:
+		pt.refresh_carry()

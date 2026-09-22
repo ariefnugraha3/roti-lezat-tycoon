@@ -128,8 +128,19 @@ var _main: Node = null
 ## Pelanggan yang sedang berada di dalam toko, URUT KEDATANGAN (FIFO antrean).
 var _customers: Array = []
 
+## Jam in-game terakhir yang dilaporkan Main. Dipakai saat mengembalikan roti
+## ke rak: entri rak membawa jam panggangnya sendiri, jadi kelas ini harus tahu
+## sekarang pukul berapa tanpa bertanya ke DayCycle.
+var _hour: float = GameConfig.HOUR_START
+
 ## Jalur kasir paralel (GDD 3.1: lebih dari satu meja kasir membagi beban antrean).
 var _lanes: Array = []
+
+## Kedatangan yang SUDAH DITETAPKAN untuk hari ini (OpeningDB), urut jam. Selama
+## daftar ini dipakai, undian Poisson tidak berjalan sama sekali: tiga hari
+## pembukaan harus meminta jumlah roti yang sama persis dengan bahan di gudang.
+var _jadwal: Array = []
+var _terjadwal: bool = false
 
 var _next_id: int = 1
 
@@ -181,6 +192,7 @@ func setup(main: Node) -> void:
 ## `delta` = detik NYATA, `hour` = jam in-game. Dipanggil Main hanya selama
 ## fase "prep"/"sell"; kedatangan pembeli sendiri dibatasi jam buka toko.
 func sim_tick(delta: float, hour: float) -> void:
+	_hour = hour
 	if delta <= 0.0:
 		return
 	_update_spawn(delta, hour)
@@ -192,6 +204,8 @@ func on_day_start(_day: int) -> void:
 	_customers.clear()
 	_basket_quality.clear()
 	_recipe_sold.clear()
+	_hour = GameConfig.HOUR_START
+	_muat_jadwal(_day)
 	_spawn_gap = 0.0
 	_vip_today = 0.0
 	_arch_cache_tier = -1
@@ -221,6 +235,8 @@ func reset() -> void:
 	_recipe_sold.clear()
 	_lanes.clear()
 	_next_id = 1
+	_hour = GameConfig.HOUR_START
+	_muat_jadwal(GameState.day)
 	_spawn_gap = 0.0
 	_vip_today = 0.0
 	_vip_pending = {"day": 0, "impact": 0.0}
@@ -245,25 +261,82 @@ func customers() -> Array:
 	return _customers.duplicate()
 
 
-## Pemain mengetuk pelanggan untuk melayaninya langsung (GDD 12.4: satu ketukan
-## per aksi). Pelanggan yang diketuk maju ke meja kasir dan transaksinya selesai
-## saat itu juga. Kembalikan false bila pelanggan tidak ada atau belum mengantre.
-func serve(customer_id: int) -> bool:
-	var c: Dictionary = _find(customer_id)
+## Satu pelanggan menurut id; {} bila ia sudah tidak ada di dalam toko.
+## Salinan, bukan rujukan: layar UI tidak boleh ikut mengubah isi simulasi.
+func customer(customer_id: int) -> Dictionary:
+	return _find(customer_id).duplicate(true)
+
+
+## Pelanggan yang sudah berdiri di depan meja kasir MANUAL sambil menenteng
+## belanjaannya dan menunggu pemain mengetuk balon "!"-nya (GDD 2 "Tahap
+## Jualan": pemain klik bubble pesanan, klik OK, lalu uang masuk).
+##
+## Hanya kepala antrean tiap jalur manual yang masuk daftar: yang di belakangnya
+## belum berhadapan dengan mesin kasir, dan balon di atas kepala mereka akan
+## terbaca sebagai "layani saya duluan".
+##
+## Jalur yang dijaga Asisten Kasir TIDAK pernah muncul di sini — itulah yang
+## dibeli pemain saat menggajinya (GDD 3.1).
+func waiting_for_player() -> Array[int]:
+	var out: Array[int] = []
+	for i: int in range(_lanes.size()):
+		var head: Dictionary = _awaiting_at(i)
+		if head.is_empty():
+			continue
+		out.append(int(head.get("id", -1)))
+	return out
+
+
+## Jalur kasir manual tempat pelanggan ini menunggu diketuk; -1 bila ia sedang
+## tidak menunggu pemain (masih memilih roti, sudah dilayani, atau jalurnya
+## dijaga asisten).
+func waiting_lane(customer_id: int) -> int:
+	for i: int in range(_lanes.size()):
+		var head: Dictionary = _awaiting_at(i)
+		if not head.is_empty() and int(head.get("id", -1)) == customer_id:
+			return i
+	return -1
+
+
+## Pembeli yang sedang menunggu ketukan pemain di jalur ke-`index`; {} bila
+## jalur itu dijaga asisten, sedang memproses orang lain, atau antreannya kosong.
+func _awaiting_at(index: int) -> Dictionary:
+	if index < 0 or index >= _lanes.size():
+		return {}
+	var lane: Dictionary = _lanes[index]
+	if not bool(lane.get("manual", false)):
+		return {}
+	if int(lane.get("serving_id", -1)) >= 0:
+		return {}
+	return _head_of(index)
+
+
+## Pelanggan yang sedang diproses di jalur kasir ke-`lane_index`; -1 bila jalur
+## itu menganggur. Dunia 3D memakainya untuk tahu kapan karakter pemain harus
+## terlihat membungkus pesanan.
+func serving_id(lane_index: int) -> int:
+	if lane_index < 0 or lane_index >= _lanes.size():
+		return -1
+	return int((_lanes[lane_index] as Dictionary).get("serving_id", -1))
+
+
+## Pemain menekan "OK" pada popup pesanan: roti mulai dibungkus.
+##
+## Mengembalikan false bila pesanan itu sudah tidak sah — pembelinya keburu
+## pulang, kasir keburu disewa, atau karakter pemain tidak sedang berjaga di
+## meja kasir itu (GDD 3.0.C: transaksi hanya berjalan selama ia berdiri di
+## sana). Pemanggil memakai hasilnya untuk memutuskan perlu berbunyi atau tidak.
+func confirm_service(customer_id: int) -> bool:
+	var lane_index: int = waiting_lane(customer_id)
+	if lane_index < 0:
+		return false
+	if not _pemain_berjaga(lane_index):
+		return false
+	var c: Dictionary = _awaiting_at(lane_index)
 	if c.is_empty():
 		return false
-	var st: String = String(c.get("state", ""))
-	if st != STATE_QUEUE and st != STATE_SERVED:
-		return false
-	if not _fill_basket(c):
-		_leave_angry(c, REASON_OUT_OF_STOCK)
-		return false
-	c["state"] = STATE_SERVED
-	var lane: Dictionary = _lane_of(c)
-	if lane.is_empty():
-		lane = {"serving_id": -1, "tip_chance": 0.0}
-	_complete(c, lane)
-	return true
+	_start_service(c, _lanes[lane_index])
+	return String(c.get("state", "")) == STATE_SERVED
 
 
 ## Jumlah jalur kasir yang sedang terbuka (minimal 1, yaitu pemain sendiri).
@@ -292,7 +365,22 @@ func pending_vip_impact() -> float:
 # Kedatangan pelanggan
 # ---------------------------------------------------------------------------
 
+## Memuat jadwal kedatangan hari terjadwal (OpeningDB). Hari biasa mengosongkan
+## daftar ini dan kembali memakai undian Poisson.
+func _muat_jadwal(day: int) -> void:
+	_jadwal = OpeningDB.walk_ins(day)
+	_terjadwal = not _jadwal.is_empty()
+
+
+## Apakah hari ini memakai jadwal pasti, bukan undian.
+func scheduled_today() -> bool:
+	return _terjadwal
+
+
 func _update_spawn(delta: float, hour: float) -> void:
+	if _terjadwal:
+		_update_spawn_terjadwal(hour)
+		return
 	if not _is_open(hour):
 		return
 	var rate: float = _arrival_rate_per_second(hour)
@@ -448,14 +536,30 @@ func _pick_archetype(hour: float) -> String:
 	return last
 
 
-func _spawn_one(hour: float) -> void:
-	var arch: String = _pick_archetype(hour)
+## Hari terjadwal: pembeli datang tepat pada jam yang sudah ditulis, dengan
+## jumlah belanja yang sudah ditetapkan pula. Tidak ada undian sama sekali —
+## kalau jumlahnya boleh bergeser, "bahan pas permintaan" tidak akan pernah pas.
+func _update_spawn_terjadwal(hour: float) -> void:
+	while not _jadwal.is_empty():
+		var e: Dictionary = _jadwal[0]
+		if hour < float(e.get("hour", 0.0)):
+			return
+		_jadwal.remove_at(0)
+		_spawn_one(hour, String(e.get("archetype", "")), int(e.get("count", 0)))
+
+
+## `arch_paksa`/`count_paksa` diisi hanya oleh jadwal hari pembukaan; hari biasa
+## mengundi keduanya seperti biasa.
+func _spawn_one(hour: float, arch_paksa: String = "", count_paksa: int = 0) -> void:
+	var arch: String = arch_paksa if not arch_paksa.is_empty() else _pick_archetype(hour)
 	if arch.is_empty():
 		return
 	var db: Dictionary = CustomerDB.entry(arch)
 	if db.is_empty():
 		return
 	var c: Dictionary = _new_customer(arch, db, hour)
+	if count_paksa > 0:
+		c["count"] = count_paksa
 
 	# GDD 11.1 "Total Pelanggan Fisik": dihitung sejak pelanggan TIBA, bukan saat
 	# transaksinya berhasil. Kalau hanya yang terlayani yang dihitung, angkanya
@@ -535,7 +639,12 @@ func _browse_time(c: Dictionary) -> float:
 
 
 ## Selesai melihat-lihat rak: tetapkan daftar incaran, sesuaikan jumlah beli
-## menurut harga, lalu masuk ke jalur kasir terpendek.
+## menurut harga, AMBIL rotinya dari rak, lalu masuk ke jalur kasir terpendek.
+##
+## Roti berpindah tangan DI RAK, bukan di meja kasir (GDD 2 "Tahap Jualan":
+## pelanggan fisik masuk memilih roti dari rak display LALU mengantre di kasir).
+## Itu sebabnya stok etalase berkurang saat pembeli masih berjalan menuju
+## antrean — yang ia bawa ke kasir memang sudah ada di tangannya.
 func _finish_browsing(c: Dictionary) -> void:
 	var arch: String = String(c.get("archetype", ""))
 	var scan: Dictionary = _scan_display(arch)
@@ -548,7 +657,15 @@ func _finish_browsing(c: Dictionary) -> void:
 		else:
 			_leave_angry(c, REASON_OUT_OF_STOCK)
 		return
-	_apply_price_mood(c)
+	# Hari terjadwal: jumlah belanja sudah ditetapkan OpeningDB dan TIDAK boleh
+	# digeser suasana hati harga — kalau bergeser, permintaan hari itu tidak lagi
+	# sama dengan bahan yang disediakan.
+	if not _terjadwal:
+		_apply_price_mood(c)
+	if not _fill_basket(c):
+		# Rak keburu terkuras pembeli di depannya saat ia masih memilih-milih.
+		_leave_angry(c, REASON_OUT_OF_STOCK)
+		return
 	c["waited"] = 0.0
 	c["state"] = STATE_QUEUE
 	c["cashier_index"] = _shortest_lane()
@@ -690,9 +807,16 @@ func _front_stock(recipe_id: String, arch: String) -> int:
 	return total
 
 
-## Rincian kualitas `want_n` roti terdepan: {"total", "prima", "burnt"}.
+## Rincian kualitas `want_n` roti terdepan:
+## {"total", "prima", "burnt", "items": [{quality, count, baked_hour}, ...]}.
+##
+## `items` berurut dari slot paling depan — urutan yang sama dipakai
+## GameState.display_take(). Itulah yang membuat roti bisa DIKEMBALIKAN persis
+## seperti semula bila pembelinya batal membeli: kualitas dan jam panggangnya
+## ikut tercatat, bukan cuma jumlahnya.
 func _front_qualities(recipe_id: String, arch: String, want_n: int) -> Dictionary:
-	var out: Dictionary = {"total": 0, "prima": 0, "burnt": 0}
+	var out: Dictionary = {"total": 0, "prima": 0, "burnt": 0, "items": []}
+	var items: Array = out["items"]
 	var left: int = want_n
 	for e: Variant in _slots_for(recipe_id):
 		if left <= 0:
@@ -710,13 +834,21 @@ func _front_qualities(recipe_id: String, arch: String, want_n: int) -> Dictionar
 			out["prima"] = int(out["prima"]) + n
 		if BURNT_QUALITIES.has(q):
 			out["burnt"] = int(out["burnt"]) + n
+		items.append({
+			"quality": q,
+			"count": n,
+			"baked_hour": float(s.get("baked_hour", _hour)),
+		})
 	return out
 
 
-## Ambil roti dari rak saat pelanggan tiba di meja kasir. Kembalikan false bila
-## tidak ada satu pun roti yang bisa diambil (GDD 9.1: "stok habis saat pelanggan
-## sudah di kasir"). Emak-emak arisan memang bisa menguras rak sampai kosong —
-## itu fitur, bukan cacat (GDD "Perilaku Konsumen").
+## Ambil roti dari rak DI DEPAN RAK, selesai memilih-milih. Kembalikan false
+## bila tidak ada satu pun roti yang bisa diambil (GDD 9.1: "stok habis").
+## Emak-emak arisan memang bisa menguras rak sampai kosong — itu fitur, bukan
+## cacat (GDD "Perilaku Konsumen").
+##
+## Rincian tiap roti yang terambil disimpan di `_basket_quality`, bukan di
+## Dictionary pelanggan: bentuk pelanggan mengikuti ARCHITECTURE 7.1 PERSIS.
 func _fill_basket(c: Dictionary) -> bool:
 	var basket: Dictionary = c.get("basket", {})
 	if not basket.is_empty():
@@ -729,6 +861,7 @@ func _fill_basket(c: Dictionary) -> bool:
 	var q_total: int = 0
 	var q_prima: int = 0
 	var q_burnt: int = 0
+	var diambil: Array = []
 
 	for v: Variant in want:
 		if need <= 0:
@@ -751,6 +884,10 @@ func _fill_basket(c: Dictionary) -> bool:
 		q_total += got
 		q_prima += mini(int(q.get("prima", 0)), got)
 		q_burnt += mini(int(q.get("burnt", 0)), got)
+		for e: Variant in _potong_rincian(q.get("items", []), got):
+			var it: Dictionary = e
+			it["recipe_id"] = rid
+			diambil.append(it)
 
 	c["basket"] = basket
 	if q_total <= 0:
@@ -759,8 +896,33 @@ func _fill_basket(c: Dictionary) -> bool:
 		"total": q_total,
 		"prima": q_prima,
 		"burnt": q_burnt,
+		"items": diambil,
 	}
 	return true
+
+
+## Memangkas rincian `items` menjadi tepat `got` roti, urut dari yang terdepan.
+##
+## Rincian disusun SEBELUM display_take(), jadi bila rak ternyata memberi lebih
+## sedikit daripada yang terlihat, sisanya harus dibuang — kalau tidak,
+## pengembalian roti akan MENCIPTAKAN roti yang tidak pernah diambil.
+func _potong_rincian(items: Array, got: int) -> Array:
+	var out: Array = []
+	var left: int = got
+	for e: Variant in items:
+		if left <= 0:
+			break
+		var it: Dictionary = e
+		var n: int = mini(int(it.get("count", 0)), left)
+		if n <= 0:
+			continue
+		left -= n
+		out.append({
+			"quality": String(it.get("quality", "normal")),
+			"count": n,
+			"baked_hour": float(it.get("baked_hour", _hour)),
+		})
+	return out
 
 
 # ---------------------------------------------------------------------------
@@ -968,7 +1130,13 @@ func _update_lanes(delta: float) -> void:
 					_complete(cur, lane)
 
 		# 2) Kasir menganggur -> panggil kepala antrean.
-		if int(lane.get("serving_id", -1)) < 0:
+		#
+		#    Jalur MANUAL berhenti di sini: pembelinya berdiri di depan meja
+		#    dengan balon "!" di atas kepalanya sampai pemain mengetuknya dan
+		#    menekan OK (GDD 2 "Tahap Jualan", GDD 3.1: "Keberadaan kasir
+		#    membebaskan pemain dari keharusan mengklik balon pesanan secara
+		#    manual"). Yang memulai transaksinya adalah confirm_service().
+		if int(lane.get("serving_id", -1)) < 0 and not bool(lane.get("manual", false)):
 			var head: Dictionary = _head_of(i)
 			if not head.is_empty():
 				_start_service(head, lane)
@@ -991,6 +1159,9 @@ func _pemain_berjaga(lane_index: int) -> bool:
 	return pt.manning_lane() == lane_index
 
 
+## Mesin kasir mulai memproses satu pembeli. Keranjangnya normalnya sudah terisi
+## sejak di depan rak; pengisian di sini hanya jaring pengaman untuk pembeli yang
+## entah bagaimana sampai ke meja dengan tangan kosong.
 func _start_service(c: Dictionary, lane: Dictionary) -> void:
 	if not _fill_basket(c):
 		_leave_angry(c, REASON_OUT_OF_STOCK)
@@ -1086,9 +1257,35 @@ func _leave_angry(c: Dictionary, reason: String) -> void:
 	c["state"] = STATE_LEFT
 	_stat_add_i("customers_angry", 1)
 	_track_vip(c, false)
+	_return_basket(c)
 	_remove(c)
 	AudioBus.sfx("sad")
 	EventBus.customer_left_angry.emit(c, reason)
+
+
+## Menaruh kembali roti yang sudah terlanjur diambil dari rak.
+##
+## Sejak roti berpindah tangan DI RAK, pembeli yang batal membayar pergi sambil
+## membawa roti yang bukan miliknya. Tanpa pengembalian ini setiap pembeli yang
+## kehabisan kesabaran diam-diam memusnahkan stok toko, dan "roti sisa" pada
+## nota harian tidak akan pernah cocok dengan isi rak yang terlihat pemain.
+##
+## Kualitas dan jam panggang ikut dikembalikan apa adanya: roti yang sempat
+## dipegang pembeli tidak menjadi lebih baru, dan display_add() memang memilih
+## jam panggang PALING AWAL saat menumpuknya kembali ke slot lama.
+func _return_basket(c: Dictionary) -> void:
+	var cid: int = int(c.get("id", -1))
+	var quality: Dictionary = _basket_quality.get(cid, {})
+	var items: Array = quality.get("items", [])
+	for e: Variant in items:
+		var it: Dictionary = e
+		var n: int = int(it.get("count", 0))
+		if n <= 0:
+			continue
+		GameState.display_add(String(it.get("recipe_id", "")), n,
+			String(it.get("quality", "normal")), float(it.get("baked_hour", _hour)))
+	c["basket"] = {}
+	_basket_quality.erase(cid)
 
 
 ## GDD "Perilaku Konsumen": food vlogger membuat rating melonjak bila dilayani
