@@ -56,7 +56,7 @@ func _build_shell() -> void:
 	head.add_child(ProceduralUIFactory.icon("coin", 22, Palette.GOLD_STAR))
 	_coin_label = ProceduralUIFactory.label(GameConfig.kr(GameState.coins), 18)
 	head.add_child(_coin_label)
-	var tutup: Button = ProceduralUIFactory.button("Tutup", "ghost")
+	var tutup: Button = ProceduralUIFactory.icon_button("cross", "Tutup", "ghost", 22)
 	tutup.pressed.connect(_on_close)
 	head.add_child(tutup)
 

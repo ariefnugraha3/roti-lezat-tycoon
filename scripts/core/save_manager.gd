@@ -112,6 +112,13 @@ func load_game() -> bool:
 	return true
 
 
+# Memaksa sinkronisasi `user://` ke penyimpanan nyata (IndexedDB di Web).
+# Publik karena AudioBus menulis preferensi suaranya sendiri ke user://settings.cfg
+# dan butuh jaminan yang sama bahwa datanya mendarat sebelum tab ditutup.
+func sync_user_files() -> void:
+	_sync_web_filesystem()
+
+
 func has_save() -> bool:
 	return FileAccess.file_exists(PATH)
 

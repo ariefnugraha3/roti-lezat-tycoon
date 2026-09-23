@@ -4,7 +4,7 @@ extends Control
 ##
 ## Tata letak sesuai GDD:
 ##   kiri atas   : Saldo Koin Roti + Rating Toko
-##   kanan atas  : Jam in-game + Meteran Biaya Utilitas berjalan
+##   kanan atas  : Jam in-game + Meteran Biaya Utilitas + Menu/Jeda/Kecepatan
 ##   kanan layar : Counter Stok Roti di etalase
 ##   kanan bawah : Quick Menu (Pasar, Karyawan, Iklan, Dekorasi)
 ##
@@ -23,14 +23,15 @@ var _coin_label: Label = null
 var _rating_label: Label = null
 var _rotifood_label: Label = null
 var _clock_label: Label = null
-var _phase_label: Label = null
+var _phase_icon: IconCanvas = null
 var _utility_label: Label = null
 var _weather_icon: IconCanvas = null
-var _weather_label: Label = null
+
 var _stock_box: VBoxContainer = null
 var _order_box: VBoxContainer = null
 var _order_empty: Label = null
 ## Baris "Permintaan hari ini", hanya tampil pada tiga hari pembukaan.
+var _target_row: HBoxContainer = null
 var _target_label: Label = null
 ## order_id -> Button. Tombol dipakai ULANG antar penyegaran; lihat _refresh_orders().
 var _order_buttons: Dictionary = {}
@@ -202,8 +203,12 @@ func _build_top_right(parent: Node) -> void:
 	h1.add_child(ProceduralUIFactory.icon("clock", 24, Palette.UI_WOOD))
 	_clock_label = ProceduralUIFactory.label("05:00", 22)
 	h1.add_child(_clock_label)
-	_phase_label = ProceduralUIFactory.label("Persiapan", 14, Palette.TEXT_MUTED)
-	h1.add_child(_phase_label)
+	# Fase hari dibaca dari IKON, bukan kata: koki = menyiapkan stok, orang =
+	# toko sedang melayani, bulan = pintu sudah ditutup.
+	_phase_icon = ProceduralUIFactory.icon("chef", 20, Palette.TEXT_MUTED)
+	_phase_icon.tooltip_text = "Tahap Persiapan"
+	_phase_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	h1.add_child(_phase_icon)
 	v.add_child(h1)
 
 	var h2 := HBoxContainer.new()
@@ -213,20 +218,31 @@ func _build_top_right(parent: Node) -> void:
 	h2.add_child(_utility_label)
 	v.add_child(h2)
 
+	# Cuaca: cukup ikonnya. Namanya ("Cerah"/"Hujan"/"Liburan") sudah dibawa
+	# gambar matahari / hujan / balon pesta itu sendiri.
 	var h3 := HBoxContainer.new()
 	h3.add_theme_constant_override("separation", 8)
 	_weather_icon = ProceduralUIFactory.icon("sun", 20, Palette.GOLD_STAR)
+	_weather_icon.mouse_filter = Control.MOUSE_FILTER_PASS
 	h3.add_child(_weather_icon)
-	_weather_label = ProceduralUIFactory.label("Cerah", 14, Palette.TEXT_MUTED)
-	h3.add_child(_weather_label)
 	v.add_child(h3)
 
 	var h4 := HBoxContainer.new()
 	h4.add_theme_constant_override("separation", 6)
-	_pause_btn = ProceduralUIFactory.button("Jeda", "ghost")
+	# Roda gigi: Menu dalam permainan (suara, simpan, keluar). Sengaja duduk di
+	# samping tombol jeda, bukan di Quick Menu — isinya bukan bagian dari
+	# mengelola toko, melainkan dari mengelola sesi bermain.
+	var menu_btn: Button = ProceduralUIFactory.icon_button("gear", "Menu", "ghost", 22)
+	menu_btn.pressed.connect(_on_menu)
+	h4.add_child(menu_btn)
+	_pause_btn = ProceduralUIFactory.icon_button("pause", "Jeda", "ghost", 22)
 	_pause_btn.pressed.connect(_on_pause)
 	h4.add_child(_pause_btn)
+	# Tombol kecepatan tetap membawa ANGKA: "2x" bukan label yang bisa diganti
+	# gambar — nilainya sendiri yang menjadi isinya.
 	_speed_btn = ProceduralUIFactory.button("1x", "ghost")
+	_speed_btn.custom_minimum_size = Vector2(
+		ProceduralUIFactory.TOUCH_MIN, ProceduralUIFactory.TOUCH_MIN)
 	_speed_btn.pressed.connect(_on_speed)
 	h4.add_child(_speed_btn)
 	v.add_child(h4)
@@ -241,31 +257,41 @@ func _refresh_target() -> void:
 		return
 	var day: int = GameState.day
 	if not OpeningDB.has_plan(day):
-		_target_label.visible = false
+		_target_row.visible = false
 		return
 	var minta: int = OpeningDB.demand(day)
 	var terjual: int = int(GameState.stats.get("bread_sold", 0))
-	_target_label.visible = true
-	_target_label.text = "Permintaan: %d / %d roti" % [mini(terjual, minta), minta]
+	_target_row.visible = true
+	_target_label.text = "%d / %d" % [mini(terjual, minta), minta]
+	_target_label.tooltip_text = "Permintaan hari ini"
 	_target_label.add_theme_color_override("font_color",
 		Palette.SUCCESS if terjual >= minta else Palette.TEXT)
 
 
 func _build_stock_panel(parent: Node) -> void:
 	var v: VBoxContainer = _panel_box(parent)
-	var t: Label = ProceduralUIFactory.label("Stok Etalase", 14, Palette.TEXT_MUTED)
+	# Judul panel diganti ikon roti: satu gambar cukup untuk "ini isi etalase".
+	var t: IconCanvas = ProceduralUIFactory.icon("bread", 20, Palette.GOLDEN_CRUST)
+	t.tooltip_text = "Stok Etalase"
+	t.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_child(t)
 	_stock_box = VBoxContainer.new()
 	_stock_box.add_theme_constant_override("separation", 2)
 	v.add_child(_stock_box)
-	_target_label = ProceduralUIFactory.label("", 13)
-	_target_label.visible = false
-	v.add_child(_target_label)
+	# Baris target: ikon keranjang belanja + angka "terpenuhi / diminta".
+	var baris_target: HBoxContainer = ProceduralUIFactory.icon_value(
+		"bag", "", 18, 13, Palette.UI_WOOD)
+	_target_label = baris_target.get_meta("value") as Label
+	baris_target.visible = false
+	_target_row = baris_target
+	v.add_child(baris_target)
 
 
 func _build_order_panel(parent: Node) -> void:
 	var v: VBoxContainer = _panel_box(parent)
-	var t: Label = ProceduralUIFactory.label("Pesanan RotiFood", 14, Palette.TEXT_MUTED)
+	var t: IconCanvas = ProceduralUIFactory.icon("scooter", 20, Palette.OJOL_GREEN)
+	t.tooltip_text = "Pesanan RotiFood"
+	t.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_child(t)
 	_order_box = VBoxContainer.new()
 	_order_box.add_theme_constant_override("separation", 4)
@@ -299,14 +325,15 @@ func _build_view_switcher(parent: Node) -> void:
 
 	_view_buttons.clear()
 	var entries: Array = [
-		[ShopWorld.VIEW_KITCHEN, "Dapur"],
-		[ShopWorld.VIEW_ALL, "Semua"],
-		[ShopWorld.VIEW_SHOP, "Toko"],
+		[ShopWorld.VIEW_KITCHEN, "Dapur", "kitchen"],
+		[ShopWorld.VIEW_ALL, "Semua", "frame"],
+		[ShopWorld.VIEW_SHOP, "Toko", "shop"],
 	]
 	for e_v in entries:
 		var e: Array = e_v
 		var id: String = String(e[0])
-		var b: Button = ProceduralUIFactory.button(String(e[1]), "secondary")
+		var b: Button = ProceduralUIFactory.icon_button(
+			String(e[2]), String(e[1]), "secondary")
 		b.pressed.connect(_on_view.bind(id))
 		h.add_child(b)
 		_view_buttons[id] = b
@@ -366,11 +393,12 @@ func _build_quick_menu(parent: Node) -> void:
 		["Pasar", "cart", "market"],
 		["Karyawan", "people", "staff"],
 		["Iklan", "megaphone", "marketing"],
-		["Dekor", "box", "decoration"],
+		["Dekorasi", "box", "decoration"],
 	]
 	for e_v in entries:
 		var e: Array = e_v
-		var b: Button = ProceduralUIFactory.button(String(e[0]), "secondary")
+		var b: Button = ProceduralUIFactory.icon_button(
+			String(e[1]), String(e[0]), "secondary")
 		b.pressed.connect(_on_quick.bind(String(e[2])))
 		h.add_child(b)
 
@@ -399,16 +427,19 @@ func _refresh() -> void:
 	if day is DayCycle:
 		var d: DayCycle = day
 		_clock_label.text = GameConfig.clock(d.hour)
-		_phase_label.text = _phase_text(d.phase)
-		_pause_btn.text = "Lanjut" if d.is_paused() else "Jeda"
+		_phase_icon.icon_name = _phase_icon_name(d.phase)
+		_phase_icon.tooltip_text = _phase_text(d.phase)
+		_set_icon_button(_pause_btn, "play" if d.is_paused() else "pause",
+			"Lanjut" if d.is_paused() else "Jeda")
 		_speed_btn.text = "%.0fx" % d.time_scale
 
 	var econ: Variant = sys.get("econ")
 	if econ != null and (econ as Object).has_method("utility_today"):
 		_utility_label.text = GameConfig.kr(float((econ as Object).call("utility_today")))
 
-	_weather_label.text = String(WeatherDB.entry(GameState.weather).get("name", "Cerah"))
 	_weather_icon.icon_name = _weather_icon_name(GameState.weather)
+	_weather_icon.tooltip_text = String(
+		WeatherDB.entry(GameState.weather).get("name", "Cerah"))
 
 	_refresh_stock()
 	_refresh_target()
@@ -422,6 +453,26 @@ func _phase_text(p: String) -> String:
 		GameConfig.PHASE_SELL: return "Jualan"
 		GameConfig.PHASE_CLOSE: return "Tutup"
 	return p
+
+
+## Ikon fase hari: koki = menyiapkan stok, orang = melayani pembeli,
+## bulan = pintu sudah ditutup.
+func _phase_icon_name(p: String) -> String:
+	match p:
+		GameConfig.PHASE_SELL: return "people"
+		GameConfig.PHASE_CLOSE: return "moon"
+	return "chef"
+
+
+## Mengganti gambar di dalam tombol ikon tanpa membangun ulang tombolnya —
+## tombol yang dibuang di sela tekan-lepas jari menelan ketukan pemain.
+func _set_icon_button(b: Button, icon_name: String, tooltip: String) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	b.tooltip_text = tooltip
+	var ic: IconCanvas = b.get_meta("icon", null) as IconCanvas
+	if ic != null and is_instance_valid(ic):
+		ic.icon_name = icon_name
 
 
 func _weather_icon_name(w: String) -> String:
@@ -556,6 +607,13 @@ func _find_main() -> Node:
 func _on_quick(screen: String) -> void:
 	AudioBus.sfx("tap")
 	ScreenRouter.go(screen)
+
+
+## Membuka Menu dalam permainan. Waktu dijeda oleh layar itu sendiri, lalu
+## dikembalikan ke keadaan semula saat ditutup.
+func _on_menu() -> void:
+	AudioBus.sfx("tap")
+	ScreenRouter.go("settings")
 
 
 func _on_pause() -> void:

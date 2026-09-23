@@ -20,6 +20,10 @@ const MUSIC_MOODS: Array[String] = ["cozy", "busy", "rain", "summary", "menu"]
 const MUSIC_VOLUME_DB: float = -13.0
 const SFX_VOLUME_DB: float = -6.0
 
+## Preferensi perangkat (bukan isi permainan) disimpan terpisah dari savegame:
+## mematikan suara harus tetap berlaku walau pemain menekan "Main Baru".
+const SETTINGS_PATH: String = "user://settings.cfg"
+
 ## Diset true setelah sentuhan pertama pengguna. Musik tidak akan berbunyi sebelum ini.
 var unlocked: bool = false
 var muted: bool = false:
@@ -33,6 +37,8 @@ var _music_player: AudioStreamPlayer = null
 var _current_mood: String = ""
 ## Mood yang diminta sebelum audio ter-unlock; diputar begitu unlock terjadi.
 var _pending_mood: String = ""
+## True selagi preferensi dibaca dari berkas, agar pemuatan tidak menulis balik.
+var _loading_settings: bool = false
 
 
 func _ready() -> void:
@@ -55,6 +61,8 @@ func _ready() -> void:
 	# baru dihitung saat start_music() pertama supaya startup tetap instan.
 	for name in SFX_NAMES:
 		_sfx_cache[name] = _build_sfx(name)
+
+	_load_settings()
 
 
 ## Membangkitkan satu SFX. Dipisah sebagai match eksplisit karena GDScript tidak
@@ -151,3 +159,47 @@ func _set_muted(v: bool) -> void:
 		var mood := _current_mood
 		_current_mood = ""
 		start_music(mood)
+	if not _loading_settings:
+		_save_settings()
+
+
+## Membalik keadaan senyap dan mengembalikan keadaan barunya (true = senyap).
+## Dipakai tombol suara di Menu dan di menu utama.
+func toggle_mute() -> bool:
+	muted = not muted
+	return muted
+
+
+func set_muted(v: bool) -> void:
+	muted = v
+
+
+# ---------------------------------------------------------------------------
+# Preferensi perangkat
+# ---------------------------------------------------------------------------
+
+## Menulis preferensi suara ke `user://settings.cfg`.
+##
+## Berkasnya sengaja BUKAN savegame: pemain yang mematikan suara di menu utama
+## belum tentu punya permainan tersimpan, dan "Main Baru" tidak boleh
+## menyalakan kembali suara yang sudah ia matikan.
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	# Berkas yang sudah ada dibaca dulu supaya kunci lain (bila kelak ada)
+	# tidak ikut terhapus saat hanya suara yang berubah.
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("audio", "muted", muted)
+	if cfg.save(SETTINGS_PATH) != OK:
+		push_warning("AudioBus: preferensi suara gagal disimpan.")
+		return
+	# Di Web, `user://` baru mendarat di IndexedDB setelah disinkronkan.
+	SaveManager.sync_user_files()
+
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) != OK:
+		return
+	_loading_settings = true
+	muted = bool(cfg.get_value("audio", "muted", false))
+	_loading_settings = false

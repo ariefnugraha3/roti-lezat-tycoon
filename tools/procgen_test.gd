@@ -20,6 +20,10 @@ const ICON_NAMES: Array[String] = [
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
 	"note", "moon", "scooter", "hourglass",
+	# Ikon kendali & sudut pandang HUD, dipakai tombol tanpa teks.
+	"pause", "play", "kitchen", "shop", "frame",
+	# Menu dalam permainan: roda gigi di HUD + keadaan suara.
+	"gear", "sound", "mute",
 ]
 
 const CHAR_NODES: Array[String] = [
@@ -840,7 +844,11 @@ func _aabb_lokal(marker: Node3D, mi: MeshInstance3D) -> AABB:
 # --- E. Ikon -----------------------------------------------------------------
 
 func _test_icons() -> void:
-	print("\n-- IconCanvas (30 ikon) --")
+	print("\n-- IconCanvas (%d ikon) --" % ICON_NAMES.size())
+	# Daftar di tes memegang KONTRAKNYA; daftar di kelasnya boleh saja bertambah
+	# diam-diam, dan justru itu yang harus ketahuan.
+	_ok("jumlah ikon sesuai kontrak (%d)" % ICON_NAMES.size(),
+		IconCanvas.NAMES.size() == ICON_NAMES.size())
 	for name in ICON_NAMES:
 		_ok("ikon '%s' dikenal" % name, IconCanvas.has_icon(name))
 		var ic: IconCanvas = ProceduralUIFactory.icon(name, 32, Color.WHITE)
@@ -852,6 +860,35 @@ func _test_icons() -> void:
 			_ok("ikon '%s' terbentuk" % name, false)
 	# Nama ikon asing harus ditolak, bukan diam-diam digambar sebagai sesuatu.
 	_ok("ikon tak dikenal ditolak", not IconCanvas.has_icon("ikon_yang_tidak_ada"))
+
+	_cek_tombol_ikon()
+
+
+## Tombol ikon HUD: tanpa teks, tetapi TIDAK boleh tanpa penjelasan dan tidak
+## boleh mengecilkan zona sentuh.
+##
+## Ikon yang salah tebak di tombol "Berhentikan" jauh lebih mahal daripada di
+## tombol "Pasar", jadi tooltip diwajibkan — dan jari tetap butuh 48x48 dp
+## (GDD 12.4) sekalipun gambarnya cuma 22 piksel.
+func _cek_tombol_ikon() -> void:
+	var b: Button = ProceduralUIFactory.icon_button("cart", "Pasar", "secondary", 22)
+	add_child(b)
+	_ok("tombol ikon terbentuk", b != null)
+	_ok("tombol ikon tidak memakai teks", b.text == "")
+	_ok("tombol ikon membawa tooltip", b.tooltip_text == "Pasar")
+	_ok("tombol ikon tetap 48x48 dp",
+		b.custom_minimum_size.x >= ProceduralUIFactory.TOUCH_MIN
+			and b.custom_minimum_size.y >= ProceduralUIFactory.TOUCH_MIN)
+
+	var ic: IconCanvas = b.get_meta("icon", null) as IconCanvas
+	_ok("gambar tombol bisa diganti di tempat lewat meta 'icon'", ic != null)
+	if ic != null:
+		ic.icon_name = "play"
+		_ok("gambar tombol berganti tanpa membangun ulang tombolnya",
+			ic.icon_name == "play")
+		_ok("gambar tombol tidak menelan ketukan",
+			ic.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	b.free()
 
 
 # --- F. UI -------------------------------------------------------------------

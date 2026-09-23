@@ -30,7 +30,7 @@ func _build_shell() -> void:
 	var v: VBoxContainer = popup.get_meta("body")
 	(popup.get_meta("scrim") as Control).gui_input.connect(_on_scrim_input)
 
-	var tutup: Button = ProceduralUIFactory.button("Tutup", "ghost")
+	var tutup: Button = ProceduralUIFactory.icon_button("cross", "Tutup", "ghost", 22)
 	tutup.pressed.connect(_on_close)
 	head.add_child(tutup)
 

@@ -20,12 +20,14 @@ extends Control
 ## [/codeblock]
 
 
-## Seluruh nama ikon yang dikenali (30 nama, kontrak ARCHITECTURE.md seksi 8).
+## Seluruh nama ikon yang dikenali (38 nama, kontrak ARCHITECTURE.md seksi 8).
 const NAMES: Array[String] = [
 	"coin", "star", "clock", "bolt", "bread", "bag", "cart", "people", "heart",
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
 	"note", "moon", "scooter", "hourglass",
+	"pause", "play", "kitchen", "shop", "frame",
+	"gear", "sound", "mute",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -40,7 +42,9 @@ const MIN_SIZE: float = 4.0
 	"coin", "star", "clock", "bolt", "bread", "bag", "cart", "people", "heart",
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
-	"note", "moon", "scooter", "hourglass"
+	"note", "moon", "scooter", "hourglass",
+	"pause", "play", "kitchen", "shop", "frame",
+	"gear", "sound", "mute"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -83,7 +87,7 @@ func configure(new_name: String, new_size: float, new_color: Color) -> void:
 	icon_color = new_color
 
 
-## Benar bila [param id] termasuk 30 nama ikon kanonik.
+## Benar bila [param id] termasuk nama ikon kanonik (lihat [constant NAMES]).
 static func has_icon(id: String) -> bool:
 	return NAMES.has(id)
 
@@ -124,6 +128,14 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"moon": _i_moon(c, s, col)
 		"scooter": _i_scooter(c, s, col)
 		"hourglass": _i_hourglass(c, s, col)
+		"pause": _i_pause(c, s, col)
+		"play": _i_play(c, s, col)
+		"kitchen": _i_kitchen(c, s, col)
+		"shop": _i_shop(c, s, col)
+		"frame": _i_frame(c, s, col)
+		"gear": _i_gear(c, s, col)
+		"sound": _i_sound(c, s, col)
+		"mute": _i_mute(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -557,6 +569,100 @@ func _i_hourglass(c: Vector2, s: float, col: Color) -> void:
 		Vector2(-0.20, 0.32), Vector2(0.20, 0.32), Vector2(0.0, 0.14),
 	], lit)
 	_bar(c, s, 0.0, -0.02, 0.0, 0.14, 0.03, lit)
+
+
+## Jeda — dua batang tegak membulat (tombol Jeda di HUD).
+func _i_pause(c: Vector2, s: float, col: Color) -> void:
+	_round_rect(c, s, -0.28, -0.34, 0.20, 0.68, 0.09, col)
+	_round_rect(c, s, 0.08, -0.34, 0.20, 0.68, 0.09, col)
+
+
+## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).
+func _i_play(c: Vector2, s: float, col: Color) -> void:
+	_blob(c, s, [
+		Vector2(-0.24, -0.36), Vector2(0.34, 0.0), Vector2(-0.24, 0.36),
+	], col)
+
+
+## Dapur — badan oven dengan pintu kaca dan satu kenop (sudut pandang dapur).
+func _i_kitchen(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	var lit: Color = _lit(col)
+	_round_rect(c, s, -0.40, -0.36, 0.80, 0.72, 0.10, col)
+	_round_rect(c, s, -0.30, -0.22, 0.60, 0.44, 0.07, ink)
+	_round_rect(c, s, -0.24, -0.16, 0.48, 0.32, 0.05, lit)
+	_bar(c, s, -0.30, -0.29, 0.14, -0.29, 0.06, ink)
+	_dot(c, s, 0.27, -0.29, 0.06, ink)
+
+
+## Toko — tenda bergaris di atas etalase (sudut pandang area pembeli).
+func _i_shop(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.42, -0.02, 0.84, 0.40, 0.08, col)
+	_blob(c, s, [
+		Vector2(-0.46, -0.06), Vector2(-0.34, -0.36),
+		Vector2(0.34, -0.36), Vector2(0.46, -0.06),
+	], ink)
+	# Tiga guratan tenda supaya terbaca kanopi, bukan sekadar atap.
+	_bar(c, s, -0.20, -0.34, -0.26, -0.07, 0.05, col)
+	_bar(c, s, 0.0, -0.36, 0.0, -0.07, 0.05, col)
+	_bar(c, s, 0.20, -0.34, 0.26, -0.07, 0.05, col)
+	_round_rect(c, s, -0.10, 0.12, 0.20, 0.26, 0.04, ink)
+
+
+## Bingkai — empat siku sudut, artinya "lihat semuanya sekaligus".
+func _i_frame(c: Vector2, s: float, col: Color) -> void:
+	var a: float = 0.38
+	var b: float = 0.14
+	var w: float = 0.11
+	_bar(c, s, -a, -a, -b, -a, w, col)
+	_bar(c, s, -a, -a, -a, -b, w, col)
+	_bar(c, s, a, -a, b, -a, w, col)
+	_bar(c, s, a, -a, a, -b, w, col)
+	_bar(c, s, -a, a, -b, a, w, col)
+	_bar(c, s, -a, a, -a, b, w, col)
+	_bar(c, s, a, a, b, a, w, col)
+	_bar(c, s, a, a, a, b, w, col)
+
+
+## Roda gigi — tombol Menu di HUD (suara, simpan, keluar).
+##
+## Gigi dibentuk sebagai satu poligon dengan jari-jari berselang-seling, lalu
+## lubang porosnya digambar sebagai lingkaran tinta di tengah — cara yang sama
+## dipakai ikon lain untuk memberi kesan "berlubang" tanpa warna latar.
+func _i_gear(c: Vector2, s: float, col: Color) -> void:
+	var pts: Array = []
+	var gigi: int = 8
+	var n: int = gigi * 4
+	for i in n:
+		var a: float = float(i) * TAU / float(n)
+		var r: float = 0.44 if (i % 4) < 2 else 0.33
+		pts.append(Vector2(cos(a), sin(a)) * r)
+	_blob(c, s, pts, col)
+	_dot(c, s, 0.0, 0.0, 0.14, _ink(col))
+
+
+## Badan pengeras suara (kotak + corong), dipakai ikon `sound` dan `mute`.
+func _speaker(c: Vector2, s: float, col: Color) -> void:
+	_round_rect(c, s, -0.42, -0.13, 0.20, 0.26, 0.06, col)
+	_blob(c, s, [
+		Vector2(-0.26, -0.12), Vector2(-0.04, -0.34),
+		Vector2(-0.04, 0.34), Vector2(-0.26, 0.12),
+	], col)
+
+
+## Suara nyala — pengeras suara dengan dua gelombang.
+func _i_sound(c: Vector2, s: float, col: Color) -> void:
+	_speaker(c, s, col)
+	_arcline(c, s, -0.02, 0.0, 0.24, -PI * 0.36, PI * 0.36, 0.07, col)
+	_arcline(c, s, -0.02, 0.0, 0.40, -PI * 0.34, PI * 0.34, 0.07, col)
+
+
+## Suara mati — pengeras suara yang gelombangnya diganti tanda silang.
+func _i_mute(c: Vector2, s: float, col: Color) -> void:
+	_speaker(c, s, col)
+	_bar(c, s, 0.10, -0.18, 0.42, 0.18, 0.08, col)
+	_bar(c, s, 0.42, -0.18, 0.10, 0.18, 0.08, col)
 
 
 ## Cadangan bila nama ikon tidak dikenal: cincin + titik tanya sederhana.

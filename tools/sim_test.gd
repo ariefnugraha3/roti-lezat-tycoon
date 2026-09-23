@@ -127,7 +127,9 @@ func _ready() -> void:
 	_check_kasir_manual()
 	_check_kasir_asisten()
 	_check_popup_layar()
+	_check_menu_ingame()
 	_check_pesanan_ojol()
+	_check_layar_karyawan()
 	_check_beban_etalase()
 	_check_actor_facing()
 	_check_actor_collision()
@@ -1226,6 +1228,169 @@ func _check_popup_layar() -> void:
 	ScreenRouter.back()
 	ScreenRouter.go("hud")
 	print("  tiga popup tampil di atas HUD tanpa menutupinya")
+
+
+## Menu dalam permainan (suara / simpan & ke menu utama / keluar).
+##
+## Tiga hal yang diperiksa, dan ketiganya gampang lepas diam-diam:
+##
+##   1. Menu adalah POPUP yang MENJEDA waktu selama terbuka, lalu MENGEMBALIKAN
+##      keadaan jeda seperti semula saat ditutup. Menu yang lupa melepas jeda
+##      membuat permainan tampak macet total sesudah pemain mengatur suara.
+##   2. Tombol suara benar-benar membalik AudioBus.muted, dan labelnya ikut
+##      berubah — tombol yang teksnya beku membuat pemain menekan dua kali dan
+##      malah menyalakan suara yang baru saja ia matikan.
+##   3. Preferensi suara ditulis ke user://settings.cfg, BUKAN ke savegame:
+##      pemain yang mematikan suara lalu menekan "Main Baru" tetap dapat
+##      permainan yang diam.
+func _check_menu_ingame() -> void:
+	print("
+-- Menu dalam permainan --")
+	var day: DayCycle = _main.systems.get("day") as DayCycle
+	if day == null:
+		_ok("DayCycle tersedia untuk uji menu", false)
+		return
+
+	ScreenRouter.go("hud")
+	var hud: Control = _layar_hidup("hud")
+	day.set_paused(false)
+
+	_ok("'settings' terdaftar sebagai popup",
+		ScreenRouter.POPUP_SCREENS.has("settings"))
+	ScreenRouter.go("settings")
+	_ok("menu terbuka", ScreenRouter.current == "settings")
+	_ok("HUD tetap terlihat di belakang menu", hud != null and hud.visible)
+
+	var layar: Control = _layar_hidup("settings")
+	var kartu: Control = _kartu_popup(layar)
+	_ok("menu memakai kartu popup bersama", kartu != null)
+	if kartu != null:
+		var minimum: Vector2 = kartu.get_combined_minimum_size()
+		_ok("kartu menu tidak melar melebihi lebar patokan (%.0f <= %.0f px)"
+			% [minimum.x, SettingsScreen.CARD_SIZE.x],
+			minimum.x <= SettingsScreen.CARD_SIZE.x + 0.5)
+		_ok("kartu menu tidak melar melebihi tinggi patokan (%.0f <= %.0f px)"
+			% [minimum.y, SettingsScreen.CARD_SIZE.y],
+			minimum.y <= SettingsScreen.CARD_SIZE.y + 0.5)
+
+	_ok("waktu dijeda selama menu terbuka", day.is_paused())
+
+	# --- Tombol suara ---
+	var semula: bool = AudioBus.muted
+	_ok("label suara sesuai keadaan awal",
+		_ada_teks(layar, "Mati" if semula else "Nyala"))
+	_tekan_tombol(layar, "Mati" if semula else "Nyala")
+	_ok("tombol suara membalik keadaan senyap", AudioBus.muted != semula)
+	_ok("label suara ikut berubah",
+		_ada_teks(layar, "Nyala" if semula else "Mati"))
+
+	var cfg := ConfigFile.new()
+	_ok("preferensi suara ditulis ke %s" % AudioBus.SETTINGS_PATH,
+		cfg.load(AudioBus.SETTINGS_PATH) == OK
+			and bool(cfg.get_value("audio", "muted", not AudioBus.muted)) == AudioBus.muted)
+	_ok("preferensi suara TIDAK ikut masuk savegame",
+		not GameState.to_dict().has("muted"))
+
+	# Dikembalikan supaya uji berikutnya tetap berjalan dengan suara semula.
+	AudioBus.set_muted(semula)
+
+	# --- Konfirmasi keluar ---
+	_tekan_tombol(layar, "Simpan & ke Menu Utama")
+	_ok("aksi keluar minta konfirmasi dulu",
+		_ada_teks(layar, "Ya, ke Menu Utama") and _ada_teks(layar, "Batal"))
+	_tekan_tombol(layar, "Batal")
+	_ok("Batal mengembalikan daftar menu", _ada_teks(layar, "Lanjut Main"))
+
+	# --- Menutup menu mengembalikan waktu berjalan ---
+	_tekan_tombol(layar, "Lanjut Main")
+	_ok("menu tertutup kembali ke HUD",
+		ScreenRouter.current == "hud" and hud != null and hud.visible)
+	_ok("waktu berjalan lagi setelah menu ditutup", not day.is_paused())
+
+	# Jeda milik PEMAIN harus bertahan: menu tidak boleh diam-diam melanjutkan
+	# permainan yang sengaja ia hentikan.
+	day.set_paused(true)
+	ScreenRouter.go("settings")
+	ScreenRouter.back()
+	_ok("jeda pilihan pemain tetap bertahan setelah menu ditutup", day.is_paused())
+	day.set_paused(false)
+	ScreenRouter.go("hud")
+	print("  menu menjeda waktu selagi terbuka, mengembalikannya saat ditutup;"
+		+ " suara tersimpan di %s" % AudioBus.SETTINGS_PATH)
+
+
+## Menekan tombol pertama yang teksnya PERSIS `teks` di dalam `akar`.
+func _tekan_tombol(akar: Node, teks: String) -> bool:
+	var antrean: Array[Node] = [akar]
+	while not antrean.is_empty():
+		var n: Node = antrean.pop_back()
+		for c in n.get_children():
+			antrean.append(c)
+		var b := n as Button
+		if b != null and b.text == teks:
+			b.pressed.emit()
+			return true
+	_ok("tombol '%s' ada" % teks, false)
+	return false
+
+
+## Tab "Lamaran" di layar Karyawan harus benar-benar bisa dibuka.
+##
+## Uji ini lahir dari crash yang dilaporkan pemain: StaffSim.roster()
+## mengembalikan Dictionary sementara StaffScreen memperlakukannya sebagai ID
+## ("Nonexistent 'String' constructor"). Bug itu TIDAK pernah tertangkap karena
+## layar ini punya jalur cadangan `StaffDB.by_role()` yang bentuknya benar —
+## jadi ia bekerja sempurna selama StaffSim belum terpasang, dan runtuh persis
+## di permainan sungguhan.
+##
+## Yang dikunci di sini dua-duanya: bentuk data dari kedua sumber harus SAMA,
+## dan keempat tab layar harus bisa dibuka tanpa menghilangkan isinya.
+func _check_layar_karyawan() -> void:
+	print("\n-- Layar Karyawan: tab lamaran --")
+	var staff: StaffSim = _main.systems.get("staff") as StaffSim
+	if staff == null:
+		_ok("StaffSim tersedia", false)
+		return
+
+	for role: String in [StaffDB.ROLE_KASIR, StaffDB.ROLE_BAKER]:
+		var dari_sim: Array = staff.roster(role)
+		var dari_db: Array = StaffDB.roster(role, GameState.location_tier)
+		_ok("roster '%s' dari StaffSim tidak kosong" % role, not dari_sim.is_empty())
+		var semua_id: bool = true
+		for e: Variant in dari_sim:
+			if not (e is String) or StaffDB.entry(String(e)).is_empty():
+				semua_id = false
+		_ok("roster '%s' berisi ID staf, bukan entri Dictionary" % role, semua_id)
+		_ok("bentuknya sama dengan StaffDB.roster() yang dibungkusnya",
+			dari_sim.is_empty() or dari_db.is_empty()
+				or typeof(dari_sim[0]) == typeof(dari_db[0]))
+
+	# Layarnya benar-benar dibuka dan keempat tabnya ditekan, persis seperti
+	# jari pemain. Tab lamaran inilah yang dulu melempar error.
+	ScreenRouter.go("staff")
+	var layar: Control = _layar_hidup("staff")
+	_ok("layar karyawan terbuka", layar != null and ScreenRouter.current == "staff")
+	if layar == null:
+		return
+	for tab: Array in [["kasir", "aktif"], ["baker", "aktif"],
+			["kasir", "lamar"], ["baker", "lamar"]]:
+		layar.call("_on_tab", String(tab[0]), String(tab[1]))
+		var isi: Variant = layar.get("_content")
+		_ok("tab %s/%s terisi (%d baris)"
+			% [String(tab[0]), String(tab[1]),
+				(isi as Node).get_child_count() if isi is Node else -1],
+			isi is Node and (isi as Node).get_child_count() > 0)
+
+	# Satu nama pelamar sungguhan harus muncul di daftar lamaran kasir.
+	layar.call("_on_tab", StaffDB.ROLE_KASIR, "lamar")
+	var kandidat: String = _kasir_termurah()
+	var nama: String = String(StaffDB.entry(kandidat).get("name", ""))
+	_ok("nama pelamar '%s' tampil di tab lamaran" % nama,
+		nama.is_empty() or _ada_teks(layar, nama))
+
+	ScreenRouter.back()
+	ScreenRouter.go("hud")
+	print("  empat tab layar karyawan terbuka tanpa error")
 
 
 ## Biaya etalase adalah beban BERDIRI: besarnya ditentukan JAM TOKO, bukan

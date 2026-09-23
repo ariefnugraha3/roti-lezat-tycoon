@@ -66,9 +66,12 @@ scripts/world/staff_actor.gd         class_name StaffActor
 scripts/world/driver_actor.gd        class_name DriverActor
 scripts/world/player_actor.gd        class_name PlayerActor
 scripts/world/station_marker.gd      class_name StationMarker
+scripts/world/decor_controller.gd    class_name DecorController
 scripts/ui/screen_router.gd          ScreenRouter (autoload)
 scripts/ui/hud.gd                    class_name HUD
 scripts/ui/main_menu.gd              class_name MainMenu
+scripts/ui/character_select_screen.gd class_name CharacterSelectScreen
+scripts/ui/settings_screen.gd        class_name SettingsScreen
 scripts/ui/market_screen.gd          class_name MarketScreen
 scripts/ui/recipe_book_screen.gd     class_name RecipeBookScreen
 scripts/ui/staff_screen.gd           class_name StaffScreen
@@ -78,9 +81,12 @@ scripts/ui/delivery_order_screen.gd  class_name DeliveryOrderScreen
 scripts/ui/daily_summary_screen.gd   class_name DailySummaryScreen
 scripts/ui/decoration_screen.gd      class_name DecorationScreen
 scripts/ui/bailout_cutscene.gd       class_name BailoutCutscene
+scripts/ui/rack_screen.gd            class_name RackScreen
 scripts/main.gd                      class_name Main
 scenes/main.tscn                     root Node "Main" + script main.gd
 tools/validate.gd                    headless: load semua script
+tools/data_audit.gd                  headless: data layer vs tabel GDD
+tools/procgen_test.gd                headless: pabrik mesh/ikon/UI benar-benar jalan
 tools/sim_test.gd                    headless: simulasi 3 hari + assert
 ```
 
@@ -819,16 +825,37 @@ static func pantry_bar(value: int, max_value: int) -> Control
 static func slider_row(label_text: String, min_v: float, max_v: float, value: float) -> HBoxContainer
 static func polaroid(staff_id: String) -> Control
 static func icon(name: String, size := 32, color := Color.WHITE) -> IconCanvas
+static func icon_button(icon_name: String, tooltip: String, kind := "secondary",
+        icon_size := 26, tint := Palette.UI_WOOD) -> Button   # meta "icon" -> IconCanvas
+static func icon_value(icon_name: String, text: String, ...) -> HBoxContainer  # meta "value" -> Label
+static func popup(title_text: String, ukuran := POPUP_SIZE) -> Control
 static func apply_theme(root: Control) -> void
 ```
 Sudut membulat ≥ 18 px. Hitbox interaktif minimal 48×48 px. `focus_mode = FOCUS_NONE`.
 Semua tombol memanggil `ProceduralAnimationSystem.press_bounce` + `AudioBus.sfx("tap")`.
 
+**Ikon didahulukan atas teks, dengan satu batas tegas.** Chrome yang berulang dan bermakna tunggal
+(Quick Menu, sudut pandang kamera, jeda/lanjut, tombol tutup, judul panel, cuaca, fase hari) memakai
+`icon_button()`/`icon()` tanpa teks. Yang TETAP teks: apa pun yang memikul keputusan atau membawa
+nilai — "Kemas Pesanan" vs "Serahkan ke Driver", nama resep dan staf, harga, serta angka seperti
+`2x` atau `12 / 36`. Gambar bisa salah ditebak; tebakan yang meleset di tombol "Berhentikan" jauh
+lebih mahal daripada di tombol "Pasar".
+
+`icon_button()` WAJIB diberi `tooltip`, dan gambarnya disimpan di meta `"icon"` supaya bisa diganti
+DI TEMPAT (jeda ↔ lanjut) tanpa membangun ulang tombolnya — tombol yang di-`queue_free()` di sela
+tekan-lepas jari menelan ketukan pemain. IconCanvas di dalamnya memakai
+`MOUSE_FILTER_IGNORE` agar seluruh 48×48 tetap menjadi zona sentuh.
+
 ### IconCanvas (`extends Control`, gambar di `_draw`)
 Properti: `icon_name: String`, `icon_color: Color`, `icon_size: float`.
-Nama ikon wajib: `coin`, `star`, `clock`, `bolt`, `bread`, `bag`, `cart`, `people`, `heart`,
+Nama ikon wajib (38): `coin`, `star`, `clock`, `bolt`, `bread`, `bag`, `cart`, `people`, `heart`,
 `angry`, `sad`, `happy`, `rain`, `sun`, `party`, `bubble`, `check`, `cross`, `plus`, `minus`,
-`warning`, `fire`, `box`, `megaphone`, `chef`, `trophy`, `note`, `moon`, `scooter`, `hourglass`.
+`warning`, `fire`, `box`, `megaphone`, `chef`, `trophy`, `note`, `moon`, `scooter`, `hourglass`,
+`pause`, `play`, `kitchen`, `shop`, `frame`, `gear`, `sound`, `mute`.
+Delapan yang terakhir adalah kendali HUD: jeda/lanjut, tiga sudut pandang kamera
+(dapur / semua / toko), roda gigi Menu, dan dua keadaan suara (nyala / senyap).
+`tools/procgen_test.gd` memegang daftarnya sendiri dan membandingkan
+JUMLAHNYA dengan `IconCanvas.NAMES` — ikon yang ditambahkan diam-diam akan ketahuan.
 
 ### FX
 ```gdscript
@@ -855,8 +882,14 @@ static func chime_alert() -> AudioStreamWAV        # ting-ting-ting RotiFood
 static func sad_soft() -> AudioStreamWAV
 ```
 `AudioBus` (autoload): `func sfx(name: String, pitch := 1.0) -> void`,
-`func start_music(mood: String) -> void`, `func stop_music() -> void`, `func unlock_audio() -> void`.
+`func start_music(mood: String) -> void`, `func stop_music() -> void`, `func unlock_audio() -> void`,
+`func toggle_mute() -> bool`, `func set_muted(v: bool) -> void`, `var muted: bool`.
 Nama sfx: `tap`, `pop`, `ting`, `coin`, `paper`, `door`, `chime`, `sad`.
+Keadaan senyap disimpan di `user://settings.cfg` (`AudioBus.SETTINGS_PATH`, seksi `[audio]`,
+kunci `muted`) — SENGAJA di luar savegame: mematikan suara adalah preferensi perangkat, jadi ia
+harus bertahan walau pemain menekan "Main Baru" atau belum punya simpanan sama sekali.
+Penulisannya ikut memanggil `SaveManager.sync_user_files()` supaya di Web benar-benar mendarat
+di IndexedDB.
 Musik: progresi akor bossa-nova lo-fi dibangkitkan runtime (Rhodes sine+detune, petikan nilon).
 `unlock_audio()` dipanggil dari splash "Tap untuk Mulai" (kebijakan autoplay browser).
 
@@ -870,10 +903,10 @@ func close_all() -> void
 var current: String
 ```
 Screen: `main_menu`, `character_select`, `hud`, `market`, `recipe_book`, `staff`, `marketing`,
-`daily_summary`, `decoration`, `bailout`, `rack`, `customer_order`, `delivery_order`.
+`daily_summary`, `decoration`, `bailout`, `rack`, `customer_order`, `delivery_order`, `settings`.
 
 `ScreenRouter.POPUP_SCREENS` (`recipe_book`, `staff`, `marketing`, `customer_order`,
-`delivery_order`) TIDAK
+`delivery_order`, `settings`) TIDAK
 menyembunyikan layar di bawahnya: kartunya mengambang di tengah dengan HUD dan dapur tetap terlihat
 di belakangnya. Kerangkanya satu, `ProceduralUIFactory.popup(judul, ukuran)`, dengan meta
 `"body"` / `"head"` / `"scrim"` / `"kartu"`. **Ukuran kartu dipatok** (`POPUP_SIZE`), tidak
@@ -890,8 +923,20 @@ Perabot yang bisa diketuk/digeser ada di `ShopWorld.DECOR_KINDS` (`mixer`, `oven
 `storage`); sasaran ketukan lain (meja kasir, pembeli berbalon, tablet RotiFood) punya jalur
 pemilihannya sendiri. `delivery_order` dibuka dari DUA tempat: panel pesanan di HUD dan balon di
 atas tablet.
-Tombol Back Android (`NOTIFICATION_WM_GO_BACK_REQUEST` / `ui_cancel`) → `back()`;
-di `main_menu` → dialog konfirmasi keluar.
+`settings` adalah Menu dalam permainan (suara / simpan & ke menu utama / keluar). Ia dibuka dari
+tombol roda gigi di HUD dan dari tombol Back Android, memakai kartunya sendiri
+(`SettingsScreen.CARD_SIZE`, lebih ramping dari `POPUP_SIZE`). Selama terbuka ia MEMEGANG jeda
+(`DayCycle.set_paused(true)`) lalu MENGEMBALIKAN keadaan jeda seperti sebelumnya saat ditutup —
+pelepasannya digantung pada `visibility_changed`, bukan pada tombol tutup, supaya jalur apa pun
+(tombol X, kaca gelap, Back Android) melepaskannya. Aksi yang meninggalkan hari berjalan lewat
+satu langkah konfirmasi di dalam kartu yang sama, bukan dialog sistem. Di Web tombol "Keluar"
+tidak ditampilkan (tab peramban hanya bisa ditutup pemain sendiri, GDD 12.1) — di `main_menu`
+berlaku hal yang sama.
+Tombol Back Android (`NOTIFICATION_WM_GO_BACK_REQUEST` / `ui_cancel`) → di `hud` membuka
+`settings`, selain itu `back()`; di `main_menu` → dialog konfirmasi keluar.
+`main_menu` membangun ulang isi kartunya tiap kali TAMPIL (bukan sekali di `_ready()`): pemain
+yang keluar lewat Menu kembali ke sana dengan simpanan yang baru dibuat, jadi tombol "Lanjutkan"
+harus ikut muncul.
 Setiap layar `extends Control`, membangun UI sendiri di `_ready()` via `ProceduralUIFactory`,
 dan punya `func setup(args: Dictionary) -> void` yang dipanggil ScreenRouter sebelum ditampilkan.
 
@@ -907,7 +952,10 @@ func has_save() -> bool
 func delete_save() -> void
 func _migrate(d: Dictionary) -> Dictionary
 ```
-Format `{"version": 1, "state": {...}}`. Autosave pada `day_ended`.
+Format `{"version": 1, "state": {...}}`. Autosave pada `day_ended`, dan saat pemain keluar lewat
+Menu (`settings`).
+`func sync_user_files() -> void` publik supaya AudioBus bisa menyinkronkan `user://settings.cfg`
+miliknya sendiri dengan jaminan yang sama; preferensi suara TIDAK ikut masuk savegame (seksi 9).
 
 ## 12. Main
 

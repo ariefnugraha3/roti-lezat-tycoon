@@ -346,6 +346,50 @@ static func button(text: String, kind := "primary") -> Button:
 	return b
 
 
+## Tombol IKON persegi: satu gambar, tanpa teks (GDD 7 "tap-first").
+##
+## `tooltip` WAJIB diisi. Ikon tanpa teks hanya bisa ditebak dari gambarnya, dan
+## tebakan yang meleset di tombol "Pecat" jauh lebih mahal daripada tebakan yang
+## meleset di tombol "Pasar" — jadi setiap ikon membawa namanya sendiri untuk
+## pemain desktop/web yang mengarahkan tetikus.
+##
+## Sisinya dikunci ke TOUCH_MIN: ikon boleh mengecil, zona sentuhnya tidak
+## (GDD 12.4: hitbox minimal 48x48 dp).
+static func icon_button(icon_name: String, tooltip: String, kind := "secondary",
+		icon_size := 26, tint := Palette.UI_WOOD) -> Button:
+	var b: Button = button("", kind)
+	b.tooltip_text = tooltip
+	b.custom_minimum_size = Vector2(TOUCH_MIN, TOUCH_MIN)
+	b.pivot_offset = b.custom_minimum_size * 0.5
+
+	# Ikon dipasang sebagai anak yang MENGABAIKAN tetikus: yang menangkap
+	# ketukan tetap tombolnya, jadi seluruh 48x48 tetap bisa ditekan.
+	var ic: IconCanvas = icon(icon_name, icon_size, tint)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var center: CenterContainer = CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.add_child(ic)
+	b.add_child(center)
+	# Gambarnya disimpan di meta supaya bisa DIGANTI di tempat (jeda <-> lanjut)
+	# tanpa membangun ulang tombolnya.
+	b.set_meta("icon", ic)
+	return b
+
+
+## Baris "ikon + nilai" untuk HUD: ikon yang menjelaskan artinya, teks yang
+## membawa angkanya. Mengembalikan HBox; labelnya ada di meta "value".
+static func icon_value(icon_name: String, text: String, icon_size := 22,
+		font_size := 18, tint := Palette.UI_WOOD) -> HBoxContainer:
+	var h: HBoxContainer = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.add_child(icon(icon_name, icon_size, tint))
+	var l: Label = label(text, font_size)
+	h.add_child(l)
+	h.set_meta("value", l)
+	return h
+
+
 ## Label teks isi dengan font bawaan, warna tinta hangat, dan jarak baris enak.
 static func label(text: String, size := 18, color := Palette.TEXT) -> Label:
 	var l: Label = Label.new()

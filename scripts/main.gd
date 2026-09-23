@@ -33,6 +33,8 @@ var world: Node3D = null
 
 var _booted: bool = false
 var _splash: Control = null
+## Denyut teks "Tap untuk Mulai". Dihentikan saat splash memudar.
+var _splash_pulse: Tween = null
 
 
 func _ready() -> void:
@@ -82,9 +84,15 @@ func _build_splash() -> void:
 	box.add_child(ajakan)
 
 	# Denyut lembut pada ajakan supaya terasa hidup (GDD 7 micro-interactions).
-	var tw := create_tween().set_loops()
-	tw.tween_property(ajakan, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(ajakan, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
+	#
+	# Tween dibuat PADA LABEL-nya, bukan pada Main. Tween berulang milik Main tetap
+	# hidup setelah splash dibuang, dan begitu sasarannya lenyap satu putaran penuh
+	# selesai dalam waktu NOL — Godot menghentikannya dengan "Infinite loop
+	# detected" beberapa detik sesudah pemain menekan layar. Tween milik node ikut
+	# mati bersama nodenya.
+	_splash_pulse = ajakan.create_tween().set_loops()
+	_splash_pulse.tween_property(ajakan, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
+	_splash_pulse.tween_property(ajakan, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 
 	_splash.gui_input.connect(_on_splash_input)
 
@@ -107,6 +115,11 @@ func boot() -> void:
 	if _booted:
 		return
 	_booted = true
+
+	# Denyutnya dihentikan lebih dulu supaya teksnya tidak berkedip sambil memudar.
+	if _splash_pulse != null and _splash_pulse.is_valid():
+		_splash_pulse.kill()
+	_splash_pulse = null
 
 	if _splash != null and is_instance_valid(_splash):
 		var fade := create_tween()
@@ -211,6 +224,7 @@ func _register_screens() -> void:
 	ScreenRouter.register("daily_summary", func() -> Control: return DailySummaryScreen.new())
 	ScreenRouter.register("decoration", func() -> Control: return DecorationScreen.new())
 	ScreenRouter.register("bailout", func() -> Control: return BailoutCutscene.new())
+	ScreenRouter.register("settings", func() -> Control: return SettingsScreen.new())
 
 
 # ===========================================================================

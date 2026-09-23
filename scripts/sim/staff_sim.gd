@@ -152,8 +152,14 @@ func on_day_end(ledger: Dictionary) -> void:
 
 # --- Rekrutmen & penggajian (GDD 3.3 & 3.4) ------------------------------------
 
-## Daftar pelamar yang MASIH bisa direkrut untuk satu peran ("kasir" | "baker").
+## Daftar ID pelamar yang MASIH bisa direkrut untuk satu peran ("kasir"|"baker").
 ## Rekrutmen gratis (GDD 3.4); yang membatasi hanya slot lokasi (GDD 3.3).
+##
+## Mengembalikan ID, BUKAN entri lengkap — bentuknya harus sama dengan
+## `StaffDB.roster()` yang dibungkusnya, karena StaffScreen memakai keduanya
+## bergantian: sumber data yang dipilih tidak boleh mengubah bentuk datanya.
+## Dulu fungsi ini mengembalikan Dictionary dan layar lamaran ikut runtuh
+## ("Nonexistent 'String' constructor") begitu StaffSim benar-benar terpasang.
 func roster(role: String) -> Array:
 	var out: Array = []
 	if role != ROLE_KASIR and role != ROLE_BAKER:
@@ -161,7 +167,7 @@ func roster(role: String) -> Array:
 	for sid: String in StaffDB.roster(role, GameState.location_tier):
 		if _index_of(sid) >= 0:
 			continue
-		out.append(StaffDB.entry(sid))
+		out.append(sid)
 	return out
 
 
