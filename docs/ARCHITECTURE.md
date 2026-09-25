@@ -1,5 +1,11 @@
 # Roti Lezat Tycoon — Kontrak Arsitektur (SINGLE SOURCE OF TRUTH)
 
+> **Status (24 September 2026):** Dokumen ini menjelaskan implementasi yang dibangun dari GDD lama
+> (`docs/gdd-roti-lezaat-tycoon.md`), yang kini **usang**. Satu-satunya acuan desain sekarang adalah
+> `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1 FINAL). Bila isi dokumen ini —
+> termasuk ID, bahasa UI, format angka, dan sumber RNG — bertentangan dengan v3.1, v3.1 yang berlaku.
+> Dokumen ini akan direvisi saat kode dimigrasikan ke v3.1.
+
 Semua kode WAJIB mengikuti dokumen ini persis. Sumber angka/balans adalah
 `docs/gdd-roti-lezaat-tycoon.md` (GDD). Dokumen ini hanya menetapkan **struktur, ID, dan API**.
 
