@@ -1,0 +1,27 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "_doc": "GDD 74 + reward mapping 72.1. requirement.stat names a StatisticsManager counter or a condition id checked by AchievementManager.",
+ "items": [
+  {"id": "ach_first_sale", "localization_key": "ach_first_sale", "requirement": {"type": "stat_at_least", "stat": "total_bread_sold", "value": 1}, "reward_id": "badge_first_crumb"},
+  {"id": "ach_100_breads", "localization_key": "ach_100_breads", "requirement": {"type": "stat_at_least", "stat": "total_bread_sold", "value": 100}, "reward_id": "decor_plaque_hundred_buns"},
+  {"id": "ach_1000_breads", "localization_key": "ach_1000_breads", "requirement": {"type": "stat_at_least", "stat": "total_bread_sold", "value": 1000}, "reward_id": "outfit_apron_neighborhood"},
+  {"id": "ach_no_burn_day", "localization_key": "ach_no_burn_day", "requirement": {"type": "condition", "condition": "no_burn_day"}, "reward_id": "skin_oven_decal_golden"},
+  {"id": "ach_week_no_burn", "localization_key": "ach_week_no_burn", "requirement": {"type": "stat_at_least", "stat": "no_burn_streak_days", "value": 7}, "reward_id": "outfit_chef_hat_perfect"},
+  {"id": "ach_queue_master", "localization_key": "ach_queue_master", "requirement": {"type": "condition", "condition": "no_abandon_day"}, "reward_id": "decor_floor_mat_smooth"},
+  {"id": "ach_roti_food_5", "localization_key": "ach_roti_food_5", "requirement": {"type": "condition", "condition": "rotifood_five_stars"}, "reward_id": "skin_rotifood_counter_five_star"},
+  {"id": "ach_cash_10k", "localization_key": "ach_cash_10k", "requirement": {"type": "balance_at_least", "value": 10000}, "reward_id": "badge_first_savings"},
+  {"id": "ach_cash_100k", "localization_key": "ach_cash_100k", "requirement": {"type": "balance_at_least", "value": 100000}, "reward_id": "decor_gold_coin_jar"},
+  {"id": "ach_cash_1m", "localization_key": "ach_cash_1m", "requirement": {"type": "balance_at_least", "value": 1000000}, "reward_id": "decor_trophy_millionaire"},
+  {"id": "ach_tier2", "localization_key": "ach_tier2", "requirement": {"type": "location_tier_at_least", "value": 2}, "reward_id": "decor_plaque_tier2"},
+  {"id": "ach_tier3", "localization_key": "ach_tier3", "requirement": {"type": "location_tier_at_least", "value": 3}, "reward_id": "decor_plaque_tier3"},
+  {"id": "ach_tier4", "localization_key": "ach_tier4", "requirement": {"type": "location_tier_at_least", "value": 4}, "reward_id": "decor_plaque_tier4"},
+  {"id": "ach_tier5", "localization_key": "ach_tier5", "requirement": {"type": "location_tier_at_least", "value": 5}, "reward_id": "decor_trophy_landmark"},
+  {"id": "ach_all_recipes", "localization_key": "ach_all_recipes", "requirement": {"type": "condition", "condition": "all_recipes_produced"}, "reward_id": "skin_recipe_book_encyclopedia"},
+  {"id": "ach_price_experiment", "localization_key": "ach_price_experiment", "requirement": {"type": "condition", "condition": "price_experiment"}, "reward_id": "decor_retro_calculator"},
+  {"id": "ach_rain_delivery", "localization_key": "ach_rain_delivery", "requirement": {"type": "condition", "condition": "rain_delivery_day"}, "reward_id": "decor_umbrella_stand"},
+  {"id": "ach_solo_recovery", "localization_key": "ach_solo_recovery", "requirement": {"type": "condition", "condition": "solo_recovery"}, "reward_id": "decor_photo_pak_lurah"},
+  {"id": "ach_big_day", "localization_key": "ach_big_day", "requirement": {"type": "condition", "condition": "big_day"}, "reward_id": "decor_brass_bell"},
+  {"id": "ach_overflow", "localization_key": "ach_overflow", "requirement": {"type": "condition", "condition": "economy_overflow"}, "reward_id": "decor_plaque_infinity"}
+ ]
+}

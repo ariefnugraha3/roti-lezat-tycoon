@@ -1,0 +1,208 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "_doc": "Global TUNABLE values. Each number has exactly one home here; the GDD section is noted next to each group.",
+ "economy": {
+  "_gdd": "1, 24, 99.2, 73",
+  "starting_cash_kr": 1000,
+  "hud_scientific_threshold_kr": 1000000000000.0,
+  "ledger_hot_entries": 2048
+ },
+ "clock": {
+  "_gdd": "15.2, 99.1, 19.7.3",
+  "day_start_seconds": 18000,
+  "open_seconds": 28800,
+  "close_seconds": 64800,
+  "ingame_seconds_per_sim_second": 20,
+  "overnight_aging_hours": 11.0,
+  "sim_tick_seconds": 0.05,
+  "speeds": [1, 2, 3]
+ },
+ "player": {
+  "_gdd": "16.4, 59",
+  "max_queued_commands": 3,
+  "stuck_watchdog_seconds": 6.0
+ },
+ "production": {
+  "_gdd": "18.9, 62, 129",
+  "batch_multipliers": [1, 3, 5],
+  "min_stage_seconds": 1.0,
+  "overbake_quality_start": 0.95,
+  "overbake_quality_end": 0.60,
+  "max_concurrent_jobs": 64
+ },
+ "freshness": {
+  "_gdd": "19.7.1, 19.7.4",
+  "fresh_max_ratio": 0.40,
+  "good_max_ratio": 0.70,
+  "unsaleable_ratio": 1.00,
+  "attractiveness": {"FRESH": 1.00, "GOOD": 0.92, "STALE": 0.55, "UNSALEABLE": 0.0}
+ },
+ "patience": {
+  "_gdd": "58",
+  "drain_base": 1.0,
+  "near_full_occupancy_ratio": 0.80,
+  "near_full_multiplier": 1.10,
+  "stall_seconds": 10.0,
+  "stall_multiplier": 1.15,
+  "drain_clamp_min": 0.5,
+  "drain_clamp_max": 1.6,
+  "bar_update_hz": 8.0
+ },
+ "queue": {
+  "_gdd": "66, 67, 129",
+  "physical_max_pending_seconds": 30.0,
+  "rotifood_max_pending_seconds": 40.0,
+  "pending_retry_seconds": 2.0,
+  "min_admission_interval_seconds": 2.0,
+  "pending_pool_capacity_multiplier": 3,
+  "max_pending_physical": 128,
+  "max_pending_rotifood": 128,
+  "max_visible_customer_actors": 96
+ },
+ "price": {
+  "_gdd": "63.2, 84.5",
+  "min_hpp_factor": 1.05,
+  "min_default_factor": 0.60,
+  "max_default_factor": 1.80,
+  "round_to": 5,
+  "slider_step_small": 5,
+  "slider_step_large": 25,
+  "slider_step_threshold": 1000,
+  "demand_curve": [[0.80, 1.25], [1.00, 1.00], [1.25, 0.72], [1.50, 0.40], [1.80, 0.10]],
+  "effective_demand_clamp": [0.0, 1.5],
+  "reaction_labels": [[1.20, "VERY_HAPPY"], [1.05, "HAPPY"], [0.95, "NEUTRAL"], [0.70, "UNHAPPY"], [0.40, "VERY_UNHAPPY"], [0.0, "REFUSE"]]
+ },
+ "substitution": {
+  "_gdd": "84.3",
+  "weight_preference": 0.45,
+  "weight_price": 0.25,
+  "weight_freshness": 0.20,
+  "weight_distance": 0.10,
+  "price_acceptance_divisor": 1.25
+ },
+ "rating": {
+  "_gdd": "25.1, 25.2, 25.3, 9.2",
+  "min": 1.0,
+  "max": 5.0,
+  "start_physical": 3.0,
+  "start_rotifood": 3.0,
+  "tier_scale_numerator": 2.0,
+  "physical_events": {
+   "successful_sale": 0.02,
+   "fast_service": 0.01,
+   "customer_abandoned": -0.10,
+   "stockout_failure": -0.05,
+   "bad_quality_sale": -0.03,
+   "vip_success": 0.30,
+   "vip_failure": -0.30
+  },
+  "fast_service_max_wait_ratio": 0.30,
+  "bad_quality_bake_threshold": 0.80,
+  "rotifood_events": {
+   "instant_handover": 0.10,
+   "normal_ready": 0.0,
+   "driver_wait_long": -0.10,
+   "order_cancelled": -0.20,
+   "fresh_quality_bonus": 0.05
+  },
+  "trusted_badge_stars": 4.5
+ },
+ "demand": {
+  "_gdd": "65, 66",
+  "physical_rating_multiplier": {"base": 0.55, "per_star": 0.18, "min": 0.73, "max": 1.45},
+  "rotifood_star_multiplier": {"base": 0.40, "per_star": 0.16, "min": 0.56, "max": 1.20, "badge_multiplier": 1.50, "total_max": 1.80},
+  "price_mix_clamp": [0.35, 1.25],
+  "physical_time_of_day": {"morning": 1.35, "late_morning": 0.90, "midday": 1.05, "afternoon": 1.30, "evening": 0.85},
+  "rotifood_time_of_day": {"morning": 1.10, "late_morning": 0.85, "midday": 1.25, "afternoon": 1.00, "evening": 1.30}
+ },
+ "rotifood": {
+  "_gdd": "22.9, 3.6.C",
+  "prep_window_seconds": [60.0, 90.0],
+  "last_order_time_seconds": 62100,
+  "units_distribution": [[2, 0.10], [3, 0.20], [4, 0.40], [5, 0.20], [6, 0.10]],
+  "two_recipe_chance": 0.30,
+  "instant_handover_seconds": 3.0,
+  "long_wait_seconds": 10.0,
+  "tip_chance": 0.50,
+  "tip_fraction_range": [0.10, 0.25],
+  "fresh_bonus_min_bake_quality": 0.95
+ },
+ "physical_tip": {
+  "_gdd": "21.8",
+  "fraction": 0.10
+ },
+ "supply": {
+  "_gdd": "5.2.3, 129",
+  "lead_time_ingame_hours": 3.0,
+  "max_courier_actors": 2,
+  "dropoff_seconds": 1.2
+ },
+ "bailout": {
+  "_gdd": "3.0, 49",
+  "grant_kr": 650,
+  "emergency_ingredients": {"ingredient_flour": 1, "ingredient_yeast": 1, "ingredient_sugar": 1, "ingredient_water_salt": 1},
+  "repeat_window_days": 3
+ },
+ "smart_speed": {
+  "_gdd": "71.1",
+  "patience_ratio": 0.10,
+  "rotifood_prep_seconds": 10.0
+ },
+ "save": {
+  "_gdd": "34.3, 106",
+  "schema_version": 3,
+  "autosave_debounce_seconds": 5.0,
+  "profile_count": 3
+ },
+ "input": {
+  "_gdd": "29.2",
+  "tap_max_move_px": 12.0,
+  "tap_max_duration_seconds": 0.35
+ },
+ "camera": {
+  "_gdd": "30, 130.1",
+  "yaw_degrees": 45.0,
+  "pitch_degrees": 35.0,
+  "crossfade_seconds": 0.20,
+  "default_ortho_size": 6.6,
+  "min_ortho_size": 5.6,
+  "max_ortho_size": 9.5,
+  "zoom_step": 0.6
+ },
+ "summary": {
+  "_gdd": "11.2, 11.3, 11.4",
+  "great_profit_kr": 2000,
+  "small_profit_kr": 100,
+  "low_cash_tip_kr": 500,
+  "high_profit_tip_kr": 5000,
+  "low_ingredient_batches": 2,
+  "leftover_tip_ratio": 0.30,
+  "cancelled_orders_tip": 2,
+  "staff_star_min_batches": 3
+ },
+ "achievements": {
+  "_gdd": "74",
+  "solo_recovery_balance_kr": 5000,
+  "rain_delivery_orders": 20,
+  "big_day_revenue_kr": 50000,
+  "price_low_ratio": 0.80,
+  "price_high_ratio": 1.25
+ },
+ "settings": {
+  "_gdd": "75",
+  "expensive_purchase_default_kr": 5000
+ },
+ "limits": {
+  "_gdd": "129",
+  "toasts_visible": 3,
+  "world_alerts_visible": 24,
+  "sfx_voices": 24,
+  "music_voices": 2,
+  "pooled_customer_bodies": 112,
+  "pooled_particles": 256,
+  "analytics_detailed_days": 1000,
+  "decorations_per_floor": 24,
+  "notification_coalesce_seconds": 2.0
+ }
+}

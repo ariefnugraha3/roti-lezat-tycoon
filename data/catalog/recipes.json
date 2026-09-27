@@ -1,0 +1,706 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "items": [
+  {
+   "id": "recipe_plain_loaf",
+   "localization_key": "recipe_plain_loaf",
+   "category_id": "tier_1",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_yeast": 1,
+    "ingredient_water_salt": 1,
+    "ingredient_butter": 1
+   },
+   "batch_yield": 6,
+   "required_mixer_tier": 1,
+   "required_oven_tier": 1,
+   "recipe_total_time": 50,
+   "mix_duration_seconds": 20,
+   "prep_duration_seconds": 0,
+   "bake_duration_seconds": 30,
+   "expired_duration_hours": 20,
+   "base_sell_price_kr": 90,
+   "batch_cost_kr": 340,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "practical",
+    "family"
+   ],
+   "visual_profile_id": "loaf.plain"
+  },
+  {
+   "id": "recipe_sugar_donut",
+   "localization_key": "recipe_sugar_donut",
+   "category_id": "tier_1",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_sugar": 1,
+    "ingredient_yeast": 1,
+    "ingredient_egg": 1,
+    "ingredient_butter": 1
+   },
+   "batch_yield": 5,
+   "required_mixer_tier": 1,
+   "required_oven_tier": 1,
+   "recipe_total_time": 55,
+   "mix_duration_seconds": 22,
+   "prep_duration_seconds": 0,
+   "bake_duration_seconds": 33,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 150,
+   "batch_cost_kr": 500,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet"
+   ],
+   "visual_profile_id": "donut.sugar"
+  },
+  {
+   "id": "recipe_plain_fried_bread",
+   "localization_key": "recipe_plain_fried_bread",
+   "category_id": "tier_1",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_yeast": 1,
+    "ingredient_water_salt": 1
+   },
+   "batch_yield": 6,
+   "required_mixer_tier": 1,
+   "required_oven_tier": 1,
+   "recipe_total_time": 35,
+   "mix_duration_seconds": 14,
+   "prep_duration_seconds": 0,
+   "bake_duration_seconds": 21,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 65,
+   "batch_cost_kr": 220,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "practical"
+   ],
+   "visual_profile_id": "bun.fried"
+  },
+  {
+   "id": "recipe_chocolate_bread",
+   "localization_key": "recipe_chocolate_bread",
+   "category_id": "tier_2",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_yeast": 1,
+    "ingredient_egg": 1,
+    "ingredient_chocolate": 1,
+    "ingredient_butter": 1
+   },
+   "batch_yield": 5,
+   "required_mixer_tier": 2,
+   "required_oven_tier": 2,
+   "recipe_total_time": 45,
+   "mix_duration_seconds": 15.75,
+   "prep_duration_seconds": 6.75,
+   "bake_duration_seconds": 22.5,
+   "expired_duration_hours": 12,
+   "base_sell_price_kr": 240,
+   "batch_cost_kr": 670,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet"
+   ],
+   "visual_profile_id": "bun.chocolate"
+  },
+  {
+   "id": "recipe_sausage_roll",
+   "localization_key": "recipe_sausage_roll",
+   "category_id": "tier_2",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_yeast": 1,
+    "ingredient_butter": 1,
+    "ingredient_beef_sausage": 1
+   },
+   "batch_yield": 5,
+   "required_mixer_tier": 2,
+   "required_oven_tier": 2,
+   "recipe_total_time": 40,
+   "mix_duration_seconds": 14,
+   "prep_duration_seconds": 6,
+   "bake_duration_seconds": 20,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 220,
+   "batch_cost_kr": 670,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "savory",
+    "practical"
+   ],
+   "visual_profile_id": "bun.sausage"
+  },
+  {
+   "id": "recipe_sweet_cheese_bread",
+   "localization_key": "recipe_sweet_cheese_bread",
+   "category_id": "tier_2",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_sugar": 1,
+    "ingredient_egg": 1,
+    "ingredient_milk": 1,
+    "ingredient_cheddar": 1
+   },
+   "batch_yield": 5,
+   "required_mixer_tier": 2,
+   "required_oven_tier": 2,
+   "recipe_total_time": 50,
+   "mix_duration_seconds": 17.5,
+   "prep_duration_seconds": 7.5,
+   "bake_duration_seconds": 25,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 270,
+   "batch_cost_kr": 780,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet",
+    "family"
+   ],
+   "visual_profile_id": "bun.cheese"
+  },
+  {
+   "id": "recipe_strawberry_donut",
+   "localization_key": "recipe_strawberry_donut",
+   "category_id": "tier_2",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_sugar": 1,
+    "ingredient_yeast": 1,
+    "ingredient_egg": 1,
+    "ingredient_strawberry_jam": 1
+   },
+   "batch_yield": 5,
+   "required_mixer_tier": 2,
+   "required_oven_tier": 2,
+   "recipe_total_time": 55,
+   "mix_duration_seconds": 19.25,
+   "prep_duration_seconds": 8.25,
+   "bake_duration_seconds": 27.5,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 210,
+   "batch_cost_kr": 580,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet",
+    "family"
+   ],
+   "visual_profile_id": "donut.jam"
+  },
+  {
+   "id": "recipe_classic_baguette",
+   "localization_key": "recipe_classic_baguette",
+   "category_id": "tier_2",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_yeast": 1,
+    "ingredient_water_salt": 1
+   },
+   "batch_yield": 3,
+   "required_mixer_tier": 2,
+   "required_oven_tier": 2,
+   "recipe_total_time": 60,
+   "mix_duration_seconds": 21,
+   "prep_duration_seconds": 9,
+   "bake_duration_seconds": 30,
+   "expired_duration_hours": 12,
+   "base_sell_price_kr": 215,
+   "batch_cost_kr": 220,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "practical",
+    "artisan"
+   ],
+   "visual_profile_id": "baguette"
+  },
+  {
+   "id": "recipe_classic_croissant",
+   "localization_key": "recipe_classic_croissant",
+   "category_id": "tier_3",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_butter": 2,
+    "ingredient_egg": 1,
+    "ingredient_milk": 1,
+    "ingredient_yeast": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 3,
+   "required_oven_tier": 3,
+   "recipe_total_time": 75,
+   "mix_duration_seconds": 22.5,
+   "prep_duration_seconds": 18.75,
+   "bake_duration_seconds": 33.75,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 400,
+   "batch_cost_kr": 690,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "practical",
+    "premium"
+   ],
+   "visual_profile_id": "croissant.classic"
+  },
+  {
+   "id": "recipe_cinnamon_roll",
+   "localization_key": "recipe_cinnamon_roll",
+   "category_id": "tier_3",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_sugar": 1,
+    "ingredient_egg": 1,
+    "ingredient_butter": 1,
+    "ingredient_cinnamon": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 3,
+   "required_oven_tier": 3,
+   "recipe_total_time": 70,
+   "mix_duration_seconds": 21,
+   "prep_duration_seconds": 17.5,
+   "bake_duration_seconds": 31.5,
+   "expired_duration_hours": 12,
+   "base_sell_price_kr": 375,
+   "batch_cost_kr": 630,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet",
+    "family"
+   ],
+   "visual_profile_id": "roll.cinnamon"
+  },
+  {
+   "id": "recipe_pain_au_chocolat",
+   "localization_key": "recipe_pain_au_chocolat",
+   "category_id": "tier_3",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_butter": 2,
+    "ingredient_chocolate": 1,
+    "ingredient_egg": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 3,
+   "required_oven_tier": 3,
+   "recipe_total_time": 80,
+   "mix_duration_seconds": 24,
+   "prep_duration_seconds": 20,
+   "bake_duration_seconds": 36,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 450,
+   "batch_cost_kr": 740,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet",
+    "premium"
+   ],
+   "visual_profile_id": "croissant.pain"
+  },
+  {
+   "id": "recipe_danish_cheese",
+   "localization_key": "recipe_danish_cheese",
+   "category_id": "tier_3",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_butter": 1,
+    "ingredient_egg": 1,
+    "ingredient_cheddar": 1,
+    "ingredient_milk": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 3,
+   "required_oven_tier": 3,
+   "recipe_total_time": 80,
+   "mix_duration_seconds": 24,
+   "prep_duration_seconds": 20,
+   "bake_duration_seconds": 36,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 440,
+   "batch_cost_kr": 820,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "family",
+    "premium"
+   ],
+   "visual_profile_id": "pastry.cheese"
+  },
+  {
+   "id": "recipe_milk_pullapart",
+   "localization_key": "recipe_milk_pullapart",
+   "category_id": "tier_3",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_milk": 2,
+    "ingredient_sugar": 1,
+    "ingredient_butter": 1,
+    "ingredient_egg": 1
+   },
+   "batch_yield": 6,
+   "required_mixer_tier": 3,
+   "required_oven_tier": 3,
+   "recipe_total_time": 65,
+   "mix_duration_seconds": 19.5,
+   "prep_duration_seconds": 16.25,
+   "bake_duration_seconds": 29.25,
+   "expired_duration_hours": 14,
+   "base_sell_price_kr": 260,
+   "batch_cost_kr": 750,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "sweet",
+    "family"
+   ],
+   "visual_profile_id": "loaf.pullapart"
+  },
+  {
+   "id": "recipe_almond_artisan_croissant",
+   "localization_key": "recipe_almond_artisan_croissant",
+   "category_id": "tier_4",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_egg": 1,
+    "ingredient_milk": 1,
+    "ingredient_almond": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 4,
+   "required_oven_tier": 4,
+   "recipe_total_time": 90,
+   "mix_duration_seconds": 22.5,
+   "prep_duration_seconds": 27,
+   "bake_duration_seconds": 40.5,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 700,
+   "batch_cost_kr": 1500,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "artisan"
+   ],
+   "visual_profile_id": "croissant.almond"
+  },
+  {
+   "id": "recipe_whole_wheat_sourdough",
+   "localization_key": "recipe_whole_wheat_sourdough",
+   "category_id": "tier_4",
+   "ingredients": {
+    "ingredient_whole_wheat_flour": 1,
+    "ingredient_water_salt": 1,
+    "ingredient_yeast": 1
+   },
+   "batch_yield": 2,
+   "required_mixer_tier": 4,
+   "required_oven_tier": 4,
+   "recipe_total_time": 120,
+   "mix_duration_seconds": 30,
+   "prep_duration_seconds": 36,
+   "bake_duration_seconds": 54,
+   "expired_duration_hours": 30,
+   "base_sell_price_kr": 1100,
+   "batch_cost_kr": 470,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "artisan",
+    "practical"
+   ],
+   "visual_profile_id": "boule"
+  },
+  {
+   "id": "recipe_gourmet_brioche",
+   "localization_key": "recipe_gourmet_brioche",
+   "category_id": "tier_4",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_egg": 2,
+    "ingredient_sugar": 1,
+    "ingredient_milk": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 4,
+   "required_oven_tier": 4,
+   "recipe_total_time": 100,
+   "mix_duration_seconds": 25,
+   "prep_duration_seconds": 30,
+   "bake_duration_seconds": 45,
+   "expired_duration_hours": 16,
+   "base_sell_price_kr": 750,
+   "batch_cost_kr": 1180,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "family"
+   ],
+   "visual_profile_id": "brioche.gourmet"
+  },
+  {
+   "id": "recipe_matcha_brioche",
+   "localization_key": "recipe_matcha_brioche",
+   "category_id": "tier_4",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_egg": 1,
+    "ingredient_matcha": 1,
+    "ingredient_milk": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 4,
+   "required_oven_tier": 4,
+   "recipe_total_time": 110,
+   "mix_duration_seconds": 27.5,
+   "prep_duration_seconds": 33,
+   "bake_duration_seconds": 49.5,
+   "expired_duration_hours": 14,
+   "base_sell_price_kr": 875,
+   "batch_cost_kr": 1800,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "sweet"
+   ],
+   "visual_profile_id": "brioche.matcha"
+  },
+  {
+   "id": "recipe_basque_cheese_bun",
+   "localization_key": "recipe_basque_cheese_bun",
+   "category_id": "tier_4",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_cream_cheese": 1,
+    "ingredient_egg": 2,
+    "ingredient_sugar": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 4,
+   "required_oven_tier": 4,
+   "recipe_total_time": 95,
+   "mix_duration_seconds": 23.75,
+   "prep_duration_seconds": 28.5,
+   "bake_duration_seconds": 42.75,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 625,
+   "batch_cost_kr": 1180,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "sweet"
+   ],
+   "visual_profile_id": "bun.basque"
+  },
+  {
+   "id": "recipe_matcha_mille_crepes",
+   "localization_key": "recipe_matcha_mille_crepes",
+   "category_id": "tier_5",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_matcha": 1,
+    "ingredient_egg": 2,
+    "ingredient_milk": 2,
+    "ingredient_organic_butter": 1
+   },
+   "batch_yield": 2,
+   "required_mixer_tier": 5,
+   "required_oven_tier": 5,
+   "recipe_total_time": 150,
+   "mix_duration_seconds": 30,
+   "prep_duration_seconds": 45,
+   "bake_duration_seconds": 75,
+   "expired_duration_hours": 6,
+   "base_sell_price_kr": 2750,
+   "batch_cost_kr": 2050,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "sweet"
+   ],
+   "visual_profile_id": "crepes"
+  },
+  {
+   "id": "recipe_truffle_bun",
+   "localization_key": "recipe_truffle_bun",
+   "category_id": "tier_5",
+   "ingredients": {
+    "ingredient_whole_wheat_flour": 1,
+    "ingredient_truffle": 1,
+    "ingredient_water_salt": 1,
+    "ingredient_yeast": 1
+   },
+   "batch_yield": 3,
+   "required_mixer_tier": 5,
+   "required_oven_tier": 5,
+   "recipe_total_time": 140,
+   "mix_duration_seconds": 28,
+   "prep_duration_seconds": 42,
+   "bake_duration_seconds": 70,
+   "expired_duration_hours": 10,
+   "base_sell_price_kr": 2000,
+   "batch_cost_kr": 1670,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "artisan",
+    "savory"
+   ],
+   "visual_profile_id": "bun.truffle"
+  },
+  {
+   "id": "recipe_luxury_almond_croissant",
+   "localization_key": "recipe_luxury_almond_croissant",
+   "category_id": "tier_5",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_almond": 1,
+    "ingredient_cream_cheese": 1,
+    "ingredient_egg": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 5,
+   "required_oven_tier": 5,
+   "recipe_total_time": 130,
+   "mix_duration_seconds": 26,
+   "prep_duration_seconds": 39,
+   "bake_duration_seconds": 65,
+   "expired_duration_hours": 8,
+   "base_sell_price_kr": 1250,
+   "batch_cost_kr": 2100,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "artisan"
+   ],
+   "visual_profile_id": "croissant.luxury"
+  },
+  {
+   "id": "recipe_premium_cream_cheese_danish",
+   "localization_key": "recipe_premium_cream_cheese_danish",
+   "category_id": "tier_5",
+   "ingredients": {
+    "ingredient_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_cream_cheese": 1,
+    "ingredient_strawberry_jam": 1,
+    "ingredient_egg": 1
+   },
+   "batch_yield": 4,
+   "required_mixer_tier": 5,
+   "required_oven_tier": 5,
+   "recipe_total_time": 120,
+   "mix_duration_seconds": 24,
+   "prep_duration_seconds": 36,
+   "bake_duration_seconds": 60,
+   "expired_duration_hours": 6,
+   "base_sell_price_kr": 1125,
+   "batch_cost_kr": 1800,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "sweet"
+   ],
+   "visual_profile_id": "pastry.cream_cheese"
+  },
+  {
+   "id": "recipe_golden_artisan",
+   "localization_key": "recipe_golden_artisan",
+   "category_id": "tier_5",
+   "ingredients": {
+    "ingredient_whole_wheat_flour": 1,
+    "ingredient_organic_butter": 1,
+    "ingredient_truffle": 1,
+    "ingredient_almond": 1,
+    "ingredient_cream_cheese": 1
+   },
+   "batch_yield": 2,
+   "required_mixer_tier": 5,
+   "required_oven_tier": 5,
+   "recipe_total_time": 180,
+   "mix_duration_seconds": 36,
+   "prep_duration_seconds": 54,
+   "bake_duration_seconds": 90,
+   "expired_duration_hours": 12,
+   "base_sell_price_kr": 4000,
+   "batch_cost_kr": 3450,
+   "required_station_ids": [
+    "mixer",
+    "oven"
+   ],
+   "customer_tags": [
+    "premium",
+    "artisan"
+   ],
+   "visual_profile_id": "signature"
+  }
+ ]
+}

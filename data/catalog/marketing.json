@@ -1,0 +1,84 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "duration_days": 5,
+ "items": [
+  {
+   "id": "campaign_flyer_t1",
+   "localization_key": "campaign_flyer_t1",
+   "tier": 1,
+   "cost_kr": 300,
+   "traffic_multiplier": 1.2,
+   "rating_per_day": 0.0,
+   "rating_requires_smooth_queue": false,
+   "recipe_preference_multipliers": {
+    "recipe_plain_loaf": 1.3,
+    "recipe_sugar_donut": 1.3
+   },
+   "archetype_multipliers": {},
+   "archetype_time_block_multipliers": {},
+   "critic_chance_multiplier": 1.0
+  },
+  {
+   "id": "campaign_street_banner_t2",
+   "localization_key": "campaign_street_banner_t2",
+   "tier": 2,
+   "cost_kr": 1200,
+   "traffic_multiplier": 1.45,
+   "rating_per_day": 0.08,
+   "rating_requires_smooth_queue": true,
+   "recipe_preference_multipliers": {},
+   "archetype_multipliers": {},
+   "archetype_time_block_multipliers": {
+    "customer_office_worker": {
+     "morning": 1.5
+    }
+   },
+   "critic_chance_multiplier": 1.0
+  },
+  {
+   "id": "campaign_radio_magazine_t3",
+   "localization_key": "campaign_radio_magazine_t3",
+   "tier": 3,
+   "cost_kr": 3500,
+   "traffic_multiplier": 1.75,
+   "rating_per_day": 0.15,
+   "rating_requires_smooth_queue": false,
+   "recipe_preference_multipliers": {},
+   "archetype_multipliers": {
+    "customer_bulk_buyer": 2.0
+   },
+   "archetype_time_block_multipliers": {},
+   "critic_chance_multiplier": 1.0
+  },
+  {
+   "id": "campaign_influencer_t4",
+   "localization_key": "campaign_influencer_t4",
+   "tier": 4,
+   "cost_kr": 10000,
+   "traffic_multiplier": 2.1,
+   "rating_per_day": 0.3,
+   "rating_requires_smooth_queue": false,
+   "recipe_preference_multipliers": {},
+   "archetype_multipliers": {
+    "customer_snob": 1.5
+   },
+   "archetype_time_block_multipliers": {},
+   "critic_chance_multiplier": 1.4
+  },
+  {
+   "id": "campaign_food_festival_t5",
+   "localization_key": "campaign_food_festival_t5",
+   "tier": 5,
+   "cost_kr": 30000,
+   "traffic_multiplier": 2.6,
+   "rating_per_day": 0.5,
+   "rating_requires_smooth_queue": false,
+   "recipe_preference_multipliers": {},
+   "archetype_multipliers": {},
+   "archetype_time_block_multipliers": {},
+   "critic_chance_multiplier": 1.0
+  }
+ ],
+ "smooth_queue_max_abandon_ratio": 0.1
+}

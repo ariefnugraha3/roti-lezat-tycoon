@@ -1,0 +1,264 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "days": [
+  {
+   "day": 1,
+   "recipe_id": "recipe_plain_loaf",
+   "batches": 6,
+   "walk_ins": [
+    {
+     "spawn_time": 30600,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 33300,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 36000,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 6,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 39600,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 43200,
+     "customer_archetype": "customer_indecisive",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 48600,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 8,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 54000,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 59400,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 2,
+     "patience_override": null
+    }
+   ],
+   "rotifood_orders": [
+    {
+     "order_time": 35100,
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 4
+    },
+    {
+     "order_time": 50400,
+     "requested_recipe_id": "recipe_plain_loaf",
+     "requested_quantity": 6
+    }
+   ]
+  },
+  {
+   "day": 2,
+   "recipe_id": "recipe_plain_fried_bread",
+   "batches": 7,
+   "walk_ins": [
+    {
+     "spawn_time": 30000,
+     "customer_archetype": "customer_office_worker",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 32400,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 34800,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 7,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 37800,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 41400,
+     "customer_archetype": "customer_indecisive",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 45000,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 9,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 50400,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 55800,
+     "customer_archetype": "customer_office_worker",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 60000,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 2,
+     "patience_override": null
+    }
+   ],
+   "rotifood_orders": [
+    {
+     "order_time": 33600,
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 5
+    },
+    {
+     "order_time": 43200,
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 3
+    },
+    {
+     "order_time": 54000,
+     "requested_recipe_id": "recipe_plain_fried_bread",
+     "requested_quantity": 4
+    }
+   ]
+  },
+  {
+   "day": 3,
+   "recipe_id": "recipe_sugar_donut",
+   "batches": 9,
+   "walk_ins": [
+    {
+     "spawn_time": 29700,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 31800,
+     "customer_archetype": "customer_office_worker",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 34200,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 8,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 37200,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 40200,
+     "customer_archetype": "customer_indecisive",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 43200,
+     "customer_archetype": "customer_bulk_buyer",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 10,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 47400,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 51600,
+     "customer_archetype": "customer_office_worker",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 55800,
+     "customer_archetype": "customer_school_child",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    },
+    {
+     "spawn_time": 59400,
+     "customer_archetype": "customer_indecisive",
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 2,
+     "patience_override": null
+    }
+   ],
+   "rotifood_orders": [
+    {
+     "order_time": 32400,
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 4
+    },
+    {
+     "order_time": 42000,
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 3
+    },
+    {
+     "order_time": 52800,
+     "requested_recipe_id": "recipe_sugar_donut",
+     "requested_quantity": 4
+    }
+   ]
+  }
+ ],
+ "manifest_prep_window_seconds": 90,
+ "market_unlock_day": 3
+}

@@ -1,0 +1,11 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "_doc": "GDD 109.2. Cosmetic/rendering only; simulation is identical on every preset.",
+ "items": [
+  {"id": "quality_low", "localization_key": "ui_quality_low", "shadows": false, "particle_scale": 0.35, "resolution_scale": 0.85, "msaa": 0, "decor_density": 0.5, "offfloor_visual_hz": 2.0},
+  {"id": "quality_medium", "localization_key": "ui_quality_medium", "shadows": false, "particle_scale": 0.7, "resolution_scale": 1.0, "msaa": 0, "decor_density": 0.8, "offfloor_visual_hz": 4.0},
+  {"id": "quality_high", "localization_key": "ui_quality_high", "shadows": true, "particle_scale": 1.0, "resolution_scale": 1.0, "msaa": 1, "decor_density": 1.0, "offfloor_visual_hz": 8.0}
+ ],
+ "auto_default": "quality_medium"
+}

@@ -1,0 +1,49 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "items": [
+  {
+   "id": "weather_sunny",
+   "localization_key": "ui_weather_sunny",
+   "physical_traffic_multiplier_min": 1.0,
+   "physical_traffic_multiplier_max": 1.0,
+   "delivery_multiplier_min": 1.0,
+   "delivery_multiplier_max": 1.0,
+   "visual_profile": "sunny",
+   "audio_profile": "sunny_ambience"
+  },
+  {
+   "id": "weather_rain",
+   "localization_key": "ui_weather_rain",
+   "physical_traffic_multiplier_min": 0.2,
+   "physical_traffic_multiplier_max": 0.4,
+   "delivery_multiplier_min": 2.5,
+   "delivery_multiplier_max": 3.0,
+   "visual_profile": "rain",
+   "audio_profile": "rain_loop"
+  }
+ ],
+ "events": [
+  {
+   "id": "event_holiday",
+   "localization_key": "ui_event_holiday",
+   "physical_traffic_multiplier": 1.6,
+   "delivery_multiplier": 1.4,
+   "start_day": 12,
+   "period_days": 14,
+   "length_days": 3
+  }
+ ],
+ "fixed_sunny_through_day": 4,
+ "markov": {
+  "weather_sunny": {
+   "weather_sunny": 0.75,
+   "weather_rain": 0.25
+  },
+  "weather_rain": {
+   "weather_sunny": 0.55,
+   "weather_rain": 0.45
+  }
+ },
+ "holiday_countdown_days": 3
+}

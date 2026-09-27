@@ -30,7 +30,7 @@ All internal contradictions found in v3.1 were resolved in place on 2026-09-25. 
 | Recipe production data | §61.5 |
 | Day 1–3 manifest | §20.3 |
 
-The Day 1–3 manifest was copied from `scripts/data/opening_db.gd` with one change: the Day 1 16:30 office worker became a school child, because §2 bars office workers on Day 1.
+The Day 1–3 manifest was copied from the pre-v3.1 `scripts/data/opening_db.gd` (since removed) with one change: the Day 1 16:30 office worker became a school child, because §2 bars office workers on Day 1.
 
 The data gaps v3.1 used to have were also filled on 2026-09-25, each chosen for balance and then verified by script:
 
@@ -51,9 +51,13 @@ A layout solver confirmed that every tier's template fits its slot counts. If a 
 
 ## Project state
 
-The code — about 30k lines of GDScript under `scripts/`, main scene `scenes/main.tscn`, seven autoloads — was written against the obsolete GDD and **has not been migrated to v3.1**. Existing behaviour is not evidence of what v3.1 requires. Known divergences include Indonesian IDs (`roti_tawar_polos`, `tepung_terigu`) and UI text, 2000 KR starting cash (v3.1: 1000), six slots per rack, recipe unlock prices, mixer/oven utility billed per real second, burn at 35% of bake time, a single RNG and a single save file, and no freshness, multi-floor or supply-courier systems. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) documents this pre-v3.1 implementation; where it disagrees with v3.1, v3.1 wins.
+On 2026-09-25/26 the code was rebuilt against v3.1 (~29k lines of GDScript, main scene `scenes/main.tscn` → `GameRoot`, seven autoloads per §35.2). The old `scripts/` tree and its tools were removed. The procedural mesh, UI and audio generators were kept and moved to `procedural/` and `audio/`. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for ownership and data flow, [docs/SAVE_SCHEMA.md](docs/SAVE_SCHEMA.md) for the save format, and [docs/GDD_COMPLIANCE.md](docs/GDD_COMPLIANCE.md) for what is tested, merely implemented, not verified, or open. Where any doc disagrees with v3.1, v3.1 wins.
 
-The GDD narrative is Indonesian, but **all player-facing text must be English** (§43, §127); proper nouns such as Budi, Pak Lurah and RotiFood stay as they are. Currency is **Koin Roti (KR)**.
+Layout: `autoload/` (services, no gameplay state), `core/` (helpers, `TimeManager`, `RNGManager`, `SimManager` base), `data/catalog/*.json` (the runtime authority for all content and tuning, validated at boot by `DataRegistry`), `data/definitions/`, `gameplay/` (`SimulationRoot` plus one manager per domain), `procedural/`, `audio/`, `ui/`, `tests/`, `tools/`.
+
+Deliberate deviation: the logging autoload is `GameLogger`, not `Logger`, because Godot 4.5+ ships a built-in `Logger` class.
+
+The GDD narrative is Indonesian, but **all player-facing text must be English** (§43, §127); proper nouns such as Budi, Pak Lurah and RotiFood stay as they are. Code calls `Tx.t(key, params)`, and keys live in `data/catalog/strings_en.json`. Currency is **Koin Roti (KR)**.
 
 ## Commands
 
@@ -63,43 +67,42 @@ plain binary detaches from the console and you will see no output. It is **not**
 
 ```bash
 G='D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
-"$G" --headless --path . --import          # reimport / regenerate .godot cache
+"$G" --headless --path . --import          # reimport; REQUIRED after adding a class_name
 "$G" --path .                              # open in editor
-"$G" --headless --path . res://scenes/main.tscn
-"$G" --headless --path . --export-release "Web" build/index.html
-"$G" --headless --path . --export-release "Android" build/game.aab
+"$G" --path . res://scenes/main.tscn       # run the game
+"$G" --headless --path . --export-release "Web" build/web/index.html
+"$G" --headless --path . --export-debug "Android Debug APK" build/android/roti-lezat-tycoon-debug.apk
+"$G" --headless --path . --export-release "Android Release AAB" build/android/roti-lezat-tycoon.aab
 ```
 
-### Test suite (run all four after any change)
+Export templates for 4.7.2 are **not installed** on this machine (nor an Android SDK), so exports fail here with "No export template found". The presets themselves parse.
+
+### Tests (run after any change)
 
 ```bash
-"$G" --headless --path . --script res://tools/validate.gd        # every .gd compiles + no external assets
-"$G" --headless --path . --script res://tools/data_audit.gd      # ~976 asserts: data layer vs the OBSOLETE GDD's tables
-"$G" --headless --path . res://tools/procgen_test.tscn           # ~1041 asserts: factories actually run
-"$G" --headless --path . res://tools/sim_test.tscn               # headless multi-day simulation
+"$G" --headless --path . res://tests/test_runner.tscn -- --skip-long         # the §107 suites minus the soaks (~3 min)
+"$G" --headless --path . res://tests/test_runner.tscn -- --only=TEST_SAVE    # by ID prefix (--id=X for an exact ID)
+"$G" --headless --path . res://tests/test_runner.tscn                        # everything, including soaks (hours)
+"$G" --headless --path . res://tools/compile_check.tscn                      # every script compiles
+"$G" --headless --path . res://tools/release_validator.tscn -- --quick       # §133 gate without tests and exports
 ```
 
-**Tests that touch autoloads MUST run as a scene, not via `--script`.** In `--script` mode Godot does
-not register autoloads, so `Palette` / `GameConfig` / `AudioBus` resolve as unknown identifiers and
-whole factories fail to compile *silently* — loops just skip and the run still reports "0 failures".
-`validate.gd` and `data_audit.gd` are safe as `--script` only because they touch no autoload.
+- **Run tests and tools as scenes, never `--script`.** In `--script` mode Godot does not register autoloads, so scripts that use `DataRegistry`, `EventBus` and the rest fail to compile *silently*.
+- The runner installs a custom `Logger`. Any engine or script error during a test fails it, unless the test sets `"expect_errors": true`. A GDScript runtime error does not throw, so without this a crashed test would look green.
+- `SimBot` (`tests/sim_bot.gd`) plays through the same APIs as the UI.
+- Save comparisons use `logical_state()`, because loading snaps actors to canonical cells (§77.2, §81 no. 16).
+- The golden fixture changes whenever simulation or bot behaviour changes. Regenerate it on purpose with `-- --only=TEST_SAVE_001 --update-fixtures` and review the diff.
+- JSON numbers load as floats. `Array.has(3)` is false for `[3.0]`, so compare catalog arrays with `int()`. This exact bug once disabled the 2×/3× speed buttons.
 
-Note also that `ResourceLoader.load()` returns a non-null GDScript even when the file has a parse
-error; `validate.gd` calls `script.reload()` because that is the only call that actually reports it.
-
-`data_audit.gd` still checks the obsolete GDD, so a green run says nothing about v3.1 compliance; it has
-to be re-targeted during migration. v3.1 §107 and §133 also require a headless harness with fixed test
-IDs and `res://tools/release_validator.gd` — neither exists yet.
-
-No linter or CI is configured. Export presets (`export_presets.cfg`) do not exist yet.
+No linter or CI is configured.
 
 ## Engine lock (v3.1 §96, §128)
 
-Godot 4.7-stable Standard, GDScript only, Compatibility renderer; no C#, GDExtension or third-party addons, and no APIs newer than 4.7. The installed binary is 4.7.2-stable. `project.godot` already uses `gl_compatibility` with the 1280×720 `canvas_items`/`expand` stretch setup; Android landscape orientation is not configured yet.
+Godot 4.7-stable Standard, GDScript only, Compatibility renderer; no C#, GDExtension or third-party addons, and no APIs newer than 4.7. The installed binary is 4.7.2-stable. `project.godot` uses `gl_compatibility` (desktop and mobile), the 1280×720 `canvas_items`/`expand` stretch setup, and landscape orientation. `export_presets.cfg` holds the Web (single-threaded), Android debug APK and Android release AAB presets, with no signing secrets.
 
 ## Non-negotiable architectural constraint: 100% procedural assets
 
-Per v3.1 §4, §12.2 and §111, **every visual in the game is generated in code**. No `.png`, `.jpg`, `.gltf`, `.fbx`, or `.obj` may be added to the project. Do not suggest importing art, downloading assets, or using placeholder sprites — generate geometry and UI instead. This is what keeps the web bundle under the 30–40 MB target and the VRAM footprint viable on entry-level Android. Audio must be original and reproducible from scripts in the repository (§111.1; today it is synthesized at runtime in `scripts/audio/synth.gd`), and fonts are Godot's built-in default (§111.2).
+Per v3.1 §4, §12.2 and §111, **every visual in the game is generated in code**. No `.png`, `.jpg`, `.gltf`, `.fbx`, or `.obj` may be added to the project. Do not suggest importing art, downloading assets, or using placeholder sprites — generate geometry and UI instead. This is what keeps the web bundle under the 30–40 MB target and the VRAM footprint viable on entry-level Android. Audio must be original and reproducible from scripts in the repository (§111.1; it is synthesized at runtime in `audio/audio_generator.gd`), and fonts are Godot's built-in default (§111.2). `icon.svg` is generated by `tools/generate_icon.gd`, and the release validator fails if it differs.
 
 Visual generation is split into three factory layers (§12.3):
 
@@ -111,11 +114,11 @@ Visual generation is split into three factory layers (§12.3):
 
 The game is a **daily cycle state machine**; 1 in-game hour = 180 real seconds at 1× (§15.2).
 
-1. **Prep 05:00–08:00** — the player drives a **player character** (male or female, cosmetic only, §31.3) who physically walks the kitchen. Production is one tap per station: Storage (opens the Recipe Book) → Mixer → Oven → Display, where a slot picker places the bread (§2, §16, §18). Finished equipment holds its contents until picked up, the character carries one item at a time, and only the character's legs queue while mixers and ovens keep working. The "!" marker stays on the finished station until its content is picked up (tap it again), and only then moves to the next station (§2, §12.3, §18.6). In current code this lives in `PlayerTaskSystem` (`scripts/sim/player_task.gd`, e.g. `STATION_STORAGE`); see ARCHITECTURE.md §7.0.1.
+1. **Prep 05:00–08:00** — the player drives a **player character** (male or female, cosmetic only, §31.3) who physically walks the kitchen. Production is one tap per station: Storage (opens the Recipe Book) → Mixer → Oven → Display, where a slot picker places the bread (§2, §16, §18). Finished equipment holds its contents until picked up, the character carries one item at a time, and only the character's legs queue while mixers and ovens keep working. The "!" marker stays on the finished station until its content is picked up (tap it again), and only then moves to the next station (§2, §12.3, §18.6). In code this is `PlayerTaskManager` (`gameplay/actors/player_task_manager.gd`) with `ProductionManager`.
 2. **Sell 08:00–18:00** — the store opens automatically at 08:00. Walk-in customers take bread from the display and then queue at a cashier; RotiFood delivery orders run in parallel (§20–§22). Baking continues, and unattended ovens burn (§62).
 3. **Close 18:00** — deterministic shutdown (§104) → Daily Summary (§11, §46) → after-hours management → night transition to 05:00.
 
-Without an on-duty Cashier Assistant the player character must stand at the counter for the walk-in queue to move (§2, §21.4), so early game forces a choice between baking and serving. In current code, `CustomerSim`'s manual lane only advances while `PlayerTaskSystem.manning_lane()` points at it, and player-started jobs carry `"manual": true` and wait for a tap at each stage boundary while hired bakers auto-produce.
+Without an on-duty Cashier Assistant the player character must stand at the counter for the walk-in queue to move (§2, §21.4), so early game forces a choice between baking and serving. In code, the manual lane only advances while `PlayerTaskManager.manning_lane` points at it (`CashierManager`), and player-owned jobs wait for a tap at each stage boundary while hired bakers auto-produce (`StaffManager`).
 
 Cross-cutting systems, all specified in v3.1: utility cost from equipment active time (§86); staff automation with a fixed roster and wage liability fixed at 05:00 (§3.1–3.5, §87); two independent ratings (§9, §25); weather and holiday modifiers (§10, §26); market purchases with 3-hour daytime courier delivery from Day 4 (§5.2, §24A); freshness and shelf life (§19.7, §61.3).
 
@@ -128,6 +131,6 @@ Location tier (1–5, §6, §57) gates mixer/oven/display/cashier slot counts, s
 ## Input, save and platform constraints
 
 - Every gameplay action must be reachable with **one tap or one left-click**; keyboard shortcuts are optional extras. Touch targets at least 48×48 logical px, with safe-area margins (§7, §12.4, §29, §100, §130.4).
-- Saves are versioned JSON with migrations, atomic temp-file writes and one backup generation (§34, §77, §106); `user://` maps to IndexedDB on web. v3.1 requires three independent profiles at `user://saves/profile_N.json` plus a backup, with settings in `user://settings.json` (§89.3, §106). Current code still uses a single `user://savegame.json`.
+- Saves are versioned JSON with migrations, atomic temp-file writes and one backup generation (§34, §77, §106); `user://` maps to IndexedDB on web. Three independent profiles live at `user://saves/profile_N.json` plus a backup, with settings in `user://settings.json` (§89.3, §106), all implemented in `SaveManager`.
 - The web build needs a "tap to start" screen so browser autoplay policy doesn't block audio (§12.1, §33.4). Losing app or tab focus pauses the simulation with no offline progression (§90, §113).
 - v1.0 is fully offline: no ads, IAP, login, backend or telemetry (§12.7, §112).

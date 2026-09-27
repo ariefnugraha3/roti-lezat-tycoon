@@ -1,0 +1,2579 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "items": [
+  {
+   "id": "location_t1_garage",
+   "tier": 1,
+   "upgrade_cost_kr": 0,
+   "slots": {
+    "mixer": 1,
+    "oven": 1,
+    "display": 1,
+    "cashier": 1
+   },
+   "staff_capacity_by_role": {
+    "cashier": 1,
+    "baker": 1
+   },
+   "queue_capacity_physical": 4,
+   "queue_capacity_rotifood": 0,
+   "shared_rotifood_queue": true,
+   "storage_id": "storage_t1",
+   "base_physical_rate": 2.0,
+   "base_rotifood_rate": 0.6,
+   "active_actor_budget": 25,
+   "entrance_floor": "floor_1",
+   "floors": [
+    {
+     "id": "floor_1",
+     "size": [
+      6,
+      12
+     ],
+     "zones": [
+      {
+       "type": "store",
+       "rect": [
+        0,
+        0,
+        5,
+        5
+       ]
+      },
+      {
+       "type": "kitchen",
+       "rect": [
+        0,
+        6,
+        5,
+        11
+       ]
+      }
+     ],
+     "entrance": [
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ]
+     ],
+     "protected": [
+      [
+       2,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       2,
+       10
+      ],
+      [
+       2,
+       11
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       3,
+       10
+      ],
+      [
+       3,
+       11
+      ]
+     ],
+     "staff_only": [
+      [
+       0,
+       6
+      ]
+     ],
+     "walls": [],
+     "counters": [
+      {
+       "id": "counter_main",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         0,
+         5
+        ],
+        [
+         1,
+         5
+        ],
+        [
+         2,
+         5
+        ]
+       ],
+       "tablet_cell": [
+        2,
+        5
+       ]
+      }
+     ],
+     "lanes": [
+      {
+       "id": "lane_a",
+       "counter_id": "counter_main",
+       "service_point": [
+        1,
+        4
+       ],
+       "cashier_point": [
+        1,
+        6
+       ],
+       "queue": [
+        [
+         1,
+         3
+        ],
+        [
+         1,
+         2
+        ],
+        [
+         1,
+         1
+        ],
+        [
+         0,
+         1
+        ]
+       ],
+       "main": true
+      }
+     ],
+     "rotifood_counter": null,
+     "supply_dropoff": [
+      0,
+      4
+     ],
+     "supply_drop_cell": [
+      0,
+      5
+     ],
+     "portal": null,
+     "preferred_zones": {
+      "display": [
+       4,
+       1,
+       5,
+       4
+      ]
+     }
+    }
+   ],
+   "localization_key": "location_t1_garage",
+   "exit_cell": [
+    2,
+    0
+   ],
+   "entrance_cell": [
+    2,
+    0
+   ]
+  },
+  {
+   "id": "location_t2_shophouse",
+   "tier": 2,
+   "upgrade_cost_kr": 15000,
+   "slots": {
+    "mixer": 2,
+    "oven": 2,
+    "display": 2,
+    "cashier": 1
+   },
+   "staff_capacity_by_role": {
+    "cashier": 1,
+    "baker": 2
+   },
+   "queue_capacity_physical": 6,
+   "queue_capacity_rotifood": 0,
+   "shared_rotifood_queue": true,
+   "storage_id": "storage_t2",
+   "base_physical_rate": 3.5,
+   "base_rotifood_rate": 1.0,
+   "active_actor_budget": 25,
+   "entrance_floor": "floor_1",
+   "floors": [
+    {
+     "id": "floor_1",
+     "size": [
+      6,
+      12
+     ],
+     "zones": [
+      {
+       "type": "store",
+       "rect": [
+        0,
+        0,
+        5,
+        11
+       ]
+      }
+     ],
+     "entrance": [
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ]
+     ],
+     "protected": [
+      [
+       2,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       3,
+       10
+      ]
+     ],
+     "staff_only": [
+      [
+       0,
+       11
+      ],
+      [
+       2,
+       11
+      ],
+      [
+       3,
+       11
+      ]
+     ],
+     "walls": [],
+     "counters": [
+      {
+       "id": "counter_main",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         0,
+         10
+        ],
+        [
+         1,
+         10
+        ],
+        [
+         2,
+         10
+        ]
+       ],
+       "tablet_cell": [
+        2,
+        10
+       ]
+      }
+     ],
+     "lanes": [
+      {
+       "id": "lane_a",
+       "counter_id": "counter_main",
+       "service_point": [
+        1,
+        9
+       ],
+       "cashier_point": [
+        1,
+        11
+       ],
+       "queue": [
+        [
+         1,
+         8
+        ],
+        [
+         1,
+         7
+        ],
+        [
+         1,
+         6
+        ],
+        [
+         1,
+         5
+        ],
+        [
+         1,
+         4
+        ],
+        [
+         0,
+         4
+        ]
+       ],
+       "main": true
+      }
+     ],
+     "rotifood_counter": null,
+     "supply_dropoff": [
+      0,
+      9
+     ],
+     "supply_drop_cell": [
+      0,
+      10
+     ],
+     "portal": {
+      "cell": [
+       4,
+       11
+      ],
+      "access": [
+       4,
+       10
+      ],
+      "target_floor": "floor_2"
+     },
+     "preferred_zones": {}
+    },
+    {
+     "id": "floor_2",
+     "size": [
+      6,
+      8
+     ],
+     "zones": [
+      {
+       "type": "kitchen",
+       "rect": [
+        0,
+        0,
+        5,
+        7
+       ]
+      }
+     ],
+     "entrance": [],
+     "protected": [
+      [
+       2,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ]
+     ],
+     "staff_only": [],
+     "walls": [],
+     "counters": [],
+     "lanes": [],
+     "rotifood_counter": null,
+     "supply_dropoff": null,
+     "supply_drop_cell": null,
+     "portal": {
+      "cell": [
+       4,
+       0
+      ],
+      "access": [
+       4,
+       1
+      ],
+      "target_floor": "floor_1"
+     },
+     "preferred_zones": {}
+    }
+   ],
+   "localization_key": "location_t2_shophouse",
+   "exit_cell": [
+    2,
+    0
+   ],
+   "entrance_cell": [
+    2,
+    0
+   ]
+  },
+  {
+   "id": "location_t3_independent_bakery",
+   "tier": 3,
+   "upgrade_cost_kr": 55000,
+   "slots": {
+    "mixer": 3,
+    "oven": 3,
+    "display": 3,
+    "cashier": 2
+   },
+   "staff_capacity_by_role": {
+    "cashier": 2,
+    "baker": 2
+   },
+   "queue_capacity_physical": 8,
+   "queue_capacity_rotifood": 3,
+   "shared_rotifood_queue": false,
+   "storage_id": "storage_t3",
+   "base_physical_rate": 5.0,
+   "base_rotifood_rate": 1.8,
+   "active_actor_budget": 40,
+   "entrance_floor": "floor_1",
+   "floors": [
+    {
+     "id": "floor_1",
+     "size": [
+      6,
+      12
+     ],
+     "zones": [
+      {
+       "type": "store",
+       "rect": [
+        0,
+        0,
+        5,
+        11
+       ]
+      }
+     ],
+     "entrance": [
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ]
+     ],
+     "protected": [
+      [
+       2,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       2,
+       10
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       3,
+       10
+      ]
+     ],
+     "staff_only": [
+      [
+       0,
+       11
+      ],
+      [
+       2,
+       11
+      ],
+      [
+       5,
+       11
+      ]
+     ],
+     "walls": [],
+     "counters": [
+      {
+       "id": "counter_a",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         0,
+         10
+        ],
+        [
+         1,
+         10
+        ]
+       ],
+       "tablet_cell": null
+      },
+      {
+       "id": "counter_b",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         4,
+         10
+        ],
+        [
+         5,
+         10
+        ]
+       ],
+       "tablet_cell": null
+      }
+     ],
+     "lanes": [
+      {
+       "id": "lane_a",
+       "counter_id": "counter_a",
+       "service_point": [
+        1,
+        9
+       ],
+       "cashier_point": [
+        1,
+        11
+       ],
+       "queue": [
+        [
+         1,
+         8
+        ],
+        [
+         1,
+         7
+        ],
+        [
+         1,
+         6
+        ],
+        [
+         0,
+         6
+        ]
+       ],
+       "main": true
+      },
+      {
+       "id": "lane_b",
+       "counter_id": "counter_b",
+       "service_point": [
+        4,
+        9
+       ],
+       "cashier_point": [
+        4,
+        11
+       ],
+       "queue": [
+        [
+         4,
+         8
+        ],
+        [
+         4,
+         7
+        ],
+        [
+         4,
+         6
+        ],
+        [
+         5,
+         6
+        ]
+       ],
+       "main": false
+      }
+     ],
+     "rotifood_counter": {
+      "id": "counter_rotifood",
+      "cells": [
+       [
+        4,
+        0
+       ],
+       [
+        5,
+        0
+       ]
+      ],
+      "tablet_cell": [
+       4,
+       0
+      ],
+      "service_point": [
+       5,
+       1
+      ],
+      "queue": [
+       [
+        5,
+        2
+       ],
+       [
+        5,
+        3
+       ],
+       [
+        5,
+        4
+       ]
+      ]
+     },
+     "supply_dropoff": [
+      0,
+      9
+     ],
+     "supply_drop_cell": [
+      0,
+      10
+     ],
+     "portal": {
+      "cell": [
+       3,
+       11
+      ],
+      "access": [
+       3,
+       10
+      ],
+      "target_floor": "floor_2"
+     },
+     "preferred_zones": {
+      "display": [
+       0,
+       0,
+       1,
+       5
+      ]
+     }
+    },
+    {
+     "id": "floor_2",
+     "size": [
+      6,
+      12
+     ],
+     "zones": [
+      {
+       "type": "kitchen",
+       "rect": [
+        0,
+        0,
+        5,
+        11
+       ]
+      }
+     ],
+     "entrance": [],
+     "protected": [
+      [
+       2,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       2,
+       10
+      ],
+      [
+       2,
+       11
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       3,
+       10
+      ],
+      [
+       3,
+       11
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       5,
+       6
+      ]
+     ],
+     "staff_only": [],
+     "walls": [],
+     "counters": [],
+     "lanes": [],
+     "rotifood_counter": null,
+     "supply_dropoff": null,
+     "supply_drop_cell": null,
+     "portal": {
+      "cell": [
+       0,
+       0
+      ],
+      "access": [
+       1,
+       0
+      ],
+      "target_floor": "floor_1"
+     },
+     "preferred_zones": {}
+    }
+   ],
+   "localization_key": "location_t3_independent_bakery",
+   "exit_cell": [
+    2,
+    0
+   ],
+   "entrance_cell": [
+    2,
+    0
+   ]
+  },
+  {
+   "id": "location_t4_flagship",
+   "tier": 4,
+   "upgrade_cost_kr": 180000,
+   "slots": {
+    "mixer": 4,
+    "oven": 4,
+    "display": 4,
+    "cashier": 2
+   },
+   "staff_capacity_by_role": {
+    "cashier": 2,
+    "baker": 3
+   },
+   "queue_capacity_physical": 10,
+   "queue_capacity_rotifood": 4,
+   "shared_rotifood_queue": false,
+   "storage_id": "storage_t4",
+   "base_physical_rate": 7.5,
+   "base_rotifood_rate": 3.0,
+   "active_actor_budget": 60,
+   "entrance_floor": "floor_1",
+   "floors": [
+    {
+     "id": "floor_1",
+     "size": [
+      16,
+      16
+     ],
+     "zones": [
+      {
+       "type": "store",
+       "rect": [
+        0,
+        0,
+        7,
+        15
+       ]
+      },
+      {
+       "type": "kitchen",
+       "rect": [
+        8,
+        0,
+        15,
+        15
+       ]
+      }
+     ],
+     "entrance": [
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ]
+     ],
+     "protected": [
+      [
+       3,
+       0
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       3,
+       10
+      ],
+      [
+       3,
+       11
+      ],
+      [
+       3,
+       12
+      ],
+      [
+       3,
+       13
+      ],
+      [
+       3,
+       14
+      ],
+      [
+       3,
+       15
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       4,
+       10
+      ],
+      [
+       4,
+       11
+      ],
+      [
+       4,
+       12
+      ],
+      [
+       4,
+       13
+      ],
+      [
+       4,
+       14
+      ],
+      [
+       4,
+       15
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       9,
+       10
+      ],
+      [
+       9,
+       11
+      ],
+      [
+       9,
+       12
+      ],
+      [
+       9,
+       13
+      ],
+      [
+       9,
+       14
+      ],
+      [
+       9,
+       15
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       10,
+       10
+      ],
+      [
+       10,
+       11
+      ],
+      [
+       10,
+       12
+      ],
+      [
+       10,
+       13
+      ],
+      [
+       10,
+       14
+      ],
+      [
+       10,
+       15
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       9,
+       10
+      ],
+      [
+       10,
+       10
+      ],
+      [
+       11,
+       10
+      ],
+      [
+       12,
+       10
+      ],
+      [
+       13,
+       10
+      ],
+      [
+       14,
+       10
+      ],
+      [
+       15,
+       10
+      ]
+     ],
+     "staff_only": [],
+     "walls": [
+      [
+       7,
+       0
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       7,
+       12
+      ],
+      [
+       7,
+       13
+      ]
+     ],
+     "counters": [
+      {
+       "id": "counter_a",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         7,
+         5
+        ],
+        [
+         7,
+         6
+        ]
+       ],
+       "tablet_cell": null
+      },
+      {
+       "id": "counter_b",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         7,
+         10
+        ],
+        [
+         7,
+         11
+        ]
+       ],
+       "tablet_cell": null
+      }
+     ],
+     "lanes": [
+      {
+       "id": "lane_a",
+       "counter_id": "counter_a",
+       "service_point": [
+        6,
+        5
+       ],
+       "cashier_point": [
+        8,
+        5
+       ],
+       "queue": [
+        [
+         5,
+         5
+        ],
+        [
+         4,
+         5
+        ],
+        [
+         3,
+         5
+        ],
+        [
+         2,
+         5
+        ],
+        [
+         1,
+         5
+        ]
+       ],
+       "main": true
+      },
+      {
+       "id": "lane_b",
+       "counter_id": "counter_b",
+       "service_point": [
+        6,
+        10
+       ],
+       "cashier_point": [
+        8,
+        10
+       ],
+       "queue": [
+        [
+         5,
+         10
+        ],
+        [
+         4,
+         10
+        ],
+        [
+         3,
+         10
+        ],
+        [
+         2,
+         10
+        ],
+        [
+         1,
+         10
+        ]
+       ],
+       "main": false
+      }
+     ],
+     "rotifood_counter": {
+      "id": "counter_rotifood",
+      "cells": [
+       [
+        7,
+        14
+       ],
+       [
+        7,
+        15
+       ]
+      ],
+      "tablet_cell": [
+       7,
+       15
+      ],
+      "service_point": [
+       6,
+       14
+      ],
+      "queue": [
+       [
+        5,
+        14
+       ],
+       [
+        4,
+        14
+       ],
+       [
+        3,
+        14
+       ],
+       [
+        2,
+        14
+       ]
+      ]
+     },
+     "supply_dropoff": [
+      6,
+      6
+     ],
+     "supply_drop_cell": [
+      7,
+      6
+     ],
+     "portal": null,
+     "preferred_zones": {}
+    }
+   ],
+   "localization_key": "location_t4_flagship",
+   "exit_cell": [
+    3,
+    0
+   ],
+   "entrance_cell": [
+    3,
+    0
+   ]
+  },
+  {
+   "id": "location_t5_landmark",
+   "tier": 5,
+   "upgrade_cost_kr": 600000,
+   "slots": {
+    "mixer": 5,
+    "oven": 5,
+    "display": 6,
+    "cashier": 3
+   },
+   "staff_capacity_by_role": {
+    "cashier": 3,
+    "baker": 4
+   },
+   "queue_capacity_physical": 18,
+   "queue_capacity_rotifood": 6,
+   "shared_rotifood_queue": false,
+   "storage_id": "storage_t5",
+   "base_physical_rate": 10.0,
+   "base_rotifood_rate": 4.5,
+   "active_actor_budget": 90,
+   "entrance_floor": "floor_1",
+   "floors": [
+    {
+     "id": "floor_1",
+     "size": [
+      20,
+      20
+     ],
+     "zones": [
+      {
+       "type": "store",
+       "rect": [
+        0,
+        0,
+        11,
+        19
+       ]
+      },
+      {
+       "type": "kitchen",
+       "rect": [
+        12,
+        0,
+        19,
+        19
+       ]
+      }
+     ],
+     "entrance": [
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ]
+     ],
+     "protected": [
+      [
+       5,
+       0
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       5,
+       10
+      ],
+      [
+       5,
+       11
+      ],
+      [
+       5,
+       12
+      ],
+      [
+       5,
+       13
+      ],
+      [
+       5,
+       14
+      ],
+      [
+       5,
+       15
+      ],
+      [
+       5,
+       16
+      ],
+      [
+       5,
+       17
+      ],
+      [
+       5,
+       18
+      ],
+      [
+       5,
+       19
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       6,
+       10
+      ],
+      [
+       6,
+       11
+      ],
+      [
+       6,
+       12
+      ],
+      [
+       6,
+       13
+      ],
+      [
+       6,
+       14
+      ],
+      [
+       6,
+       15
+      ],
+      [
+       6,
+       16
+      ],
+      [
+       6,
+       17
+      ],
+      [
+       6,
+       18
+      ],
+      [
+       6,
+       19
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       13,
+       10
+      ],
+      [
+       13,
+       11
+      ],
+      [
+       13,
+       12
+      ],
+      [
+       13,
+       13
+      ],
+      [
+       13,
+       14
+      ],
+      [
+       13,
+       15
+      ],
+      [
+       13,
+       16
+      ],
+      [
+       13,
+       17
+      ],
+      [
+       13,
+       18
+      ],
+      [
+       13,
+       19
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       14,
+       10
+      ],
+      [
+       14,
+       11
+      ],
+      [
+       14,
+       12
+      ],
+      [
+       14,
+       13
+      ],
+      [
+       14,
+       14
+      ],
+      [
+       14,
+       15
+      ],
+      [
+       14,
+       16
+      ],
+      [
+       14,
+       17
+      ],
+      [
+       14,
+       18
+      ],
+      [
+       14,
+       19
+      ],
+      [
+       17,
+       0
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       17,
+       10
+      ],
+      [
+       17,
+       11
+      ],
+      [
+       17,
+       12
+      ],
+      [
+       17,
+       13
+      ],
+      [
+       17,
+       14
+      ],
+      [
+       17,
+       15
+      ],
+      [
+       17,
+       16
+      ],
+      [
+       17,
+       17
+      ],
+      [
+       17,
+       18
+      ],
+      [
+       17,
+       19
+      ],
+      [
+       18,
+       0
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       18,
+       10
+      ],
+      [
+       18,
+       11
+      ],
+      [
+       18,
+       12
+      ],
+      [
+       18,
+       13
+      ],
+      [
+       18,
+       14
+      ],
+      [
+       18,
+       15
+      ],
+      [
+       18,
+       16
+      ],
+      [
+       18,
+       17
+      ],
+      [
+       18,
+       18
+      ],
+      [
+       18,
+       19
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       12,
+       13
+      ],
+      [
+       13,
+       13
+      ],
+      [
+       14,
+       13
+      ],
+      [
+       15,
+       13
+      ],
+      [
+       16,
+       13
+      ],
+      [
+       17,
+       13
+      ],
+      [
+       18,
+       13
+      ],
+      [
+       19,
+       13
+      ]
+     ],
+     "staff_only": [],
+     "walls": [
+      [
+       11,
+       0
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       11,
+       12
+      ],
+      [
+       11,
+       13
+      ],
+      [
+       11,
+       14
+      ],
+      [
+       11,
+       17
+      ]
+     ],
+     "counters": [
+      {
+       "id": "counter_a",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         11,
+         5
+        ],
+        [
+         11,
+         6
+        ]
+       ],
+       "tablet_cell": null
+      },
+      {
+       "id": "counter_b",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         11,
+         10
+        ],
+        [
+         11,
+         11
+        ]
+       ],
+       "tablet_cell": null
+      },
+      {
+       "id": "counter_c",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         11,
+         15
+        ],
+        [
+         11,
+         16
+        ]
+       ],
+       "tablet_cell": null
+      }
+     ],
+     "lanes": [
+      {
+       "id": "lane_a",
+       "counter_id": "counter_a",
+       "service_point": [
+        10,
+        5
+       ],
+       "cashier_point": [
+        12,
+        5
+       ],
+       "queue": [
+        [
+         9,
+         5
+        ],
+        [
+         8,
+         5
+        ],
+        [
+         7,
+         5
+        ],
+        [
+         6,
+         5
+        ],
+        [
+         5,
+         5
+        ],
+        [
+         4,
+         5
+        ]
+       ],
+       "main": true
+      },
+      {
+       "id": "lane_b",
+       "counter_id": "counter_b",
+       "service_point": [
+        10,
+        10
+       ],
+       "cashier_point": [
+        12,
+        10
+       ],
+       "queue": [
+        [
+         9,
+         10
+        ],
+        [
+         8,
+         10
+        ],
+        [
+         7,
+         10
+        ],
+        [
+         6,
+         10
+        ],
+        [
+         5,
+         10
+        ],
+        [
+         4,
+         10
+        ]
+       ],
+       "main": false
+      },
+      {
+       "id": "lane_c",
+       "counter_id": "counter_c",
+       "service_point": [
+        10,
+        15
+       ],
+       "cashier_point": [
+        12,
+        15
+       ],
+       "queue": [
+        [
+         9,
+         15
+        ],
+        [
+         8,
+         15
+        ],
+        [
+         7,
+         15
+        ],
+        [
+         6,
+         15
+        ],
+        [
+         5,
+         15
+        ],
+        [
+         4,
+         15
+        ]
+       ],
+       "main": false
+      }
+     ],
+     "rotifood_counter": {
+      "id": "counter_rotifood",
+      "cells": [
+       [
+        11,
+        18
+       ],
+       [
+        11,
+        19
+       ]
+      ],
+      "tablet_cell": [
+       11,
+       19
+      ],
+      "service_point": [
+       10,
+       18
+      ],
+      "queue": [
+       [
+        9,
+        18
+       ],
+       [
+        8,
+        18
+       ],
+       [
+        7,
+        18
+       ],
+       [
+        6,
+        18
+       ],
+       [
+        5,
+        18
+       ],
+       [
+        4,
+        18
+       ]
+      ]
+     },
+     "supply_dropoff": [
+      10,
+      6
+     ],
+     "supply_drop_cell": [
+      11,
+      6
+     ],
+     "portal": null,
+     "preferred_zones": {}
+    }
+   ],
+   "localization_key": "location_t5_landmark",
+   "exit_cell": [
+    5,
+    0
+   ],
+   "entrance_cell": [
+    5,
+    0
+   ]
+  }
+ ]
+}

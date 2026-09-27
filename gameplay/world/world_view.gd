@@ -1,0 +1,603 @@
+class_name WorldView
+extends Node3D
+## WorldRoot (GDD 36): visual dunia yang dibangun dari state simulasi. Tidak
+## memiliki state gameplay; semua posisi berasal dari SimActor & EquipmentManager.
+##
+## Hanya satu lantai dirender penuh (GDD 30.3). Lantai lain tetap disimulasikan
+## penuh oleh SimulationRoot; node visualnya disembunyikan dan disinkronkan lagi
+## saat lantai itu aktif.
+
+const MARKER_HZ: float = 12.0
+const BREAD_HZ: float = 4.0
+const MAX_BREAD_PER_SLOT: int = 3
+const PICK_CUSTOMER_PX: float = 56.0
+
+var sim: SimulationRoot = null
+var camera_rig: CameraRig = null
+var floors: Dictionary = {}
+var furniture: Dictionary = {}
+var markers: Dictionary = {}
+var _bread_sig: Dictionary = {}
+var _aabbs: Dictionary = {}
+var _counter_aabbs: Array[Dictionary] = []
+var views: Dictionary = {}
+var _pool: Array[ActorView] = []
+## Body pelanggan/driver/kurir yang pernah dibuat (aktif + di pool).
+var _pooled_bodies: int = 0
+var _marker_timer: float = 0.0
+var _bread_timer: float = 0.0
+var _rain: Node = null
+var _rain_layer: CanvasLayer = null
+var _highlight: Node3D = null
+var _ghosts: Node3D = null
+var _env: WorldEnvironment = null
+var _t: float = 0.0
+var _smoke: Dictionary = {}
+var decoration_mode: bool = false
+## Decoration Mode boleh melihat lantai lain selama simulasi di-pause.
+var view_floor_override: StringName = &""
+
+
+func setup(s: SimulationRoot) -> void:
+	sim = s
+	name = "WorldRoot"
+	_env = EquipmentFactory.build_environment()
+	add_child(_env)
+	camera_rig = CameraRig.new()
+	add_child(camera_rig)
+	camera_rig.active_floor_changed.connect(_on_camera_floor_changed)
+	_rain_layer = CanvasLayer.new()
+	_rain_layer.layer = 2
+	add_child(_rain_layer)
+	_ghosts = Node3D.new()
+	_ghosts.name = "PlacementGhosts"
+	add_child(_ghosts)
+	sim.world.layout_changed.connect(rebuild_furniture)
+	EventBus.location_changed.connect(func(_id: StringName) -> void: rebuild_all())
+	EventBus.storage_door.connect(_on_storage_door)
+	EventBus.weather_changed.connect(func(_a: StringName, _b: StringName) -> void: _apply_weather())
+	EventBus.sale_completed.connect(_on_sale)
+	SettingsManager.settings_changed.connect(func(_k: String) -> void: _apply_brightness())
+	rebuild_all()
+	camera_rig.active_floor = sim.player.actor.floor_id
+	camera_rig.snap_to(_v3(sim.player.actor.pos))
+	_apply_floor_visibility()
+
+
+func rebuild_all() -> void:
+	for f: Variant in floors.values():
+		(f as Node3D).queue_free()
+	floors.clear()
+	_counter_aabbs.clear()
+	var skins: Dictionary = sim.decoration.equipped.duplicate()
+	for fd: FloorDefinition in sim.world.location.floors:
+		var node: Node3D = RoomFactory.build_floor(sim.world.location, fd, sim.bakery_name, skins)
+		add_child(node)
+		floors[fd.id] = node
+	rebuild_furniture()
+	_apply_weather()
+	_apply_brightness()
+	_update_counter_aabbs()
+	_apply_floor_visibility()
+
+
+func rebuild_furniture() -> void:
+	for n: Variant in furniture.values():
+		(n as Node3D).queue_free()
+	furniture.clear()
+	markers.clear()
+	_bread_sig.clear()
+	_aabbs.clear()
+	for e: EquipmentInstance in sim.equipment.placed_list():
+		var parent: Node3D = floors.get(e.floor_id)
+		if parent == null:
+			continue
+		var node: Node3D = _build_furniture(e)
+		parent.add_child(node)
+		furniture[e.iid] = node
+		if e.category() != &"storage":
+			var m := StationMarker.new()
+			parent.add_child(m)
+			m.pasang_di(node)
+			markers[e.iid] = m
+		_aabbs[e.iid] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
+	_update_counter_aabbs()
+
+
+func _build_furniture(e: EquipmentInstance) -> Node3D:
+	var def: EquipmentDefinition = e.def()
+	var node: Node3D
+	match def.category_id:
+		&"mixer":
+			node = EquipmentFactory.build_mixer(def.tier)
+		&"oven":
+			node = EquipmentFactory.build_oven(def.tier)
+		&"display":
+			node = EquipmentFactory.build_display(def.tier)
+		_:
+			node = EquipmentFactory.build_storage(def.tier)
+	node.name = "Equip_%d" % e.iid
+	node.set_meta("iid", e.iid)
+	var fp: Vector2i = GridMath.rotated_footprint(def.footprint_tiles, e.rotation)
+	var center := Vector3((float(e.anchor.x) + float(fp.x) * 0.5) * GridMath.WORLD_METERS_PER_TILE, 0.0,
+		(float(e.anchor.y) + float(fp.y) * 0.5) * GridMath.WORLD_METERS_PER_TILE)
+	# Skala seragam agar mesh muat di footprint logis (GDD 60: inset maks 0,05 m).
+	var b: AABB = EquipmentFactory._mesh_bounds(node)
+	var fp0: Vector2 = Vector2(def.footprint_tiles) * GridMath.WORLD_METERS_PER_TILE - Vector2(0.06, 0.06)
+	var k: float = 1.0
+	if b.size.x > 0.0 and b.size.z > 0.0:
+		k = minf(fp0.x / b.size.x, fp0.y / b.size.z)
+		if b.size.y * k > def.height_m * 1.2:
+			k = def.height_m * 1.2 / b.size.y
+	node.scale = Vector3(k, k, k)
+	var d: Vector2i = GridMath.face_dir(e.rotation)
+	if def.interaction_face == &"short_end":
+		var dd: Vector2i = GridMath.face_dir(e.rotation, &"short_end")
+		node.rotation.y = atan2(-float(dd.y), float(dd.x))
+	else:
+		node.rotation.y = atan2(float(d.x), float(d.y))
+	var bc: Vector3 = b.get_center() * k
+	var rotated_bc: Vector3 = Basis(Vector3.UP, node.rotation.y) * Vector3(bc.x, 0.0, bc.z)
+	node.position = center - rotated_bc
+	if def.category_id == &"oven" and sim.decoration.equipped.has("oven"):
+		var decal := ProceduralMeshFactory.box(Vector3(0.18, 0.06, 0.01), Palette.GOLD_STAR)
+		node.add_child(decal)
+		decal.position = Vector3(0.0, def.height_m * 0.5 / k, 0.26)
+	return node
+
+
+func _world_aabb(node: Node3D) -> AABB:
+	var local: AABB = EquipmentFactory._mesh_bounds(node)
+	var t: Transform3D = Transform3D(Basis(Vector3.UP, node.rotation.y).scaled(node.scale), node.position)
+	return t * local
+
+
+func _update_counter_aabbs() -> void:
+	_counter_aabbs.clear()
+	for fid: Variant in floors.keys():
+		var root: Node3D = floors[fid]
+		for c: Node in root.get_children():
+			if c.name.begins_with("Counter_") or c.name == "Tablet" or c.name == "Portal":
+				var n3: Node3D = c as Node3D
+				var local: AABB = EquipmentFactory._mesh_bounds(n3)
+				var t: Transform3D = Transform3D(Basis(Vector3.UP, n3.rotation.y).scaled(n3.scale), n3.position)
+				_counter_aabbs.append({"floor": fid, "aabb": (t * local).grow(0.04), "name": String(c.name),
+					"counter_id": c.get_meta("counter_id", &"")})
+
+
+# ===========================================================================
+# FRAME SYNC
+# ===========================================================================
+
+func _process(delta: float) -> void:
+	if sim == null:
+		return
+	_t += delta
+	var player: SimActor = sim.player.actor
+	var want_floor: StringName = view_floor_override if view_floor_override != &"" else player.floor_id
+	if sim.world.grid(want_floor) == null:
+		want_floor = player.floor_id
+	if want_floor != camera_rig.active_floor:
+		var focus: Vector3 = _v3(player.pos) if want_floor == player.floor_id else Vector3(Vector2(sim.world.grid(want_floor).size).x * 0.25, 0.0, Vector2(sim.world.grid(want_floor).size).y * 0.25)
+		camera_rig.change_floor(want_floor, focus)
+		if want_floor == player.floor_id:
+			EventBus.active_floor_changed.emit(player.floor_id)
+			EventBus.sfx.emit(&"stairs_floor_switch", player.floor_id)
+	camera_rig.set_floor_bounds(Vector2(sim.world.grid(camera_rig.active_floor).size) * GridMath.WORLD_METERS_PER_TILE)
+	if want_floor == player.floor_id:
+		camera_rig.follow(_v3(player.pos), delta)
+	else:
+		camera_rig.follow(camera_rig.follow_target, delta)
+	_sync_actors(delta)
+	_marker_timer -= delta
+	if _marker_timer <= 0.0:
+		_marker_timer = 1.0 / MARKER_HZ
+		_update_markers()
+	_bread_timer -= delta
+	if _bread_timer <= 0.0:
+		_bread_timer = 1.0 / BREAD_HZ
+		_update_bread()
+	_animate_stations(delta)
+
+
+func _v3(p: Vector2) -> Vector3:
+	return Vector3(p.x, 0.0, p.y)
+
+
+func _sync_actors(delta: float) -> void:
+	var live: Dictionary = {}
+	var player: SimActor = sim.player.actor
+	var pkey: String = "player|%s|%s" % [sim.player.appearance.get("gender", "male"), sim.decoration.equipped.get("outfit", "")]
+	_sync_one(player, pkey, _player_spec, delta, live, false)
+	var pv: ActorView = views.get(player.id)
+	if pv != null:
+		var pj: ProductionJob = sim.player.carried_job()
+		_apply_carry(pv, player, pj)
+	for sid: Variant in sim.staff.actors.keys():
+		var a: SimActor = sim.staff.actors[sid]
+		_sync_one(a, "staff|" + String(sid), _staff_spec.bind(String(sid)), delta, live, false)
+		var sv: ActorView = views.get(a.id)
+		if sv != null:
+			_apply_carry(sv, a, sim.production.get_job(int(a.carried.get("job_id", -1))) if not a.carried.is_empty() else null)
+	var rainy: bool = sim.weather.is_rain()
+	var large: bool = SettingsManager.get_bool("patience_bar_large")
+	for c: Customer in sim.customers.sorted():
+		var a2: SimActor = c.actor
+		_sync_one(a2, "cust|%s|%d" % [c.archetype, a2.visual_seed], _npc_spec.bind(String(c.archetype), a2.visual_seed, false), delta, live, true)
+		var v: ActorView = views.get(a2.id)
+		if v == null:
+			continue
+		v.set_carry("bag" if c.held_units() > 0 else "")
+		var show_bar: bool = c.state != Customer.CELEBRATING and c.state != Customer.LEAVING and c.state != Customer.LEAVE_NO_STOCK
+		v.set_patience(c.patience_ratio(), show_bar, large)
+		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
+		var thought: String = ""
+		if c.drains_patience() and c.patience_ratio() < 0.3:
+			thought = "..."
+		elif c.state == Customer.ENTERING and (c.price_label == &"UNHAPPY" or c.price_label == &"VERY_UNHAPPY" or c.price_label == &"REFUSE"):
+			thought = "$"
+		v.set_thought(thought)
+	for o: DeliveryOrder in sim.rotifood.orders.values():
+		if o.driver == null:
+			continue
+		_sync_one(o.driver, "drv|%d|%s" % [o.driver.visual_seed, rainy], _npc_spec.bind("driver_rotifood", o.driver.visual_seed, rainy), delta, live, true)
+		var dv: ActorView = views.get(o.driver.id)
+		if dv != null:
+			dv.set_carry("bag" if o.driver_phase == &"leaving" and o.state == DeliveryOrder.COMPLETED else "")
+			dv.set_patience(o.driver_patience / maxf(o.driver_patience_max, 0.01), o.driver_phase in [&"entering", &"queued", &"at_service"], large)
+	for oid: Variant in sim.supply.couriers.keys():
+		var ca: SimActor = sim.supply.couriers[oid]
+		_sync_one(ca, "cour|%d" % ca.visual_seed, _npc_spec.bind("courier_supply", ca.visual_seed, false), delta, live, true)
+	# Kembalikan view yang aktornya sudah hilang ke pool (GDD 83.2: dibersihkan di pintu).
+	for k: Variant in views.keys():
+		if not live.has(k):
+			var old: ActorView = views[k]
+			views.erase(k)
+			if bool(old.get_meta("pooled", false)):
+				old.reset_for_pool()
+				_pool.append(old)
+			else:
+				old.queue_free()
+
+
+func _staff_spec(staff_id: String) -> Dictionary:
+	return CharacterFactory.spec_for_staff(staff_id)
+
+
+func _npc_spec(visual_key: String, seed_value: int, rainy: bool) -> Dictionary:
+	return CharacterFactory.spec_for_customer(visual_key, seed_value, rainy)
+
+
+## Spec karakter pemain (GDD 31.3): pilihan pria/wanita murni visual; outfit
+## hadiah achievement mengganti celemek (GDD 72.1).
+func _player_spec() -> Dictionary:
+	var female: bool = str(sim.player.appearance.get("gender", "male")) == "female"
+	var sp: Dictionary = CharacterFactory.spec_for_player("wanita" if female else "pria")
+	match str(sim.decoration.equipped.get("outfit", "")):
+		"outfit_apron_neighborhood":
+			sp["apron"] = Palette.GINGHAM_A
+		"outfit_chef_hat_perfect":
+			sp["hat"] = "toque"
+	return sp
+
+
+func _sync_one(a: SimActor, key: String, spec_fn: Callable, delta: float, live: Dictionary, pooled: bool) -> void:
+	live[a.id] = true
+	var v: ActorView = views.get(a.id)
+	if v == null:
+		if pooled and not _pool.is_empty():
+			v = _pool.pop_back()
+		else:
+			# Pool berhenti tumbuh di batas GDD 129; aktor tetap ada secara logis,
+			# hanya tidak digambar sampai ada body yang kembali ke pool.
+			if pooled and _pooled_bodies >= DataRegistry.bali("limits.pooled_customer_bodies"):
+				return
+			v = ActorView.new()
+			add_child(v)
+			v.set_meta("pooled", pooled)
+			if pooled:
+				_pooled_bodies += 1
+		views[a.id] = v
+		v.bind(a.id, key, spec_fn.call())
+		v.visible = true
+		v.global_position = _v3(a.pos)
+	elif v.spec_key != key:
+		v.bind(a.id, key, spec_fn.call())
+	var on_floor: bool = a.floor_id == camera_rig.active_floor
+	v.visible = on_floor
+	v.sync(a, delta, on_floor)
+
+
+func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:
+	if a.carried.is_empty() or j == null:
+		v.set_carry("")
+		return
+	var t: String = str(a.carried.get("type", ""))
+	v.set_carry(t, String(j.recipe().visual_profile_id), j.bake_quality)
+
+
+func _update_markers() -> void:
+	var data: Dictionary = sim.player.station_markers()
+	var hc: bool = SettingsManager.get_bool("high_contrast_markers")
+	# Maks. alert dunia yang tampil (GDD 129): alert (terbakar lebih dulu)
+	# didahulukan daripada bar progres; urutan stabil menurut iid.
+	var order: Array = data.keys()
+	order.sort_custom(func(a: Variant, b: Variant) -> bool:
+		var da: Dictionary = data[a]
+		var db: Dictionary = data[b]
+		var ra: int = 0 if da["mode"] != &"progress" else 1
+		var rb: int = 0 if db["mode"] != &"progress" else 1
+		if ra != rb:
+			return ra < rb
+		if float(da.get("burn", 0.0)) != float(db.get("burn", 0.0)):
+			return float(da.get("burn", 0.0)) > float(db.get("burn", 0.0))
+		return int(a) < int(b))
+	var shown: Dictionary = {}
+	for i in mini(order.size(), DataRegistry.bali("limits.world_alerts_visible")):
+		shown[order[i]] = true
+	for iid: Variant in markers.keys():
+		var m: StationMarker = markers[iid]
+		m.set_high_contrast(hc)
+		var md: Variant = data.get(iid)
+		if md == null or not shown.has(iid):
+			m.hide_marker()
+		elif (md as Dictionary)["mode"] == &"progress":
+			m.show_progress(float((md as Dictionary)["value"]))
+		else:
+			m.show_alert(float((md as Dictionary)["burn"]))
+
+
+func _update_bread() -> void:
+	for iid: Variant in furniture.keys():
+		var e: EquipmentInstance = sim.equipment.get_inst(int(iid))
+		if e == null or e.category() != &"display":
+			continue
+		var sig: String = _display_signature(e.iid)
+		if _bread_sig.get(e.iid, "") == sig:
+			continue
+		_bread_sig[e.iid] = sig
+		var node: Node3D = furniture[iid]
+		var slots: Array = sim.display.slots(e.iid)
+		for i in slots.size():
+			var slot_node: Node3D = node.find_child("Slot%d" % i, true, false) as Node3D
+			if slot_node == null:
+				continue
+			for c: Node in slot_node.get_children():
+				c.queue_free()
+			var s: Dictionary = slots[i]
+			var units: int = sim.display.slot_units(e.iid, i)
+			if units <= 0 or s["recipe"] == &"":
+				continue
+			var r: RecipeDefinition = DataRegistry.recipe(s["recipe"])
+			var first: BreadStack = (s["stacks"] as Array)[0]
+			var n: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
+			for k in n:
+				var b: Node3D = BreadFactory.build_cached(String(r.visual_profile_id), first.bake_quality, first.freshness_state)
+				b.scale = Vector3(0.45, 0.45, 0.45)
+				b.position = Vector3((float(k) - float(n - 1) * 0.5) * 0.06, 0.0, float(k % 2) * 0.03)
+				slot_node.add_child(b)
+
+
+func _display_signature(iid: int) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var slots: Array = sim.display.slots(iid)
+	for i in slots.size():
+		var s: Dictionary = slots[i]
+		var st: String = ""
+		if not (s["stacks"] as Array).is_empty():
+			st = String(((s["stacks"] as Array)[0] as BreadStack).freshness_state)
+		parts.append("%s:%d:%s" % [s["recipe"], mini(MAX_BREAD_PER_SLOT, int(ceil(float(sim.display.slot_units(iid, i)) / 4.0))), st])
+	return ",".join(parts)
+
+
+func _animate_stations(_delta: float) -> void:
+	for iid: Variant in furniture.keys():
+		var e: EquipmentInstance = sim.equipment.get_inst(int(iid))
+		if e == null or e.job_id < 0:
+			if _smoke.has(iid):
+				var gone: Variant = _smoke[iid]
+				if gone is Node and is_instance_valid(gone):
+					(gone as Node).queue_free()
+				_smoke.erase(iid)
+			continue
+		var j: ProductionJob = sim.production.get_job(e.job_id)
+		if j == null:
+			continue
+		var node: Node3D = furniture[iid]
+		if e.category() == &"mixer" and j.stage == ProductionJob.MIXING and not PauseManager.is_paused():
+			ProceduralAnimationSystem.mixer_spin(node, _t)
+		if e.category() == &"oven":
+			var burning: bool = j.stage == ProductionJob.OVERBAKING or j.stage == ProductionJob.BURNT
+			if burning and not _smoke.has(iid):
+				var parent: Node3D = floors.get(e.floor_id)
+				# Di batas partikel (GDD 129) efek dilewati dan dicoba lagi nanti.
+				var fx: CPUParticles3D = FX.burn_smoke(parent, node.position + Vector3(0.0, e.def().height_m, 0.0))
+				if fx != null:
+					_smoke[iid] = fx
+			elif not burning and _smoke.has(iid):
+				var old_fx: Variant = _smoke[iid]
+				if old_fx is Node and is_instance_valid(old_fx):
+					(old_fx as Node).queue_free()
+				_smoke.erase(iid)
+
+
+# ===========================================================================
+# EVENT VISUAL
+# ===========================================================================
+
+func _on_camera_floor_changed(_floor_id: StringName) -> void:
+	_apply_floor_visibility()
+
+
+func _apply_floor_visibility() -> void:
+	for fid: Variant in floors.keys():
+		(floors[fid] as Node3D).visible = StringName(str(fid)) == camera_rig.active_floor
+
+
+func _on_storage_door(iid: int, open: bool) -> void:
+	var node: Node3D = furniture.get(iid)
+	if node != null:
+		ProceduralAnimationSystem.storage_door_hold(node, open)
+
+
+func _on_sale(_amount: float, channel: StringName) -> void:
+	if channel == &"physical" and sim.bailout.solo_mode:
+		var pv: ActorView = views.get(sim.player.actor.id)
+		if pv != null:
+			pv.sparkle()
+
+
+func _apply_weather() -> void:
+	if _rain != null and is_instance_valid(_rain):
+		_rain.queue_free()
+		_rain = null
+	if sim.weather.is_rain():
+		_rain = FX.rain_overlay(_rain_layer)
+	AudioManager.set_ambience([&"rain_loop", &"shop_ambience_room"] if sim.weather.is_rain() else [&"sunny_ambience", &"shop_ambience_room"])
+
+
+func _apply_brightness() -> void:
+	if _env == null or _env.environment == null:
+		return
+	var b: float = float(SettingsManager.get_int("brightness")) / 100.0
+	_env.environment.adjustment_enabled = true
+	_env.environment.adjustment_brightness = b * (0.82 if sim.weather.is_rain() else 1.0)
+
+
+# ===========================================================================
+# PICKING (GDD 12.4: perabot adalah tombolnya sendiri)
+# ===========================================================================
+
+## {kind, iid, lane, customer, cell, floor}; kind: equipment/cashier/tablet/
+## customer/portal/cell/none.
+func pick(screen_pos: Vector2) -> Dictionary:
+	var floor_id: StringName = camera_rig.active_floor
+	# 1. Balon "!" pembeli terdepan.
+	for c: Customer in sim.customers.sorted():
+		if not c.awaiting_tap or c.actor.floor_id != floor_id:
+			continue
+		var head: Vector2 = camera_rig.world_to_screen(_v3(c.actor.pos) + Vector3(0.0, 1.1, 0.0))
+		if head.distance_to(screen_pos) <= PICK_CUSTOMER_PX:
+			return {"kind": &"customer", "customer": c.id, "floor": floor_id}
+	var from: Vector3 = camera_rig.camera.project_ray_origin(screen_pos)
+	var dir: Vector3 = camera_rig.camera.project_ray_normal(screen_pos)
+	var best_d: float = INF
+	var best: Dictionary = {}
+	for iid: Variant in _aabbs.keys():
+		var ad: Dictionary = _aabbs[iid]
+		if StringName(str(ad["floor"])) != floor_id:
+			continue
+		var hit: Variant = (ad["aabb"] as AABB).grow(0.03).intersects_ray(from, dir)
+		if hit != null:
+			var d: float = from.distance_to(hit)
+			if d < best_d:
+				best_d = d
+				best = {"kind": &"equipment", "iid": int(iid), "floor": floor_id}
+	for cd: Dictionary in _counter_aabbs:
+		if StringName(str(cd["floor"])) != floor_id:
+			continue
+		var hit2: Variant = (cd["aabb"] as AABB).intersects_ray(from, dir)
+		if hit2 != null:
+			var d2: float = from.distance_to(hit2)
+			if d2 < best_d:
+				best_d = d2
+				best = _counter_pick(cd, floor_id)
+	if not best.is_empty():
+		return best
+	var g: Vector3 = camera_rig.screen_to_ground(screen_pos)
+	if is_inf(g.x):
+		return {"kind": &"none"}
+	var cell: Vector2i = GridMath.world_to_cell(Vector2(g.x, g.z))
+	var fg: FloorGrid = sim.world.grid(floor_id)
+	if fg != null and fg.in_bounds(cell):
+		if fg.access_at.has(cell):
+			return {"kind": &"equipment", "iid": int(fg.access_at[cell]), "floor": floor_id, "cell": cell}
+		for lane: QueueLane in sim.queue.lanes:
+			if lane.floor_id == floor_id and (cell == lane.cashier_point or cell == lane.service_point):
+				return {"kind": &"cashier", "lane": lane.id, "floor": floor_id}
+	return {"kind": &"cell", "cell": cell, "floor": floor_id}
+
+
+func _counter_pick(cd: Dictionary, floor_id: StringName) -> Dictionary:
+	var n: String = str(cd["name"])
+	if n == "Tablet":
+		return {"kind": &"tablet", "floor": floor_id}
+	if n == "Portal":
+		return {"kind": &"portal", "floor": floor_id}
+	var cid: StringName = StringName(str(cd["counter_id"]))
+	if cid == &"counter_rotifood":
+		return {"kind": &"tablet", "floor": floor_id}
+	for lane: QueueLane in sim.queue.lanes:
+		if lane.counter_id == cid and lane.floor_id == floor_id:
+			return {"kind": &"cashier", "lane": lane.id, "floor": floor_id}
+	return {"kind": &"none"}
+
+
+func cell_at_screen(screen_pos: Vector2) -> Vector2i:
+	var g: Vector3 = camera_rig.screen_to_ground(screen_pos)
+	if is_inf(g.x):
+		return Vector2i(-1, -1)
+	return GridMath.world_to_cell(Vector2(g.x, g.z))
+
+
+func screen_of_iid(iid: int) -> Vector2:
+	var node: Node3D = furniture.get(iid)
+	if node == null:
+		return Vector2(-1, -1)
+	return camera_rig.world_to_screen(node.global_position + Vector3(0.0, 0.6, 0.0))
+
+
+# ===========================================================================
+# SOROTAN TUTORIAL & PRATINJAU PENEMPATAN
+# ===========================================================================
+
+func highlight(kind: StringName, iid: int) -> void:
+	if _highlight != null and is_instance_valid(_highlight):
+		_highlight.queue_free()
+	_highlight = null
+	var pos := Vector3.INF
+	var floor_id: StringName = &""
+	if iid >= 0 and furniture.has(iid):
+		var e: EquipmentInstance = sim.equipment.get_inst(iid)
+		pos = (furniture[iid] as Node3D).position
+		floor_id = e.floor_id
+	elif kind == &"cashier" or kind == &"tablet":
+		var lane: QueueLane = sim.queue.main_lane()
+		pos = GridMath.cell_center3(lane.cashier_point)
+		floor_id = lane.floor_id
+	if pos == Vector3.INF or not floors.has(floor_id):
+		return
+	_highlight = ProceduralMeshFactory.torus(0.30, 0.36, Palette.GOLD_STAR)
+	(floors[floor_id] as Node3D).add_child(_highlight)
+	_highlight.position = Vector3(pos.x, 0.02, pos.z)
+	if not SettingsManager.reduced_motion():
+		var tw := _highlight.create_tween().set_loops()
+		tw.tween_property(_highlight, "scale", Vector3(1.25, 1.0, 1.25), 0.6)
+		tw.tween_property(_highlight, "scale", Vector3.ONE, 0.6)
+
+
+func show_ghost(cells: Array[Vector2i], floor_id: StringName, valid: bool) -> void:
+	clear_ghost()
+	var parent: Node3D = floors.get(floor_id)
+	if parent == null:
+		return
+	for c: Vector2i in cells:
+		var q := ProceduralMeshFactory.box(Vector3(0.46, 0.02, 0.46), Palette.FLOUR_WHITE if valid else Palette.DANGER)
+		var mat: StandardMaterial3D = ProceduralMeshFactory.material_of(q).duplicate()
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(mat.albedo_color, 0.55)
+		q.material_override = mat
+		_ghosts.add_child(q)
+		q.global_position = GridMath.cell_center3(c, 0.03)
+		if not valid:
+			# Tanda silang: status tidak bergantung warna saja (GDD 44.2).
+			for s: float in [45.0, -45.0]:
+				var bar := ProceduralMeshFactory.box(Vector3(0.40, 0.03, 0.06), Palette.DANGER)
+				_ghosts.add_child(bar)
+				bar.global_position = GridMath.cell_center3(c, 0.05)
+				bar.rotation_degrees = Vector3(0.0, s, 0.0)
+
+
+func clear_ghost() -> void:
+	for c: Node in _ghosts.get_children():
+		c.queue_free()

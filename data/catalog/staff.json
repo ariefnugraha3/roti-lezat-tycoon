@@ -1,0 +1,734 @@
+{
+ "catalog_schema_version": 1,
+ "content_version": 1,
+ "items": [
+  {
+   "id": "staff_cashier_budi",
+   "display_name": "Budi",
+   "role_id": "cashier",
+   "tier": 1,
+   "daily_wage_kr": 150,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 7.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "kacamata_bulat"
+    ],
+    "apron": "#fffbf5",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "belah_samping",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_cashier_budi"
+  },
+  {
+   "id": "staff_cashier_sari",
+   "display_name": "Sari",
+   "role_id": "cashier",
+   "tier": 1,
+   "daily_wage_kr": 150,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 7.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "pita_kuning"
+    ],
+    "apron": "#fffbf5",
+    "chubby": 0.0,
+    "hair": "#4a3121",
+    "hair_style": "kuncir_ganda",
+    "hat": "none",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_cashier_sari"
+  },
+  {
+   "id": "staff_cashier_dimas",
+   "display_name": "Dimas",
+   "role_id": "cashier",
+   "tier": 1,
+   "daily_wage_kr": 150,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 7.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#fff4e2",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "topi_pet",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_cashier_dimas"
+  },
+  {
+   "id": "staff_cashier_nadia",
+   "display_name": "Nadia",
+   "role_id": "cashier",
+   "tier": 2,
+   "daily_wage_kr": 350,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 5.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#b5ead7",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "bob",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_cashier_nadia"
+  },
+  {
+   "id": "staff_cashier_rian",
+   "display_name": "Rian",
+   "role_id": "cashier",
+   "tier": 2,
+   "daily_wage_kr": 350,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 5.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "gelang_karet"
+    ],
+    "apron": "#b5ead7",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "spike",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_cashier_rian"
+  },
+  {
+   "id": "staff_cashier_lili",
+   "display_name": "Lili",
+   "role_id": "cashier",
+   "tier": 2,
+   "daily_wage_kr": 350,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 5.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "jepit_stroberi"
+    ],
+    "apron": "#b5ead7",
+    "chubby": 0.0,
+    "hair": "#4a3121",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_cashier_lili"
+  },
+  {
+   "id": "staff_cashier_maya",
+   "display_name": "Maya",
+   "role_id": "cashier",
+   "tier": 3,
+   "daily_wage_kr": 800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 3.5,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "queue_patience_drain_multiplier": 0.85
+   },
+   "visual": {
+    "accessory": [
+     "bando_gingham",
+     "pin_senyum"
+    ],
+    "apron": "#8c4a1e",
+    "chubby": 0.0,
+    "hair": "#4a3121",
+    "hair_style": "pendek",
+    "hat": "bando",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_cashier_maya"
+  },
+  {
+   "id": "staff_cashier_reza",
+   "display_name": "Reza",
+   "role_id": "cashier",
+   "tier": 3,
+   "daily_wage_kr": 800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 3.5,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "queue_patience_drain_multiplier": 0.85
+   },
+   "visual": {
+    "accessory": [
+     "jam_vintage"
+    ],
+    "apron": "#8c4a1e",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_cashier_reza"
+  },
+  {
+   "id": "staff_cashier_dewi",
+   "display_name": "Dewi",
+   "role_id": "cashier",
+   "tier": 3,
+   "daily_wage_kr": 800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 3.5,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "queue_patience_drain_multiplier": 0.85
+   },
+   "visual": {
+    "accessory": [
+     "buku_saku"
+    ],
+    "apron": "#8c4a1e",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "panjang_kepang",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_cashier_dewi"
+  },
+  {
+   "id": "staff_cashier_hendra",
+   "display_name": "Hendra",
+   "role_id": "cashier",
+   "tier": 4,
+   "daily_wage_kr": 1800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 2.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "indecisive_service_multiplier": 1.0
+   },
+   "visual": {
+    "accessory": [
+     "kacamata_emas"
+    ],
+    "apron": "#22355b",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "belah_samping",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_cashier_hendra"
+  },
+  {
+   "id": "staff_cashier_citra",
+   "display_name": "Citra",
+   "role_id": "cashier",
+   "tier": 4,
+   "daily_wage_kr": 1800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 2.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "indecisive_service_multiplier": 1.0
+   },
+   "visual": {
+    "accessory": [],
+    "apron": "#22355b",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "sanggul",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_cashier_citra"
+  },
+  {
+   "id": "staff_cashier_kenji",
+   "display_name": "Kenji",
+   "role_id": "cashier",
+   "tier": 4,
+   "daily_wage_kr": 1800,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 2.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "indecisive_service_multiplier": 1.0
+   },
+   "visual": {
+    "accessory": [
+     "dasi_kupu"
+    ],
+    "apron": "#22355b",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "cepak",
+    "hat": "none",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_cashier_kenji"
+  },
+  {
+   "id": "staff_cashier_grace",
+   "display_name": "Grace",
+   "role_id": "cashier",
+   "tier": 5,
+   "daily_wage_kr": 4000,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 1.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "physical_tip_chance": 0.05
+   },
+   "visual": {
+    "accessory": [
+     "anting_mutiara"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.0,
+    "hair": "#e0c070",
+    "hair_style": "ikal",
+    "hat": "none",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_cashier_grace"
+  },
+  {
+   "id": "staff_cashier_tejo",
+   "display_name": "Tejo",
+   "role_id": "cashier",
+   "tier": 5,
+   "daily_wage_kr": 4000,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 1.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "physical_tip_chance": 0.05
+   },
+   "visual": {
+    "accessory": [
+     "kumis",
+     "pena_telinga"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#c98a5e"
+   },
+   "visual_profile_id": "staff_cashier_tejo"
+  },
+  {
+   "id": "staff_cashier_luna",
+   "display_name": "Luna",
+   "role_id": "cashier",
+   "tier": 5,
+   "daily_wage_kr": 4000,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 1.2,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.2,
+   "special": {
+    "physical_tip_chance": 0.05
+   },
+   "visual": {
+    "accessory": [
+     "pin_bintang"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.0,
+    "hair": "#e8b4d8",
+    "hair_style": "ombre",
+    "hat": "bando_kelinci",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_cashier_luna"
+  },
+  {
+   "id": "staff_baker_joko",
+   "display_name": "Joko",
+   "role_id": "baker",
+   "tier": 1,
+   "daily_wage_kr": 180,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.25,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#fffbf5",
+    "chubby": 0.7,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_baker_joko"
+  },
+  {
+   "id": "staff_baker_ani",
+   "display_name": "Ani",
+   "role_id": "baker",
+   "tier": 1,
+   "daily_wage_kr": 180,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.25,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#fffbf5",
+    "chubby": 0.0,
+    "hair": "#4a3121",
+    "hair_style": "pendek",
+    "hat": "topi_koki",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_baker_ani"
+  },
+  {
+   "id": "staff_baker_bagus",
+   "display_name": "Bagus",
+   "role_id": "baker",
+   "tier": 1,
+   "daily_wage_kr": 180,
+   "work_speed_multiplier": 1.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.0,
+   "movement_speed_mps": 1.25,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#fffbf5",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_baker_bagus"
+  },
+  {
+   "id": "staff_baker_fajar",
+   "display_name": "Fajar",
+   "role_id": "baker",
+   "tier": 2,
+   "daily_wage_kr": 400,
+   "work_speed_multiplier": 1.25,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.25,
+   "movement_speed_mps": 1.35,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "sarung_tangan"
+    ],
+    "apron": "#ffc08a",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "bandana",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_baker_fajar"
+  },
+  {
+   "id": "staff_baker_rina",
+   "display_name": "Rina",
+   "role_id": "baker",
+   "tier": 2,
+   "daily_wage_kr": 400,
+   "work_speed_multiplier": 1.25,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.25,
+   "movement_speed_mps": 1.35,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "kacamata_bulat"
+    ],
+    "apron": "#ffc08a",
+    "chubby": 0.0,
+    "hair": "#4a3121",
+    "hair_style": "kuncir_ganda",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_baker_rina"
+  },
+  {
+   "id": "staff_baker_doni",
+   "display_name": "Doni",
+   "role_id": "baker",
+   "tier": 2,
+   "daily_wage_kr": 400,
+   "work_speed_multiplier": 1.25,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.25,
+   "movement_speed_mps": 1.35,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "handuk_pundak"
+    ],
+    "apron": "#ff8a3d",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "cepak",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_baker_doni"
+  },
+  {
+   "id": "staff_baker_aris",
+   "display_name": "Aris",
+   "role_id": "baker",
+   "tier": 3,
+   "daily_wage_kr": 950,
+   "work_speed_multiplier": 1.6,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.6,
+   "movement_speed_mps": 1.45,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "kumis"
+    ],
+    "apron": "#5a2e12",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "topi_koki",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_baker_aris"
+  },
+  {
+   "id": "staff_baker_tari",
+   "display_name": "Tari",
+   "role_id": "baker",
+   "tier": 3,
+   "daily_wage_kr": 950,
+   "work_speed_multiplier": 1.6,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.6,
+   "movement_speed_mps": 1.45,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "tusuk_konde"
+    ],
+    "apron": "#5a2e12",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "sanggul",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_baker_tari"
+  },
+  {
+   "id": "staff_baker_gilang",
+   "display_name": "Gilang",
+   "role_id": "baker",
+   "tier": 3,
+   "daily_wage_kr": 950,
+   "work_speed_multiplier": 1.6,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.6,
+   "movement_speed_mps": 1.45,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "sarung_tangan"
+    ],
+    "apron": "#5a2e12",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "none",
+    "skin": "#c98a5e"
+   },
+   "visual_profile_id": "staff_baker_gilang"
+  },
+  {
+   "id": "staff_baker_sophie",
+   "display_name": "Sophie",
+   "role_id": "baker",
+   "tier": 4,
+   "daily_wage_kr": 2200,
+   "work_speed_multiplier": 2.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.9,
+   "movement_speed_mps": 1.55,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "syal_merah"
+    ],
+    "apron": "#6e1f2a",
+    "chubby": 0.0,
+    "hair": "#7a4e2d",
+    "hair_style": "bob",
+    "hat": "toque",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_baker_sophie"
+  },
+  {
+   "id": "staff_baker_danu",
+   "display_name": "Danu",
+   "role_id": "baker",
+   "tier": 4,
+   "daily_wage_kr": 2200,
+   "work_speed_multiplier": 2.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.9,
+   "movement_speed_mps": 1.55,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "pisau_kayu"
+    ],
+    "apron": "#6e1f2a",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "jenggot",
+    "hat": "none",
+    "skin": "#e0a87c"
+   },
+   "visual_profile_id": "staff_baker_danu"
+  },
+  {
+   "id": "staff_baker_aoi",
+   "display_name": "Aoi",
+   "role_id": "baker",
+   "tier": 4,
+   "daily_wage_kr": 2200,
+   "work_speed_multiplier": 2.0,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 0.9,
+   "movement_speed_mps": 1.55,
+   "special": {},
+   "visual": {
+    "accessory": [],
+    "apron": "#6e1f2a",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "pendek",
+    "hat": "hachimaki",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_baker_aoi"
+  },
+  {
+   "id": "staff_baker_pierre",
+   "display_name": "Pierre",
+   "role_id": "baker",
+   "tier": 5,
+   "daily_wage_kr": 5000,
+   "work_speed_multiplier": 2.8,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 1.0,
+   "movement_speed_mps": 1.7,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "medali"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.0,
+    "hair": "#7a4e2d",
+    "hair_style": "pendek",
+    "hat": "toque",
+    "skin": "#fad9bc"
+   },
+   "visual_profile_id": "staff_baker_pierre"
+  },
+  {
+   "id": "staff_baker_mawar",
+   "display_name": "Mawar",
+   "role_id": "baker",
+   "tier": 5,
+   "daily_wage_kr": 5000,
+   "work_speed_multiplier": 2.8,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 1.0,
+   "movement_speed_mps": 1.7,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "kacamata_rantai"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.35,
+    "hair": "#c9c2ba",
+    "hair_style": "sanggul",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_baker_mawar"
+  },
+  {
+   "id": "staff_baker_alistair",
+   "display_name": "Alistair",
+   "role_id": "baker",
+   "tier": 5,
+   "daily_wage_kr": 5000,
+   "work_speed_multiplier": 2.8,
+   "cashier_service_seconds": 0.0,
+   "auto_retrieve_probability": 1.0,
+   "movement_speed_mps": 1.7,
+   "special": {},
+   "visual": {
+    "accessory": [
+     "sarung_tangan_satin"
+    ],
+    "apron": "#d4af37",
+    "chubby": 0.0,
+    "hair": "#2b2118",
+    "hair_style": "belah_samping",
+    "hat": "none",
+    "skin": "#f2c9a0"
+   },
+   "visual_profile_id": "staff_baker_alistair"
+  }
+ ],
+ "manual_cashier_penalty": 1.5,
+ "player_movement_speed_mps": 1.5
+}

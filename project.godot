@@ -11,22 +11,23 @@ config_version=5
 [application]
 
 config/name="Roti Lezat Tycoon"
-config/version="0.1.0"
+config/version="1.0.0"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(1, 0.972549, 0.917647, 1)
 boot_splash/show_image=false
 config/icon="res://icon.svg"
+config/quit_on_go_back=false
 
 [autoload]
 
-GameConfig="*res://scripts/core/game_config.gd"
-Palette="*res://scripts/core/palette.gd"
-EventBus="*res://scripts/core/event_bus.gd"
-GameState="*res://scripts/core/game_state.gd"
-SaveManager="*res://scripts/core/save_manager.gd"
-AudioBus="*res://scripts/audio/audio_bus.gd"
-ScreenRouter="*res://scripts/ui/screen_router.gd"
+GameLogger="*res://autoload/game_logger.gd"
+DataRegistry="*res://autoload/data_registry.gd"
+EventBus="*res://autoload/event_bus.gd"
+SettingsManager="*res://autoload/settings_manager.gd"
+PauseManager="*res://autoload/pause_manager.gd"
+SaveManager="*res://autoload/save_manager.gd"
+AudioManager="*res://autoload/audio_manager.gd"
 
 [display]
 
@@ -34,10 +35,12 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=0
 
 [input_devices]
 
-pointing/emulate_touch_from_mouse=true
+pointing/emulate_touch_from_mouse=false
+pointing/emulate_mouse_from_touch=true
 
 [rendering]
 

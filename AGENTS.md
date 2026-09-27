@@ -2,7 +2,16 @@
 
 ## Project Structure & Module Organization
 
-This is a Godot 4.7 project for **Roti Lezat Tycoon**. The main scene is `scenes/main.tscn`, configured in `project.godot`. Runtime code lives in `scripts/`, organized by domain: `core/` for autoload state and config, `sim/` for game simulation, `ui/` for screens and routing, `data/` for database tables, `procgen/` for procedural visuals, `world/` for actors and shop scene behavior, and `audio/` for generated sound. Validation and headless test scenes live in `tools/`. Design and architecture references are in `docs/`. The only authoritative design spec is `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1 FINAL); `docs/gdd-roti-lezaat-tycoon.md` is obsolete and must not be used. The current code predates v3.1 and has not been migrated to it yet.
+This is a Godot 4.7 project for **Roti Lezat Tycoon**. The main scene is `scenes/main.tscn` (`GameRoot`), configured in `project.godot`. The only authoritative design spec is `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1 FINAL). `docs/gdd-roti-lezaat-tycoon.md` is obsolete and must not be used.
+
+- `autoload/`: the seven services of GDD 35.2 (`GameLogger`, `DataRegistry`, `EventBus`, `SettingsManager`, `PauseManager`, `SaveManager`, `AudioManager`). They hold no gameplay state.
+- `core/`: helpers and base classes (`SimManager`, `TimeManager`, `RNGManager`, `Money`, `GridMath`, `Tx`, `Palette`).
+- `data/catalog/*.json`: every content and tuning value, validated at boot. `data/definitions/`: typed definitions.
+- `gameplay/`: `SimulationRoot` and one manager per domain (economy, production, world, actors, customers, delivery, supply, staff, meta).
+- `procedural/` (meshes, animation, UI) and `audio/`: code-generated visuals and sound.
+- `ui/`: `ModalHost`, screens, HUD. `tests/`: harness, suites, `SimBot`, fixtures. `tools/`: release validator, string lint, compile check, icon generator.
+
+See `docs/ARCHITECTURE.md`, `docs/SAVE_SCHEMA.md` and `docs/GDD_COMPLIANCE.md`.
 
 ## Build, Test, and Development Commands
 
@@ -10,29 +19,27 @@ Godot is expected at `D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64
 
 ```powershell
 $G="D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe"
-& $G --headless --path . --import
-& $G --path .
-& $G --headless --path . res://scenes/main.tscn
-& $G --headless --path . --script res://tools/validate.gd
-& $G --headless --path . --script res://tools/data_audit.gd
-& $G --headless --path . res://tools/procgen_test.tscn
-& $G --headless --path . res://tools/sim_test.tscn
+& $G --headless --path . --import                                        # after adding a class_name
+& $G --path .                                                            # editor
+& $G --headless --path . res://tests/test_runner.tscn -- --skip-long     # tests without soaks
+& $G --headless --path . res://tools/compile_check.tscn                  # every script compiles
+& $G --headless --path . res://tools/release_validator.tscn -- --quick   # GDD 133 checks
 ```
 
-Run all four validation/test commands after code changes. Use scene-based tests for anything that needs autoloads.
+Run the tests and the compile check after code changes. Always run tests and tools as scenes, because `--script` mode does not load autoloads.
 
 ## Coding Style & Naming Conventions
 
-Use GDScript with tabs for indentation, explicit types where practical, and `snake_case` for files, variables, and functions. Constants use `UPPER_SNAKE_CASE`; autoload singletons use `PascalCase` names such as `GameState` and `EventBus`. Keep gameplay IDs lowercase and stable. Existing IDs such as `tepung_terigu` predate GDD v3.1, whose canonical English IDs are listed in its §78; coordinate renames with the maintainer, because the code has not been migrated yet. Prefer data-driven tables in `scripts/data/` over scattered constants.
+Use GDScript with tabs, static types, and `snake_case` for files, variables and functions. Constants use `UPPER_SNAKE_CASE`, classes use `PascalCase` `class_name`s. Gameplay IDs are the canonical English IDs of GDD 78 (for example `recipe_plain_loaf`, `ingredient_flour`). Put numbers in `data/catalog/`, never in code (GDD 126.1). Player-facing text goes through `Tx.t(key)` with English strings in `strings_en.json`. Each field has one owning manager (GDD 98). Other code calls its methods instead of writing its fields.
 
 ## Testing Guidelines
 
-`tools/validate.gd` checks script parsing and rejects external asset types. `tools/data_audit.gd` verifies data against the obsolete GDD's tables and still needs re-targeting to v3.1. `procgen_test.tscn` exercises factories, and `sim_test.tscn` runs a headless multi-day simulation. Name new test tools descriptively under `tools/`, and choose `.tscn` tests when autoload access is required.
+Tests live in `tests/suites/suite_NN_*.gd`, extend `TestSuite`, and return `{id, name, fn, long?, expect_errors?}` entries. Required IDs follow GDD 107 (`TEST_*`). Extra acceptance tests use `ACC_*`. Any engine or script error during a test fails it. Use `new_sim()`, `run_until()`, `stock()`, `jump_to_tier()`, `logical_state()` and `same_state()` from `tests/test_suite.gd`. Never weaken or skip a failing test to get a green run (GDD 107).
 
 ## Commit & Pull Request Guidelines
 
-Recent commits are short imperative summaries, such as `init project` and `update gdd`. Keep commits focused and concise. Pull requests should describe the changed gameplay/system behavior, list the test commands run, link any relevant issue or GDD section, and include screenshots or clips for visible UI/world changes.
+Recent commits are short imperative summaries, such as `init project` and `update gdd`. Keep commits focused. Pull requests should describe the changed gameplay or system behaviour, list the test commands run, cite the relevant GDD section, and include screenshots for visible UI or world changes.
 
 ## Asset & Configuration Rules
 
-The project is intentionally 100% procedural. Do not add `.png`, `.jpg`, `.gltf`, `.fbx`, audio files, fonts, or other external assets unless the project policy changes. Saves must remain JSON-safe; avoid storing engine-only values like `Color` or `Vector2i` in `GameState`.
+The project is 100% procedural. Do not add `.png`, `.jpg`, `.gltf`, `.fbx`, `.obj`, audio files, fonts or any other external asset. `icon.svg` is generated by `tools/generate_icon.gd`. Saves must stay JSON-safe: store grid coordinates and IDs, not engine types or world transforms, and store 64-bit values such as RNG states as strings. `export_presets.cfg` must never contain signing credentials.
