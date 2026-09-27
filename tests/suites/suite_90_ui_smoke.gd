@@ -60,17 +60,34 @@ func _smoke() -> void:
 	var before_pan: Vector3 = rig.pan_offset
 	rig.pan_by_screen(Vector2(-120, 40))
 	check(rig.pan_offset.distance_to(before_pan) > 0.05, "dragging pans the view even on a small floor")
+	check(game.world._tile_overlay.get_child_count() > 0, "keep-clear tiles are marked in decoration mode")
 	var disp: EquipmentInstance = game.sim.equipment.placed_list(&"display")[0]
 	var dpos: Vector2 = game.world.screen_of_iid(disp.iid)
 	deco._on_world_tap(dpos)
 	eq(deco._sel_iid, disp.iid, "decoration mode selects the tapped furniture")
 	check(game.world._ghosts.get_child_count() > 0, "placement ghost shown for the selected furniture")
+	check(not deco._warn.visible, "no warning before a rejected placement")
+	# Menaruh rak di jalur terlindung: ditolak dengan peringatan "menghalangi jalan".
+	var fg: FloorGrid = game.sim.world.grid(disp.floor_id)
+	var walkway: Vector2i = Vector2i(-1, -1)
+	for c: Vector2i in fg.def.protected_cells:
+		if fg.is_store(c) and fg.in_bounds(c + Vector2i(1, 0)) and fg.flag(c + Vector2i(1, 0)) == FloorGrid.Flag.WALKABLE_NO_BUILD:
+			walkway = c
+			break
+	check(walkway.x >= 0, "found a store walkway tile")
+	deco._on_world_tap(game.world.camera_rig.world_to_screen(GridMath.cell_center3(walkway)))
+	await runner.get_tree().process_frame
+	check(deco._warn.visible, "warning banner shown for a walkway tile")
+	eq(deco._warn_detail.text, Tx.t("ui_decor_warn_walkway"), "warning says it would block the walkway")
+	check(disp.placed and disp.anchor != walkway, "display not moved onto the walkway")
 	deco._on_world_tap(game.world.screen_of_iid(game.sim.equipment.storage_instance().iid))
 	await runner.get_tree().process_frame
 	check(disp.placed, "furniture is still placed after an invalid target")
 	game.modals.close_all()
 	await runner.get_tree().process_frame
 	check(not rig.free_pan and rig.pan_offset == Vector3.ZERO, "normal framing restored after decoration mode")
+	await runner.get_tree().process_frame
+	eq(game.world._tile_overlay.get_child_count(), 0, "tile marks removed after decoration mode")
 	# Tap dunia: ketuk Storage lewat picking layar.
 	PauseManager.clear_all()
 	game.sim.tutorial.skip()

@@ -5,6 +5,9 @@ extends SimManager
 
 signal layout_changed()
 
+## Alasan penolakan yang berarti "ubin ini harus tetap jadi jalan" (untuk UI).
+const WALKWAY_REASONS: Array[StringName] = [&"reserved", &"path", &"blocks_access"]
+
 var location: LocationDefinition = null
 var floors: Dictionary = {}
 ## "floor:x:y" -> actor_id. Titik pakai alat, titik layan, drop-off (GDD 56.1).
@@ -161,7 +164,7 @@ func validate_placement(e: EquipmentInstance, floor_id: StringName, anchor: Vect
 		if fg.decor_at.has(c):
 			return &"overlap"
 		if fg.access_at.has(c) and int(fg.access_at[c]) != e.iid:
-			return &"reserved"
+			return &"blocks_access"
 	# Terapkan sementara, lalu periksa tile akses dan konektivitas.
 	var saved_fp: Dictionary = fg.furniture_at.duplicate()
 	var saved_acc: Dictionary = fg.access_at.duplicate()
@@ -196,8 +199,10 @@ func validate_decor_cell(floor_id: StringName, cell: Vector2i, self_uid: int) ->
 		return &"bounds"
 	if not fg.is_store(cell):
 		return &"zone"
-	if fg.flag(cell) != FloorGrid.Flag.WALKABLE_BUILDABLE or fg.access_at.has(cell):
+	if fg.flag(cell) != FloorGrid.Flag.WALKABLE_BUILDABLE:
 		return &"reserved"
+	if fg.access_at.has(cell):
+		return &"blocks_access"
 	if fg.furniture_at.has(cell):
 		return &"overlap"
 	if fg.decor_at.has(cell) and int(fg.decor_at[cell]) != self_uid:
@@ -210,6 +215,67 @@ func validate_decor_cell(floor_id: StringName, cell: Vector2i, self_uid: int) ->
 	var ok: bool = _connectivity_ok()
 	fg.decor_at = saved
 	return &"" if ok else &"path"
+
+
+## Ubin yang harus tetap kosong di satu lantai (GDD 17.3-17.4, 56.1): cell ->
+## jenis. walkway = jalur terlindung/pintu/baris staf, queue = slot antrean,
+## service = titik layanan/kasir/drop-off, access = ubin di depan perabot,
+## chokepoint = ubin kosong yang bila ditutup sendirian memutus jalur wajib.
+## `ignore_iid`: perabot yang sedang dipindah dianggap belum terpasang.
+func keep_clear_cells(floor_id: StringName, ignore_iid: int = -1) -> Dictionary:
+	var out: Dictionary = {}
+	var fg: FloorGrid = grid(floor_id)
+	if fg == null:
+		return out
+	var saved: Array = []
+	if ignore_iid >= 0:
+		for g: Variant in floors.values():
+			var f: FloorGrid = g
+			saved.append([f, f.furniture_at.duplicate(), f.access_at.duplicate()])
+			_strip_iid(f, ignore_iid)
+	var candidates: Array[Vector2i] = []
+	for z in fg.size.y:
+		for x in fg.size.x:
+			var c := Vector2i(x, z)
+			if fg.def.zone_at(c) == &"":
+				continue
+			match fg.flag(c):
+				FloorGrid.Flag.WALKABLE_NO_BUILD:
+					out[c] = &"walkway"
+				FloorGrid.Flag.QUEUE_RESERVED:
+					out[c] = &"queue"
+				FloorGrid.Flag.INTERACTION_RESERVED:
+					out[c] = &"service"
+				FloorGrid.Flag.WALKABLE_BUILDABLE:
+					if fg.access_at.has(c):
+						out[c] = &"access"
+					elif not fg.furniture_at.has(c) and not fg.decor_at.has(c):
+						candidates.append(c)
+	if not candidates.is_empty():
+		var cuts: Dictionary = {}
+		if not _connectivity_ok():
+			# Tata letak sudah tidak sah: setiap penempatan akan ditolak "path".
+			for c2: Vector2i in candidates:
+				cuts[c2] = true
+		else:
+			var targets: Array = _floor_targets(fg)
+			var pub_req: Array[Vector2i] = targets[0]
+			var staff_req: Array[Vector2i] = targets[1]
+			if not fg.def.entrance.is_empty():
+				var entrance: Vector2i = fg.def.entrance[0]
+				cuts.merge(_cut_cells(fg, entrance, pub_req, fg.is_public_walkable))
+				staff_req = staff_req.duplicate()
+				staff_req.append(entrance)
+			if not staff_req.is_empty():
+				cuts.merge(_cut_cells(fg, staff_req[0], staff_req, fg.is_walkable))
+		for c3: Vector2i in candidates:
+			if cuts.has(c3):
+				out[c3] = &"chokepoint"
+	for item: Variant in saved:
+		var entry: Array = item
+		(entry[0] as FloorGrid).furniture_at = entry[1]
+		(entry[0] as FloorGrid).access_at = entry[2]
+	return out
 
 
 func _strip_iid(fg: FloorGrid, iid: int) -> void:
@@ -227,27 +293,9 @@ func _strip_iid(fg: FloorGrid, iid: int) -> void:
 func _connectivity_ok() -> bool:
 	for fid: StringName in floor_ids():
 		var fg: FloorGrid = grid(fid)
-		var targets_public: Array[Vector2i] = []
-		var targets_staff: Array[Vector2i] = []
-		for lane: Dictionary in fg.def.lanes:
-			targets_public.append(lane["service_point"])
-			for q: Vector2i in lane["queue"]:
-				targets_public.append(q)
-			targets_staff.append(lane["cashier_point"])
-		if not fg.def.rotifood_counter.is_empty():
-			targets_public.append(fg.def.rotifood_counter["service_point"])
-			for q2: Vector2i in fg.def.rotifood_counter["queue"]:
-				targets_public.append(q2)
-		if fg.def.supply_dropoff != FloorDefinition.NONE_CELL:
-			targets_public.append(fg.def.supply_dropoff)
-		if fg.def.has_portal():
-			targets_staff.append(fg.def.portal["access"])
-		for acc: Variant in fg.access_at.keys():
-			var iid: int = int(fg.access_at[acc])
-			var e: EquipmentInstance = sim.equipment.get_inst(iid)
-			if e != null and e.category() == &"display":
-				targets_public.append(acc)
-			targets_staff.append(acc)
+		var targets: Array = _floor_targets(fg)
+		var targets_public: Array[Vector2i] = targets[0]
+		var targets_staff: Array[Vector2i] = targets[1]
 		# Perabot tanpa tile akses di lantai ini = gagal.
 		var with_access: Dictionary = {}
 		for acc2: Variant in fg.access_at.keys():
@@ -271,6 +319,80 @@ func _connectivity_ok() -> bool:
 			if not fg.def.entrance.is_empty() and not staff.has(fg.def.entrance[0]):
 				return false
 	return true
+
+
+## Titik wajib satu lantai: [publik, staf]. Satu-satunya definisi, dipakai
+## _connectivity_ok dan analisis ubin leher botol.
+func _floor_targets(fg: FloorGrid) -> Array:
+	var targets_public: Array[Vector2i] = []
+	var targets_staff: Array[Vector2i] = []
+	for lane: Dictionary in fg.def.lanes:
+		targets_public.append(lane["service_point"])
+		for q: Vector2i in lane["queue"]:
+			targets_public.append(q)
+		targets_staff.append(lane["cashier_point"])
+	if not fg.def.rotifood_counter.is_empty():
+		targets_public.append(fg.def.rotifood_counter["service_point"])
+		for q2: Vector2i in fg.def.rotifood_counter["queue"]:
+			targets_public.append(q2)
+	if fg.def.supply_dropoff != FloorDefinition.NONE_CELL:
+		targets_public.append(fg.def.supply_dropoff)
+	if fg.def.has_portal():
+		targets_staff.append(fg.def.portal["access"])
+	for acc: Variant in fg.access_at.keys():
+		var iid: int = int(fg.access_at[acc])
+		var e: EquipmentInstance = sim.equipment.get_inst(iid)
+		if e != null and e.category() == &"display":
+			targets_public.append(acc)
+		targets_staff.append(acc)
+	return [targets_public, targets_staff]
+
+
+## Ubin yang bila ditutup sendirian memisahkan titik wajib dari akarnya
+## (titik artikulasi, Tarjan, satu DFS iteratif per graf). Setara dengan
+## menguji _connectivity_ok untuk setiap ubin, tetapi linear, bukan kuadratik.
+func _cut_cells(fg: FloorGrid, root: Vector2i, required: Array[Vector2i], walk: Callable) -> Dictionary:
+	var cut: Dictionary = {}
+	if not fg.in_bounds(root) or not bool(walk.call(root)):
+		return cut
+	var need: Dictionary = {}
+	for r: Vector2i in required:
+		need[r] = true
+	var dirs: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	var disc: Dictionary = {root: 0}
+	var low: Dictionary = {root: 0}
+	var parent: Dictionary = {}
+	var sub: Dictionary = {root: 1}
+	var clock: int = 0
+	var stack: Array = [[root, 0]]
+	while not stack.is_empty():
+		var top: Array = stack[stack.size() - 1]
+		var u: Vector2i = top[0]
+		var i: int = top[1]
+		if i < 4:
+			top[1] = i + 1
+			var n: Vector2i = u + dirs[i]
+			if not fg.in_bounds(n) or not bool(walk.call(n)):
+				continue
+			if not disc.has(n):
+				clock += 1
+				disc[n] = clock
+				low[n] = clock
+				parent[n] = u
+				sub[n] = 1 if need.has(n) else 0
+				stack.append([n, 0])
+			elif not parent.has(u) or parent[u] != n:
+				low[u] = mini(int(low[u]), int(disc[n]))
+			continue
+		stack.pop_back()
+		if u == root:
+			continue
+		var pu: Vector2i = parent[u]
+		low[pu] = mini(int(low[pu]), int(low[u]))
+		sub[pu] = int(sub[pu]) + int(sub[u])
+		if pu != root and int(low[u]) >= int(disc[pu]) and int(sub[u]) > 0:
+			cut[pu] = true
+	return cut
 
 
 func layout_valid() -> bool:

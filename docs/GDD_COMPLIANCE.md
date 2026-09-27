@@ -77,6 +77,7 @@ listed under GDD 94.
 | 57, appendix | Tier layouts and dimensions | `data/catalog/locations.json`, `world/floor_grid.gd` | ACC_SPATIAL, ACC_LAYOUT_SOLVER | Tested |
 | 56.1, 81.1, 81.4 | Placement validation, protected paths, access tile | `world/world_manager.gd` | ACC_81_PLACEMENT, ACC_SPATIAL | Tested |
 | 72, 81.14 | Decoration Mode pauses; IN_USE cannot move | `ui/screens/decoration_screen.gd`, `equipment_manager.gd` | ACC_81_IN_USE, UI smoke | Tested |
+| 17.4 | Red preview with reason; keep-clear tiles striped in Decoration Mode and a "would block the walkway" warning on rejected placement | `world_manager.gd` `keep_clear_cells`, `world_view.gd` `show_tile_overlay`, `decoration_screen.gd` | ACC_DECOR_KEEP_CLEAR (marks match validation on every tile of every tier), UI smoke | Tested |
 | 68, 30.3 | Instant portal, off-floor simulation, customers never upstairs | `world_manager.gd` `find_route`, `actors/sim_actor.gd` | TEST_MULTIFLOOR_001 | Tested |
 | 30 | Camera: floor framing, follows player on large floors, 0.20 s crossfade, off-floor alerts | `world/camera_rig.gd`, `world/world_view.gd`, `meta/alert_manager.gd` | TEST_CAMERA_001 | Tested |
 | 47, 105 | Upgrade: money only, no loss, rollback snapshot | `simulation_root.gd` `upgrade_location` | TEST_UPGRADE_001 | Tested |

@@ -30,6 +30,8 @@ var _rain: Node = null
 var _rain_layer: CanvasLayer = null
 var _highlight: Node3D = null
 var _ghosts: Node3D = null
+## Overlay ubin Decoration Mode (ubin wajib kosong & area salah).
+var _tile_overlay: Node3D = null
 var _env: WorldEnvironment = null
 var _t: float = 0.0
 var _smoke: Dictionary = {}
@@ -52,6 +54,9 @@ func setup(s: SimulationRoot) -> void:
 	_ghosts = Node3D.new()
 	_ghosts.name = "PlacementGhosts"
 	add_child(_ghosts)
+	_tile_overlay = Node3D.new()
+	_tile_overlay.name = "TileOverlay"
+	add_child(_tile_overlay)
 	sim.world.layout_changed.connect(rebuild_furniture)
 	EventBus.location_changed.connect(func(_id: StringName) -> void: rebuild_all())
 	EventBus.storage_door.connect(_on_storage_door)
@@ -596,6 +601,20 @@ func show_ghost(cells: Array[Vector2i], floor_id: StringName, valid: bool) -> vo
 				_ghosts.add_child(bar)
 				bar.global_position = GridMath.cell_center3(c, 0.05)
 				bar.rotation_degrees = Vector3(0.0, s, 0.0)
+
+
+## Decoration Mode: tandai ubin yang harus tetap kosong (arsiran merah) dan,
+## bila ada perabot terpilih, ubin di luar area perabot itu (abu-abu bertitik).
+func show_tile_overlay(clear_cells: Array[Vector2i], wrong_zone_cells: Array[Vector2i]) -> void:
+	clear_tile_overlay()
+	_tile_overlay.add_child(ProceduralMeshFactory.tile_overlay(clear_cells, Color(Palette.DANGER, 0.20), Color(Palette.DANGER, 0.70), &"stripes"))
+	if not wrong_zone_cells.is_empty():
+		_tile_overlay.add_child(ProceduralMeshFactory.tile_overlay(wrong_zone_cells, Color(Palette.TEXT_MUTED, 0.22), Color(Palette.TEXT_MUTED, 0.55), &"dot"))
+
+
+func clear_tile_overlay() -> void:
+	for c: Node in _tile_overlay.get_children():
+		c.queue_free()
 
 
 func clear_ghost() -> void:

@@ -17,6 +17,7 @@ func tests() -> Array:
 		{"id": "ACC_81_RECIPES", "name": "81.9/81.10 no unlock flags, batch revenue", "fn": _recipes},
 		{"id": "ACC_81_IN_USE", "name": "81.14 in-use furniture cannot move", "fn": _in_use},
 		{"id": "ACC_16_COMMANDS", "name": "16.4 retargeting mixes equipment, cashier and portal taps", "fn": _mixed_taps},
+		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
 	]
 
@@ -361,4 +362,61 @@ func _mixed_taps() -> void:
 	s.run_for(5.0)
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s2)
+	free_sim(s)
+
+
+## Tanda ubin Decoration Mode jujur (GDD 17.3-17.4, 56.1): ubin yang diarsir
+## selalu ditolak karena jalan, ubin kosong yang tidak diarsir selalu sah untuk
+## perabot 1x1, dan analisis leher botol setara dengan uji konektivitas penuh.
+func _keep_clear() -> void:
+	var s: SimulationRoot = new_sim(1703)
+	for tier in range(1, 6):
+		if tier > 1:
+			jump_to_tier(s, tier)
+		for fid: StringName in s.world.floor_ids():
+			var fg: FloorGrid = s.world.grid(fid)
+			var t0: int = Time.get_ticks_usec()
+			var kc: Dictionary = s.world.keep_clear_cells(fid)
+			var ms: float = float(Time.get_ticks_usec() - t0) / 1000.0
+			check(ms < 100.0, "T%d %s keep-clear analysis is fast (%.1f ms)" % [tier, fid, ms])
+			for c: Vector2i in fg.def.protected_cells:
+				if fg.def.zone_at(c) != &"":
+					check(kc.has(c), "T%d %s protected cell %s marked" % [tier, fid, c])
+			for lane: Dictionary in fg.def.lanes:
+				for q: Vector2i in lane["queue"]:
+					eq(kc.get(q), &"queue", "T%d %s queue slot %s marked" % [tier, fid, q])
+				eq(kc.get(lane["service_point"]), &"service", "T%d %s service point marked" % [tier, fid])
+				eq(kc.get(lane["cashier_point"]), &"service", "T%d %s cashier point marked" % [tier, fid])
+			# Ubin akses di jalur terlindung tetap berlabel walkway (GDD 56.1.2).
+			for acc: Variant in fg.access_at.keys():
+				check(kc.get(acc, &"") in [&"access", &"walkway"], "T%d %s access tile %s marked (%s)" % [tier, fid, acc, kc.get(acc, &"")])
+			var mismatches: Array[String] = []
+			for z in fg.size.y:
+				for x in fg.size.x:
+					var c2 := Vector2i(x, z)
+					if fg.def.zone_at(c2) == &"" or fg.flag(c2) != FloorGrid.Flag.WALKABLE_BUILDABLE:
+						continue
+					if fg.furniture_at.has(c2) or fg.decor_at.has(c2) or fg.access_at.has(c2):
+						continue
+					# Brute force: tutup ubin ini lalu uji konektivitas penuh.
+					fg.decor_at[c2] = -1
+					var breaks: bool = not s.world._connectivity_ok()
+					fg.decor_at.erase(c2)
+					if breaks != (kc.get(c2, &"") == &"chokepoint"):
+						mismatches.append(str(c2))
+					if fg.is_store(c2):
+						var r: StringName = s.world.validate_decor_cell(fid, c2, -99)
+						if kc.has(c2):
+							check(WorldManager.WALKWAY_REASONS.has(r), "T%d %s marked store cell %s rejected for the walkway (%s)" % [tier, fid, c2, r])
+						else:
+							eq(r, &"", "T%d %s unmarked free store cell %s accepts a 1x1 item" % [tier, fid, c2])
+			eq(mismatches, [], "T%d %s chokepoints match a full connectivity test" % [tier, fid])
+	# Perabot yang sedang dipindah tidak menandai ubin aksesnya sendiri.
+	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	var own_acc: Vector2i = s.world.access_of(disp.iid)["cell"]
+	if s.world.grid(disp.floor_id).flag(own_acc) == FloorGrid.Flag.WALKABLE_BUILDABLE:
+		eq(s.world.keep_clear_cells(disp.floor_id).get(own_acc), &"access", "access tile marked while the display stays")
+		check(s.world.keep_clear_cells(disp.floor_id, disp.iid).get(own_acc, &"") != &"access", "moving display frees its own access tile")
+	eq(s.check_invariants(), "", "analysis leaves the layout untouched")
+	check(s.world.layout_valid(), "layout still valid")
 	free_sim(s)

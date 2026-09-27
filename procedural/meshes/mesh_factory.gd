@@ -410,6 +410,47 @@ static func tri_count(root: Node) -> int:
 # ---------------------------------------------------------------------------
 
 ## Membungkus mesh menjadi MeshInstance3D bernama.
+## Overlay ubin lantai dalam SATU mesh (satu draw call) untuk Decoration Mode.
+## pattern &"stripes": arsiran diagonal (ubin wajib kosong); &"dot": titik di
+## tengah (area yang salah). Pola, bukan warna saja (GDD 44.2).
+static func tile_overlay(cells: Array[Vector2i], fill: Color, mark: Color, pattern: StringName, y: float = 0.012) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tile: float = GridMath.WORLD_METERS_PER_TILE
+	var inset: float = tile * 0.06
+	var s: float = tile - inset * 2.0
+	for c: Vector2i in cells:
+		var o := Vector2(float(c.x) * tile + inset, float(c.y) * tile + inset)
+		_overlay_quad(st, o, o + Vector2(s, 0.0), o + Vector2(s, s), o + Vector2(0.0, s), y, fill)
+		if pattern == &"stripes":
+			var w: float = s * 0.11
+			var n: Vector2 = Vector2(1.0, -1.0).normalized() * (w * 0.5)
+			for seg: Array in [[Vector2(0.0, 0.0), Vector2(s, s)], [Vector2(s * 0.5, 0.0), Vector2(s, s * 0.5)], [Vector2(0.0, s * 0.5), Vector2(s * 0.5, s)]]:
+				var a: Vector2 = o + (seg[0] as Vector2)
+				var b: Vector2 = o + (seg[1] as Vector2)
+				_overlay_quad(st, a + n, b + n, b - n, a - n, y + 0.002, mark)
+		elif pattern == &"dot":
+			var d: float = s * 0.12
+			var m: Vector2 = o + Vector2(s, s) * 0.5
+			_overlay_quad(st, m + Vector2(-d, -d), m + Vector2(d, -d), m + Vector2(d, d), m + Vector2(-d, d), y + 0.002, mark)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.disable_receive_shadows = true
+	st.set_material(mat)
+	var mi := _instance(st.commit() if not cells.is_empty() else ArrayMesh.new(), "TileOverlay")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+static func _overlay_quad(st: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, d: Vector2, y: float, color: Color) -> void:
+	for p: Vector2 in [a, b, c, a, c, d]:
+		st.set_color(color)
+		st.add_vertex(Vector3(p.x, y, p.y))
+
+
 ## Material yang benar-benar dipakai mesh: override bila ada, selain itu
 ## material permukaan pertama (primitif menyimpannya di `mesh.material`).
 static func material_of(mi: MeshInstance3D) -> StandardMaterial3D:

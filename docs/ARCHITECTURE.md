@@ -127,6 +127,12 @@ One in-game hour is 180 real seconds at 1×, so one sim-second is 20 in-game sec
 - `WorldManager.validate_placement` rejects out-of-bounds or wrong-zone placements,
   overlaps, reserved cells and a missing access tile. A BFS then checks that every
   critical node is still connected before the placement commits.
+- `WorldManager.keep_clear_cells(floor)` lists the tiles that must stay clear
+  (walkway, queue, service points, access tiles, and chokepoints whose blocking
+  alone breaks a required path). Chokepoints come from one Tarjan articulation
+  pass per nav graph, sharing `_floor_targets()` with the connectivity check.
+  Decoration Mode stripes these tiles and warns when a placement would block the
+  walkway.
 - Routes are cell paths smoothed by line of sight. Between floors a route has one
   instant portal waypoint (GDD 68). Positions are logical metres (0.5 m per tile).
 
