@@ -666,6 +666,22 @@ func _validate_equipment() -> void:
 		for t in range(1, 6):
 			if equipment_for(cat, t) == null:
 				_err("missing equipment %s_t%d" % [cat, t])
+	# Waktu referensi makin cepat tiap tier (GDD 5.1); process_multiplier =
+	# referensi T1 / referensi tier itu (GDD 101.3).
+	for cat: StringName in [&"mixer", &"oven"]:
+		var t1: EquipmentDefinition = equipment_for(cat, 1)
+		if t1 == null or t1.reference_seconds <= 0.0:
+			continue
+		var prev: float = INF
+		for t in range(1, 6):
+			var e: EquipmentDefinition = equipment_for(cat, t)
+			if e == null or e.reference_seconds <= 0.0:
+				continue
+			if e.reference_seconds >= prev:
+				_err("equipment %s must be faster than the tier below" % e.id)
+			prev = e.reference_seconds
+			if absf(e.process_multiplier - t1.reference_seconds / e.reference_seconds) > 0.001:
+				_err("equipment %s process_multiplier must equal T1 reference / its reference" % e.id)
 
 
 func _validate_customers() -> void:

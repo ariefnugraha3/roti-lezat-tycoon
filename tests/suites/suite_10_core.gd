@@ -42,8 +42,8 @@ func _time_boundaries() -> void:
 	var s: SimulationRoot = new_sim()
 	near(s.time.time_seconds, 5.0 * 3600.0, 0.001, "day starts 05:00")
 	eq(s.time.phase, TimeManager.PREPARATION, "05:00 is preparation")
-	# 1 jam in-game = 180 detik nyata pada 1x (GDD 15.2).
-	near(s.time.sim_seconds_for_hours(1.0), 180.0, 0.001, "1 in-game hour = 180 s")
+	# 1 jam in-game = 120 detik nyata pada 1x (GDD 15.2).
+	near(s.time.sim_seconds_for_hours(1.0), 120.0, 0.001, "1 in-game hour = 120 s")
 	run_until(s, 8.0 * 3600.0 - 30.0)
 	eq(s.time.phase, TimeManager.PREPARATION, "still preparation just before 08:00")
 	check(not s.time.is_open(), "closed before 08:00")
@@ -68,7 +68,7 @@ func _time_determinism() -> void:
 	# Input identik pada tick identik: stok & job disiapkan sebelum jam berjalan,
 	# lalu hanya kecepatan yang berbeda. Pelanggan Hari 1, mixer, oven, kasir
 	# pemain yang diam, dan penuaan roti semuanya ikut berjalan.
-	var target_ticks: int = int(3.4 * 3600.0 / 20.0 / 0.05)
+	var target_ticks: int = int(3.4 * 3600.0 / DataRegistry.balf("clock.ingame_seconds_per_sim_second") / 0.05)
 	var states: Array[Dictionary] = []
 	for speed: int in [1, 2, 3]:
 		var s: SimulationRoot = new_sim(4242)

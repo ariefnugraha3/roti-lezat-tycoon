@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Godot 4.7 project for **Roti Lezat Tycoon**, a bakery management tycoon game targeting Web (itch.io, HTML5) and Android from one codebase.
 
-**The only authoritative specification is [docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md](docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md) (GDD v3.1 FINAL).** The older [docs/gdd-roti-lezaat-tycoon.md](docs/gdd-roti-lezaat-tycoon.md) is obsolete (maintainer decision, 2026-09-24): do not read it for requirements or cite it. On 2026-09-25, at the maintainer's request, its recipe data was copied into v3.1 (§61.5); anything else missing from v3.1 needs the maintainer's decision, not the old GDD. On 2026-09-28 the maintainer lowered the §130.2 eye line from ~65% to ~45% of head height for a more chibi look.
+**The only authoritative specification is [docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md](docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md) (GDD v3.1 FINAL).** The older [docs/gdd-roti-lezaat-tycoon.md](docs/gdd-roti-lezaat-tycoon.md) is obsolete (maintainer decision, 2026-09-24): do not read it for requirements or cite it. On 2026-09-25, at the maintainer's request, its recipe data was copied into v3.1 (§61.5); anything else missing from v3.1 needs the maintainer's decision, not the old GDD. On 2026-09-28 the maintainer lowered the §130.2 eye line from ~65% to ~45% of head height for a more chibi look. On 2026-09-29 the maintainer made three timing changes. The clock now runs at 1 in-game hour = 2 real minutes (§15.2). The §5.1 equipment reference times were replaced. Every §61.5 recipe duration was halved, so the reference table sets only the speed-up between tiers (§18.5).
 
 v3.1 (~6,500 lines, narrative in Indonesian) has three layers: §1–12 product narrative, §13–95 technical specification (state machines, formulas, layout templates, save, tests), and §96–135 the hard implementation contract (engine lock, state-ownership matrix, test IDs, release validator, English content catalog). Read the relevant section before implementing any system — balance numbers, tier tables and flows are defined there and nowhere else. Per §126.1, reference canonical IDs/fields instead of copying numbers into code comments or other docs.
 
@@ -112,7 +112,7 @@ Visual generation is split into three factory layers (§12.3):
 
 ## Core loop (v3.1 §2, §15)
 
-The game is a **daily cycle state machine**; 1 in-game hour = 180 real seconds at 1× (§15.2).
+The game is a **daily cycle state machine**; 1 in-game hour = 120 real seconds at 1× (§15.2).
 
 1. **Prep 05:00–08:00** — the player drives a **player character** (male or female, cosmetic only, §31.3) who physically walks the kitchen. Production is one tap per station: Storage (opens the Recipe Book) → Mixer → Oven → Display, where a slot picker places the bread (§2, §16, §18). Finished equipment holds its contents until picked up, the character carries one item at a time, and only the character's legs queue while mixers and ovens keep working. The "!" marker stays on the finished station until its content is picked up (tap it again), and only then moves to the next station (§2, §12.3, §18.6). In code this is `PlayerTaskManager` (`gameplay/actors/player_task_manager.gd`) with `ProductionManager`.
 2. **Sell 08:00–18:00** — the store opens automatically at 08:00. Walk-in customers take bread from the display and then queue at a cashier; RotiFood delivery orders run in parallel (§20–§22). Baking continues, and unattended ovens burn (§62).

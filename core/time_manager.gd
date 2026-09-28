@@ -2,7 +2,8 @@ class_name TimeManager
 extends SimManager
 ## TimeManager — pemilik jam, hari, fase, dan kecepatan (GDD 15, 71, 98, 99.1).
 ##
-## 1 detik-simulasi = 20 detik jam in-game; 1 jam in-game = 180 detik-simulasi.
+## 1 detik-simulasi = `clock.ingame_seconds_per_sim_second` detik jam in-game
+## (balance.json, GDD 15.2).
 ## Jam hanya maju pada fase PREPARATION dan OPEN. Pause (PauseManager) dan modal
 ## keputusan menghentikan seluruh simulasi, termasuk jam.
 
@@ -23,7 +24,7 @@ var sim_seconds: float = 0.0
 var day_start: float = 18000.0
 var open_time: float = 28800.0
 var close_time: float = 64800.0
-var ratio: float = 20.0
+var ratio: float = 30.0
 var _last_emitted_minute: int = -1
 
 

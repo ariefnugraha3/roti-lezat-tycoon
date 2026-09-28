@@ -12,14 +12,14 @@ and the tests that verify it (GDD 121 item 16).
   has not been done yet.
 - **Open**: the GDD leaves a question that needs a maintainer decision.
 
-Last full run (2026-09-28): 53 non-long tests passed, 0 failed (`--skip-long`). Soak results are
+Last full run (2026-09-29): 54 non-long tests passed, 0 failed (`--skip-long`). Soak results are
 listed under GDD 94.
 
 ## Core loop and time
 
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
-| 15.2 | 1 in-game hour = 180 s at 1×, 05:00/08:00/18:00 | `core/time_manager.gd` | TEST_TIME_001 | Tested |
+| 15.2 | 1 in-game hour = 120 s at 1×, 05:00/08:00/18:00 | `core/time_manager.gd` | TEST_TIME_001 | Tested |
 | 71, 81.7 | Pause, 1×/2×/3×, menus freeze the timer, determinism across speeds | `simulation_root.gd` `advance`, `autoload/pause_manager.gd` | TEST_TIME_002, ACC_81_SPEED | Tested |
 | 71.1, 81.8 | Smart Speed Safety drops to 1× on oven ready | `time_manager.gd` `smart_slowdown`, `production_manager.gd` | ACC_81_SPEED | Tested |
 | 102 | Deterministic tick priority | `simulation_root.gd` `step` | TEST_TIME_002, TEST_SAVE_001 (golden determinism) | Tested |
@@ -31,7 +31,7 @@ listed under GDD 94.
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
 | 18, 2 | Storage → mixer → oven → display, holding until pickup | `production/production_manager.gd`, `actors/player_task_manager.gd` | TEST_PRODUCTION_001, TEST_UI_SMOKE_001 | Tested |
-| 18.5, 61.5 | Stage duration = base × equipment ratio × batch duration factor ÷ staff speed, prep in MIXING | `production_manager.gd` | TEST_PRODUCTION_003 | Tested |
+| 5.1, 18.5, 61.5, 101.3 | Stage duration = base × equipment ratio × batch duration factor ÷ staff speed, prep in MIXING; reference times get faster each tier and `process_multiplier` matches them (checked at boot) | `production_manager.gd`, `data_registry.gd` | TEST_PRODUCTION_003 | Tested |
 | 18.9 | x3/x5 multiply ingredients and yield, but durations only ×1.2/×1.4 (`production.batch_duration_factor`) | `production_manager.gd`, `autoload/data_registry.gd` `batch_duration_factor` | ACC_18_BATCH_DURATION, TEST_PRODUCTION_003 | Tested |
 | 62 | Perfect/overbake/burnt windows per oven tier, burnt earns nothing and blocks the oven | `production_manager.gd` | TEST_PRODUCTION_002 | Tested |
 | 38.3, 103 | Atomic ingredient consume and refund before MIXING | `economy/inventory_manager.gd` | TEST_INVENTORY_001 | Tested |
@@ -130,7 +130,7 @@ listed under GDD 94.
 | 108, 128 | Web, Android APK and AAB presets, no secrets, landscape, package ID | `export_presets.cfg` | release_validator (preset checks) | Tested (presets); **exports Not verified**: on hold by maintainer decision (2026-09-27) until the game itself is finished |
 | 12.7, 112 | Fully offline, no network | whole codebase | release_validator (network scan) | Tested |
 | 109, 37 | Performance budgets on entry-level Android and web | — | none | Not verified (needs devices) |
-| 129 | Runtime hard limits | `balance.json` `limits` read by `audio_manager.gd` (SFX and music voices), `hud.gd` (toasts, coalescing), `world_view.gd` (world alerts, pooled bodies), `fx.gd` (transient effects), `decoration_manager.gd`, analytics; visible actors via `queue.max_visible_customer_actors`; ledger hot entries | none | Implemented |
+| 129 | Runtime hard limits | `balance.json` `limits` read by `audio_manager.gd` (SFX and music voices), `hud.gd` (toasts, coalescing), `world_view.gd` (world alerts, pooled bodies), `fx.gd` (transient effects), `decoration_manager.gd`, analytics; visible actors via `queue.max_visible_customer_actors`; ledger hot entries | ACC_129_LIMITS (effect cap), ACC_129_FX_TEARDOWN (effects freed before their auto-free timer) | Implemented; effect limits tested |
 | 133 | Release validator | `tools/release_validator.gd` | itself | Tested |
 | 107 | Required test IDs | `tests/suites/*` | all | Tested |
 
@@ -138,7 +138,7 @@ listed under GDD 94.
 
 | Test | What it checks | Status |
 |---|---|---|
-| TEST_LONGRUN_100 | 100 managed days at the canonical tick: invariants, no leftover transient state at 05:00, node and object counts stable | Passed 2026-09-28 with the ×1.2/×1.4 batch factors (1,003 checks); see open decision 3 |
+| TEST_LONGRUN_100 | 100 managed days at the canonical tick: invariants, no leftover transient state at 05:00, node and object counts stable | Passed 2026-09-29 with the 2026-09-28/29 timing changes (1,003 checks); see open decision 3 |
 | TEST_LONGRUN_500 | 500 days (0.25 s tick): no NaN/INF, ledger reconciles, overflow guard survives save/load | Passed 2026-09-26 (5,013 checks; reached Tier 4, memory flat at ~73 MB) |
 | TEST_LONGRUN_1000 | 1,000 days with save → load every day: logical state preserved, save size bounded | Passed 2026-09-27 (11,003 checks; non-history save 48.5 KB at day 200 → 52.1 KB at day 1000; reached Tier 5) |
 
@@ -149,11 +149,15 @@ listed under GDD 94.
    The current behaviour is correct and stays.
 2. **Project license.** `LICENSES.md` says all rights are reserved until the
    maintainer chooses a license.
-3. **Economy after the batch-duration change (GDD 18.5).** Since 2026-09-28, x3 takes
-   ×1.2 and x5 ×1.4 of the base stage time (previously ×3 and ×5). In TEST_LONGRUN_100
-   the managed bot's balance sits at 0 KR at every 10-day checkpoint from day 61 to
-   day 101 (Tier 3). With the old factors the same run reaches 110,515 KR by day 101.
-   The soak still passes its stability checks. Suspected cause, not yet confirmed:
-   Auto bakers choosing x5 now produce about 3.6× faster than before and overproduce
-   against demand. TEST_LONGRUN_500/1000 have not been re-run since the change.
-   Waiting on the maintainer: keep the balance as is, or tune the baker AI.
+3. **Economy after the timing changes (GDD 15.2, 18.5, 5.1, 61.5).** On 2026-09-28,
+   x3 batches were set to ×1.2 and x5 to ×1.4 of the base stage time (previously ×3 and
+   ×5). On 2026-09-29, the clock became 1 in-game hour = 120 s, the §5.1 reference
+   times were replaced, and every §61.5 recipe duration was halved. In TEST_LONGRUN_100
+   (2026-09-29) the managed bot reaches 50,704 KR by day 41 at Tier 2 and upgrades to
+   Tier 3 by day 51. From then on it sits at 0 KR at every 10-day checkpoint to day 101.
+   The run with only the batch change hit the same wall from day 61. Before any of
+   these changes, the same run reached 110,515 KR by day 101. The soak still passes its
+   stability checks. Suspected cause, not yet confirmed: Auto bakers now produce much
+   faster than before and overproduce against demand. TEST_LONGRUN_500/1000 have not
+   been re-run since 2026-09-28. Waiting on the maintainer: keep the balance as is, or
+   investigate and tune the baker AI.

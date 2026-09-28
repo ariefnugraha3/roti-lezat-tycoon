@@ -129,7 +129,7 @@ func price_mix_multiplier() -> float:
 
 
 ## Interval berikutnya (proses Poisson, detik jam in-game). Laju per detik-
-## simulasi = laju per jam in-game / 180.
+## simulasi = laju per jam in-game / detik-simulasi per jam in-game.
 func _interval(rate_per_hour: float, stream: RandomNumberGenerator, min_sim_seconds: float) -> float:
 	if rate_per_hour <= 0.0001:
 		return 3600.0

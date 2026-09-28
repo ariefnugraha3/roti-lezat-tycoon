@@ -34,11 +34,11 @@
 	"clock": {
 		"day": 4,
 		"phase": "open",
-		"sim_seconds": 7920.000000020047,
+		"sim_seconds": 5280.000000010443,
 		"speed": 1,
 		"time_seconds": 36000.0
 	},
-	"created_at": "2026-09-25T22:45:36Z",
+	"created_at": "2026-09-28T22:55:01Z",
 	"customers": {
 		"abandoned_today": 3,
 		"customers": [],
@@ -130,72 +130,84 @@
 					"recipe": "recipe_plain_loaf",
 					"stacks": [
 						{
-							"age_ingame_hours": 4.643888888889521,
+							"age_ingame_hours": 4.674166666666475,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7079.900000016991,
+							"produced_at_game_time": 4714.900000008387,
 							"quantity": 3,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 23
 						},
 						{
-							"age_ingame_hours": 4.404444444445039,
+							"age_ingame_hours": 4.440000000000022,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7123.000000017148,
+							"produced_at_game_time": 4743.000000008489,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 24
 						},
 						{
-							"age_ingame_hours": 3.5966666666671347,
+							"age_ingame_hours": 3.615833333333695,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7268.400000017677,
+							"produced_at_game_time": 4841.900000008849,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 28
 						},
 						{
-							"age_ingame_hours": 0.7927777777778077,
+							"age_ingame_hours": 0.7829166666666436,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7352.850000017984,
+							"produced_at_game_time": 4896.350000009047,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 30
 						},
 						{
-							"age_ingame_hours": 4.64388888888989,
+							"age_ingame_hours": 0.6774999999999886,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7079.900000016991,
+							"produced_at_game_time": 4896.350000009047,
+							"quantity": 1,
+							"recipe_id": "recipe_plain_loaf",
+							"slot_id": "4:0",
+							"source_job_id": 30
+						},
+						{
+							"age_ingame_hours": 4.6741666666670785,
+							"bake_quality": 1.0,
+							"base_expiry_hours": 20.0,
+							"display_tier": 1,
+							"freshness_state": "FRESH",
+							"produced_at_game_time": 4714.900000008387,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 23
 						},
 						{
-							"age_ingame_hours": 4.64388888888989,
+							"age_ingame_hours": 4.674166666667214,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7079.900000016991,
+							"produced_at_game_time": 4714.900000008387,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
@@ -207,48 +219,48 @@
 					"recipe": "recipe_plain_fried_bread",
 					"stacks": [
 						{
-							"age_ingame_hours": 4.215000000000565,
+							"age_ingame_hours": 4.243333333333534,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 7157.100000017272,
+							"produced_at_game_time": 4766.600000008575,
 							"quantity": 3,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
 							"source_job_id": 25
 						},
 						{
-							"age_ingame_hours": 4.025555555556091,
+							"age_ingame_hours": 4.046666666667046,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 7191.200000017396,
+							"produced_at_game_time": 4790.200000008661,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
 							"source_job_id": 26
 						},
 						{
-							"age_ingame_hours": 3.8361111111116166,
+							"age_ingame_hours": 3.8500000000003984,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 7225.30000001752,
+							"produced_at_game_time": 4813.800000008747,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
 							"source_job_id": 27
 						},
 						{
-							"age_ingame_hours": 4.215000000001225,
+							"age_ingame_hours": 4.243333333334524,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 7157.100000017272,
+							"produced_at_game_time": 4766.600000008575,
 							"quantity": 3,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
@@ -260,12 +272,12 @@
 					"recipe": "recipe_plain_fried_bread",
 					"stacks": [
 						{
-							"age_ingame_hours": 3.8361111111116166,
+							"age_ingame_hours": 3.8500000000003984,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 7225.30000001752,
+							"produced_at_game_time": 4813.800000008747,
 							"quantity": 5,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:2",
@@ -277,36 +289,36 @@
 					"recipe": "recipe_plain_loaf",
 					"stacks": [
 						{
-							"age_ingame_hours": 3.5966666666671347,
+							"age_ingame_hours": 3.615833333333695,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7268.400000017677,
+							"produced_at_game_time": 4841.900000008849,
 							"quantity": 5,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
 							"source_job_id": 28
 						},
 						{
-							"age_ingame_hours": 3.357222222222653,
+							"age_ingame_hours": 3.381666666666992,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7311.500000017833,
+							"produced_at_game_time": 4870.000000008951,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
 							"source_job_id": 29
 						},
 						{
-							"age_ingame_hours": 3.1277777777781726,
+							"age_ingame_hours": 3.162500000000291,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 7352.850000017984,
+							"produced_at_game_time": 4896.350000009047,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
@@ -319,7 +331,7 @@
 		}
 	},
 	"economy": {
-		"balance_kr": 9488.0,
+		"balance_kr": 9493.0,
 		"cogs_consumed_today": 2360.0,
 		"historical_totals": {},
 		"ledger_recent": [
@@ -336,7 +348,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 30923.0,
+				"game_time": 31084.5,
 				"metadata": {
 					"customer": "c1",
 					"units": 2
@@ -348,7 +360,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 33624.0,
+				"game_time": 33786.0,
 				"metadata": {
 					"customer": "c2",
 					"units": 2
@@ -360,7 +372,7 @@
 				"amount": 540.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 36335.0,
+				"game_time": 36502.5,
 				"metadata": {
 					"customer": "c3",
 					"units": 6
@@ -372,7 +384,7 @@
 				"amount": 360.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 36937.0,
+				"game_time": 37855.5,
 				"metadata": {
 					"order": 1
 				},
@@ -383,7 +395,7 @@
 				"amount": 88.0,
 				"category": "TIP_ROTIFOOD",
 				"day": 1,
-				"game_time": 36937.0,
+				"game_time": 37855.5,
 				"metadata": {
 					"order": 1
 				},
@@ -394,7 +406,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 39921.0,
+				"game_time": 40081.5,
 				"metadata": {
 					"customer": "c4",
 					"units": 2
@@ -406,7 +418,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 43752.0,
+				"game_time": 44028.0,
 				"metadata": {
 					"customer": "c5",
 					"units": 2
@@ -418,7 +430,7 @@
 				"amount": 720.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 48938.0,
+				"game_time": 49107.0,
 				"metadata": {
 					"customer": "c6",
 					"units": 8
@@ -430,7 +442,7 @@
 				"amount": 540.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 52237.0,
+				"game_time": 53155.5,
 				"metadata": {
 					"order": 2
 				},
@@ -441,7 +453,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 54324.0,
+				"game_time": 54486.0,
 				"metadata": {
 					"customer": "c7",
 					"units": 2
@@ -453,7 +465,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 59720.0,
+				"game_time": 59880.0,
 				"metadata": {
 					"customer": "c8",
 					"units": 2
@@ -462,7 +474,7 @@
 				"tx_id": 12
 			},
 			{
-				"amount": -6.0,
+				"amount": -5.0,
 				"category": "UTILITY_COST",
 				"day": 1,
 				"game_time": 64800.0,
@@ -474,7 +486,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 30305.0,
+				"game_time": 30457.5,
 				"metadata": {
 					"customer": "c9",
 					"units": 2
@@ -486,7 +498,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 32721.0,
+				"game_time": 32881.5,
 				"metadata": {
 					"customer": "c10",
 					"units": 2
@@ -498,7 +510,7 @@
 				"amount": 455.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 35137.0,
+				"game_time": 35305.5,
 				"metadata": {
 					"customer": "c11",
 					"units": 7
@@ -510,7 +522,7 @@
 				"amount": 325.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 2,
-				"game_time": 35436.0,
+				"game_time": 36354.0,
 				"metadata": {
 					"order": 3
 				},
@@ -521,7 +533,7 @@
 				"amount": 36.0,
 				"category": "TIP_ROTIFOOD",
 				"day": 2,
-				"game_time": 35436.0,
+				"game_time": 36354.0,
 				"metadata": {
 					"order": 3
 				},
@@ -532,7 +544,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 38123.0,
+				"game_time": 38284.5,
 				"metadata": {
 					"customer": "c12",
 					"units": 2
@@ -544,7 +556,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 41954.0,
+				"game_time": 42231.0,
 				"metadata": {
 					"customer": "c13",
 					"units": 2
@@ -553,21 +565,22 @@
 				"tx_id": 20
 			},
 			{
-				"amount": 195.0,
-				"category": "SALE_ROTIFOOD",
+				"amount": 585.0,
+				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 45036.0,
+				"game_time": 45502.5,
 				"metadata": {
-					"order": 4
+					"customer": "c14",
+					"units": 9
 				},
-				"source_id": "rotifood",
+				"source_id": "customer_bulk_buyer",
 				"tx_id": 21
 			},
 			{
-				"amount": 24.0,
-				"category": "TIP_ROTIFOOD",
+				"amount": 195.0,
+				"category": "SALE_ROTIFOOD",
 				"day": 2,
-				"game_time": 45036.0,
+				"game_time": 45954.0,
 				"metadata": {
 					"order": 4
 				},
@@ -575,22 +588,21 @@
 				"tx_id": 22
 			},
 			{
-				"amount": 585.0,
-				"category": "SALE_PHYSICAL",
+				"amount": 24.0,
+				"category": "TIP_ROTIFOOD",
 				"day": 2,
-				"game_time": 45335.0,
+				"game_time": 45954.0,
 				"metadata": {
-					"customer": "c14",
-					"units": 9
+					"order": 4
 				},
-				"source_id": "customer_bulk_buyer",
+				"source_id": "rotifood",
 				"tx_id": 23
 			},
 			{
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 50721.0,
+				"game_time": 50881.5,
 				"metadata": {
 					"customer": "c15",
 					"units": 2
@@ -599,7 +611,7 @@
 				"tx_id": 24
 			},
 			{
-				"amount": -5.0,
+				"amount": -4.0,
 				"category": "UTILITY_COST",
 				"day": 2,
 				"game_time": 64800.0,
@@ -611,7 +623,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 30020.0,
+				"game_time": 30180.0,
 				"metadata": {
 					"customer": "c18",
 					"units": 2
@@ -623,7 +635,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 32106.0,
+				"game_time": 32259.0,
 				"metadata": {
 					"customer": "c19",
 					"units": 2
@@ -632,21 +644,22 @@
 				"tx_id": 27
 			},
 			{
-				"amount": 600.0,
-				"category": "SALE_ROTIFOOD",
+				"amount": 1200.0,
+				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 34236.0,
+				"game_time": 34705.5,
 				"metadata": {
-					"order": 6
+					"customer": "c20",
+					"units": 8
 				},
-				"source_id": "rotifood",
+				"source_id": "customer_bulk_buyer",
 				"tx_id": 28
 			},
 			{
-				"amount": 108.0,
-				"category": "TIP_ROTIFOOD",
+				"amount": 600.0,
+				"category": "SALE_ROTIFOOD",
 				"day": 3,
-				"game_time": 34236.0,
+				"game_time": 35154.0,
 				"metadata": {
 					"order": 6
 				},
@@ -654,22 +667,21 @@
 				"tx_id": 29
 			},
 			{
-				"amount": 1200.0,
-				"category": "SALE_PHYSICAL",
+				"amount": 108.0,
+				"category": "TIP_ROTIFOOD",
 				"day": 3,
-				"game_time": 34537.0,
+				"game_time": 35154.0,
 				"metadata": {
-					"customer": "c20",
-					"units": 8
+					"order": 6
 				},
-				"source_id": "customer_bulk_buyer",
+				"source_id": "rotifood",
 				"tx_id": 30
 			},
 			{
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 37523.0,
+				"game_time": 37684.5,
 				"metadata": {
 					"customer": "c21",
 					"units": 2
@@ -681,7 +693,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 40754.0,
+				"game_time": 41031.0,
 				"metadata": {
 					"customer": "c22",
 					"units": 2
@@ -693,7 +705,7 @@
 				"amount": 1500.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 43535.0,
+				"game_time": 43702.5,
 				"metadata": {
 					"customer": "c23",
 					"units": 10
@@ -705,7 +717,7 @@
 				"amount": 450.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 3,
-				"game_time": 43836.0,
+				"game_time": 44754.0,
 				"metadata": {
 					"order": 7
 				},
@@ -716,7 +728,7 @@
 				"amount": 52.0,
 				"category": "TIP_ROTIFOOD",
 				"day": 3,
-				"game_time": 43836.0,
+				"game_time": 44754.0,
 				"metadata": {
 					"order": 7
 				},
@@ -727,7 +739,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 47721.0,
+				"game_time": 47881.5,
 				"metadata": {
 					"customer": "c24",
 					"units": 2
@@ -739,7 +751,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 51907.0,
+				"game_time": 52060.5,
 				"metadata": {
 					"customer": "c25",
 					"units": 2
@@ -751,7 +763,7 @@
 				"amount": 600.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 3,
-				"game_time": 54636.0,
+				"game_time": 55554.0,
 				"metadata": {
 					"order": 8
 				},
@@ -762,7 +774,7 @@
 				"amount": 82.0,
 				"category": "TIP_ROTIFOOD",
 				"day": 3,
-				"game_time": 54636.0,
+				"game_time": 55554.0,
 				"metadata": {
 					"order": 8
 				},
@@ -773,7 +785,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 56123.0,
+				"game_time": 56284.5,
 				"metadata": {
 					"customer": "c26",
 					"units": 2
@@ -785,7 +797,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 59954.0,
+				"game_time": 60231.0,
 				"metadata": {
 					"customer": "c27",
 					"units": 2
@@ -794,7 +806,7 @@
 				"tx_id": 41
 			},
 			{
-				"amount": -11.0,
+				"amount": -8.0,
 				"category": "UTILITY_COST",
 				"day": 3,
 				"game_time": 64800.0,
@@ -822,7 +834,7 @@
 		],
 		"ledger_sequence": 43,
 		"lifetime_earned": 12590.0,
-		"lifetime_spent": 4102.0,
+		"lifetime_spent": 4097.0,
 		"overflowed": false,
 		"today": {},
 		"waste_cost_today": 0.0,
@@ -872,7 +884,7 @@
 			}
 		],
 		"next_iid": 5,
-		"utility_today": 7.655000000000383
+		"utility_today": 6.157500000000263
 	},
 	"flags": {
 		"bailout_pending": false,
@@ -924,12 +936,12 @@
 		"commands": [],
 		"current": {
 			"from_customer": false,
-			"id": 1207,
+			"id": 873,
 			"kind": "display",
 			"target": 4
 		},
 		"manning_lane": "",
-		"next_command_id": 1208
+		"next_command_id": 874
 	},
 	"pricing": {
 		"experiment_high_sold": false,
@@ -947,17 +959,17 @@
 				"bake_quality": 1.0,
 				"batch_multiplier": 1,
 				"burn_elapsed": 0.5499999999999999,
-				"carried_units": 2,
+				"carried_units": 1,
 				"carrier_id": "player",
 				"claimed_by": "",
 				"cogs_noted": true,
-				"created_at": 7281.700000017725,
+				"created_at": 4855.200000008897,
 				"ingredient_value_kr": 340.0,
 				"job_id": 30,
 				"mixer_id": 3,
 				"oven_id": 2,
 				"owner_actor_id": "player",
-				"produced_at": 7352.850000017984,
+				"produced_at": 4896.350000009047,
 				"protected": false,
 				"quantity_output": 6,
 				"recipe_id": "recipe_plain_loaf",
@@ -968,8 +980,8 @@
 					"ingredient_yeast": 1
 				},
 				"stage": "CARRIED_TO_DISPLAY",
-				"stage_duration": 30.0,
-				"stage_elapsed": 30.0,
+				"stage_duration": 15.0,
+				"stage_elapsed": 15.0,
 				"stage_started_by": "player"
 			}
 		],
@@ -1063,21 +1075,21 @@
 		"history": [
 			{
 				"day": 1,
-				"expenses": 2046.0,
+				"expenses": 2045.0,
 				"income": 3328.0,
-				"net": 1282.0
+				"net": 1283.0
 			},
 			{
 				"day": 2,
-				"expenses": 1545.0,
+				"expenses": 1544.0,
 				"income": 2270.0,
-				"net": 725.0
+				"net": 726.0
 			},
 			{
 				"day": 3,
-				"expenses": 4511.0,
+				"expenses": 4508.0,
 				"income": 6992.0,
-				"net": 2481.0
+				"net": 2484.0
 			}
 		],
 		"last_report": {
@@ -1091,7 +1103,7 @@
 			"day_number": 3,
 			"delivery_cancelled": 0,
 			"delivery_completed": 3,
-			"ending_balance": 13568.0,
+			"ending_balance": 13573.0,
 			"highlights": [
 				{
 					"icon": "trophy",
@@ -1110,7 +1122,7 @@
 			"holiday": false,
 			"marketing_cost_if_charged_today": 0.0,
 			"mood": "mood_great",
-			"net_profit": 2481.0,
+			"net_profit": 2484.0,
 			"physical_customer_count": 10,
 			"physical_sales": 5100.0,
 			"rating_end": 3.3499999999999965,
@@ -1122,9 +1134,9 @@
 			"tips": 242.0,
 			"top_recipe": "recipe_sugar_donut",
 			"top_recipe_count": 45,
-			"total_expenses": 4511.0,
+			"total_expenses": 4508.0,
 			"total_income": 6992.0,
-			"utility_cost": 11.0,
+			"utility_cost": 8.0,
 			"wage_lines": [],
 			"wage_warning": false,
 			"wages": 0.0,
@@ -1193,10 +1205,10 @@
 	"statistics": {
 		"no_burn_streak_days": 3,
 		"records": {
-			"highest_daily_profit": 2481.0,
+			"highest_daily_profit": 2484.0,
 			"highest_daily_revenue": 6992.0,
 			"highest_physical_rating": 3.4099999999999966,
-			"highest_queue": 2.0,
+			"highest_queue": 1.0,
 			"highest_rotifood_rating": 3.65,
 			"largest_transaction": 1500.0,
 			"longest_no_burn": 3.0,
@@ -1207,7 +1219,7 @@
 		"stats": {
 			"bailout_count": 0.0,
 			"days_played": 3.0,
-			"highest_balance": 13579.0,
+			"highest_balance": 13581.0,
 			"location_upgrades_count": 0.0,
 			"staff_hired_count": 0.0,
 			"total_bread_burned": 0.0,
@@ -1218,7 +1230,7 @@
 			"total_customers_lost_patience": 3.0,
 			"total_customers_served": 25.0,
 			"total_kr_earned": 12590.0,
-			"total_kr_spent": 22.0,
+			"total_kr_spent": 17.0,
 			"total_play_time_real_seconds": 0.0,
 			"total_rotifood_orders_completed": 7.0,
 			"total_rotifood_orders_expired": 1.0,

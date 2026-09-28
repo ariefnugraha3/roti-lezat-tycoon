@@ -25,11 +25,11 @@
 	"clock": {
 		"day": 2.0,
 		"phase": "preparation",
-		"sim_seconds": 2339.999999999747,
+		"sim_seconds": 1559.999999999129,
 		"speed": 1.0,
 		"time_seconds": 18000.0
 	},
-	"created_at": "2026-09-25T22:45:51Z",
+	"created_at": "2026-09-28T22:55:12Z",
 	"customers": {
 		"abandoned_today": 0.0,
 		"customers": [],
@@ -196,7 +196,7 @@
 		}
 	},
 	"economy": {
-		"balance_kr": 4330.0,
+		"balance_kr": 4331.0,
 		"cogs_consumed_today": 0.0,
 		"historical_totals": {},
 		"ledger_recent": [
@@ -213,7 +213,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 30923.0,
+				"game_time": 31084.5,
 				"metadata": {
 					"customer": "c1",
 					"units": 2.0
@@ -225,7 +225,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 33624.0,
+				"game_time": 33786.0,
 				"metadata": {
 					"customer": "c2",
 					"units": 2.0
@@ -237,7 +237,7 @@
 				"amount": 540.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 36335.0,
+				"game_time": 36502.5,
 				"metadata": {
 					"customer": "c3",
 					"units": 6.0
@@ -249,7 +249,7 @@
 				"amount": 360.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1.0,
-				"game_time": 36937.0,
+				"game_time": 37855.5,
 				"metadata": {
 					"order": 1.0
 				},
@@ -260,7 +260,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 39921.0,
+				"game_time": 40081.5,
 				"metadata": {
 					"customer": "c4",
 					"units": 2.0
@@ -272,7 +272,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 43752.0,
+				"game_time": 44028.0,
 				"metadata": {
 					"customer": "c5",
 					"units": 2.0
@@ -284,7 +284,7 @@
 				"amount": 720.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 48938.0,
+				"game_time": 49107.0,
 				"metadata": {
 					"customer": "c6",
 					"units": 8.0
@@ -296,7 +296,7 @@
 				"amount": 540.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1.0,
-				"game_time": 52237.0,
+				"game_time": 53155.5,
 				"metadata": {
 					"order": 2.0
 				},
@@ -307,7 +307,7 @@
 				"amount": 96.0,
 				"category": "TIP_ROTIFOOD",
 				"day": 1.0,
-				"game_time": 52237.0,
+				"game_time": 53155.5,
 				"metadata": {
 					"order": 2.0
 				},
@@ -318,7 +318,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 54324.0,
+				"game_time": 54486.0,
 				"metadata": {
 					"customer": "c7",
 					"units": 2.0
@@ -330,7 +330,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 59720.0,
+				"game_time": 59880.0,
 				"metadata": {
 					"customer": "c8",
 					"units": 2.0
@@ -339,7 +339,7 @@
 				"tx_id": 12.0
 			},
 			{
-				"amount": -6.0,
+				"amount": -5.0,
 				"category": "UTILITY_COST",
 				"day": 1.0,
 				"game_time": 64800.0,
@@ -350,7 +350,7 @@
 		],
 		"ledger_sequence": 13.0,
 		"lifetime_earned": 3336.0,
-		"lifetime_spent": 6.0,
+		"lifetime_spent": 5.0,
 		"overflowed": false,
 		"today": {},
 		"waste_cost_today": 0.0,
@@ -483,9 +483,9 @@
 		"history": [
 			{
 				"day": 1.0,
-				"expenses": 2046.0,
+				"expenses": 2045.0,
 				"income": 3336.0,
-				"net": 1290.0
+				"net": 1291.0
 			}
 		],
 		"last_report": {
@@ -499,7 +499,7 @@
 			"day_number": 1.0,
 			"delivery_cancelled": 0.0,
 			"delivery_completed": 2.0,
-			"ending_balance": 4330.0,
+			"ending_balance": 4331.0,
 			"highlights": [
 				{
 					"icon": "trophy",
@@ -518,7 +518,7 @@
 			"holiday": false,
 			"marketing_cost_if_charged_today": 0.0,
 			"mood": "mood_good",
-			"net_profit": 1290.0,
+			"net_profit": 1291.0,
 			"physical_customer_count": 8.0,
 			"physical_sales": 2340.0,
 			"rating_end": 3.2399999999999984,
@@ -530,9 +530,9 @@
 			"tips": 96.0,
 			"top_recipe": "recipe_plain_loaf",
 			"top_recipe_count": 36.0,
-			"total_expenses": 2046.0,
+			"total_expenses": 2045.0,
 			"total_income": 3336.0,
-			"utility_cost": 6.0,
+			"utility_cost": 5.0,
 			"wage_lines": [],
 			"wage_warning": false,
 			"wages": 0.0,

@@ -19,6 +19,7 @@ func tests() -> Array:
 		{"id": "ACC_16_COMMANDS", "name": "16.4 retargeting mixes equipment, cashier and portal taps", "fn": _mixed_taps},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
+		{"id": "ACC_129_FX_TEARDOWN", "name": "129 one-shot effects freed early leave no errors behind", "fn": _effect_teardown},
 	]
 
 
@@ -332,6 +333,20 @@ func _effect_limit() -> void:
 	# Batas lain dibaca dari katalog yang sama.
 	for k: String in ["world_alerts_visible", "pooled_customer_bodies", "music_voices", "sfx_voices", "toasts_visible", "decorations_per_floor"]:
 		check(DataRegistry.bali("limits." + k) > 0, "limit %s defined" % k)
+
+
+## Dunia bisa dibongkar (kembali ke menu) saat partikel sekali-jalan masih hidup.
+## Timer auto-free yang tertinggal tidak boleh memicu error ketika berbunyi;
+## runner menggagalkan tes ini bila ada error engine.
+func _effect_teardown() -> void:
+	var root := Node3D.new()
+	runner.add_child(root)
+	var base: int = FX.live_effects()
+	check(FX.sugar_sparkle(root, Vector3.ZERO) != null, "one-shot sparkle created")
+	root.free()
+	eq(FX.live_effects(), base, "freeing the world releases the effect slot")
+	await runner.get_tree().create_timer(FX.SPARKLE_LIFETIME * 1.4 + FX.AUTO_FREE_MARGIN + 0.3).timeout
+	eq(FX.live_effects(), base, "the late auto-free timer changes nothing")
 
 
 func _mixed_taps() -> void:

@@ -618,7 +618,7 @@ static func _auto_free(node: Node, delay: float) -> void:
 	if tree == null:
 		return
 	var timer: SceneTreeTimer = tree.create_timer(maxf(delay, 0.1), false)
-	var cleanup: Callable = func() -> void:
-		if is_instance_valid(node):
-			node.queue_free()
-	timer.timeout.connect(cleanup)
+	# Sambungan ke metode node itu sendiri ikut terputus bila node sudah dibebaskan
+	# lebih dulu (mis. dunia dibongkar saat kembali ke menu). Lambda yang menangkap
+	# node justru memicu error "Lambda capture ... was freed" saat timer berbunyi.
+	timer.timeout.connect(node.queue_free)

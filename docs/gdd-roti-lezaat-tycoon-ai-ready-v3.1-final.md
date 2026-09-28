@@ -33,7 +33,7 @@ Roti Lezat Tycoon adalah game simulasi manajemen di mana pemain membangun keraja
 
 Siklus permainan utama terbagi dalam tiga tahap operasional harian:
 
-*Kecepatan jam:* **1 jam in-game = 3 menit nyata**, sehingga satu hari penuh (05:00–18:00) berlangsung **39 menit nyata**—9 menit persiapan dan 30 menit jualan. Seluruh arus yang ditulis "per jam" (kedatangan pembeli, pesanan RotiFood) mengikuti jam in-game, jadi jumlah pembeli **per hari** tidak berubah; yang berubah adalah berapa lama pemain punya waktu untuk melayani mereka.
+*Kecepatan jam:* **1 jam in-game = 2 menit nyata**, sehingga satu hari penuh (05:00–18:00) berlangsung **26 menit nyata**—6 menit persiapan dan 20 menit jualan. Seluruh arus yang ditulis "per jam" (kedatangan pembeli, pesanan RotiFood) mengikuti jam in-game, jadi jumlah pembeli **per hari** tidak berubah; yang berubah adalah berapa lama pemain punya waktu untuk melayani mereka.
 
 **1\. Tahap Persiapan (05:00 – 08:00)**
 
@@ -390,27 +390,27 @@ Identitas visual dan atmosfer game dibangun di atas tiga pilar emosional yang sa
 Peralatan dibagi menjadi lima tingkatan (tier). Tier 1 adalah peralatan bawaan (Starter) yang didapatkan pemain di awal permainan secara gratis. Semakin tinggi tier, semakin cepat waktu proses atau semakin besar kapasitasnya:
 
 * **Tier 1 (Starter - Bawaan Awal Game):**  
-  * **Mixer:** Mangkuk Kayu & Pengocok Manual (Waktu proses: 20 detik | Harga: 0 KR)  
-  * **Oven:** Oven Tangkring Tua (Waktu panggang: 30 detik | Harga: 0 KR)  
+  * **Mixer:** Mangkuk Kayu & Pengocok Manual (Waktu proses: 10 detik | Harga: 0 KR)  
+  * **Oven:** Oven Tangkring Tua (Waktu panggang: 15 detik | Harga: 0 KR)  
   * **Display:** Keranjang Bambu Terbuka (Kapasitas: 50 roti | Harga: 0 KR)  
 * **Tier 2 (Pemula - Cocok untuk Ruko):**  
-  * **Mixer:** Stand Mixer Elektrik Murah (Waktu proses: 15 detik | Harga: 1.500 KR)  
-  * **Oven:** Oven Listrik Mini (Waktu panggang: 22 detik | Harga: 2.000 KR)  
+  * **Mixer:** Stand Mixer Elektrik Murah (Waktu proses: 7 detik | Harga: 1.500 KR)  
+  * **Oven:** Oven Listrik Mini (Waktu panggang: 11 detik | Harga: 2.000 KR)  
   * **Display:** Etalase Kaca Sederhana (Kapasitas: 100 roti | Harga: 1.500 KR)  
 * **Tier 3 (Menengah - Cocok untuk Toko Bakery):**  
-  * **Mixer:** Heavy Duty Stand Mixer (Waktu proses: 10 detik | Harga: 4.500 KR)  
-  * **Oven:** Deck Oven 2 Tray (Waktu panggang: 15 detik | Harga: 6.000 KR)  
+  * **Mixer:** Heavy Duty Stand Mixer (Waktu proses: 5 detik | Harga: 4.500 KR)  
+  * **Oven:** Deck Oven 2 Tray (Waktu panggang: 8 detik | Harga: 6.000 KR)  
   * **Display:** Showcase Kaca dengan Lampu Penghangat (Kapasitas: 200 roti | Harga: 4.500 KR)  
 * **Tier 4 (Industrial - Cocok untuk Flagship Store):**  
-  * **Mixer:** Industrial Dough Kneader (Waktu proses: 6 detik | Harga: 12.000 KR)  
-  * **Oven:** Convection Oven Besar (Waktu panggang: 10 detik | Harga: 15.000 KR)  
+  * **Mixer:** Industrial Dough Kneader (Waktu proses: 3 detik | Harga: 12.000 KR)  
+  * **Oven:** Convection Oven Besar (Waktu panggang: 5 detik | Harga: 15.000 KR)  
   * **Display:** Smart Temperature Showcase (Kapasitas: 350 roti | Harga: 12.000 KR)  
 * **Tier 5 (Teknologi Tinggi - Cocok untuk Mega Bakery Landmark):**  
-  * **Mixer:** Automated Mixing Robot (Waktu proses: 3 detik | Harga: 35.000 KR)  
-  * **Oven:** Conveyor Belt Oven (Waktu panggang: 5 detik | Harga: 50.000 KR)  
+  * **Mixer:** Automated Mixing Robot (Waktu proses: 2 detik | Harga: 35.000 KR)  
+  * **Oven:** Conveyor Belt Oven (Waktu panggang: 4 detik | Harga: 50.000 KR)  
   * **Display:** Premium Auto-Dispenser Showcase (Kapasitas: 600 roti | Harga: 30.000 KR)
 
-*Waktu proses Mixer dan Oven di atas adalah **waktu referensi** tiap tier alat.* Durasi tahap sebenarnya dihitung dari waktu dasar resep (Seksi 61.5), dikali rasio waktu referensi alat yang dipakai terhadap alat minimum resep (Seksi 18.5). Contoh non-canonical: Roti Tawar Polos di Mixer T1 + Oven T1 memakai tepat 20 detik aduk dan 30 detik panggang.
+*Waktu proses Mixer dan Oven di atas adalah **waktu referensi** tiap tier alat.* Durasi tahap sebenarnya dihitung dari waktu dasar resep (Seksi 61.5), dikali rasio waktu referensi alat yang dipakai terhadap alat minimum resep (Seksi 18.5). Contoh non-canonical: Roti Tawar Polos di Mixer T1 + Oven T1 memakai tepat 10 detik aduk dan 15 detik panggang.
 
 ### **5.1.1 Gudang Penyimpanan (Storage) — Kulkas & Lemari Bahan**
 
@@ -513,7 +513,7 @@ Setelah tutorial Hari 1–3 selesai, pembelian Pasar pada jam operasional tidak 
 
 #### **A. Lead Time**
 
-* Waktu kirim tetap: **3 jam in-game**. Dengan skala waktu canonical 1 jam in-game = 3 menit nyata, lead time normal setara **9 menit nyata** selama clock berjalan normal.
+* Waktu kirim tetap: **3 jam in-game**. Dengan skala waktu canonical 1 jam in-game = 2 menit nyata, lead time normal setara **6 menit nyata** selama clock berjalan normal.
 * `arrival_game_time = purchase_game_time + 3:00`.
 * Jika ETA secara matematis melewati 18:00, pesanan tetap dikirim berdasarkan clock/order policy yang ditetapkan scheduler; **pembelian baru yang dibuat setelah toko sudah tutup** adalah kasus khusus dan langsung masuk Gudang untuk esok pagi.
 * Pause game menghentikan clock dan otomatis menghentikan progress ETA.
@@ -1180,7 +1180,7 @@ Empat pilar berikut harus tetap terasa pada setiap fitur:
 
 ## **14.2 Target Session**
 
-- Satu hari penuh in-game: ±39 menit nyata sesuai rasio 1 jam in-game = 3 menit nyata.
+- Satu hari penuh in-game: ±26 menit nyata sesuai rasio 1 jam in-game = 2 menit nyata.
 - Satu sesi pendek yang wajar: 1 hari in-game.
 - Sesi menengah: 2–3 hari in-game.
 - Game harus aman dipause kapan saja tanpa menghukum pemain.
@@ -1237,8 +1237,8 @@ CONFIRM_DIALOG
 - Start hari: 05:00.
 - Auto-open: 08:00.
 - Auto-close: 18:00.
-- 1 jam in-game = 180 detik nyata.
-- 1 menit in-game = 3 detik nyata.
+- 1 jam in-game = 120 detik nyata.
+- 1 menit in-game = 2 detik nyata.
 - Waktu **berhenti** saat pause global atau modal yang bersifat blocking.
 - Waktu **berhenti** pada seluruh management menu blocking sesuai Seksi 71 dan pada setiap popup keputusan (lihat CANONICAL di bawah).
 
@@ -1507,7 +1507,7 @@ oven_stage_seconds = max(1.0,
 - `optional_prep_seconds` dijalankan di Mixer sebagai bagian akhir tahap `MIXING` (shaping, filling, laminasi, fermentasi). Mixer tetap occupied, dan satu progress bar mencakup mix + prep. Tidak ada stage atau station prep terpisah.
 - `recipe_total_time` = mix + prep + bake pada tier minimum. Nilai ini ringkasan desain untuk balancing/UI, **bukan timer kedua**.
 
-Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 14 s + 21 s. Di Mixer T3 + Oven T3 menjadi `14 × 10/20 = 7 s` dan `21 × 15/30 = 10.5 s`. Croissant Klasik di Mixer T3 = `22.5 + 18.75 = 41.25 s`; bila dimulai Asisten Dapur 1.60×, menjadi ±25.8 s. Roti Goreng Polos x5 di Mixer T1 + Oven T1 = `14 × 1.4 = 19.6 s` + `21 × 1.4 = 29.4 s` untuk lima kali lipat roti.
+Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 7 s + 10.5 s. Di Mixer T3 + Oven T3 menjadi `7 × 5/10 = 3.5 s` dan `10.5 × 8/15 = 5.6 s`. Croissant Klasik di Mixer T3 = `11.25 + 9.375 = 20.625 s`; bila dimulai Asisten Dapur 1.60×, menjadi ±12.9 s. Roti Goreng Polos x5 di Mixer T1 + Oven T1 = `7 × 1.4 = 9.8 s` + `10.5 × 1.4 = 14.7 s` untuk lima kali lipat roti.
 
 ## **18.6 Completion Lock**
 
@@ -3913,7 +3913,7 @@ Tabel ini adalah satu-satunya definisi kapasitas antrean (ringkasan di Seksi 6 m
 
 # **58. Patience System — Final Numeric Specification**
 
-Patience memakai **simulation seconds**, bukan jam in-game. Nilai ini sengaja berada di rentang puluhan detik agar masuk akal terhadap total hari 39 menit nyata pada 1×.
+Patience memakai **simulation seconds**, bukan jam in-game. Nilai ini sengaja berada di rentang puluhan detik agar masuk akal terhadap total hari 26 menit nyata pada 1×.
 
 | Actor Type | `max_patience_seconds` | Catatan |
 |---|---:|---|
@@ -4114,29 +4114,29 @@ Tabel ini adalah satu-satunya definisi komposisi bahan, tier equipment minimum, 
 
 | Recipe ID | Nama (narasi) | Bahan per batch x1 | mixer | oven | total | mix | prep | bake |
 |---|---|---|---:|---:|---:|---:|---:|---:|
-| `recipe_plain_loaf` | Roti Tawar Polos | flour 1, yeast 1, water_salt 1, butter 1 | 1 | 1 | 50 | 20 | 0 | 30 |
-| `recipe_sugar_donut` | Donat Gula | flour 1, sugar 1, yeast 1, egg 1, butter 1 | 1 | 1 | 55 | 22 | 0 | 33 |
-| `recipe_plain_fried_bread` | Roti Goreng Polos | flour 1, yeast 1, water_salt 1 | 1 | 1 | 35 | 14 | 0 | 21 |
-| `recipe_chocolate_bread` | Roti Cokelat | flour 1, yeast 1, egg 1, chocolate 1, butter 1 | 2 | 2 | 45 | 15.75 | 6.75 | 22.5 |
-| `recipe_sausage_roll` | Roti Sosis Gulung | flour 1, yeast 1, butter 1, beef_sausage 1 | 2 | 2 | 40 | 14 | 6 | 20 |
-| `recipe_sweet_cheese_bread` | Roti Keju Manis | flour 1, sugar 1, egg 1, milk 1, cheddar 1 | 2 | 2 | 50 | 17.5 | 7.5 | 25 |
-| `recipe_strawberry_donut` | Donat Selai Stroberi | flour 1, sugar 1, yeast 1, egg 1, strawberry_jam 1 | 2 | 2 | 55 | 19.25 | 8.25 | 27.5 |
-| `recipe_classic_baguette` | Baguette Klasik | flour 1, yeast 1, water_salt 1 | 2 | 2 | 60 | 21 | 9 | 30 |
-| `recipe_classic_croissant` | Croissant Klasik | flour 1, butter 2, egg 1, milk 1, yeast 1 | 3 | 3 | 75 | 22.5 | 18.75 | 33.75 |
-| `recipe_cinnamon_roll` | Cinnamon Roll | flour 1, sugar 1, egg 1, butter 1, cinnamon 1 | 3 | 3 | 70 | 21 | 17.5 | 31.5 |
-| `recipe_pain_au_chocolat` | Pain au Chocolat | flour 1, butter 2, chocolate 1, egg 1 | 3 | 3 | 80 | 24 | 20 | 36 |
-| `recipe_danish_cheese` | Danish Cheese Pastry | flour 1, butter 1, egg 1, cheddar 1, milk 1 | 3 | 3 | 80 | 24 | 20 | 36 |
-| `recipe_milk_pullapart` | Roti Sobek Susu | flour 1, milk 2, sugar 1, butter 1, egg 1 | 3 | 3 | 65 | 19.5 | 16.25 | 29.25 |
-| `recipe_almond_artisan_croissant` | Croissant Artisan Almond | flour 1, organic_butter 1, egg 1, milk 1, almond 1 | 4 | 4 | 90 | 22.5 | 27 | 40.5 |
-| `recipe_whole_wheat_sourdough` | Sourdough Whole Wheat | whole_wheat_flour 1, water_salt 1, yeast 1 | 4 | 4 | 120 | 30 | 36 | 54 |
-| `recipe_gourmet_brioche` | Brioche Gourmet | flour 1, organic_butter 1, egg 2, sugar 1, milk 1 | 4 | 4 | 100 | 25 | 30 | 45 |
-| `recipe_matcha_brioche` | Matcha Sweet Brioche | flour 1, organic_butter 1, egg 1, matcha 1, milk 1 | 4 | 4 | 110 | 27.5 | 33 | 49.5 |
-| `recipe_basque_cheese_bun` | Basque Burnt Cheese Bun | flour 1, cream_cheese 1, egg 2, sugar 1 | 4 | 4 | 95 | 23.75 | 28.5 | 42.75 |
-| `recipe_matcha_mille_crepes` | Matcha Mille Crepes | flour 1, matcha 1, egg 2, milk 2, organic_butter 1 | 5 | 5 | 150 | 30 | 45 | 75 |
-| `recipe_truffle_bun` | Truffle Mushroom Artisan Bun | whole_wheat_flour 1, truffle 1, water_salt 1, yeast 1 | 5 | 5 | 140 | 28 | 42 | 70 |
-| `recipe_luxury_almond_croissant` | Almond Croissant Mewah | flour 1, organic_butter 1, almond 1, cream_cheese 1, egg 1 | 5 | 5 | 130 | 26 | 39 | 65 |
-| `recipe_premium_cream_cheese_danish` | Premium Cream Cheese Danish | flour 1, organic_butter 1, cream_cheese 1, strawberry_jam 1, egg 1 | 5 | 5 | 120 | 24 | 36 | 60 |
-| `recipe_golden_artisan` | Roti Emas Artisan | whole_wheat_flour 1, organic_butter 1, truffle 1, almond 1, cream_cheese 1 | 5 | 5 | 180 | 36 | 54 | 90 |
+| `recipe_plain_loaf` | Roti Tawar Polos | flour 1, yeast 1, water_salt 1, butter 1 | 1 | 1 | 25 | 10 | 0 | 15 |
+| `recipe_sugar_donut` | Donat Gula | flour 1, sugar 1, yeast 1, egg 1, butter 1 | 1 | 1 | 27.5 | 11 | 0 | 16.5 |
+| `recipe_plain_fried_bread` | Roti Goreng Polos | flour 1, yeast 1, water_salt 1 | 1 | 1 | 17.5 | 7 | 0 | 10.5 |
+| `recipe_chocolate_bread` | Roti Cokelat | flour 1, yeast 1, egg 1, chocolate 1, butter 1 | 2 | 2 | 22.5 | 7.875 | 3.375 | 11.25 |
+| `recipe_sausage_roll` | Roti Sosis Gulung | flour 1, yeast 1, butter 1, beef_sausage 1 | 2 | 2 | 20 | 7 | 3 | 10 |
+| `recipe_sweet_cheese_bread` | Roti Keju Manis | flour 1, sugar 1, egg 1, milk 1, cheddar 1 | 2 | 2 | 25 | 8.75 | 3.75 | 12.5 |
+| `recipe_strawberry_donut` | Donat Selai Stroberi | flour 1, sugar 1, yeast 1, egg 1, strawberry_jam 1 | 2 | 2 | 27.5 | 9.625 | 4.125 | 13.75 |
+| `recipe_classic_baguette` | Baguette Klasik | flour 1, yeast 1, water_salt 1 | 2 | 2 | 30 | 10.5 | 4.5 | 15 |
+| `recipe_classic_croissant` | Croissant Klasik | flour 1, butter 2, egg 1, milk 1, yeast 1 | 3 | 3 | 37.5 | 11.25 | 9.375 | 16.875 |
+| `recipe_cinnamon_roll` | Cinnamon Roll | flour 1, sugar 1, egg 1, butter 1, cinnamon 1 | 3 | 3 | 35 | 10.5 | 8.75 | 15.75 |
+| `recipe_pain_au_chocolat` | Pain au Chocolat | flour 1, butter 2, chocolate 1, egg 1 | 3 | 3 | 40 | 12 | 10 | 18 |
+| `recipe_danish_cheese` | Danish Cheese Pastry | flour 1, butter 1, egg 1, cheddar 1, milk 1 | 3 | 3 | 40 | 12 | 10 | 18 |
+| `recipe_milk_pullapart` | Roti Sobek Susu | flour 1, milk 2, sugar 1, butter 1, egg 1 | 3 | 3 | 32.5 | 9.75 | 8.125 | 14.625 |
+| `recipe_almond_artisan_croissant` | Croissant Artisan Almond | flour 1, organic_butter 1, egg 1, milk 1, almond 1 | 4 | 4 | 45 | 11.25 | 13.5 | 20.25 |
+| `recipe_whole_wheat_sourdough` | Sourdough Whole Wheat | whole_wheat_flour 1, water_salt 1, yeast 1 | 4 | 4 | 60 | 15 | 18 | 27 |
+| `recipe_gourmet_brioche` | Brioche Gourmet | flour 1, organic_butter 1, egg 2, sugar 1, milk 1 | 4 | 4 | 50 | 12.5 | 15 | 22.5 |
+| `recipe_matcha_brioche` | Matcha Sweet Brioche | flour 1, organic_butter 1, egg 1, matcha 1, milk 1 | 4 | 4 | 55 | 13.75 | 16.5 | 24.75 |
+| `recipe_basque_cheese_bun` | Basque Burnt Cheese Bun | flour 1, cream_cheese 1, egg 2, sugar 1 | 4 | 4 | 47.5 | 11.875 | 14.25 | 21.375 |
+| `recipe_matcha_mille_crepes` | Matcha Mille Crepes | flour 1, matcha 1, egg 2, milk 2, organic_butter 1 | 5 | 5 | 75 | 15 | 22.5 | 37.5 |
+| `recipe_truffle_bun` | Truffle Mushroom Artisan Bun | whole_wheat_flour 1, truffle 1, water_salt 1, yeast 1 | 5 | 5 | 70 | 14 | 21 | 35 |
+| `recipe_luxury_almond_croissant` | Almond Croissant Mewah | flour 1, organic_butter 1, almond 1, cream_cheese 1, egg 1 | 5 | 5 | 65 | 13 | 19.5 | 32.5 |
+| `recipe_premium_cream_cheese_danish` | Premium Cream Cheese Danish | flour 1, organic_butter 1, cream_cheese 1, strawberry_jam 1, egg 1 | 5 | 5 | 60 | 12 | 18 | 30 |
+| `recipe_golden_artisan` | Roti Emas Artisan | whole_wheat_flour 1, organic_butter 1, truffle 1, almond 1, cream_cheese 1 | 5 | 5 | 90 | 18 | 27 | 45 |
 
 ## **61.6 Recipe Customer Tags**
 
@@ -5516,8 +5516,8 @@ Soft maintainability target: scripts should generally stay below ~500 lines. A l
 | Placement/navigation grid | tile |
 | One tile | **0.5 m × 0.5 m** |
 | Movement speed | meters / real second at 1× simulation speed |
-| Simulation duration (mixing, baking, burn, patience, pending delay, service time) | simulation-seconds: 1 simulation-second = 1 real second at 1× speed (= 20 seconds of in-game clock) |
-| Clock time | in-game seconds since 00:00 (e.g. `time_seconds = 28800` = 08:00); 1 in-game hour = 180 simulation-seconds |
+| Simulation duration (mixing, baking, burn, patience, pending delay, service time) | simulation-seconds: 1 simulation-second = 1 real second at 1× speed (= 30 seconds of in-game clock) |
+| Clock time | in-game seconds since 00:00 (e.g. `time_seconds = 28800` = 08:00); 1 in-game hour = 120 simulation-seconds |
 | UI animation duration | real seconds, unaffected by game speed unless specified |
 | Money | KR, internal `float`/64-bit floating point semantics |
 | Probability | normalized `0.0..1.0` |

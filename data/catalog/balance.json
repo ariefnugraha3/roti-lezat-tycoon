@@ -13,7 +13,7 @@
   "day_start_seconds": 18000,
   "open_seconds": 28800,
   "close_seconds": 64800,
-  "ingame_seconds_per_sim_second": 20,
+  "ingame_seconds_per_sim_second": 30,
   "overnight_aging_hours": 11.0,
   "sim_tick_seconds": 0.05,
   "speeds": [1, 2, 3]

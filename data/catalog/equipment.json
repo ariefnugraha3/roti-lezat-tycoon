@@ -20,7 +20,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 0,
-   "reference_seconds": 20,
+   "reference_seconds": 10,
    "process_multiplier": 1.0,
    "capacity": 0,
    "price_kr": 0,
@@ -45,8 +45,8 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 4,
-   "reference_seconds": 15,
-   "process_multiplier": 1.333333,
+   "reference_seconds": 7,
+   "process_multiplier": 1.428571,
    "capacity": 0,
    "price_kr": 1500,
    "for_sale": true,
@@ -70,7 +70,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 7,
-   "reference_seconds": 10,
+   "reference_seconds": 5,
    "process_multiplier": 2.0,
    "capacity": 0,
    "price_kr": 4500,
@@ -95,7 +95,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 12,
-   "reference_seconds": 6,
+   "reference_seconds": 3,
    "process_multiplier": 3.333333,
    "capacity": 0,
    "price_kr": 12000,
@@ -120,8 +120,8 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 20,
-   "reference_seconds": 3,
-   "process_multiplier": 6.666667,
+   "reference_seconds": 2,
+   "process_multiplier": 5.0,
    "capacity": 0,
    "price_kr": 35000,
    "for_sale": true,
@@ -145,7 +145,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 6,
-   "reference_seconds": 30,
+   "reference_seconds": 15,
    "process_multiplier": 1.0,
    "capacity": 0,
    "perfect_window_seconds": 8,
@@ -172,7 +172,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 10,
-   "reference_seconds": 22,
+   "reference_seconds": 11,
    "process_multiplier": 1.363636,
    "capacity": 0,
    "perfect_window_seconds": 10,
@@ -199,8 +199,8 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 18,
-   "reference_seconds": 15,
-   "process_multiplier": 2.0,
+   "reference_seconds": 8,
+   "process_multiplier": 1.875,
    "capacity": 0,
    "perfect_window_seconds": 14,
    "overbake_window_seconds": 12,
@@ -226,7 +226,7 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 32,
-   "reference_seconds": 10,
+   "reference_seconds": 5,
    "process_multiplier": 3.0,
    "capacity": 0,
    "perfect_window_seconds": 20,
@@ -253,8 +253,8 @@
     270
    ],
    "utility_cost_kr_per_ingame_hour": 55,
-   "reference_seconds": 5,
-   "process_multiplier": 6.0,
+   "reference_seconds": 4,
+   "process_multiplier": 3.75,
    "capacity": 0,
    "perfect_window_seconds": 30,
    "overbake_window_seconds": 20,

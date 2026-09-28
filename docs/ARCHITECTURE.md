@@ -77,7 +77,8 @@ audio read state every frame and react to `EventBus` signals. Iteration inside a
 manager uses sorted IDs, never node order, so the same ticks give the same result
 at any speed (`TEST_TIME_002`).
 
-One in-game hour is 180 real seconds at 1×, so one sim-second is 20 in-game seconds.
+One sim-second is one real second at 1×. Each sim-second advances the in-game clock by
+`clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 
 ### 3.3 Day flow (GDD 15, 104)
 
