@@ -146,19 +146,21 @@ func cancel_job(job_id: int) -> bool:
 
 
 ## Durasi tahap mixer (GDD 18.5): (mix + prep) × rasio alat × batch ÷ kecepatan.
+## Durasi MIXING (GDD 18.5). Batch x3/x5 hanya memperpanjang durasi sesuai
+## `batch_duration_factor` (x1 1.0, x3 1.2, x5 1.4), bukan x3/x5 penuh.
 func mixer_stage_seconds(recipe: RecipeDefinition, mixer_tier: int, batch: int, staff_speed: float) -> float:
 	var active: EquipmentDefinition = DataRegistry.equipment_for(&"mixer", mixer_tier)
 	var required: EquipmentDefinition = DataRegistry.equipment_for(&"mixer", recipe.required_mixer_tier)
 	var base: float = recipe.mix_duration_seconds + recipe.prep_duration_seconds
 	var ratio: float = active.reference_seconds / required.reference_seconds
-	return maxf(_min_stage, base * ratio * float(batch) / maxf(staff_speed, 0.0001))
+	return maxf(_min_stage, base * ratio * DataRegistry.batch_duration_factor(batch) / maxf(staff_speed, 0.0001))
 
 
 func oven_stage_seconds(recipe: RecipeDefinition, oven_tier: int, batch: int, staff_speed: float) -> float:
 	var active: EquipmentDefinition = DataRegistry.equipment_for(&"oven", oven_tier)
 	var required: EquipmentDefinition = DataRegistry.equipment_for(&"oven", recipe.required_oven_tier)
 	var ratio: float = active.reference_seconds / required.reference_seconds
-	return maxf(_min_stage, recipe.bake_duration_seconds * ratio * float(batch) / maxf(staff_speed, 0.0001))
+	return maxf(_min_stage, recipe.bake_duration_seconds * ratio * DataRegistry.batch_duration_factor(batch) / maxf(staff_speed, 0.0001))
 
 
 ## Aktor tiba di mixer: MIXING dimulai; kecepatan staf dikunci (GDD 18.5).

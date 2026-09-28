@@ -1,7 +1,7 @@
 class_name ProceduralAnimationSystem
 extends RefCounted
 
-## Sistem animasi prosedural tanpa rig skeleton (GDD 4.2, GDD 7, ARCHITECTURE 8).
+## Sistem animasi prosedural tanpa rig skeleton (GDD 4.2, GDD 7, ARCHITECTURE 5).
 ##
 ## Dua keluarga fungsi:
 ##
@@ -19,7 +19,7 @@ extends RefCounted
 ##    `await tw.finished`. Semua memakai interpolasi squash & stretch agar terasa
 ##    kenyal seperti memencet adonan roti hangat (GDD 4.1 "Cute").
 ##
-## Nama node anak yang dicari mengikuti kontrak CharacterFactory (ARCHITECTURE 8):
+## Nama node anak yang dicari mengikuti kontrak CharacterFactory (ARCHITECTURE 5):
 ## `Head`, `Body`, `ArmL`, `ArmR`, `LegL`, `LegR`, `Face`, `Hat`, `Apron`.
 ## Semua pencarian memakai `get_node_or_null` dan diam-diam dilewati bila node
 ## tidak ada, sehingga aktor yang dirakit sebagian tidak pernah membuat game crash.
@@ -34,6 +34,11 @@ const META_REST_POS: String = "rlt_rest_pos"
 const META_REST_ROT: String = "rlt_rest_rot"
 ## Skala dasar sebuah node (agar pop berulang tidak menumpuk/mengecil terus).
 const META_BASE_SCALE: String = "rlt_base_scale"
+## Pengali ayunan lengan yang dipasang CharacterFactory / set_carry_pose():
+## lengan yang memegang barang hampir tidak berayun.
+const META_SWING: String = "swing_scale"
+## Pengali ayunan lengan saat memeluk barang bawaan.
+const CARRY_SWING: float = 0.15
 ## Tween yang sedang berjalan untuk kategori tertentu, supaya bisa dibatalkan.
 const META_TWEEN_POP: String = "rlt_tween_pop"
 const META_TWEEN_UI: String = "rlt_tween_ui"
@@ -79,6 +84,39 @@ const IDLE_BOB: float = 0.012
 const IDLE_ARM: float = 0.05
 ## Gelengan kepala pelan saat diam (radian).
 const IDLE_HEAD_TILT: float = 0.035
+
+# ---------------------------------------------------------------------------
+# GDD 21.4 — membungkus roti di meja kasir
+# ---------------------------------------------------------------------------
+
+## Frekuensi tangan bergantian memasukkan roti ke kantong (radian/detik).
+const PACK_FREQ: float = 9.0
+## Lengan hampir mendatar: tangan chibi yang pendek tepat di atas permukaan meja
+## kasir (0,42 m), bukan tenggelam di dalamnya (radian).
+const PACK_ARM_PITCH: float = 1.50
+## Lengan sedikit merapat ke tengah (radian).
+const PACK_ARM_IN: float = 0.10
+## Ayunan tiap tangan, hanya ke atas dari PACK_ARM_PITCH (radian).
+const PACK_ARM_SWING: float = 0.22
+## Kepala menunduk melihat kantong (radian, negatif = menunduk).
+const PACK_HEAD_NOD: float = -0.16
+
+# ---------------------------------------------------------------------------
+# GDD 31.6 — gerak saat menganggur
+# ---------------------------------------------------------------------------
+
+## Lengan kanan terangkat ke sisi wajah (radian): gulung ke atas dan sedikit maju.
+const WIPE_ARM_ROLL: float = 2.76
+const WIPE_ARM_PITCH: float = -0.32
+## Usapan kain maju-mundur di pipi.
+const WIPE_FREQ: float = 11.0
+const WIPE_SWING: float = 0.22
+## Kepala miring menyambut tangan (radian, negatif = ke kanan karakter).
+const WIPE_HEAD_TILT: float = -0.18
+## Satu siklus terkantuk: kepala pelan menunduk lalu tersentak bangun (detik).
+const DOZE_CYCLE: float = 4.8
+const DOZE_SNAP: float = 0.35
+const DOZE_HEAD_DROOP: float = 0.30
 
 # ---------------------------------------------------------------------------
 # GDD 4.1 / 7 — squash & stretch
@@ -164,10 +202,10 @@ static func walk(actor: Node3D, t: float, speed: float) -> void:
 	# Lengan berlawanan fase terhadap kaki di sisi yang sama.
 	var arm_l: Node3D = _part(actor, "ArmL")
 	if arm_l != null:
-		arm_l.rotation.x = _rest_rot(arm_l).x - swing * WALK_ARM_SWING * amp
+		arm_l.rotation.x = _rest_rot(arm_l).x - swing * WALK_ARM_SWING * amp * _swing_of(arm_l)
 	var arm_r: Node3D = _part(actor, "ArmR")
 	if arm_r != null:
-		arm_r.rotation.x = _rest_rot(arm_r).x + swing * WALK_ARM_SWING * amp
+		arm_r.rotation.x = _rest_rot(arm_r).x + swing * WALK_ARM_SWING * amp * _swing_of(arm_r)
 
 	# Badan memantul dua kali per siklus langkah dan sedikit bergoyang.
 	var body: Node3D = _part(actor, "Body")
@@ -227,10 +265,10 @@ static func idle_bob(actor: Node3D, t: float) -> void:
 
 	var arm_l: Node3D = _part(actor, "ArmL")
 	if arm_l != null:
-		arm_l.rotation.x = _rest_rot(arm_l).x + breathe * IDLE_ARM
+		arm_l.rotation.x = _rest_rot(arm_l).x + breathe * IDLE_ARM * _swing_of(arm_l)
 	var arm_r: Node3D = _part(actor, "ArmR")
 	if arm_r != null:
-		arm_r.rotation.x = _rest_rot(arm_r).x - breathe * IDLE_ARM
+		arm_r.rotation.x = _rest_rot(arm_r).x - breathe * IDLE_ARM * _swing_of(arm_r)
 
 	var leg_l: Node3D = _part(actor, "LegL")
 	if leg_l != null:
@@ -238,6 +276,94 @@ static func idle_bob(actor: Node3D, t: float) -> void:
 	var leg_r: Node3D = _part(actor, "LegR")
 	if leg_r != null:
 		leg_r.rotation.x = _rest_rot(leg_r).x
+
+
+## Membungkus roti di meja kasir (GDD 21.4): kedua lengan maju ke meja dan
+## bergantian naik-turun memasukkan roti ke kantong, kepala menunduk melihatnya.
+## Stateless, dipanggil tiap frame selama fase membungkus.
+static func pack(actor: Node3D, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var phase: float = t * PACK_FREQ
+	for i in 2:
+		var arm: Node3D = _part(actor, "ArmL" if i == 0 else "ArmR")
+		if arm == null:
+			continue
+		var dir: float = -1.0 if i == 0 else 1.0
+		var swing: float = (0.5 + 0.5 * sin(phase + (0.0 if i == 0 else PI))) * PACK_ARM_SWING
+		arm.rotation = Vector3(PACK_ARM_PITCH + swing, 0.0, -PACK_ARM_IN * dir)
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var head_rot: Vector3 = _rest_rot(head)
+		head.position.y = _rest_pos(head).y
+		head.rotation.x = head_rot.x + PACK_HEAD_NOD + sin(phase * 0.5) * 0.03
+		head.rotation.z = head_rot.z
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.position.y = _rest_pos(body).y + absf(sin(phase)) * 0.006
+		body.rotation.z = _rest_rot(body).z
+	for leg_name: String in ["LegL", "LegR"]:
+		var leg: Node3D = _part(actor, leg_name)
+		if leg != null:
+			leg.rotation.x = _rest_rot(leg).x
+
+
+## Mengelap wajah dengan kain lap setelah lama menganggur (GDD 31.6): lengan
+## kanan terangkat ke sisi wajah, mengusap maju-mundur, lalu turun lagi. `k`
+## 0..1 sepanjang gerakan; dipanggil setelah idle_bob() tiap frame.
+static func wipe_face(actor: Node3D, k: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var up: float = smoothstep(0.0, 0.18, k) * (1.0 - smoothstep(0.82, 1.0, k))
+	var rub: float = smoothstep(0.16, 0.26, k) * (1.0 - smoothstep(0.74, 0.84, k))
+	var arm: Node3D = _part(actor, "ArmR")
+	if arm != null:
+		var rest: Vector3 = _rest_rot(arm)
+		arm.rotation = Vector3(lerpf(rest.x, WIPE_ARM_PITCH, up) + sin(t * WIPE_FREQ) * WIPE_SWING * rub,
+			rest.y, lerpf(rest.z, WIPE_ARM_ROLL, up))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var head_rot: Vector3 = _rest_rot(head)
+		head.rotation.z = head_rot.z + WIPE_HEAD_TILT * up
+		head.rotation.x = head_rot.x - 0.05 * up
+
+
+## Terkantuk-kantuk setelah menganggur lebih lama (GDD 31.6): kepala pelan-pelan
+## menunduk lalu tersentak bangun, badan sedikit merosot, lengan lemas.
+## Dipanggil setelah idle_bob() tiap frame.
+static func doze(actor: Node3D, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var cycle: float = fposmod(t, DOZE_CYCLE)
+	var droop: float = smoothstep(0.0, DOZE_CYCLE - DOZE_SNAP, cycle)
+	if cycle > DOZE_CYCLE - DOZE_SNAP:
+		droop = 1.0 - smoothstep(DOZE_CYCLE - DOZE_SNAP, DOZE_CYCLE, cycle)
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var head_rot: Vector3 = _rest_rot(head)
+		head.rotation.x = head_rot.x - (0.08 + DOZE_HEAD_DROOP * droop)
+		head.rotation.z = head_rot.z + 0.06 * sin(t * 0.7)
+		head.position.y = _rest_pos(head).y - 0.012 * droop
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.position.y = _rest_pos(body).y - 0.008 + sin(t * 1.1) * 0.004
+		body.rotation.z = _rest_rot(body).z
+	for i in 2:
+		var arm: Node3D = _part(actor, "ArmL" if i == 0 else "ArmR")
+		if arm != null:
+			arm.rotation.x = _rest_rot(arm).x + 0.04 * sin(t * 1.1 + float(i))
+
+
+## Kembalikan lengan & kepala ke pose istirahat setelah gerakan khusus (pack,
+## wipe_face, doze) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
+static func end_pose(actor: Node3D) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	for part_name: String in ["ArmL", "ArmR", "Head"]:
+		var n: Node3D = _part(actor, part_name)
+		if n != null:
+			n.rotation = _rest_rot(n)
+			n.position = _rest_pos(n)
 
 
 ## Pengocok mixer berputar sekaligus mengorbit mangkuk ala planetary mixer.
@@ -561,6 +687,29 @@ static func float_text(parent: CanvasItem, pos: Vector2, text: String, color: Co
 # Pembantu internal
 # ---------------------------------------------------------------------------
 
+## Pose membawa barang di depan badan (GDD 4.2, 31.2): kedua lengan maju
+## memeluk barang dan ayunannya diredam. `carrying` false mengembalikan pose
+## istirahat asli dari CharacterFactory. Aman dipanggil berulang kali.
+static func set_carry_pose(actor: Node3D, carrying: bool) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	for i in 2:
+		var arm: Node3D = _part(actor, "ArmL" if i == 0 else "ArmR")
+		if arm == null:
+			continue
+		if not arm.has_meta("carry_base_rotation"):
+			arm.set_meta("carry_base_rotation", arm.get_meta("base_rotation", arm.rotation))
+			arm.set_meta("carry_base_swing", arm.get_meta(META_SWING, 1.0))
+		var rest: Vector3 = arm.get_meta("carry_base_rotation")
+		var swing_k: float = float(arm.get_meta("carry_base_swing"))
+		if carrying:
+			rest = CharacterFactory.carry_arm_rotation(-1.0 if i == 0 else 1.0)
+			swing_k = CARRY_SWING
+		arm.set_meta(META_REST_ROT, rest)
+		arm.set_meta(META_SWING, swing_k)
+		arm.rotation = rest
+
+
 ## Ambil bagian tubuh sebagai anak langsung; bila hierarki aktor menaruhnya di
 ## bawah `Body`, coba jalur itu juga. Selalu boleh mengembalikan null.
 static func _part(actor: Node3D, part_name: String) -> Node3D:
@@ -587,6 +736,13 @@ static func _follow_head(actor: Node3D, dy: float, roll: float) -> void:
 	if hat != null:
 		hat.position.y = _rest_pos(hat).y + dy
 		hat.rotation.z = _rest_rot(hat).z + roll
+
+
+## Pengali ayunan lengan (1 bila tidak diatur).
+static func _swing_of(node: Node3D) -> float:
+	if node.has_meta(META_SWING):
+		return float(node.get_meta(META_SWING))
+	return 1.0
 
 
 ## Posisi lokal istirahat, direkam sekali saat pertama kali dibutuhkan.

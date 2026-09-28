@@ -153,6 +153,22 @@ One in-game hour is 180 real seconds at 1×, so one sim-second is 20 in-game sec
   `CharacterFactory`, `RoomFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas` (UI). Their shared
   caches are released by `ProceduralCaches.clear_all()` on exit.
+- Characters (GDD 31, 130.2): `CharacterFactory` places one `Node3D` pivot per animated
+  segment (`Body` with `Apron`, `ArmL`, `ArmR`; `Head` with `Face`; `LegL`, `LegR`) and
+  stitches every static shape of a segment into a single vertex-coloured mesh with
+  `MeshBuilder` (ellipsoids, tapered capsules, lathes, shell sections, tori). Eyes,
+  brows and mouth stay separate because expressions scale and rotate them. That keeps a
+  character at 12–14 draw calls and under 2,000 triangles. Every committed mesh carries
+  `tris` and `aabb` metas so headless tests can check budgets and proportions.
+  `ProceduralAnimationSystem.set_carry_pose()` swings both arms forward while an actor
+  carries dough, a tray, a parcel or a customer's loose bread.
+- Presentation-only behaviour (GDD 21.4, 31.6, 31.7) never touches the simulation:
+  `WorldView` reads `CashierManager.packing_progress()` to show a paper bag filling on
+  the counter and to switch the cashier to the `pack` pose, tells each player/staff
+  `ActorView` whether it is busy, and drives the player's `ThoughtBubble`
+  (`ui/components/thought_bubble.gd`, screen space) from the real-time "open shop, no
+  customers" timer. `ActorView` owns the idle timer (face wipe, then dozing with
+  floating "Z"); both timers use real seconds and stop while the game is paused.
 - Audio: `AudioGenerator.build(generator_id)` renders each event in
   `audio_events.json`. `AudioManager` plays it.
 
@@ -176,4 +192,11 @@ of starting a broken game.
 - `tools/release_validator.tscn` is the GDD 133 release gate.
   `tools/string_lint.gd` handles key completeness and the English lint.
   `tools/generate_icon.gd` generates `icon.svg`. `tools/compile_check.tscn` checks
-  that every script compiles.
+  that every script compiles. `tools/character_lineup.tscn` (run windowed, not
+  headless) renders every character variant from the front, 3/4, back, a face
+  close-up with all five moods, and the gameplay camera to PNGs in `LINEUP_OUT`
+  (default `user://lineup`), plus a triangle and draw-call report, and a poses page
+  (packing, face wipe, dozing, carried bread and bag, thought bubble).
+  `tools/world_snapshot.tscn` (also windowed) plays a real day with `SimBot` and
+  captures the shop at the gameplay camera: packing at the counter (plus a close-up),
+  the quiet-shop thought bubble and the dozing player.

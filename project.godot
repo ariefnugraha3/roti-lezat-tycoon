@@ -13,11 +13,11 @@ config_version=5
 config/name="Roti Lezat Tycoon"
 config/version="1.0.0"
 run/main_scene="res://scenes/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(1, 0.972549, 0.917647, 1)
 boot_splash/show_image=false
 config/icon="res://icon.svg"
-config/quit_on_go_back=false
 
 [autoload]
 
@@ -35,12 +35,6 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=0
-
-[input_devices]
-
-pointing/emulate_touch_from_mouse=false
-pointing/emulate_mouse_from_touch=true
 
 [rendering]
 

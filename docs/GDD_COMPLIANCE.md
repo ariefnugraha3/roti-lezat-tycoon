@@ -12,7 +12,7 @@ and the tests that verify it (GDD 121 item 16).
   has not been done yet.
 - **Open**: the GDD leaves a question that needs a maintainer decision.
 
-Last full run: 42 non-long tests passed, 0 failed (`--skip-long`). Soak results are
+Last full run (2026-09-28): 53 non-long tests passed, 0 failed (`--skip-long`). Soak results are
 listed under GDD 94.
 
 ## Core loop and time
@@ -31,7 +31,8 @@ listed under GDD 94.
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
 | 18, 2 | Storage → mixer → oven → display, holding until pickup | `production/production_manager.gd`, `actors/player_task_manager.gd` | TEST_PRODUCTION_001, TEST_UI_SMOKE_001 | Tested |
-| 18.5, 61.5 | Stage duration = base × equipment ratio × batch ÷ staff speed, prep in MIXING | `production_manager.gd` | TEST_PRODUCTION_003 | Tested |
+| 18.5, 61.5 | Stage duration = base × equipment ratio × batch duration factor ÷ staff speed, prep in MIXING | `production_manager.gd` | TEST_PRODUCTION_003 | Tested |
+| 18.9 | x3/x5 multiply ingredients and yield, but durations only ×1.2/×1.4 (`production.batch_duration_factor`) | `production_manager.gd`, `autoload/data_registry.gd` `batch_duration_factor` | ACC_18_BATCH_DURATION, TEST_PRODUCTION_003 | Tested |
 | 62 | Perfect/overbake/burnt windows per oven tier, burnt earns nothing and blocks the oven | `production_manager.gd` | TEST_PRODUCTION_002 | Tested |
 | 38.3, 103 | Atomic ingredient consume and refund before MIXING | `economy/inventory_manager.gd` | TEST_INVENTORY_001 | Tested |
 | 19.7 | Freshness states, display aging rates, 11 h overnight once, held bread keeps aging | `production/display_inventory_manager.gd`, `bread_stack.gd` | TEST_FRESHNESS_001, TEST_SAVE_002 | Tested |
@@ -49,6 +50,7 @@ listed under GDD 94.
 | 58 | Patience values, drain and modifiers | `customer.gd`, `customer_manager.gd` | ACC_55_PATIENCE | Tested |
 | 84.4 | Estimated-wait lane choice, tie-breaks, no lane hopping | `queue_manager.gd` | TEST_CASHIER_001 | Tested |
 | 103.1 | Cashier transaction order | `customers/cashier_manager.gd` | TEST_ECONOMY_001 (ledger), smoke | Tested |
+| 2, 21.4–21.6 | Every transaction lasts at least 3 s and ends with a 3 s packing phase (paper bag on the counter, cashier packing pose, `cashier_pack` once), coins only after packing, customer holds loose bread before and leaves with the bag after | `cashier_manager.gd` `packing_progress`, `world/world_view.gd` `_update_packing`, `world/actor_view.gd`, `procedural/animation/anim_system.gd` `pack` | ACC_21_PACKING, TEST_CASHIER_001 | Tested (timing and order); the look is checked with `tools/world_snapshot.tscn` |
 | 22, 103.2 | RotiFood without reservation, atomic pack, single commit | `delivery/rotifood_manager.gd` | TEST_ROTIFOOD_001, TEST_SAVE_002 | Tested |
 | 55.3 | Dedicated RotiFood queue at Tier 3+ | `queue_manager.gd` | ACC_55_OJOL_QUEUE | Tested |
 | 20.3 | Day 1–3 fixed manifest | `data/catalog/opening.json`, `demand_manager.gd` | SMOKE_002 | Tested |
@@ -113,7 +115,10 @@ listed under GDD 94.
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
 | 4, 12.2, 111 | 100% procedural assets, no external files | `procedural/`, `audio/`, `tools/generate_icon.gd` | release_validator (asset scan) | Tested |
-| 31, 32, 130 | Character and furniture visuals, golden visual spec | `procedural/meshes/*` | Manual screenshots at Tier 1/3/5 | Not verified against every GDD 130 detail |
+| 31, 130.2, 12.2 | Character rig (31.1 hierarchy, arms ride on `Body`), golden proportions (0.90 m, head 42%, torso 30%, legs 28%, eye line ~45%), hair and hat brims never cover eyes or brows, five expressions, carry pose, 500–2000 triangles and at most 14 draw calls per character | `procedural/meshes/character_factory.gd`, `procedural/meshes/mesh_builder.gd`, `procedural/animation/anim_system.gd` `set_carry_pose` | ACC_31_CHARACTER_RIG, ACC_130_PROPORTIONS, ACC_31_HAIR_CLEAR, ACC_31_DETERMINISM, ACC_31_EXPRESSIONS; `tools/character_lineup.tscn` screenshots | Tested (geometry and rig); the look itself is reviewed from lineup screenshots |
+| 31.6 | Idle player/staff: face wipe with a cloth after 15 real seconds, dozing with floating "Z" after 25; real-time, paused with the game, reset by any activity, never for customers | `world/actor_view.gd`, `anim_system.gd` `wipe_face`/`doze`, `character_factory.gd` `wipe_cloth`/`sleep_z` | ACC_31_IDLE_GESTURES | Tested |
+| 31.7, 127.12 | Player thought bubbles at 10/20/30/40 real seconds while the open shop has no customers and no active RotiFood order; hidden at once when someone arrives | `world/world_view.gd` `_update_thoughts`, `ui/components/thought_bubble.gd` | ACC_31_THOUGHTS | Tested |
+| 32, 130 | Furniture visuals, rest of the golden visual spec | `procedural/meshes/*` | Manual screenshots at Tier 1/3/5 | Not verified against every GDD 130 detail |
 | 33, 76, 93 | Generated audio events, mixing priorities | `audio/audio_generator.gd`, `autoload/audio_manager.gd` | none | Implemented (not listened to) |
 | 91, 115 | Procedural caches, pooling, release on exit | `procedural/procedural_caches.gd`, `world/world_view.gd` | release_validator (no leaks at exit) | Tested |
 
@@ -133,7 +138,7 @@ listed under GDD 94.
 
 | Test | What it checks | Status |
 |---|---|---|
-| TEST_LONGRUN_100 | 100 managed days at the canonical tick: invariants, no leftover transient state at 05:00, node and object counts stable | Passed 2026-09-26 (1,003 checks) |
+| TEST_LONGRUN_100 | 100 managed days at the canonical tick: invariants, no leftover transient state at 05:00, node and object counts stable | Passed 2026-09-28 with the ×1.2/×1.4 batch factors (1,003 checks); see open decision 3 |
 | TEST_LONGRUN_500 | 500 days (0.25 s tick): no NaN/INF, ledger reconciles, overflow guard survives save/load | Passed 2026-09-26 (5,013 checks; reached Tier 4, memory flat at ~73 MB) |
 | TEST_LONGRUN_1000 | 1,000 days with save → load every day: logical state preserved, save size bounded | Passed 2026-09-27 (11,003 checks; non-history save 48.5 KB at day 200 → 52.1 KB at day 1000; reached Tier 5) |
 
@@ -144,3 +149,11 @@ listed under GDD 94.
    The current behaviour is correct and stays.
 2. **Project license.** `LICENSES.md` says all rights are reserved until the
    maintainer chooses a license.
+3. **Economy after the batch-duration change (GDD 18.5).** Since 2026-09-28, x3 takes
+   ×1.2 and x5 ×1.4 of the base stage time (previously ×3 and ×5). In TEST_LONGRUN_100
+   the managed bot's balance sits at 0 KR at every 10-day checkpoint from day 61 to
+   day 101 (Tier 3). With the old factors the same run reaches 110,515 KR by day 101.
+   The soak still passes its stability checks. Suspected cause, not yet confirmed:
+   Auto bakers choosing x5 now produce about 3.6× faster than before and overproduce
+   against demand. TEST_LONGRUN_500/1000 have not been re-run since the change.
+   Waiting on the maintainer: keep the balance as is, or tune the baker AI.

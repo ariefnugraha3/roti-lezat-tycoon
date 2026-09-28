@@ -18,6 +18,8 @@ const ACHIEVEMENT_CONDITIONS: Array[String] = [
 	"price_experiment", "rain_delivery_day", "solo_recovery", "big_day", "economy_overflow",
 ]
 const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "no_burn_streak_days"]
+## Gelembung pikiran pemain saat toko sepi, berurutan (GDD 31.7, 127.12).
+const THOUGHT_KEYS: Array[String] = ["thought_quiet_1", "thought_quiet_2", "thought_quiet_3", "thought_quiet_4"]
 const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
 	"locations.json", "weather.json", "marketing.json", "opening.json", "balance.json",
@@ -253,6 +255,20 @@ func staff_list() -> Array[StaffDefinition]:
 
 func staff(id: StringName) -> StaffDefinition:
 	return _staff_map.get(id)
+
+
+## Pengali durasi tahap untuk batch x1/x3/x5 (GDD 18.5, 18.9): bahan dan hasil
+## tetap berlipat linear, durasi hanya naik sesuai tabel ini.
+func batch_duration_factor(batch: int) -> float:
+	var table: Variant = bal("production.batch_duration_factor")
+	if table is Dictionary and (table as Dictionary).has(str(batch)):
+		return float((table as Dictionary)[str(batch)])
+	return 1.0
+
+
+## Lama fase membungkus di akhir setiap transaksi kasir (GDD 21.4).
+func packing_seconds() -> float:
+	return balf("cashier.packing_seconds")
 
 
 func manual_cashier_penalty() -> float:
@@ -558,6 +574,7 @@ func _validate() -> void:
 	_validate_weather_marketing()
 	_validate_opening()
 	_validate_meta()
+	_validate_balance()
 
 
 func _validate_ingredients() -> void:
@@ -839,3 +856,29 @@ func _validate_meta() -> void:
 			_err("audio %s priority outside P0..P4" % aed.id)
 	for q: Variant in _quality:
 		_check_text((q as MiscDefinitions.QualityPresetDefinition).localization_key, "quality")
+
+
+## Nilai balance yang saling bergantung (GDD 18.9, 21.4, 31.6, 31.7).
+func _validate_balance() -> void:
+	var factors: Dictionary = (_balance.get("production", {}) as Dictionary).get("batch_duration_factor", {})
+	for m: Variant in (_balance.get("production", {}) as Dictionary).get("batch_multipliers", []):
+		var key: String = str(int(m))
+		if not factors.has(key):
+			_err("production.batch_duration_factor has no entry for x%s" % key)
+		elif float(factors[key]) < 1.0 or (key == "1" and not is_equal_approx(float(factors[key]), 1.0)):
+			_err("production.batch_duration_factor x%s must be >= 1.0 (x1 exactly 1.0)" % key)
+	if float((_balance.get("cashier", {}) as Dictionary).get("packing_seconds", 0.0)) <= 0.0:
+		_err("cashier.packing_seconds must be positive")
+	var p: Dictionary = _balance.get("presentation", {})
+	var wipe: float = float(p.get("idle_wipe_after_seconds", 0.0))
+	var doze: float = float(p.get("idle_doze_after_seconds", 0.0))
+	if wipe <= 0.0 or doze <= wipe + float(p.get("wipe_gesture_seconds", 0.0)):
+		_err("presentation idle gesture thresholds must be positive and the wipe must end before dozing")
+	var thoughts: Array = p.get("thought_after_seconds", [])
+	if thoughts.size() != THOUGHT_KEYS.size():
+		_err("presentation.thought_after_seconds needs %d entries" % THOUGHT_KEYS.size())
+	for i in thoughts.size():
+		if float(thoughts[i]) <= (float(thoughts[i - 1]) + float(p.get("thought_show_seconds", 0.0)) if i > 0 else 0.0):
+			_err("presentation.thought_after_seconds must rise and leave room for each bubble")
+	for k: String in THOUGHT_KEYS:
+		_check_text(StringName(k), "presentation")

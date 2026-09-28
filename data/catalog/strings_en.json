@@ -406,6 +406,10 @@
   "dlg_bailout_solo": "Your staff are taking a short break. You'll run the shop solo until cash is back.",
   "ui_skip": "Skip",
   "npc_pak_lurah": "Pak Lurah",
+  "thought_quiet_1": "Hmm... why hasn't anyone come in yet?",
+  "thought_quiet_2": "Where is everybody?",
+  "thought_quiet_3": "Is my shop really that unpopular? Maybe my bread isn't any good...",
+  "thought_quiet_4": "Maybe I should just take up catfish farming instead.",
 
   "mood_great": "What a day! Your bread sold like hotcakes!",
   "mood_good": "A good day. Keep it up!",

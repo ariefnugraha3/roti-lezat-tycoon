@@ -5,6 +5,10 @@ extends SimManager
 ## Lane dengan Asisten Kasir bertugas melayani OTOMATIS. Tanpa asisten, lane
 ## utama hanya bergerak selama karakter pemain berdiri di cashier point; pergi
 ## berarti progres membeku di tempat, tidak dibatalkan (GDD 2, 21.4).
+##
+## Setiap transaksi berlangsung minimal `packing_seconds` (3 dtk) dan detik-detik
+## terakhirnya selalu fase membungkus: roti masuk kantong kertas di meja, baru
+## kemudian pembeli membayar dan pulang menenteng kantongnya (GDD 21.4).
 
 ## lane_id -> {customer, elapsed, duration, manual, confirmed}
 var transactions: Dictionary = {}
@@ -18,7 +22,8 @@ func _manual_seconds() -> float:
 	return DataRegistry.tier1_cashier_seconds() * DataRegistry.manual_cashier_penalty()
 
 
-## Waktu layan satu pelanggan pada lane (GDD 3.0.C, 3.1, 20.10).
+## Waktu layan satu pelanggan pada lane (GDD 3.0.C, 3.1, 20.10), minimal selama
+## fase membungkus (GDD 21.4).
 func expected_service_seconds(lane: QueueLane, archetype: StringName) -> float:
 	var base: float = _manual_seconds()
 	var mult: float = 1.0
@@ -30,7 +35,26 @@ func expected_service_seconds(lane: QueueLane, archetype: StringName) -> float:
 		base = staff_def.cashier_service_seconds
 		if archetype == &"customer_indecisive":
 			mult = staff_def.special_value("indecisive_service_multiplier", mult)
-	return base * mult
+	return maxf(base * mult, DataRegistry.packing_seconds())
+
+
+## Detik transaksi saat fase membungkus dimulai: `packing_seconds` terakhir.
+static func _packing_start(duration: float) -> float:
+	return maxf(0.0, duration - DataRegistry.packing_seconds())
+
+
+## Kemajuan fase membungkus transaksi pada lane, 0..1; -1 bila transaksi belum
+## sampai ke fase itu atau tidak ada (dipakai tampilan kantong di meja, GDD 21.4).
+func packing_progress(lane_id: StringName) -> float:
+	var t: Variant = transactions.get(lane_id)
+	if not (t is Dictionary) or not bool((t as Dictionary)["confirmed"]):
+		return -1.0
+	var td: Dictionary = t
+	var duration: float = float(td["duration"])
+	var start: float = _packing_start(duration)
+	if float(td["elapsed"]) < start:
+		return -1.0
+	return clampf((float(td["elapsed"]) - start) / maxf(duration - start, 0.0001), 0.0, 1.0)
 
 
 func remaining_time(lane: QueueLane) -> float:
@@ -77,7 +101,6 @@ func confirm_manual(customer_id: StringName) -> bool:
 	}
 	c.awaiting_tap = false
 	c.state = Customer.BEING_SERVED
-	EventBus.sfx.emit(&"cashier_pack", lane.floor_id)
 	sim.tutorial.on_event(&"manual_service_started")
 	return true
 
@@ -112,14 +135,18 @@ func step(dt: float) -> void:
 				}
 				c.awaiting_tap = false
 				c.state = Customer.BEING_SERVED
-				EventBus.sfx.emit(&"cashier_pack", lane.floor_id)
 			else:
 				c.awaiting_tap = true
 			continue
 		var td: Dictionary = t
 		if not _can_progress(lane, td):
 			continue
-		td["elapsed"] = float(td["elapsed"]) + dt
+		var before: float = float(td["elapsed"])
+		td["elapsed"] = before + dt
+		# Suara kantong kertas tepat saat fase membungkus dimulai (GDD 21.4, 93).
+		var pack_at: float = _packing_start(float(td["duration"]))
+		if before <= pack_at and float(td["elapsed"]) > pack_at:
+			EventBus.sfx.emit(&"cashier_pack", lane.floor_id)
 		if float(td["elapsed"]) >= float(td["duration"]):
 			transactions.erase(lane.id)
 			_complete(c, lane, not bool(td["manual"]))

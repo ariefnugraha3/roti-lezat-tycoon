@@ -1,347 +1,190 @@
 class_name CharacterFactory
 extends RefCounted
+## Pabrik karakter chibi 100% prosedural bergaya "Warm, Cozy & Cute" (GDD 4.1,
+## 4.2, 12.3, 31, 130.2). Tanpa skeletal armature: setiap segmen yang digerakkan
+## animasi (Body, Head, ArmL/R, LegL/R, Apron) adalah Node3D pivot di sendinya,
+## dan semua bentuk statis milik segmen itu dijahit MeshBuilder menjadi SATU mesh
+## berwarna verteks. Hasilnya siluet bulat-empuk low-poly dengan ~12 draw call
+## per karakter (GDD 37.4).
+##
+## Hierarki (GDD 31.1):
+##   Character
+##     Body (pivot pinggul): BodyMesh, Apron -> ApronMesh, ArmL, ArmR (pivot bahu)
+##     Head (pivot leher): HeadMesh (kepala, telinga, pipi, rambut, topi),
+##       Face -> EyeL, EyeR, BrowL, BrowR, Mouth; Hair, Hat (penanda kontrak)
+##     LegL, LegR (pivot pinggul), CarryAnchor, ShadowBlob, [PropsMesh]
+##
+## Proporsi (GDD 130.2) pada height 1.0: tinggi ~0.90 m; kepala ~42 %, torso
+## ~30 %, kaki ~28 %; garis mata ~45 % tinggi kepala dari dagu. Wajah menghadap
+## -Z (FRONT). Poni selalu berakhir di atas alis agar ekspresi terbaca.
+##
+## Kunci `spec` kanonik: {kind, role, tier, skin, hair, hair_style, apron,
+## accessory, chubby, rainy}. Kunci opsional dari spec_for_*(): hat, cloth,
+## pants, shoes, legwear, sleeve, skirt, lashes, dots, prop, mood, height, lean,
+## head_tilt, archetype.
+##
+## Anggaran 500-2000 segitiga per karakter (GDD 12.2). Tiap mesh menyimpan meta
+## "tris" & "aabb" (ruang lokal) agar test bisa memeriksanya tanpa renderer.
 
-## Pabrik karakter chibi 100% prosedural bergaya "Warm, Cozy & Cute" (GDD 4.1 & 4.2).
-##
-## Seluruh karakter dirakit dari mesh primitif Godot (SphereMesh, CapsuleMesh, BoxMesh,
-## CylinderMesh, TorusMesh) tanpa satu pun aset eksternal dan TANPA skeletal armature
-## (GDD 4.2). Setiap anggota badan adalah Node3D "pivot" di sendi (bahu / pinggul),
-## sehingga ProceduralAnimationSystem cukup memutar pivot itu dengan gelombang sinus
-## agar terlihat berjalan.
-##
-## Nama node anak WAJIB (kontrak ARCHITECTURE seksi 8):
-##   Head, Body, ArmL, ArmR, LegL, LegR, Face, Hat, Apron
-## Head / Body / ArmL / ArmR / LegL / LegR adalah anak langsung root; Face, Hair, dan Hat
-## menempel pada Head (ikut mengangguk), Apron menempel pada Body (ikut membal).
-## Seluruh node diberi `owner = root` supaya tetap ditemukan `find_child()` bawaan Godot.
-##
-## Arah hadap karakter adalah -Z (konvensi Godot), jadi seluruh detail wajah memakai
-## pengali konstanta `FRONT`.
-##
-## Kunci `spec` kanonik:
-##   {kind, role, tier, skin, hair, hair_style, apron, accessory, chubby, rainy}
-## Kunci opsional tambahan yang diisi otomatis oleh spec_for_*():
-##   hat, cloth, prop, mood, height, lean, head_tilt, archetype
-##
-## Anggaran geometri: <= ~900 segitiga per karakter (GDD 12.2), karena itu jumlah
-## segmen setiap primitif SELALU ditulis eksplisit dan tidak pernah memakai nilai
-## bawaan Godot yang sangat tinggi.
-
-# ---------------------------------------------------------------------------
-# Proporsi tubuh chibi (satuan meter)
-# ---------------------------------------------------------------------------
-
-## Pengali arah depan karakter. Godot memakai -Z sebagai arah hadap.
 const FRONT: float = -1.0
 
-## Jari-jari kepala bola besar (GDD 4.1: kepala bulat besar ala adonan).
-const HEAD_RADIUS: float = 0.22
-## Tinggi pivot leher, tempat node "Head" berdiri.
-const NECK_Y: float = 0.50
-## Titik pusat bola kepala relatif terhadap pivot "Head".
+# --- Proporsi & sendi (meter, height 1.0) ---
+const HIP_Y: float = 0.25
+const HIP_X: float = 0.066
+const LEG_LENGTH: float = 0.170
+const LEG_RADIUS: float = 0.058
+const NECK_Y: float = 0.515
 const HEAD_CENTER_Y: float = 0.19
+const HEAD_RX: float = 0.205
+const HEAD_RY: float = 0.19
+const HEAD_RZ: float = 0.196
+## Garis bahu = garis dada chibi (GDD 4.2: meja kasir ±0,44 m). Juga dipakai
+## EquipmentFactory.CHEST_HEIGHT, jadi nilainya tidak boleh berubah.
+const SHOULDER_Y: float = 0.44
+const SHOULDER_X: float = 0.142
+const ARM_LENGTH: float = 0.150
+const ARM_RADIUS: float = 0.046
 
-## Tinggi total kapsul badan.
-const BODY_HEIGHT: float = 0.30
-## Jari-jari kapsul badan.
-const BODY_RADIUS: float = 0.125
-## Tinggi pivot pinggul, tempat node "Body", "LegL", dan "LegR" berdiri.
-const HIP_Y: float = 0.20
+# --- Wajah (relatif pusat kepala) ---
+## Garis mata ~45 % tinggi kepala dari dagu (GDD 130.2): mata besar tepat di
+## bawah tengah kepala, dahi tertutup poni -- proporsi chibi.
+const EYE_X: float = 0.078
+const EYE_Y: float = -0.019
+const EYE_RADII := Vector3(0.030, 0.039, 0.013)
+const BROW_Y: float = 0.036
+const NOSE_Y: float = -0.066
+const MOUTH_Y: float = -0.094
+const CHEEK_X: float = 0.124
+const CHEEK_Y: float = -0.074
+const EAR_Y: float = -0.030
+## Ujung bawah poni: tepat di atas alis.
+const BANG_BOTTOM: float = 0.050
+## Tepi depan topi & bandana: di atas ujung poni, jadi poni tetap mengintip.
+const BRIM_Y: float = BANG_BOTTOM + 0.040
 
-## Tinggi pivot bahu, tempat node "ArmL" dan "ArmR" berdiri.
-const SHOULDER_Y: float = 0.440
-## Jarak bahu dari sumbu tengah (dilebarkan mengikuti `chubby`).
-const SHOULDER_X: float = 0.140
-## Panjang kapsul lengan.
-const ARM_LENGTH: float = 0.17
-## Jari-jari kapsul lengan.
-const ARM_RADIUS: float = 0.042
+## Profil torso (r, y) relatif pinggul, dari bawah ke atas: pinggul bulat, perut
+## empuk, bahu landai, leher pendek. Pasangan titik yang nyaris sama membuat
+## batas warna tegas (celana | ikat pinggang | baju | kulit leher).
+const TORSO_PROFILE: Array[Vector2] = [
+	Vector2(0.0, -0.036), Vector2(0.092, -0.032), Vector2(0.127, -0.004), Vector2(0.136, 0.0255),
+	Vector2(0.136, 0.0265), Vector2(0.1365, 0.0435),
+	Vector2(0.1365, 0.0445), Vector2(0.134, 0.082), Vector2(0.125, 0.130), Vector2(0.109, 0.180),
+	Vector2(0.090, 0.221), Vector2(0.064, 0.254),
+	Vector2(0.043, 0.268), Vector2(0.040, 0.292), Vector2(0.0, 0.296),
+]
+## Indeks titik profil pertama bagian baju (dipakai torso bergaun: bagian
+## bawahnya tertutup rok sehingga tidak perlu digambar).
+const TORSO_SHIRT_START: int = 6
+const Y_PANTS_TOP: float = 0.026
+const Y_BELT_TOP: float = 0.044
+const Y_COLLAR: float = 0.258
 
-## Jarak pangkal kaki dari sumbu tengah.
-const HIP_X: float = 0.062
-## Panjang kapsul kaki.
-const LEG_LENGTH: float = 0.18
-## Jari-jari kapsul kaki.
-const LEG_RADIUS: float = 0.050
+## Barang yang dipeluk di depan badan: kedua lengan maju memegangnya.
+const FRONT_PROPS: Array[String] = ["kardus", "loyang_roti", "mangkuk_adonan", "kantong_kertas"]
+## Penutup kepala yang menutupi ubun-ubun, dan yang turun sampai pelipis.
+const CROWN_HATS: Array[String] = ["bandana", "helm", "topi_pet", "peci", "topi_koki", "toque"]
+const SIDE_HATS: Array[String] = ["bandana", "helm", "topi_pet"]
 
-# ---------------------------------------------------------------------------
-# Jumlah segmen primitif (ditulis eksplisit demi anggaran 500-2000 tris)
-# ---------------------------------------------------------------------------
+# --- Resolusi (segmen eksplisit agar anggaran segitiga terkendali) ---
+const SEG_HEAD := Vector2i(14, 8)
+const SEG_HAIR := Vector2i(14, 5)
+const SEG_LOCK := Vector2i(5, 3)
+const SEG_TORSO: int = 9
+const SEG_LIMB: int = 6
+const SEG_SMALL := Vector2i(6, 3)
+const SEG_TINY := Vector2i(5, 2)
 
-const SEG_HEAD_RADIAL: int = 12
-const SEG_HEAD_RINGS: int = 5
-const SEG_BODY_RADIAL: int = 8
-const SEG_BODY_RINGS: int = 1
-const SEG_LIMB_RADIAL: int = 5
-const SEG_LIMB_RINGS: int = 1
-const SEG_BLOB_RADIAL: int = 5
-const SEG_BLOB_RINGS: int = 2
-const SEG_TINY_RADIAL: int = 4
-const SEG_TINY_RINGS: int = 1
-const SEG_CAP_RADIAL: int = 8
-const SEG_CAP_RINGS: int = 2
-const SEG_CYL: int = 8
-const SEG_CYL_LOW: int = 6
-const SEG_TORUS_RINGS: int = 7
-const SEG_TORUS_SEGMENTS: int = 3
-
-# ---------------------------------------------------------------------------
-# Ukuran detail wajah (ruang lokal, relatif terhadap pusat kepala)
-# ---------------------------------------------------------------------------
-
-const EYE_RADIUS: float = 0.036
-const EYE_X: float = 0.080
-const EYE_Y: float = 0.030
-const EYE_Z: float = 0.190
-const GLINT_RADIUS: float = 0.012
-const MOUTH_RADIUS: float = 0.030
-const MOUTH_Y: float = -0.058
-const MOUTH_Z: float = 0.202
-const CHEEK_RADIUS: float = 0.040
-const BROW_Y: float = 0.092
-const BROW_Z: float = 0.178
-
-## Jari-jari tempurung rambut; sedikit lebih besar dari kepala agar rambut terasa tebal.
-const HAIR_CAP_RADIUS: float = 0.245
-
-# ---------------------------------------------------------------------------
-# Warna dasar yang tidak ada di Palette (khusus anatomi chibi)
-# ---------------------------------------------------------------------------
-
-## Warna kulit chibi, dari paling terang ke paling gelap (selaras StaffDB).
+# --- Warna ---
 const SKIN_LIGHT: Color = Color(0.980, 0.851, 0.737)   # #FAD9BC
 const SKIN_MID: Color = Color(0.949, 0.788, 0.627)     # #F2C9A0
 const SKIN_TAN: Color = Color(0.878, 0.659, 0.486)     # #E0A87C
 const SKIN_DEEP: Color = Color(0.788, 0.541, 0.369)    # #C98A5E
-
-## Warna rambut.
 const HAIR_BLACK: Color = Color(0.169, 0.129, 0.094)   # #2B2118
 const HAIR_BROWN: Color = Color(0.290, 0.192, 0.129)   # #4A3121
 const HAIR_LIGHT_BROWN: Color = Color(0.478, 0.306, 0.176)  # #7A4E2D
 const HAIR_BLONDE: Color = Color(0.878, 0.753, 0.439)  # #E0C070
 const HAIR_PASTEL: Color = Color(0.910, 0.706, 0.847)  # #E8B4D8
 const HAIR_GREY: Color = Color(0.788, 0.761, 0.729)    # #C9C2BA
-
-## Manik mata gelap dan mulut mungil.
+## Manik mata: atas gelap, bawah cokelat hangat (kesan berbinar).
 const EYE_COLOR: Color = Color(0.129, 0.090, 0.075)    # #21170F
+const EYE_IRIS: Color = Color(0.435, 0.259, 0.169)     # #6F422B
 const MOUTH_COLOR: Color = Color(0.451, 0.204, 0.180)  # #73342E
-## Kilau kecil pada manik mata.
+const TONGUE_COLOR: Color = Color(0.910, 0.502, 0.541)  # #E8808A
 const GLINT_COLOR: Color = Color(1.0, 1.0, 1.0)
-
-## Warna gelap untuk kaca helm, layar ponsel, dan sejenisnya.
 const DARK_GLASS: Color = Color(0.141, 0.157, 0.192)   # #24282F
+const SHOE_BROWN: Color = Color(0.380, 0.247, 0.169)   # #613F2B
+const SOLE_CREAM: Color = Color(0.953, 0.906, 0.824)   # #F3E7D2
+const PANTS_COFFEE: Color = Color(0.435, 0.318, 0.247)  # #6F513F
+const PECI_BLACK: Color = Color(0.141, 0.149, 0.231)   # #24263B
+const SHADOW_COLOR: Color = Color(0.294, 0.176, 0.106, 0.30)
 
-# ---------------------------------------------------------------------------
-# Tabel ekspresi wajah (GDD 4.2: ekspresi memakai squash & stretch, bukan tekstur)
-# ---------------------------------------------------------------------------
-
-## Parameter tiap suasana hati. `eye_scale` & `mouth_scale` adalah PENGALI atas skala
-## dasar, `*_offset` adalah geseran posisi, `brow_tilt` derajat (positif = alis turun
-## ke arah hidung alias marah), `cheek_scale` pengali besar rona pipi.
+## Parameter tiap suasana hati. `*_scale` adalah PENGALI atas skala dasar,
+## `*_offset` geseran posisi, `brow_tilt` derajat (positif = ujung dalam alis
+## turun alias marah), `mouth_roll` memutar mulut "D" menjadi cemberut.
 const EXPRESSIONS: Dictionary = {
 	"netral": {
-		"eye_scale": Vector3(1.0, 1.0, 1.0),
-		"eye_offset": Vector3(0.0, 0.0, 0.0),
-		"mouth_scale": Vector3(1.0, 1.0, 1.0),
-		"mouth_offset": Vector3(0.0, 0.0, 0.0),
-		"brow_offset": Vector3(0.0, 0.0, 0.0),
-		"brow_tilt": 0.0,
-		"cheek_scale": 1.0,
+		"eye_scale": Vector3(1.0, 1.0, 1.0), "eye_offset": Vector3(0.0, 0.0, 0.0),
+		"mouth_scale": Vector3(0.80, 0.55, 1.0), "mouth_offset": Vector3(0.0, 0.0, 0.0), "mouth_roll": 0.0,
+		"brow_offset": Vector3(0.0, 0.0, 0.0), "brow_tilt": 0.0,
 	},
 	"senang": {
-		"eye_scale": Vector3(1.10, 0.45, 1.0),
-		"eye_offset": Vector3(0.0, 0.012, 0.0),
-		"mouth_scale": Vector3(1.70, 1.45, 1.0),
-		"mouth_offset": Vector3(0.0, -0.008, 0.0),
-		"brow_offset": Vector3(0.0, 0.012, 0.0),
-		"brow_tilt": -4.0,
-		"cheek_scale": 1.25,
+		"eye_scale": Vector3(1.06, 0.84, 1.0), "eye_offset": Vector3(0.0, 0.003, 0.0),
+		"mouth_scale": Vector3(1.25, 1.20, 1.0), "mouth_offset": Vector3(0.0, 0.0, 0.0), "mouth_roll": 0.0,
+		"brow_offset": Vector3(0.0, 0.005, 0.0), "brow_tilt": -4.0,
 	},
 	"kesal": {
-		"eye_scale": Vector3(0.95, 0.62, 1.0),
-		"eye_offset": Vector3(0.0, -0.004, 0.0),
-		"mouth_scale": Vector3(0.85, 0.70, 1.0),
-		"mouth_offset": Vector3(0.0, -0.006, 0.0),
-		"brow_offset": Vector3(0.0, -0.014, 0.0),
-		"brow_tilt": 16.0,
-		"cheek_scale": 1.05,
+		"eye_scale": Vector3(1.0, 0.66, 1.0), "eye_offset": Vector3(0.0, -0.004, 0.0),
+		"mouth_scale": Vector3(0.62, 0.34, 1.0), "mouth_offset": Vector3(0.0, -0.010, 0.0), "mouth_roll": 180.0,
+		"brow_offset": Vector3(0.0, -0.008, 0.0), "brow_tilt": 18.0,
 	},
 	"sedih": {
-		"eye_scale": Vector3(0.90, 0.88, 1.0),
-		"eye_offset": Vector3(0.0, -0.008, 0.0),
-		"mouth_scale": Vector3(0.80, 0.80, 1.0),
-		"mouth_offset": Vector3(0.0, -0.014, 0.0),
-		"brow_offset": Vector3(0.0, -0.004, 0.0),
-		"brow_tilt": -14.0,
-		"cheek_scale": 0.90,
+		"eye_scale": Vector3(0.95, 0.90, 1.0), "eye_offset": Vector3(0.0, -0.004, 0.0),
+		"mouth_scale": Vector3(0.60, 0.45, 1.0), "mouth_offset": Vector3(0.0, -0.012, 0.0), "mouth_roll": 180.0,
+		"brow_offset": Vector3(0.0, -0.002, 0.0), "brow_tilt": -16.0,
 	},
 	"kaget": {
-		"eye_scale": Vector3(1.35, 1.35, 1.0),
-		"eye_offset": Vector3(0.0, 0.004, 0.0),
-		"mouth_scale": Vector3(0.90, 1.80, 1.0),
-		"mouth_offset": Vector3(0.0, -0.012, 0.0),
-		"brow_offset": Vector3(0.0, 0.020, 0.0),
-		"brow_tilt": -2.0,
-		"cheek_scale": 1.0,
+		"eye_scale": Vector3(1.18, 1.22, 1.0), "eye_offset": Vector3(0.0, 0.004, 0.0),
+		"mouth_scale": Vector3(0.62, 1.50, 1.0), "mouth_offset": Vector3(0.0, -0.004, 0.0), "mouth_roll": 0.0,
+		"brow_offset": Vector3(0.0, 0.010, 0.0), "brow_tilt": -2.0,
+	},
+	# Lega sambil mengelap keringat (GDD 31.6): mata terpejam senang.
+	"lega": {
+		"eye_scale": Vector3(1.08, 0.30, 1.0), "eye_offset": Vector3(0.0, -0.004, 0.0),
+		"mouth_scale": Vector3(1.0, 0.9, 1.0), "mouth_offset": Vector3(0.0, 0.0, 0.0), "mouth_roll": 0.0,
+		"brow_offset": Vector3(0.0, 0.006, 0.0), "brow_tilt": -6.0,
+	},
+	# Terkantuk-kantuk (GDD 31.6): mata nyaris terpejam, mulut kecil menguap.
+	"ngantuk": {
+		"eye_scale": Vector3(1.06, 0.16, 1.0), "eye_offset": Vector3(0.0, -0.008, 0.0),
+		"mouth_scale": Vector3(0.45, 0.75, 1.0), "mouth_offset": Vector3(0.0, -0.004, 0.0), "mouth_roll": 0.0,
+		"brow_offset": Vector3(0.0, -0.004, 0.0), "brow_tilt": -10.0,
 	},
 }
 
+## Gaya rambut: garis rambut cangkang depan/samping/belakang (derajat dari
+## puncak), ketebalan, jenis poni, ujung rambut pembingkai wajah (y relatif
+## pusat kepala), dan pengembangan tepi (bob).
+const HAIR_STYLES: Dictionary = {
+	"pendek": {"front": 54.0, "side": 98.0, "back": 138.0, "puff": 0.022, "bangs": "tuft", "frame": -0.010},
+	"cepak": {"front": 46.0, "side": 86.0, "back": 128.0, "puff": 0.009, "bangs": "none"},
+	"belah_samping": {"front": 54.0, "side": 100.0, "back": 138.0, "puff": 0.024, "bangs": "side", "frame": -0.020},
+	"bob": {"front": 55.0, "side": 128.0, "back": 140.0, "puff": 0.026, "bangs": "straight", "flare": 0.10, "cut": [30.0, 62.0]},
+	"spike": {"front": 50.0, "side": 90.0, "back": 134.0, "puff": 0.016, "bangs": "spike", "frame": 0.000},
+	"panjang_kepang": {"front": 54.0, "side": 104.0, "back": 140.0, "puff": 0.024, "bangs": "tuft", "frame": -0.060},
+	"kuncir_ganda": {"front": 54.0, "side": 100.0, "back": 138.0, "puff": 0.022, "bangs": "tuft", "frame": -0.050},
+	"sanggul": {"front": 52.0, "side": 96.0, "back": 134.0, "puff": 0.020, "bangs": "part", "frame": -0.040},
+	"ikal": {"front": 54.0, "side": 108.0, "back": 140.0, "puff": 0.030, "bangs": "tuft", "frame": -0.070},
+	"ombre": {"front": 55.0, "side": 124.0, "back": 140.0, "puff": 0.026, "bangs": "straight", "flare": 0.07, "cut": [30.0, 62.0]},
+	"jenggot": {"front": 52.0, "side": 96.0, "back": 134.0, "puff": 0.018, "bangs": "part", "frame": -0.020},
+}
 
-# ===========================================================================
-# API PUBLIK
-# ===========================================================================
+## Gaya rambut & aksesori yang memberi karakter bulu mata lentik (murni visual).
+const LASH_STYLES: Array[String] = ["bob", "ombre", "kuncir_ganda", "panjang_kepang", "sanggul", "ikal"]
+const LASH_ACCESSORIES: Array[String] = ["jepit_stroberi", "bando_gingham", "pita_kuning", "anting_mutiara", "kalung_mutiara"]
+const LASH_HATS: Array[String] = ["bando", "bando_kelinci"]
 
-## Rakit satu karakter chibi lengkap dari `spec`. Kunci yang tidak dikenal diabaikan,
-## kunci yang hilang memakai nilai bawaan, jadi `build({})` tetap menghasilkan karakter.
-static func build(spec: Dictionary) -> Node3D:
-	var s: Dictionary = _normalize(spec)
-
-	var root: Node3D = Node3D.new()
-	root.name = "Character"
-
-	# --- Badan + celemek ---
-	var body: Node3D = _build_body(s)
-	root.add_child(body)
-	var apron: Node3D = _build_apron(s)
-	body.add_child(apron)
-
-	# --- Kepala + wajah + rambut + topi ---
-	var head: Node3D = _build_head(s)
-	root.add_child(head)
-	var face: Node3D = _build_face(s)
-	head.add_child(face)
-	var hair: Node3D = _build_hair(s)
-	head.add_child(hair)
-	var hat: Node3D = _build_hat(s)
-	head.add_child(hat)
-
-	# --- Anggota gerak (pivot di bahu & pinggul) ---
-	var arm_l: Node3D = _build_arm(s, -1.0)
-	var arm_r: Node3D = _build_arm(s, 1.0)
-	var leg_l: Node3D = _build_leg(s, -1.0)
-	var leg_r: Node3D = _build_leg(s, 1.0)
-	root.add_child(arm_l)
-	root.add_child(arm_r)
-	root.add_child(leg_l)
-	root.add_child(leg_r)
-
-	var parts: Dictionary = {
-		"root": root,
-		"head": head,
-		"face": face,
-		"hair": hair,
-		"hat": hat,
-		"body": body,
-		"apron": apron,
-		"arm_l": arm_l,
-		"arm_r": arm_r,
-		"leg_l": leg_l,
-		"leg_r": leg_r,
-	}
-
-	var accessories: PackedStringArray = s["accessory"]
-	for acc_id: String in accessories:
-		_attach_accessory(acc_id, s, parts)
-	var props: PackedStringArray = s["prop"]
-	for prop_id: String in props:
-		_attach_prop(prop_id, s, parts)
-
-	# --- Postur (membungkuk terburu-buru / kepala miring bingung) ---
-	var lean: float = s["lean"]
-	if not is_zero_approx(lean):
-		body.rotation_degrees = Vector3(lean, 0.0, 0.0)
-		_remember(body)
-	var tilt: float = s["head_tilt"]
-	if not is_zero_approx(tilt):
-		head.rotation_degrees = Vector3(0.0, 0.0, tilt)
-		_remember(head)
-
-	var height: float = s["height"]
-	root.scale = Vector3.ONE * height
-
-	root.set_meta("spec", s)
-	root.set_meta("base_scale", root.scale)
-	root.set_meta("base_position", root.position)
-
-	var mood: String = s["mood"]
-	set_expression(root, mood)
-	_assign_owner(root, root)
-	return root
-
-
-## Terjemahkan satu StaffDefinition (data/catalog/staff.json) menjadi spec
-## CharacterFactory. Penampilan deterministik per staff_id (GDD 31.4).
-## ID yang tidak dikenal tetap menghasilkan staf generik Tier 1 (tidak pernah crash).
-static func spec_for_staff(staff_id: String) -> Dictionary:
-	var def: StaffDefinition = DataRegistry.staff(StringName(staff_id))
-	var role: String = "cashier"
-	var tier: int = 1
-	var visual: Dictionary = {}
-	if def != null:
-		role = String(def.role_id)
-		tier = clampi(def.tier, 1, 5)
-		visual = def.visual
-
-	var spec: Dictionary = {
-		"kind": "staff",
-		"role": role,
-		"tier": tier,
-		"skin": _as_color(visual.get("skin"), SKIN_MID),
-		"hair": _as_color(visual.get("hair"), HAIR_BLACK),
-		"hair_style": str(visual.get("hair_style", "pendek")),
-		"hat": str(visual.get("hat", "none")),
-		"apron": _as_color(visual.get("apron"), Palette.apron_for_tier(role, tier)),
-		"accessory": _as_names(visual.get("accessory")),
-		"chubby": clampf(float(visual.get("chubby", 0.0)), 0.0, 1.0),
-		"cloth": Palette.FLOUR_WHITE,
-		"prop": PackedStringArray(),
-		"rainy": false,
-		# Staf toko selalu menyambut dengan senyum (GDD 4.1 "Cute").
-		"mood": "senang",
-		"height": 1.0,
-	}
-
-	# Baker memakai kaus dalam krem hangat, kasir kemeja putih gandum.
-	if role == "baker":
-		spec["cloth"] = Palette.VANILLA_CREAM
-	return spec
-
-
-## Spec karakter PEMAIN (GDD 2: pemain sendiri yang mengoperasikan alat).
-##
-## Hanya ada dua pilihan, dan keduanya dibedakan lewat parameter chibi yang sudah
-## ada -- gaya rambut, proporsi, dan warna celemek -- bukan lewat model terpisah.
-## Itu yang menjaga janji 100% prosedural: satu perakit karakter, dua nilai
-## masukan berbeda.
-##
-## Pemain memakai celemek baker Tier 1 supaya langsung terbaca sebagai "yang
-## memanggang", dan berdiri sedikit lebih tinggi dari pelanggan biasa agar mudah
-## dicari mata di antara kerumunan.
-static func spec_for_player(gender: String) -> Dictionary:
-	var wanita: bool = gender == "wanita"
-	return {
-		"kind": "player",
-		"role": "baker",
-		"tier": 1,
-		"skin": SKIN_LIGHT if wanita else SKIN_MID,
-		"hair": HAIR_BROWN if wanita else HAIR_BLACK,
-		"hair_style": "panjang_kepang" if wanita else "pendek",
-		"hat": "bandana" if wanita else "topi_koki",
-		"apron": Palette.APRON_ORANGE_PASTEL if wanita else Palette.APRON_COFFEE_BROWN,
-		"accessory": PackedStringArray(),
-		"chubby": 0.10 if wanita else 0.18,
-		"cloth": Palette.FLOUR_WHITE,
-		"prop": PackedStringArray(),
-		"rainy": false,
-		"mood": "senang",
-		"height": 1.04 if wanita else 1.08,
-		"lean": 0.0,
-		"head_tilt": 0.0,
-	}
-
-
-## Varian visual per arketipe kanonik (GDD 78.6). Kunci internal lama tetap
-## dipakai di dalam pabrik ini; tidak pernah tampil ke pemain.
+## Varian visual per arketipe kanonik (GDD 78.6). Kunci internal tidak pernah
+## tampil ke pemain.
 const ARCHETYPE_VISUAL: Dictionary = {
 	"customer_school_child": "anak_sekolah",
 	"customer_office_worker": "pekerja_kantoran",
@@ -353,12 +196,174 @@ const ARCHETYPE_VISUAL: Dictionary = {
 }
 
 
-## Spec pelanggan yang deterministik terhadap `seed_i` (seed dari cosmetic_rng,
-## GDD 31.5): pelanggan dengan seed sama SELALU tampil sama.
+# ===========================================================================
+# API PUBLIK
+# ===========================================================================
+
+## Rakit satu karakter chibi lengkap dari `spec`. Kunci yang tidak dikenal
+## diabaikan dan kunci yang hilang memakai nilai bawaan, jadi `build({})` tetap
+## menghasilkan karakter.
+static func build(spec: Dictionary) -> Node3D:
+	var s: Dictionary = _normalize(spec)
+	var chubby: float = s["chubby"]
+	var root := Node3D.new()
+	root.name = "Character"
+
+	var body: Node3D = _pivot(root, "Body", Vector3(0.0, HIP_Y, 0.0))
+	var apron: Node3D = _pivot(body, "Apron", Vector3.ZERO)
+	var head: Node3D = _pivot(root, "Head", Vector3(0.0, NECK_Y, 0.0))
+	var face: Node3D = _pivot(head, "Face", Vector3(0.0, HEAD_CENTER_Y, 0.0))
+	_pivot(head, "Hair", Vector3(0.0, HEAD_CENTER_Y, 0.0))
+	_pivot(head, "Hat", Vector3(0.0, HEAD_CENTER_Y, 0.0))
+	var shoulder: float = _shoulder_x(chubby)
+	var arm_l: Node3D = _pivot(body, "ArmL", Vector3(-shoulder, SHOULDER_Y - HIP_Y, 0.0))
+	var arm_r: Node3D = _pivot(body, "ArmR", Vector3(shoulder, SHOULDER_Y - HIP_Y, 0.0))
+	arm_l.rotation = _arm_pose(s, -1.0)
+	arm_r.rotation = _arm_pose(s, 1.0)
+	arm_l.set_meta("swing_scale", _arm_swing(s, -1.0))
+	arm_r.set_meta("swing_scale", _arm_swing(s, 1.0))
+	var hip: float = HIP_X * (1.0 + 0.2 * chubby)
+	var leg_l: Node3D = _pivot(root, "LegL", Vector3(-hip, HIP_Y, 0.0))
+	var leg_r: Node3D = _pivot(root, "LegR", Vector3(hip, HIP_Y, 0.0))
+	_pivot(root, "CarryAnchor", Vector3(0.0, 0.40, FRONT * 0.20))
+
+	var mb: Dictionary = {}
+	for key: String in ["body", "apron", "head", "arm_l", "arm_r", "leg_l", "leg_r", "extra"]:
+		mb[key] = MeshBuilder.new()
+	_build_torso(s, mb["body"])
+	_build_skirt(s, mb["body"])
+	_build_apron(s, mb["apron"])
+	_build_head(s, mb["head"])
+	_build_hair(s, mb["head"])
+	_build_hat(s, mb["head"])
+	_build_arm(s, mb["arm_l"])
+	_build_arm(s, mb["arm_r"])
+	_build_leg(s, mb["leg_l"])
+	_build_leg(s, mb["leg_r"])
+	for acc_id: String in s["accessory"]:
+		_attach_accessory(acc_id, s, mb)
+	for prop_id: String in s["prop"]:
+		_attach_prop(prop_id, s, mb)
+	_build_face(s, face)
+
+	body.add_child((mb["body"] as MeshBuilder).commit("BodyMesh"))
+	apron.add_child((mb["apron"] as MeshBuilder).commit("ApronMesh"))
+	head.add_child((mb["head"] as MeshBuilder).commit("HeadMesh"))
+	arm_l.add_child((mb["arm_l"] as MeshBuilder).commit("ArmLMesh"))
+	arm_r.add_child((mb["arm_r"] as MeshBuilder).commit("ArmRMesh"))
+	leg_l.add_child((mb["leg_l"] as MeshBuilder).commit("LegLMesh"))
+	leg_r.add_child((mb["leg_r"] as MeshBuilder).commit("LegRMesh"))
+	var extra: MeshBuilder = mb["extra"]
+	if not extra.is_empty():
+		root.add_child(extra.commit("PropsMesh"))
+	var shadow := MeshBuilder.new()
+	var blob: float = 0.20 * (1.0 + 0.3 * chubby)
+	shadow.disc(Transform3D(Basis(), Vector3(0.0, 0.004, 0.0)), blob, SHADOW_COLOR, Color(SHADOW_COLOR, 0.0), 14)
+	root.add_child(shadow.commit("ShadowBlob", MeshBuilder.SHADOW))
+
+	# Postur: lean positif = condong ke depan (arah wajah); kepala ikut leher.
+	var lean: float = s["lean"]
+	if not is_zero_approx(lean):
+		var neck: float = NECK_Y - HIP_Y
+		body.rotation.x = deg_to_rad(-lean)
+		head.position += Vector3(0.0, neck * (cos(deg_to_rad(lean)) - 1.0), FRONT * neck * sin(deg_to_rad(lean)))
+	var tilt: float = s["head_tilt"]
+	if not is_zero_approx(tilt):
+		head.rotation.z = deg_to_rad(tilt)
+	for n: Node3D in [body, apron, head, face, arm_l, arm_r, leg_l, leg_r]:
+		_remember(n)
+
+	root.scale = Vector3.ONE * float(s["height"])
+	root.set_meta("spec", s)
+	set_expression(root, str(s["mood"]))
+	_assign_owner(root, root)
+	return root
+
+
+## Jumlah segitiga seluruh karakter (dari meta MeshBuilder, tanpa renderer).
+static func triangle_count(actor: Node) -> int:
+	var t: int = int(actor.get_meta("tris", 0)) if actor is MeshInstance3D else 0
+	for c: Node in actor.get_children():
+		t += triangle_count(c)
+	return t
+
+
+## Jumlah mesh yang benar-benar digambar (perkiraan draw call) satu karakter.
+static func mesh_count(actor: Node) -> int:
+	var n: int = 1 if actor is MeshInstance3D and (actor as MeshInstance3D).mesh != null else 0
+	for c: Node in actor.get_children():
+		n += mesh_count(c)
+	return n
+
+
+## Spec staf dari data/catalog/staff.json; deterministik per staff_id (GDD 31.4).
+static func spec_for_staff(staff_id: String) -> Dictionary:
+	var def: StaffDefinition = DataRegistry.staff(StringName(staff_id))
+	var role: String = "cashier"
+	var tier: int = 1
+	var visual: Dictionary = {}
+	if def != null:
+		role = String(def.role_id)
+		tier = clampi(def.tier, 1, 5)
+		visual = def.visual
+	var hair_style: String = str(visual.get("hair_style", "pendek"))
+	var hat: String = str(visual.get("hat", "none"))
+	var accessories: PackedStringArray = _as_names(visual.get("accessory"))
+	var spec: Dictionary = {
+		"kind": "staff", "role": role, "tier": tier,
+		"skin": _as_color(visual.get("skin"), SKIN_MID),
+		"hair": _as_color(visual.get("hair"), HAIR_BLACK),
+		"hair_style": hair_style,
+		"hat": hat,
+		"apron": _as_color(visual.get("apron"), Palette.apron_for_tier(role, tier)),
+		"accessory": accessories,
+		"chubby": clampf(float(visual.get("chubby", 0.0)), 0.0, 1.0),
+		"cloth": Palette.VANILLA_CREAM if role == "baker" else Palette.FLOUR_WHITE,
+		"pants": PANTS_COFFEE,
+		"shoes": SHOE_BROWN,
+		"sleeve": "short",
+		"lashes": _soft_features(hair_style, hat, accessories),
+		"prop": PackedStringArray(),
+		"rainy": false,
+		# Staf toko selalu menyambut dengan senyum (GDD 4.1 "Cute").
+		"mood": "senang",
+		"height": 1.0,
+	}
+	return spec
+
+
+## Spec karakter PEMAIN (GDD 2, 4.2): satu perakit, dua masukan berbeda --
+## gaya rambut, penutup kepala, warna celemek, dan proporsi badan.
+static func spec_for_player(gender: String) -> Dictionary:
+	var wanita: bool = gender == "wanita"
+	return {
+		"kind": "player", "role": "baker", "tier": 1,
+		"skin": SKIN_LIGHT if wanita else SKIN_MID,
+		"hair": HAIR_BROWN if wanita else HAIR_BLACK,
+		"hair_style": "panjang_kepang" if wanita else "pendek",
+		"hat": "bandana" if wanita else "topi_koki",
+		"apron": Palette.APRON_ORANGE_PASTEL if wanita else Palette.APRON_COFFEE_BROWN,
+		"accessory": PackedStringArray(),
+		"chubby": 0.10 if wanita else 0.18,
+		"cloth": Palette.FLOUR_WHITE,
+		"pants": PANTS_COFFEE,
+		"skirt": Palette.PASTEL_STRAWBERRY if wanita else null,
+		"legwear": "skin" if wanita else "pants",
+		"shoes": Palette.APRON_MAROON if wanita else SHOE_BROWN,
+		"sleeve": "short",
+		"lashes": wanita,
+		"prop": PackedStringArray(),
+		"rainy": false,
+		"mood": "senang",
+		"height": 1.04 if wanita else 1.08,
+		"lean": 0.0,
+		"head_tilt": 0.0,
+	}
+
+
+## Spec pelanggan yang deterministik terhadap `seed_i` (GDD 31.5).
 static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = false) -> Dictionary:
 	var rng: RandomNumberGenerator = _seeded_rng(customer_id, seed_i)
-
-	# Driver RotiFood punya seragam tetap (GDD 3.6); hanya wajahnya yang bervariasi.
 	if customer_id == "driver_rotifood":
 		var driver: Dictionary = spec_for_driver(rainy)
 		driver["skin"] = _pick_color(_skin_tones(), rng)
@@ -371,12 +376,8 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 		return courier
 
 	var archetype: String = str(ARCHETYPE_VISUAL.get(customer_id, "warga"))
-
 	var spec: Dictionary = {
-		"kind": "customer",
-		"archetype": archetype,
-		"role": "",
-		"tier": 1,
+		"kind": "customer", "archetype": archetype, "role": "", "tier": 1,
 		"skin": _pick_color(_skin_tones(), rng),
 		"hair": _pick_color(_hair_tones(), rng),
 		"hair_style": _pick_name(_hair_styles(), rng),
@@ -392,53 +393,81 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 		"lean": 0.0,
 		"head_tilt": 0.0,
 	}
+	# Undian pakaian: SELALU sesudah undian dasar agar urutan RNG tetap stabil.
+	spec["pants"] = _pick_color(_pants_tones(), rng)
+	spec["shoes"] = _pick_color(_shoe_tones(), rng)
+	spec["sleeve"] = "long" if rng.randf() < 0.35 else "short"
+	var skirt_roll: float = rng.randf()
+	var soft: bool = str(spec["hair_style"]) in LASH_STYLES
+	if soft and skirt_roll < 0.45:
+		spec["skirt"] = _shift(spec["cloth"] as Color, -0.12)
+		spec["legwear"] = "skin"
+	spec["lashes"] = soft
 
 	match archetype:
 		"anak_sekolah":
-			# Bertubuh mungil, seragam putih, dasi merah, ransel sekolah (The Sweet Tooth).
 			spec["height"] = rng.randf_range(0.78, 0.84)
 			spec["chubby"] = rng.randf_range(0.10, 0.30)
 			spec["cloth"] = Palette.FLOUR_WHITE
 			spec["hair_style"] = _pick_name(_pack(["pendek", "kuncir_ganda", "spike", "bob"]), rng)
-			spec["accessory"] = _pack(["dasi_merah"])
+			spec["accessory"] = _pack(["kerah_kemeja", "dasi_merah"])
 			spec["prop"] = _pack(["tas_sekolah"])
+			spec["pants"] = Palette.APRON_NAVY
+			spec["legwear"] = "shorts"
+			spec["skirt"] = null
+			spec["sleeve"] = "short"
+			spec["shoes"] = Palette.DANGER
+			spec["lashes"] = str(spec["hair_style"]) in LASH_STYLES
 			spec["mood"] = "senang"
 		"pekerja_kantoran":
-			# Berkerah, berdasi, membawa koper, badan condong ke depan karena terburu-buru.
 			spec["cloth"] = _pick_color(_office_tones(), rng)
 			spec["hair_style"] = _pick_name(_pack(["belah_samping", "cepak", "bob", "sanggul"]), rng)
 			spec["accessory"] = _pack(["kerah_kemeja", "dasi_kerja"])
 			spec["prop"] = _pack(["koper"])
+			spec["pants"] = Color(0.290, 0.302, 0.369)  # abu arang #4A4D5E
+			spec["legwear"] = "pants"
+			spec["skirt"] = null
+			spec["sleeve"] = "long"
+			spec["shoes"] = HAIR_BLACK
+			spec["lashes"] = str(spec["hair_style"]) in LASH_STYLES
 			spec["lean"] = 9.0
 			spec["mood"] = "kesal"
 		"emak_arisan":
-			# Tambun keibuan, sanggul, anting, dan tas belanja besar (The Bulk Buyer).
 			spec["chubby"] = rng.randf_range(0.55, 0.80)
 			spec["height"] = rng.randf_range(0.92, 0.98)
 			spec["cloth"] = _pick_color(_floral_tones(), rng)
 			spec["hair_style"] = "sanggul"
 			spec["accessory"] = _pack(["anting_mutiara"])
 			spec["prop"] = _pack(["tas_belanja"])
+			spec["skirt"] = _shift(spec["cloth"] as Color, -0.10)
+			spec["legwear"] = "skin"
+			spec["sleeve"] = "long"
+			spec["lashes"] = true
+			spec["dots"] = true
 			spec["mood"] = "senang"
 		"sosialita":
-			# Jangkung, anggun, mutiara, dan tas tangan kecil (The Snob).
 			spec["height"] = rng.randf_range(1.04, 1.10)
 			spec["chubby"] = 0.0
 			spec["cloth"] = _pick_color(_elegant_tones(), rng)
 			spec["hair_style"] = _pick_name(_pack(["sanggul", "ikal"]), rng)
 			spec["accessory"] = _pack(["anting_mutiara", "kalung_mutiara"])
 			spec["prop"] = _pack(["tas_tangan"])
+			spec["skirt"] = _shift(spec["cloth"] as Color, -0.08)
+			spec["legwear"] = "skin"
+			spec["sleeve"] = "long"
+			spec["shoes"] = Palette.APRON_MAROON
+			spec["lashes"] = true
 			spec["mood"] = "netral"
 		"si_galau":
-			# Kepala miring bingung dengan tanda tanya melayang (The Indecisive).
 			spec["head_tilt"] = rng.randf_range(10.0, 16.0)
 			spec["cloth"] = Palette.PASTEL_PERIWINKLE
+			spec["sleeve"] = "long"
 			spec["prop"] = _pack(["tanda_tanya"])
 			spec["mood"] = "sedih"
 		"food_vlogger":
-			# Topi pet dan kamera mungil yang selalu diacungkan (The VIP Critic).
 			spec["cloth"] = _pick_color(_vivid_tones(), rng)
 			spec["hat"] = "topi_pet"
+			spec["sleeve"] = "short"
 			spec["prop"] = _pack(["kamera"])
 			spec["mood"] = "senang"
 		_:
@@ -446,27 +475,24 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 	return spec
 
 
-## Spec kurir RotiFood (GDD 3.6): seragam hijau toska pastel #4EBA6F, helm bundar,
-## ransel termal kubus. Saat `rainy` seragam diganti jas hujan kuning (GDD 10.2).
+## Kurir RotiFood (GDD 3.6): seragam hijau, helm bundar, ransel termal kubus;
+## saat hujan jas hujan kuning (GDD 10.2).
 static func spec_for_driver(rainy: bool) -> Dictionary:
 	var uniform: Color = Palette.OJOL_GREEN
 	var accessories: Array[String] = ["ponsel"]
 	if rainy:
 		uniform = Palette.RAINCOAT_YELLOW
 		accessories.append("jas_hujan")
-
 	return {
-		"kind": "driver",
-		"role": "driver",
-		"tier": 1,
-		"skin": SKIN_MID,
-		"hair": HAIR_BLACK,
-		"hair_style": "pendek",
-		"hat": "helm",
-		"apron": null,
+		"kind": "driver", "role": "driver", "tier": 1,
+		"skin": SKIN_MID, "hair": HAIR_BLACK, "hair_style": "pendek",
+		"hat": "helm", "apron": null,
 		"accessory": _pack(accessories),
 		"chubby": 0.1,
 		"cloth": uniform,
+		"pants": _shift(Palette.OJOL_GREEN, -0.45),
+		"shoes": HAIR_BLACK,
+		"sleeve": "long",
 		"prop": _pack(["ransel_termal"]),
 		"rainy": rainy,
 		"mood": "senang",
@@ -474,21 +500,18 @@ static func spec_for_driver(rainy: bool) -> Dictionary:
 	}
 
 
-## Spec Kurir Paket Bahan Baku (GDD 5.2.3.C): seragam cokelat kardus, topi pet,
-## membawa kardus paket. Bukan pelanggan dan bukan driver RotiFood.
+## Kurir paket bahan baku (GDD 5.2.3.C): seragam cokelat kardus dan topi pet.
 static func spec_for_courier() -> Dictionary:
 	return {
-		"kind": "courier",
-		"role": "courier",
-		"tier": 1,
-		"skin": SKIN_MID,
-		"hair": HAIR_BLACK,
-		"hair_style": "cepak",
-		"hat": "topi_pet",
-		"apron": null,
+		"kind": "courier", "role": "courier", "tier": 1,
+		"skin": SKIN_MID, "hair": HAIR_BLACK, "hair_style": "cepak",
+		"hat": "topi_pet", "apron": null,
 		"accessory": PackedStringArray(),
 		"chubby": 0.15,
 		"cloth": Color(0.620, 0.447, 0.286),
+		"pants": Color(0.408, 0.314, 0.231),
+		"shoes": SHOE_BROWN,
+		"sleeve": "short",
 		"prop": _pack(["kardus"]),
 		"rainy": false,
 		"mood": "netral",
@@ -496,21 +519,18 @@ static func spec_for_courier() -> Dictionary:
 	}
 
 
-## Spec Pak Lurah (GDD 3.0.A): chibi tambun berwajah ramah, berpeci, membawa koper
-## kecil dan amplop berstempel resmi pemerintah daerah.
+## Pak Lurah (GDD 3.0.A): chibi tambun ramah, berpeci, koper dan amplop resmi.
 static func spec_for_lurah() -> Dictionary:
 	return {
-		"kind": "lurah",
-		"role": "lurah",
-		"tier": 1,
-		"skin": SKIN_TAN,
-		"hair": HAIR_GREY,
-		"hair_style": "cepak",
-		"hat": "peci",
-		"apron": null,
+		"kind": "lurah", "role": "lurah", "tier": 1,
+		"skin": SKIN_TAN, "hair": HAIR_GREY, "hair_style": "cepak",
+		"hat": "peci", "apron": null,
 		"accessory": _pack(["kumis", "kerah_kemeja"]),
 		"chubby": 0.85,
-		"cloth": Color(0.827, 0.780, 0.596),  # safari krem pemerintah daerah #D3C798
+		"cloth": Color(0.827, 0.780, 0.596),  # safari krem #D3C798
+		"pants": Color(0.749, 0.702, 0.525),
+		"shoes": HAIR_BLACK,
+		"sleeve": "long",
 		"prop": _pack(["koper", "amplop"]),
 		"rainy": false,
 		"mood": "senang",
@@ -518,48 +538,83 @@ static func spec_for_lurah() -> Dictionary:
 	}
 
 
-## Ganti ekspresi wajah karakter: "senang", "netral", "kesal", "sedih", "kaget".
-## Hanya mengubah skala & posisi mesh mata/mulut/alis/pipi — tanpa tekstur apa pun.
+## Ganti ekspresi: "senang", "netral", "kesal", "sedih", "kaget". Hanya
+## menskala, menggeser, dan memutar mata/alis/mulut -- tanpa tekstur.
 static func set_expression(actor: Node3D, mood: String) -> void:
 	if actor == null:
 		return
 	var face: Node3D = part(actor, "Face")
 	if face == null:
 		return
-
-	var key: String = mood
-	if not EXPRESSIONS.has(key):
-		key = "netral"
+	var key: String = mood if EXPRESSIONS.has(mood) else "netral"
 	var e: Dictionary = EXPRESSIONS[key]
-
-	var eye_scale: Vector3 = e["eye_scale"]
-	var eye_offset: Vector3 = e["eye_offset"]
-	var mouth_scale: Vector3 = e["mouth_scale"]
-	var mouth_offset: Vector3 = e["mouth_offset"]
-	var brow_offset: Vector3 = e["brow_offset"]
-	var brow_tilt: float = e["brow_tilt"]
-	var cheek_scale: float = e["cheek_scale"]
-
-	for i: int in 2:
-		var side: String = "L"
-		var dir: float = -1.0
-		if i == 1:
-			side = "R"
-			dir = 1.0
-		_apply_part(_child3d(face, "Eye" + side), eye_scale, eye_offset)
-		_apply_part(_child3d(face, "Cheek" + side), Vector3.ONE * cheek_scale, Vector3.ZERO)
+	for i in 2:
+		var side: String = "L" if i == 0 else "R"
+		var dir: float = -1.0 if i == 0 else 1.0
+		_apply_part(_child3d(face, "Eye" + side), e["eye_scale"], e["eye_offset"])
 		var brow: Node3D = _child3d(face, "Brow" + side)
 		if brow != null:
-			_apply_part(brow, Vector3.ONE, brow_offset)
-			var base_rot: Vector3 = brow.get_meta("base_rotation", Vector3.ZERO)
-			brow.rotation = Vector3(base_rot.x, base_rot.y, base_rot.z + deg_to_rad(brow_tilt * dir))
-	_apply_part(_child3d(face, "Mouth"), mouth_scale, mouth_offset)
-
+			# Sumbu x lokal wajah = -X dunia, jadi ujung dalam BrowL ada di -x lokal
+			# dan ujung dalam BrowR di +x lokal: tanda putarannya berlawanan.
+			var base_basis: Basis = brow.get_meta("base_basis", brow.basis)
+			brow.basis = base_basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(-float(e["brow_tilt"]) * dir))
+			var base_pos: Vector3 = brow.get_meta("base_position", brow.position)
+			brow.position = base_pos + (e["brow_offset"] as Vector3)
+	var mouth: Node3D = _child3d(face, "Mouth")
+	if mouth != null:
+		var mouth_basis: Basis = mouth.get_meta("base_basis", mouth.basis)
+		mouth.basis = mouth_basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(float(e["mouth_roll"])))
+		_apply_part(mouth, e["mouth_scale"], e["mouth_offset"])
 	actor.set_meta("mood", key)
 
 
-## Cari salah satu bagian karakter ("Head", "Body", "ArmL", ... "Apron") dengan aman.
-## Mengembalikan null bila tidak ada, sehingga pemanggil boleh menganggap opsional.
+## Kain lap hijau mint bergaris putih di tangan kanan saat mengelap wajah
+## (GDD 31.6); warnanya kontras dengan semua warna kulit. Dipasang sebagai anak
+## ArmR, di depan telapak (ke arah kamera saat lengan terangkat) dan sedikit
+## lebih lebar dari tangan agar terbaca menutupi pipi.
+static func wipe_cloth() -> MeshInstance3D:
+	var mb := MeshBuilder.new()
+	var stripe := func(u: Vector3) -> Color:
+		return Palette.FLOUR_WHITE if absf(u.y) > 0.55 and absf(u.y) < 0.75 else Palette.PASTEL_MINT.darkened(0.05)
+	var hand_y: float = -ARM_LENGTH - 0.024
+	mb.ellipsoid(Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(10.0)), Vector3(0.020, hand_y - 0.004, -0.044)),
+		Vector3(0.018, 0.072, 0.056), Palette.PASTEL_MINT, 7, 5, stripe)
+	return mb.commit("WipeCloth")
+
+
+static var _z_mesh: ArrayMesh = null
+
+
+## Huruf "Z" kantuk berbentuk geometri (bukan teks), selalu menghadap kamera.
+static func sleep_z() -> MeshInstance3D:
+	if _z_mesh == null:
+		var mb := MeshBuilder.new()
+		var c: Color = Palette.PASTEL_PERIWINKLE.darkened(0.45)
+		var w: float = 0.078
+		var h: float = 0.084
+		var t: float = 0.019
+		mb.polygon(Transform3D(), PackedVector2Array([Vector2(-w * 0.5, h * 0.5 - t), Vector2(w * 0.5, h * 0.5 - t),
+			Vector2(w * 0.5, h * 0.5), Vector2(-w * 0.5, h * 0.5)]), c)
+		mb.polygon(Transform3D(), PackedVector2Array([Vector2(-w * 0.5, -h * 0.5), Vector2(w * 0.5, -h * 0.5),
+			Vector2(w * 0.5, -h * 0.5 + t), Vector2(-w * 0.5, -h * 0.5 + t)]), c)
+		mb.polygon(Transform3D(), PackedVector2Array([Vector2(-w * 0.5, -h * 0.5 + t), Vector2(-w * 0.5 + t * 1.4, -h * 0.5 + t),
+			Vector2(w * 0.5, h * 0.5 - t), Vector2(w * 0.5 - t * 1.4, h * 0.5 - t)]), c)
+		var tmp: MeshInstance3D = mb.commit("Z", MeshBuilder.SIGN)
+		_z_mesh = tmp.mesh as ArrayMesh
+		tmp.free()
+	var mi := MeshInstance3D.new()
+	mi.name = "SleepZ"
+	mi.mesh = _z_mesh
+	mi.material_override = MeshBuilder.material(MeshBuilder.SIGN)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+static func clear_caches() -> void:
+	_z_mesh = null
+
+
+## Cari bagian karakter ("Head", "Body", "ArmL", ..., "Apron") dengan aman.
 static func part(actor: Node3D, part_name: String) -> Node3D:
 	if actor == null:
 		return null
@@ -573,997 +628,1052 @@ static func part(actor: Node3D, part_name: String) -> Node3D:
 
 
 # ===========================================================================
-# PERAKITAN BAGIAN TUBUH
+# BADAN
 # ===========================================================================
 
-## Pivot pinggul + kapsul badan yang membulat seperti adonan.
-static func _build_body(s: Dictionary) -> Node3D:
-	var pivot: Node3D = Node3D.new()
-	pivot.name = "Body"
-	pivot.position = Vector3(0.0, HIP_Y, 0.0)
+## Pengali lemak: paling besar di perut, nol di leher.
+static func _belly(y: float, chubby: float) -> float:
+	var d: float = (y - 0.085) / 0.10
+	return 1.0 + 0.34 * chubby * exp(-d * d)
 
+
+## Jari-jari torso pada ketinggian y (lokal pinggul), termasuk lemak. Di luar
+## rentang profil nilainya dijepit ke cincin terdekat (bukan kutub).
+static func _torso_r(y: float, chubby: float) -> float:
+	var p: Array[Vector2] = TORSO_PROFILE
+	var last: int = p.size() - 2
+	var yy: float = clampf(y, p[1].y, p[last].y)
+	for k in range(2, last + 1):
+		if yy <= p[k].y:
+			var t: float = (yy - p[k - 1].y) / maxf(p[k].y - p[k - 1].y, 0.0001)
+			return lerpf(p[k - 1].x, p[k].x, t) * _belly(yy, chubby)
+	return p[last].x * _belly(yy, chubby)
+
+
+## Transform di permukaan torso pada ketinggian y dan azimut `ang` (0 = depan),
+## menghadap normal permukaan (ikut kemiringan bahu), didorong keluar `push`.
+static func _torso_surface(y: float, ang: float, chubby: float, push: float) -> Transform3D:
+	var r: float = _torso_r(y, chubby)
+	var drdy: float = (_torso_r(y + 0.004, chubby) - _torso_r(y - 0.004, chubby)) / 0.008
+	var n2 := Vector2(1.0, -drdy).normalized()
+	var n := Vector3(sin(ang) * n2.x, n2.y, -cos(ang) * n2.x)
+	var p := Vector3(sin(ang) * r, y, -cos(ang) * r)
+	return Transform3D(_basis_facing(n), p + n * push)
+
+
+static func _build_torso(s: Dictionary, mb: MeshBuilder) -> void:
 	var chubby: float = s["chubby"]
 	var cloth: Color = s["cloth"]
-	var mesh: MeshInstance3D = _capsule("BodyMesh", BODY_HEIGHT, BODY_RADIUS, cloth,
-		SEG_BODY_RADIAL, SEG_BODY_RINGS)
-	mesh.position = Vector3(0.0, BODY_HEIGHT * 0.5, 0.0)
-	var fat: float = 1.0 + 0.32 * chubby
-	mesh.scale = Vector3(fat, 1.0, fat)
-	pivot.add_child(mesh)
-
-	_remember(pivot)
-	return pivot
-
-
-## Pivot leher + bola kepala besar.
-static func _build_head(s: Dictionary) -> Node3D:
-	var pivot: Node3D = Node3D.new()
-	pivot.name = "Head"
-	pivot.position = Vector3(0.0, NECK_Y, 0.0)
-
 	var skin: Color = s["skin"]
+	var dress: bool = s["skirt"] is Color
+	var lower: Color = s["skirt"] if dress else s["pants"]
+	var belt: Color = lower if dress else _shift(lower, -0.28)
+	var profile := PackedVector2Array()
+	var first: int = 0
+	if dress:
+		# Bagian bawah torso tertutup rok: cukup mulai dari kutub di pinggang.
+		profile.append(Vector2(0.0, Y_PANTS_TOP))
+		first = TORSO_SHIRT_START
+	for k in range(first, TORSO_PROFILE.size()):
+		var pt: Vector2 = TORSO_PROFILE[k]
+		profile.append(Vector2(pt.x * _belly(pt.y, chubby), pt.y))
+	var shade := func(y: float, _phi: float) -> Color:
+		if y >= Y_COLLAR:
+			return skin
+		if y < Y_PANTS_TOP:
+			return lower
+		if y < Y_BELT_TOP:
+			return belt
+		return cloth.lightened(0.07 * clampf((y - Y_BELT_TOP) / 0.2, 0.0, 1.0))
+	mb.lathe(Transform3D(), profile, cloth, SEG_TORSO, shade)
+	if bool(s["dots"]):
+		# Blus bermotif bunga (emak-emak arisan): titik-titik lembut di badan.
+		var dot: Color = cloth.lerp(Palette.FLOUR_WHITE, 0.55)
+		for k in 8:
+			var y2: float = 0.075 + 0.055 * float(k % 3)
+			var ang: float = deg_to_rad(-70.0 + 20.0 * float(k) + (8.0 if k % 2 == 0 else 0.0))
+			mb.polygon(_torso_surface(y2, ang, chubby, 0.002), _circle(0.013, 7), dot)
+
+
+## Rok/gaun yang mengembang dari pinggang (spec "skirt").
+static func _build_skirt(s: Dictionary, mb: MeshBuilder) -> void:
+	if not (s["skirt"] is Color):
+		return
 	var chubby: float = s["chubby"]
-	var mesh: MeshInstance3D = _sphere("HeadMesh", HEAD_RADIUS, skin,
-		SEG_HEAD_RADIAL, SEG_HEAD_RINGS)
-	mesh.position = Vector3(0.0, HEAD_CENTER_Y, 0.0)
-	var fat: float = 1.0 + 0.10 * chubby
-	mesh.scale = Vector3(fat, 1.0, fat)
-	pivot.add_child(mesh)
+	var col: Color = s["skirt"]
+	var r0: float = _torso_r(0.05, chubby)
+	var profile := PackedVector2Array([
+		Vector2(r0 - 0.012, -0.100), Vector2(r0 + 0.044, -0.104), Vector2(r0 + 0.052, -0.094),
+		Vector2(r0 + 0.050, -0.0865), Vector2(r0 + 0.049, -0.0855),
+		Vector2(r0 + 0.034, -0.030), Vector2(r0 + 0.012, 0.024), Vector2(r0 + 0.003, 0.058),
+	])
+	var hem: Color = col.lerp(Palette.FLOUR_WHITE, 0.35)
+	var shade := func(y: float, _phi: float) -> Color:
+		return hem if y < -0.086 else col
+	mb.lathe(Transform3D(), profile, col, SEG_TORSO + 1, shade)
 
-	_remember(pivot)
-	return pivot
+
+## Celemek staf/pemain (GDD 3.4: warnanya = tier keahlian): rok melengkung
+## mengikuti badan dengan lis terang, dada celemek, saku, tali leher, dan pita
+## di punggung.
+static func _build_apron(s: Dictionary, mb: MeshBuilder) -> void:
+	if not (s["apron"] is Color):
+		return
+	var color: Color = s["apron"]
+	var chubby: float = s["chubby"]
+	var trim: Color = color.lerp(Palette.FLOUR_WHITE, 0.45)
+	var waist: float = _torso_r(Y_BELT_TOP, chubby)
+	var skirt := PackedVector2Array([
+		Vector2(waist + 0.028, -0.074), Vector2(waist + 0.027, -0.0605),
+		Vector2(waist + 0.027, -0.0595), Vector2(waist + 0.020, -0.010),
+		Vector2(_torso_r(0.060, chubby) + 0.011, 0.060), Vector2(_torso_r(0.110, chubby) + 0.010, 0.110),
+		Vector2(_torso_r(0.132, chubby) + 0.010, 0.132),
+	])
+	var skirt_shade := func(y: float, _phi: float) -> Color:
+		return trim if y < -0.060 else color
+	mb.lathe(Transform3D(), skirt, color, 8, skirt_shade, deg_to_rad(-72.0), deg_to_rad(72.0))
+	var bib := PackedVector2Array()
+	for y: float in [0.128, 0.170, 0.206]:
+		bib.append(Vector2(_torso_r(y, chubby) + 0.010, y))
+	mb.lathe(Transform3D(), bib, color, 5, Callable(), deg_to_rad(-36.0), deg_to_rad(36.0))
+	# Saku depan dengan lis terang.
+	var pocket_r: float = waist + 0.018
+	var pa: float = deg_to_rad(-22.0)
+	var pn := Vector3(sin(pa), 0.0, -cos(pa))
+	mb.box(Transform3D(_basis_facing(pn), Vector3(pn.x * pocket_r, 0.022, pn.z * pocket_r)), Vector3(0.056, 0.040, 0.006), trim)
+	# Tali leher melingkari tengkuk.
+	var ny: float = 0.236
+	mb.torus(Transform3D(Basis(), Vector3(0.0, ny, 0.0)), _torso_r(ny, chubby) + 0.004, 0.0075, color, 7, 3,
+		deg_to_rad(36.0), deg_to_rad(324.0))
+	# Pita di punggung.
+	var back := Vector3(0.0, 0.110, -FRONT * (_torso_r(0.110, chubby) + 0.010))
+	_bow(mb, back, color, 1.0, Vector3(0.0, 0.0, -FRONT))
 
 
-## Wajah: dua manik mata berkilau, mulut mungil, pipi merona, dan alis tipis.
-static func _build_face(s: Dictionary) -> Node3D:
-	var face: Node3D = Node3D.new()
-	face.name = "Face"
-	face.position = Vector3(0.0, HEAD_CENTER_Y, 0.0)
+# ===========================================================================
+# KEPALA, WAJAH, RAMBUT, TOPI
+# ===========================================================================
 
-	var hair_color: Color = s["hair"]
+static func _head_radii(s: Dictionary) -> Vector3:
+	var fat: float = 1.0 + 0.06 * float(s["chubby"])
+	return Vector3(HEAD_RX * fat, HEAD_RY, HEAD_RZ * fat)
 
-	for i: int in 2:
-		var side: String = "L"
-		var dir: float = -1.0
-		if i == 1:
-			side = "R"
-			dir = 1.0
 
-		# Manik mata bulat mengkilap.
-		var eye: MeshInstance3D = _sphere("Eye" + side, EYE_RADIUS, EYE_COLOR,
-			SEG_LIMB_RADIAL + 1, SEG_BLOB_RINGS, 0.35)
-		eye.position = Vector3(EYE_X * dir, EYE_Y, FRONT * EYE_Z)
-		_remember(eye)
+static func _style(s: Dictionary) -> Dictionary:
+	return HAIR_STYLES.get(str(s["hair_style"]), HAIR_STYLES["pendek"])
+
+
+## Jari-jari cangkang rambut (kepala + ketebalan rambut gaya ini).
+static func _hair_radii(s: Dictionary) -> Vector3:
+	return _head_radii(s) + Vector3.ONE * float(_style(s)["puff"])
+
+
+## Titik & normal di permukaan depan kepala pada koordinat wajah (x, y) relatif
+## pusat kepala, didorong `push` sepanjang normal.
+static func _head_surface(radii: Vector3, x: float, y: float, push: float) -> Transform3D:
+	var nx: float = x / radii.x
+	var ny: float = y / radii.y
+	var z: float = FRONT * sqrt(maxf(1.0 - nx * nx - ny * ny, 0.0)) * radii.z
+	var p := Vector3(x, y, z)
+	var n := Vector3(x / (radii.x * radii.x), y / (radii.y * radii.y), z / (radii.z * radii.z)).normalized()
+	return Transform3D(_basis_facing(n), p + n * push)
+
+
+## Titik pada elipsoid (pusat kepala) di azimut `phi_deg` (0 = depan, positif =
+## +X dunia) dan sudut puncak `theta_deg`, menghadap normal permukaan.
+static func _shell_point(radii: Vector3, phi_deg: float, theta_deg: float, push: float) -> Transform3D:
+	var phi: float = deg_to_rad(phi_deg)
+	var th: float = deg_to_rad(theta_deg)
+	var u := Vector3(sin(phi) * sin(th), cos(th), -cos(phi) * sin(th))
+	var p := Vector3(u.x * radii.x, u.y * radii.y, u.z * radii.z)
+	var n := Vector3(u.x / radii.x, u.y / radii.y, u.z / radii.z).normalized()
+	return Transform3D(_basis_facing(n), p + n * push)
+
+
+## Seperti _shell_point, tetapi ketinggian dinyatakan sebagai y (pusat kepala).
+static func _shell_at_y(radii: Vector3, phi_deg: float, y: float) -> Transform3D:
+	return _shell_point(radii, phi_deg, rad_to_deg(acos(clampf(y / radii.y, -1.0, 1.0))), 0.0)
+
+
+## Jari-jari lingkar elipsoid pada ketinggian y (untuk pita, peci, topi).
+static func _ring_r(radii: Vector3, y: float) -> float:
+	var k: float = sqrt(maxf(1.0 - (y / radii.y) * (y / radii.y), 0.0))
+	return (radii.x + radii.z) * 0.5 * k
+
+
+## Geser transform dari ruang pusat-kepala ke ruang pivot "Head".
+static func _hc(xf: Transform3D) -> Transform3D:
+	return Transform3D(xf.basis, xf.origin + Vector3(0.0, HEAD_CENTER_Y, 0.0))
+
+
+static func _build_head(s: Dictionary, mb: MeshBuilder) -> void:
+	var skin: Color = s["skin"]
+	var radii: Vector3 = _head_radii(s)
+	var hc := Vector3(0.0, HEAD_CENTER_Y, 0.0)
+	# Kepala mochi: sedikit lebih hangat ke arah dagu.
+	var shade := func(u: Vector3) -> Color:
+		return skin.lerp(skin.darkened(0.05), clampf(-u.y, 0.0, 1.0))
+	mb.ellipsoid(Transform3D(Basis(), hc), radii, skin, SEG_HEAD.x, SEG_HEAD.y, shade)
+	# Telinga hanya dibuat bila rambut tidak menutupinya (hemat segitiga).
+	var ears: bool = float(_style(s)["side"]) < 95.0 and s["hat"] != "helm"
+	# Pipi merona (GDD 4.1 rosy cheeks #FF9AA2): lensa pipih yang memudar ke
+	# warna kulit di tepinya.
+	var blush := func(u: Vector3) -> Color:
+		return Palette.ROSY_CHEEK.lerp(skin, 0.55 * (1.0 - absf(u.y)))
+	for side: float in [-1.0, 1.0]:
+		if ears:
+			var ear := Transform3D(Basis(Vector3.UP, deg_to_rad(-12.0 * side)), hc + Vector3(side * (radii.x - 0.008), EAR_Y, 0.014))
+			mb.ellipsoid(ear, Vector3(0.026, 0.036, 0.030), skin, SEG_SMALL.x, SEG_SMALL.y)
+		var cheek: Transform3D = _hc(_head_surface(radii, CHEEK_X * side, CHEEK_Y, 0.0015))
+		mb.ellipsoid(Transform3D(cheek.basis * Basis(Vector3.RIGHT, PI * 0.5), cheek.origin), Vector3(0.036, 0.005, 0.023),
+			Palette.ROSY_CHEEK, 8, 2, blush)
+	# Hidung kecil yang nyaris tak terlihat, memberi bentuk pada sudut 3/4.
+	mb.ellipsoid(_hc(_head_surface(radii, 0.0, NOSE_Y, -0.003)), Vector3(0.013, 0.010, 0.010), skin.darkened(0.04), SEG_TINY.x, SEG_TINY.y)
+
+
+## Wajah: mata manik berkilau, alis, dan mulut -- node terpisah karena ekspresi
+## menskala masing-masing (GDD 4.1 "mata manik bulat berbinar").
+static func _build_face(s: Dictionary, face: Node3D) -> void:
+	var radii: Vector3 = _head_radii(s)
+	var brow_col: Color = (s["hair"] as Color).lerp(EYE_COLOR, 0.35)
+	var lashes: bool = s["lashes"]
+	var eye_shade := func(u: Vector3) -> Color:
+		return EYE_COLOR.lerp(EYE_IRIS, clampf(0.15 - u.y * 0.85, 0.0, 1.0))
+	for i in 2:
+		var dir: float = -1.0 if i == 0 else 1.0
+		var side: String = "L" if i == 0 else "R"
+		# Sumbu x lokal wajah = -X dunia, jadi sudut luar mata ada di -dir.
+		var outer: float = -dir
+		var em := MeshBuilder.new()
+		var rx: float = EYE_RADII.x
+		var ry: float = EYE_RADII.y
+		em.ellipsoid(Transform3D(), EYE_RADII, EYE_COLOR, 8, 5, eye_shade)
+		# Dua kilau di sisi yang sama untuk kedua mata (gaya anime).
+		em.ellipsoid(Transform3D(Basis(), Vector3(0.31 * rx, 0.34 * ry, EYE_RADII.z * 0.80)), Vector3(0.32 * rx, 0.28 * ry, 0.004),
+			GLINT_COLOR, 6, 2)
+		em.ellipsoid(Transform3D(Basis(), Vector3(-0.30 * rx, -0.37 * ry, EYE_RADII.z * 0.76)), Vector3.ONE * 0.17 * rx * Vector3(1.0, 1.0, 0.6),
+			GLINT_COLOR, 4, 2)
+		if lashes:
+			var lash := Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(32.0 * outer)), Vector3(0.82 * rx * outer, 0.74 * ry, 0.004))
+			em.ellipsoid(lash, Vector3(0.44 * rx, 0.0048, 0.004), EYE_COLOR, 5, 2)
+		var eye: MeshInstance3D = em.commit("Eye" + side)
+		eye.transform = _head_surface(radii, EYE_X * dir, EYE_Y, -0.003)
 		face.add_child(eye)
+		_remember(eye)
 
-		# Titik kilau putih kecil di sudut atas mata.
-		var glint: MeshInstance3D = _sphere("Glint", GLINT_RADIUS, GLINT_COLOR,
-			SEG_TINY_RADIAL, SEG_TINY_RINGS, 0.15)
-		glint.position = Vector3(0.011 * dir, 0.012, FRONT * 0.026)
-		eye.add_child(glint)
-
-		# Pipi merona ditempel menempel kurva kepala (GDD 4.1 rosy cheeks #FF9AA2).
-		var cheek: MeshInstance3D = _sphere("Cheek" + side, CHEEK_RADIUS, Palette.ROSY_CHEEK,
-			SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-		var normal: Vector3 = Vector3(0.52 * dir, -0.16, FRONT * 0.84).normalized()
-		cheek.transform = Transform3D(_basis_facing(normal), normal * (HEAD_RADIUS - 0.012))
-		cheek.scale = Vector3(1.0, 0.78, 0.30)
-		_remember(cheek)
-		face.add_child(cheek)
-
-		# Alis tipis, sedikit dipuntir keluar agar menempel pada lengkung dahi.
-		var brow: MeshInstance3D = _box("Brow" + side, Vector3(0.050, 0.013, 0.012), hair_color)
-		brow.position = Vector3(EYE_X * dir, BROW_Y, FRONT * BROW_Z)
-		brow.rotation_degrees = Vector3(0.0, -12.0 * dir * FRONT, 0.0)
-		_remember(brow)
+		var bm := MeshBuilder.new()
+		bm.capsule(Vector3(-0.019, 0.0, 0.0), Vector3(0.019, 0.0, 0.0), 0.0058, 0.0058, brow_col, 4, 1)
+		var brow: MeshInstance3D = bm.commit("Brow" + side)
+		brow.transform = _head_surface(radii, EYE_X * dir, BROW_Y, 0.001)
 		face.add_child(brow)
+		_remember(brow)
 
-	# Mulut mungil berbentuk oval pipih; ekspresi hanya menskala node ini.
-	var mouth: MeshInstance3D = _sphere("Mouth", MOUTH_RADIUS, MOUTH_COLOR,
-		SEG_BLOB_RADIAL, SEG_BLOB_RINGS, 0.5)
-	mouth.position = Vector3(0.0, MOUTH_Y, FRONT * MOUTH_Z)
-	mouth.scale = Vector3(1.0, 0.50, 0.45)
-	_remember(mouth)
+	# Mulut senyum berbentuk "D" dengan lidah merah muda; ekspresi menskala dan
+	# memutarnya (180° = cemberut).
+	var mm := MeshBuilder.new()
+	var d := PackedVector2Array()
+	for k in 9:
+		var a: float = PI * float(k) / 8.0
+		d.append(Vector2(0.020 * cos(a), -0.018 * sin(a)))
+	mm.polygon(Transform3D(), d, MOUTH_COLOR)
+	var tongue := PackedVector2Array()
+	for k2 in 7:
+		var a2: float = PI * float(k2) / 6.0
+		tongue.append(Vector2(0.0105 * cos(a2), -0.0105 - 0.0045 * sin(a2)))
+	mm.polygon(Transform3D(Basis(), Vector3(0.0, 0.0, 0.0006)), tongue, TONGUE_COLOR)
+	var mouth: MeshInstance3D = mm.commit("Mouth")
+	mouth.transform = _head_surface(radii, 0.0, MOUTH_Y, 0.0012)
 	face.add_child(mouth)
-
-	return face
-
-
-## Pivot bahu + kapsul lengan yang menggantung ke bawah.
-static func _build_arm(s: Dictionary, dir: float) -> Node3D:
-	var side: String = "R"
-	if dir < 0.0:
-		side = "L"
-	var chubby: float = s["chubby"]
-	var pivot: Node3D = Node3D.new()
-	pivot.name = "Arm" + side
-	pivot.position = Vector3(SHOULDER_X * (1.0 + 0.28 * chubby) * dir, SHOULDER_Y, 0.0)
-
-	var cloth: Color = s["cloth"]
-	var mesh: MeshInstance3D = _capsule("Arm" + side + "Mesh", ARM_LENGTH, ARM_RADIUS, cloth,
-		SEG_LIMB_RADIAL, SEG_LIMB_RINGS)
-	mesh.position = Vector3(0.0, -ARM_LENGTH * 0.5, 0.0)
-	pivot.add_child(mesh)
-
-	# Telapak tangan mungil berwarna kulit di ujung lengan.
-	var skin: Color = s["skin"]
-	var hand: MeshInstance3D = _sphere("Hand" + side, ARM_RADIUS * 1.15, skin,
-		SEG_TINY_RADIAL, SEG_TINY_RINGS)
-	hand.position = Vector3(0.0, -ARM_LENGTH + 0.01, 0.0)
-	pivot.add_child(hand)
-
-	_remember(pivot)
-	return pivot
+	_remember(mouth)
 
 
-## Pivot pinggul + kapsul kaki pendek.
-static func _build_leg(s: Dictionary, dir: float) -> Node3D:
-	var side: String = "R"
-	if dir < 0.0:
-		side = "L"
-	var pivot: Node3D = Node3D.new()
-	pivot.name = "Leg" + side
-	pivot.position = Vector3(HIP_X * dir, HIP_Y, 0.0)
-
-	var cloth: Color = s["cloth"]
-	var trousers: Color = _shift(cloth, -0.22)
-	var mesh: MeshInstance3D = _capsule("Leg" + side + "Mesh", LEG_LENGTH, LEG_RADIUS, trousers,
-		SEG_LIMB_RADIAL, SEG_LIMB_RINGS)
-	mesh.position = Vector3(0.0, -LEG_LENGTH * 0.5, 0.0)
-	pivot.add_child(mesh)
-
-	_remember(pivot)
-	return pivot
+## Warna rambut dengan kilau anime melingkar di ubun-ubun dan tepi yang sedikit
+## lebih gelap. `tip` (opsional) memudarkan ujung rambut (ombre).
+static func _hair_shader(base: Color, tip: Variant = null) -> Callable:
+	return func(u: Vector3) -> Color:
+		var th: float = acos(clampf(u.y, -1.0, 1.0))
+		var shine: float = 0.20 * maxf(0.0, 1.0 - absf(th - 0.55) / 0.28)
+		var c: Color = base.lightened(shine)
+		c = c.darkened(clampf((th - 1.25) * 0.20, 0.0, 0.16))
+		if tip is Color and th > 1.40:
+			c = c.lerp(tip, clampf((th - 1.40) / 0.60, 0.0, 1.0))
+		return c
 
 
-## Koordinat Z tepat di depan permukaan kapsul badan pada ketinggian `y` (koordinat
-## lokal badan, 0.0 di pangkal), ditambah `offset` supaya kain celemek tidak menembus
-## badan. Radius kapsul menyempit di tutup atas/bawah, jadi celemek mengikuti lekuk
-## badan alih-alih melayang.
-##
-## Hasilnya sudah dikalikan FRONT, jadi ia BERTANDA NEGATIF seperti seluruh
-## detail depan lainnya. Tanpa itu fungsi ini mengembalikan jari-jari telanjang
-## dan celemek mendarat di punggung karakter -- persis kebalikan dari namanya.
-static func _body_front_z(s: Dictionary, y: float, offset: float) -> float:
-	var half: float = BODY_HEIGHT * 0.5
-	var cyl_half: float = maxf(half - BODY_RADIUS, 0.0)
-	var dy: float = absf(y - half)
-	var r: float = BODY_RADIUS
-	if dy > cyl_half:
-		# Berada di tutup setengah bola: radius mengecil mengikuti lingkaran.
-		var t: float = dy - cyl_half
-		r = sqrt(maxf(BODY_RADIUS * BODY_RADIUS - t * t, 0.0))
-	var chubby: float = s["chubby"]
-	var fat: float = 1.0 + 0.32 * chubby
-	return FRONT * (r * fat + offset)
+## Garis rambut per azimut (0 = depan): dahi, samping, tengkuk (derajat dari
+## puncak). Peralihan dahi -> samping terjadi di antara azimut cut_a..cut_b;
+## rentang sempit menghasilkan potongan rata setinggi rahang (bob).
+static func _hairline(front_deg: float, side_deg: float, back_deg: float,
+		cut_a: float = 15.0, cut_b: float = 95.0) -> Callable:
+	var f: float = deg_to_rad(front_deg)
+	var sd: float = deg_to_rad(side_deg)
+	var bk: float = deg_to_rad(back_deg)
+	var a: float = deg_to_rad(cut_a)
+	var b: float = deg_to_rad(cut_b)
+	return func(phi: float) -> float:
+		var p: float = absf(wrapf(phi, -PI, PI))
+		var t: float = lerpf(f, sd, smoothstep(a, b, p))
+		if p > PI * 0.5:
+			t = lerpf(t, bk, smoothstep(PI * 0.5, PI, p))
+		return clampf(t, 0.2, PI)
 
 
-## Celemek staf (GDD 3.4: warnanya mencerminkan tier keahlian). Node "Apron" selalu
-## dibuat agar kontrak nama terpenuhi, walau pelanggan biasa tidak memakai celemek.
-static func _build_apron(s: Dictionary) -> Node3D:
-	var apron: Node3D = Node3D.new()
-	apron.name = "Apron"
-
-	var raw: Variant = s["apron"]
-	if not (raw is Color):
-		return apron
-	var color: Color = raw
-
-	var chubby: float = s["chubby"]
-	var fat: float = 1.0 + 0.32 * chubby
-
-	# Rok celemek lebar menutup perut.
-	var skirt: MeshInstance3D = _box("ApronSkirt", Vector3(0.215 * fat, 0.170, 0.018), color)
-	skirt.position = Vector3(0.0, 0.105, _body_front_z(s, 0.105, 0.010))
-	apron.add_child(skirt)
-
-	# Dada celemek yang lebih sempit mengikuti kapsul badan yang meruncing.
-	var bib: MeshInstance3D = _box("ApronBib", Vector3(0.135, 0.100, 0.016), color)
-	bib.position = Vector3(0.0, 0.222, _body_front_z(s, 0.222, 0.008))
-	apron.add_child(bib)
-
-	# Dua tali bahu.
-	for i: int in 2:
-		var dir: float = -1.0
-		if i == 1:
-			dir = 1.0
-		var strap: MeshInstance3D = _box("ApronStrap", Vector3(0.024, 0.095, 0.014), color)
-		strap.position = Vector3(0.052 * dir, 0.272, _body_front_z(s, 0.272, 0.004) * 0.75)
-		strap.rotation_degrees = Vector3(0.0, 0.0, 10.0 * dir)
-		apron.add_child(strap)
-
-	return apron
+## Garis rambut cangkang untuk gaya `st`.
+static func _style_hairline(st: Dictionary) -> Callable:
+	var cut: Array = st.get("cut", [15.0, 95.0])
+	return _hairline(float(st["front"]), float(st["side"]), float(st["back"]), float(cut[0]), float(cut[1]))
 
 
-# ===========================================================================
-# RAMBUT
-# ===========================================================================
-
-## Rambut: tempurung dasar + variasi sesuai `hair_style`. Gaya asing jatuh ke "pendek".
-static func _build_hair(s: Dictionary) -> Node3D:
-	var hair: Node3D = Node3D.new()
-	hair.name = "Hair"
-	hair.position = Vector3(0.0, HEAD_CENTER_Y, 0.0)
-
-	var color: Color = s["hair"]
+static func _build_hair(s: Dictionary, mb: MeshBuilder) -> void:
 	var style: String = s["hair_style"]
+	var st: Dictionary = _style(s)
+	var color: Color = s["hair"]
+	var puff: float = st["puff"]
+	var radii: Vector3 = _hair_radii(s)
+	var tip: Variant = color.lerp(Palette.PASTEL_STRAWBERRY, 0.75) if style == "ombre" else null
+	var flare: float = float(st.get("flare", 0.0))
+	# Tepi cangkang diselipkan ke kulit (tanpa celah), kecuali tepi bob yang mengembang.
+	var tuck: float = puff / (HEAD_RY + puff)
+	var shape := func(theta: float, t: float) -> float:
+		var out: float = smoothstep(deg_to_rad(80.0), deg_to_rad(130.0), theta)
+		return (1.0 + flare * out) * (1.0 - tuck * (1.0 - out) * smoothstep(0.72, 1.0, t))
+	var line: Callable = _style_hairline(st)
+	# Ubun-ubun yang tertutup topi tidak butuh resolusi penuh.
+	var rings: int = SEG_HAIR.y - 1 if s["hat"] in CROWN_HATS else SEG_HAIR.y
+	mb.ellipsoid(Transform3D(Basis(), Vector3(0.0, HEAD_CENTER_Y, 0.0)), radii, color, SEG_HAIR.x, rings,
+		_hair_shader(color, tip), line, shape)
+	_build_bangs(s, mb, radii, color, tip)
+	_build_hair_extras(s, mb, radii, color, line)
 
-	# Tempurung kepala dipakai semua gaya, tinggi & tebalnya saja yang berbeda.
-	var cap_scale: float = 1.0
-	match style:
-		"cepak":
-			cap_scale = 0.72
-		"jenggot":
-			cap_scale = 0.80
-		"spike":
-			cap_scale = 0.92
-		_:
-			cap_scale = 1.0
-	var cap: MeshInstance3D = _hemisphere("HairCap", HAIR_CAP_RADIUS, color,
-		SEG_CAP_RADIAL, SEG_CAP_RINGS)
-	cap.position = Vector3(0.0, -0.020, 0.0)
-	cap.scale = Vector3(1.0, cap_scale, 1.0)
-	hair.add_child(cap)
 
-	match style:
-		"belah_samping":
-			# Poni belah samping: satu sisi lebar, satu sisi tipis.
-			var wide: MeshInstance3D = _box("HairFringeA", Vector3(0.135, 0.085, 0.035), color)
-			wide.position = Vector3(-0.045, 0.100, FRONT * 0.197)
-			hair.add_child(wide)
-			var thin: MeshInstance3D = _box("HairFringeB", Vector3(0.080, 0.062, 0.032), color)
-			thin.position = Vector3(0.085, 0.112, FRONT * 0.190)
-			hair.add_child(thin)
+## Gerigi poni per gaya: [azimut ujung rumbai (derajat), panjang relatif 0..1].
+## Lembah di antara dua ujung selalu sedikit di bawah tepi cangkang, jadi garis
+## bawah poni sepenuhnya zig-zag.
+const FRINGES: Dictionary = {
+	# Poni "M": dua rumbai tengah terpanjang, rumbai tepi lebih pendek.
+	"tuft": [[-40.0, 0.62], [-20.0, 0.94], [0.0, 1.0], [20.0, 0.94], [40.0, 0.62]],
+	# Poni rata (hime): gerigi kecil dan rapat.
+	"straight": [[-40.0, 0.92], [-30.0, 0.98], [-20.0, 1.0], [-10.0, 1.0], [0.0, 1.0], [10.0, 1.0], [20.0, 1.0],
+		[30.0, 0.98], [40.0, 0.92]],
+	# Poni menyapu ke satu sisi (paling panjang di kanan layar).
+	"side": [[-40.0, 1.0], [-20.0, 0.92], [0.0, 0.78], [20.0, 0.58], [40.0, 0.40]],
+	# Belah tengah bergaya tirai: dahi terlihat di tengah.
+	"part": [[-35.0, 0.92], [-15.0, 0.62], [15.0, 0.62], [35.0, 0.92]],
+	# Jambul pendek di bawah rambut runcing.
+	"spike": [[-20.0, 0.45], [0.0, 0.55], [20.0, 0.45]],
+}
+const FRINGE_HALF_WIDTH: float = 55.0
+
+
+## Poni: satu potongan cangkang di atas dahi yang menyatu dengan rambut (warna
+## & kilau sama), menggembung sedikit, lalu menyelip ke kulit dengan tepi bawah
+## bergerigi. Ujung terpanjang berhenti di BANG_BOTTOM supaya alis & mata selalu
+## terlihat; di bawah topi, bagian atasnya ikut tersembunyi.
+static func _build_bangs(s: Dictionary, mb: MeshBuilder, radii: Vector3, color: Color, tip: Variant) -> void:
+	var st: Dictionary = _style(s)
+	var bangs: String = st["bangs"]
+	var f: Dictionary = _fringe(s)
+	if not f.is_empty():
+		var tuck_k: float = f["tuck"]
+		var shape := func(_theta: float, t: float) -> float:
+			# Kurva Bezier: tersembunyi di bawah cangkang -> menggembung -> menyelip.
+			return (1.0 - t) * (1.0 - t) * 0.99 + 2.0 * t * (1.0 - t) * 1.10 + t * t * tuck_k
+		var half: float = f["half"]
+		mb.shell(Transform3D(Basis(), Vector3(0.0, HEAD_CENTER_Y, 0.0)), radii, color, -half, half,
+			int(f["cols"]), 2, float(f["top"]), f["bottom"], _hair_shader(color, tip), shape)
+	if bangs == "spike":
+		# Jambul runcing dengan tinggi & kemiringan bervariasi (bukan mahkota rata).
+		var y_top: float = cos(deg_to_rad(float(st["front"]) - 16.0)) * radii.y
+		var heights: Array[float] = [0.056, 0.074, 0.084, 0.070, 0.060]
+		var leans: Array[float] = [-30.0, -18.0, -10.0, -20.0, -32.0]
+		var rolls: Array[float] = [16.0, 8.0, 0.0, -8.0, -16.0]
+		for k4 in 5:
+			var base: Transform3D = _shell_at_y(radii, -44.0 + 22.0 * float(k4), y_top - 0.010)
+			var tilt := Basis(base.basis.x, deg_to_rad(leans[k4])) * Basis(base.basis.y, deg_to_rad(rolls[k4]))
+			var xf := Transform3D(tilt * base.basis * Basis(Vector3.RIGHT, PI * 0.5), base.origin + Vector3(0.0, HEAD_CENTER_Y, 0.0))
+			var h: float = heights[k4]
+			mb.lathe(xf, PackedVector2Array([Vector2(0.036, -0.012), Vector2(0.024, h * 0.48), Vector2(0.0, h)]), color.lightened(0.05), 6)
+	if st.has("frame") and not (s["hat"] in SIDE_HATS):
+		# Rambut samping menempel di atas cangkang, membingkai pipi (kecuali
+		# tertutup topi yang turun sampai pelipis).
+		for side2: float in [-1.0, 1.0]:
+			_hair_lock(mb, radii - Vector3.ONE * 0.010, radii + Vector3.ONE * 0.005, 70.0 * side2, 0.112, float(st["frame"]),
+				0.026, 0.018, color, 0.0, tip)
+
+
+## Parameter potongan poni untuk spec `s` (kosong bila gaya ini tanpa poni):
+## {tuck, top, bottom: Callable(phi) -> theta, half, cols}.
+static func _fringe(s: Dictionary) -> Dictionary:
+	var st: Dictionary = _style(s)
+	var bangs: String = st["bangs"]
+	if not FRINGES.has(bangs):
+		return {}
+	var radii: Vector3 = _hair_radii(s)
+	var tuck_k: float = (_head_radii(s).y + 0.004) / radii.y
+	var theta_long: float = acos(clampf(BANG_BOTTOM / (radii.y * tuck_k), -1.0, 1.0))
+	var theta_edge: float = deg_to_rad(float(st["front"]))
+	return {
+		"tuck": tuck_k,
+		"top": theta_edge - deg_to_rad(22.0),
+		"bottom": _fringe_line(FRINGES[bangs], theta_edge + deg_to_rad(2.0), theta_long, _style_hairline(st)),
+		"half": deg_to_rad(FRINGE_HALF_WIDTH),
+		"cols": int(FRINGE_HALF_WIDTH * 2.0 / 5.0),
+	}
+
+
+## Titik terendah tepi rambut (poni maupun cangkang) yang berada di depan mata
+## & alis untuk gaya `hair_style` (y relatif pusat kepala, height 1.0).
+## Kontrak visual: selalu di atas alis supaya mata & ekspresi terbaca (dipakai
+## test). INF bila tidak ada rambut di zona itu.
+static func lowest_hair_over_eyes(hair_style: String) -> float:
+	var s: Dictionary = _normalize({"hair_style": hair_style})
+	var st: Dictionary = _style(s)
+	var radii: Vector3 = _hair_radii(s)
+	var zone: float = EYE_X + EYE_RADII.x + 0.006
+	var lowest: float = INF
+	# Tepi cangkang (diselipkan ke kulit di depan).
+	var line: Callable = _style_hairline(st)
+	var tuck: float = float(st["puff"]) / (HEAD_RY + float(st["puff"]))
+	for deg in range(-90, 91):
+		var phi: float = deg_to_rad(float(deg))
+		var th: float = float(line.call(phi))
+		var k: float = 1.0 - tuck * (1.0 - smoothstep(deg_to_rad(80.0), deg_to_rad(130.0), th))
+		if absf(sin(phi) * sin(th) * radii.x * k) <= zone:
+			lowest = minf(lowest, cos(th) * radii.y * k)
+	# Tepi bawah poni.
+	var f: Dictionary = _fringe(s)
+	if not f.is_empty():
+		var bottom: Callable = f["bottom"]
+		var half: float = f["half"]
+		var cols: int = f["cols"]
+		var fk: float = f["tuck"]
+		for j in cols + 1:
+			var phi2: float = lerpf(-half, half, float(j) / float(cols))
+			var th2: float = float(bottom.call(phi2))
+			if absf(sin(phi2) * sin(th2) * radii.x * fk) <= zone:
+				lowest = minf(lowest, cos(th2) * radii.y * fk)
+	return lowest
+
+
+## Garis bawah poni (theta per azimut) dari daftar ujung rumbai: segitiga antara
+## tiap ujung dan lembahnya, lalu melandai ke garis rambut cangkang di tepi.
+static func _fringe_line(teeth: Array, theta_valley: float, theta_long: float, line: Callable) -> Callable:
+	var phis := PackedFloat32Array()
+	var thetas := PackedFloat32Array()
+	for tooth: Array in teeth:
+		phis.append(deg_to_rad(float(tooth[0])))
+		thetas.append(lerpf(theta_valley, theta_long, float(tooth[1])))
+	var edge: float = deg_to_rad(FRINGE_HALF_WIDTH)
+	return func(phi: float) -> float:
+		var p: float = wrapf(phi, -PI, PI)
+		var n: int = phis.size()
+		if p <= phis[0]:
+			var side_l: float = float(line.call(-edge)) - deg_to_rad(3.0)
+			return lerpf(side_l, thetas[0], clampf((p + edge) / maxf(phis[0] + edge, 0.001), 0.0, 1.0))
+		if p >= phis[n - 1]:
+			var side_r: float = float(line.call(edge)) - deg_to_rad(3.0)
+			return lerpf(thetas[n - 1], side_r, clampf((p - phis[n - 1]) / maxf(edge - phis[n - 1], 0.001), 0.0, 1.0))
+		for k in range(1, n):
+			if p <= phis[k]:
+				var mid: float = (phis[k - 1] + phis[k]) * 0.5
+				if p <= mid:
+					return lerpf(thetas[k - 1], theta_valley, (p - phis[k - 1]) / (mid - phis[k - 1]))
+				return lerpf(theta_valley, thetas[k], (p - mid) / (phis[k] - mid))
+		return theta_valley
+
+
+## Satu rumbai rambut dari ketinggian y_top (pada elipsoid `top_r`) ke y_bottom
+## (pada elipsoid `bottom_r`), relatif pusat kepala, di azimut phi_deg.
+## twist_deg positif menggeser ujung bawah ke kanan layar (-X dunia).
+static func _hair_lock(mb: MeshBuilder, top_r: Vector3, bottom_r: Vector3, phi_deg: float, y_top: float, y_bottom: float,
+		width: float, thick: float, color: Color, twist_deg: float, tip: Variant = null) -> void:
+	var a: Transform3D = _shell_at_y(top_r, phi_deg, y_top)
+	var b: Transform3D = _shell_at_y(bottom_r, phi_deg, y_bottom)
+	var span: Vector3 = a.origin - b.origin
+	var half: float = span.length() * 0.5
+	if half < 0.004:
+		return
+	var y_dir: Vector3 = span / (half * 2.0)
+	var n: Vector3 = (a.basis.z + b.basis.z).normalized()
+	var x_dir: Vector3 = y_dir.cross(n).normalized()
+	var z_dir: Vector3 = x_dir.cross(y_dir).normalized()
+	var basis := Basis(x_dir, y_dir, z_dir) * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(twist_deg))
+	var center: Vector3 = (a.origin + b.origin) * 0.5
+	mb.ellipsoid(Transform3D(basis, center + Vector3(0.0, HEAD_CENTER_Y, 0.0)), Vector3(width, half, thick),
+		color, SEG_LOCK.x, SEG_LOCK.y, _hair_shader(color, tip))
+
+
+## Posisi sanggul (pusat kepala): di atas-belakang agar terlihat dari depan.
+static func _bun_offset() -> Vector3:
+	return Vector3(0.0, 0.150, 0.130)
+
+
+## Bentuk rambut khusus: kuncir, kepang, sanggul, ikal, jenggot.
+static func _build_hair_extras(s: Dictionary, mb: MeshBuilder, radii: Vector3, color: Color, line: Callable) -> void:
+	var hc := Vector3(0.0, HEAD_CENTER_Y, 0.0)
+	match str(s["hair_style"]):
 		"kuncir_ganda":
-			_add_fringe(hair, color)
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				var tail: MeshInstance3D = _capsule("HairTail", 0.135, 0.046, color,
-					SEG_TINY_RADIAL, SEG_LIMB_RINGS)
-				tail.position = Vector3(0.215 * dir, -0.010, 0.020)
-				tail.rotation_degrees = Vector3(0.0, 0.0, 22.0 * dir)
-				hair.add_child(tail)
-		"bob":
-			_add_fringe(hair, color)
-			# Rok rambut lurus sebatas rahang.
-			var skirt: MeshInstance3D = _cylinder("HairBob", 0.135, HAIR_CAP_RADIUS * 0.99,
-				HAIR_CAP_RADIUS * 0.94, color, SEG_CAP_RADIAL, false, false)
-			skirt.position = Vector3(0.0, -0.075, 0.0)
-			hair.add_child(skirt)
-		"spike":
-			for i: int in 3:
-				var spike: MeshInstance3D = _cylinder("HairSpike", 0.085, 0.0, 0.045, color,
-					SEG_BLOB_RADIAL, false, true)
-				spike.position = Vector3(-0.085 + 0.085 * float(i), 0.215, FRONT * 0.055)
-				spike.rotation_degrees = Vector3(-18.0, 0.0, -14.0 + 14.0 * float(i))
-				hair.add_child(spike)
+			for side: float in [-1.0, 1.0]:
+				_tail(mb, hc + Vector3(0.200 * side, 0.082, 0.060), hc + Vector3(0.280 * side, -0.120, 0.112), 0.046, color)
 		"panjang_kepang":
-			_add_fringe(hair, color)
-			var braid: MeshInstance3D = _capsule("HairBraid", 0.240, 0.050, color,
-				SEG_BLOB_RADIAL, SEG_LIMB_RINGS)
-			braid.position = Vector3(0.0, -0.135, 0.165)
-			braid.rotation_degrees = Vector3(-12.0, 0.0, 0.0)
-			hair.add_child(braid)
-			var knot: MeshInstance3D = _sphere("HairKnot", 0.032, _shift(color, -0.12),
-				SEG_TINY_RADIAL, SEG_TINY_RINGS)
-			knot.position = Vector3(0.0, -0.250, 0.195)
-			hair.add_child(knot)
+			var beads: Array[Vector3] = [Vector3(0.0, -0.100, 0.192), Vector3(0.006, -0.158, 0.166), Vector3(-0.005, -0.212, 0.148)]
+			for k in beads.size():
+				var r: float = 0.046 - 0.005 * float(k)
+				var roll: float = 16.0 if k % 2 == 0 else -16.0
+				mb.ellipsoid(Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(roll)), hc + beads[k]),
+					Vector3(r, r * 0.95, r * 0.80), color.lightened(0.05 * float(k % 2)), SEG_SMALL.x - 1, SEG_SMALL.y, _hair_shader(color))
+			mb.torus(Transform3D(Basis(), hc + Vector3(0.0, -0.250, 0.142)), 0.021, 0.009, Palette.PASTEL_STRAWBERRY, 6, 3)
+			mb.ellipsoid(Transform3D(Basis(), hc + Vector3(0.0, -0.280, 0.144)), Vector3(0.028, 0.032, 0.022), color, SEG_SMALL.x - 1, SEG_SMALL.y)
 		"sanggul":
-			_add_fringe(hair, color)
-			var bun: MeshInstance3D = _sphere("HairBun", 0.092, color,
-				SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-			bun.position = Vector3(0.0, 0.135, 0.185)
-			hair.add_child(bun)
+			mb.ellipsoid(Transform3D(Basis(), hc + _bun_offset()), Vector3(0.078, 0.072, 0.074), color,
+				SEG_SMALL.x + 2, SEG_SMALL.y + 1, _hair_shader(color))
 		"ikal":
-			_add_fringe(hair, color)
-			for i: int in 3:
-				var curl: MeshInstance3D = _sphere("HairCurl", 0.070, color,
-					SEG_TINY_RADIAL, SEG_TINY_RINGS)
-				var ang: float = deg_to_rad(-55.0 + 55.0 * float(i))
-				curl.position = Vector3(sin(ang) * 0.205, -0.045, cos(ang) * 0.180)
-				hair.add_child(curl)
-		"ombre":
-			_add_fringe(hair, color)
-			# Ujung rambut memudar ke pastel manis (GDD 3.5: "rambut ombre pastel").
-			var tip_color: Color = color.lerp(Palette.PASTEL_STRAWBERRY, 0.65)
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				var tip: MeshInstance3D = _sphere("HairOmbre", 0.072, tip_color,
-					SEG_TINY_RADIAL, SEG_TINY_RINGS)
-				tip.position = Vector3(0.190 * dir, -0.070, 0.035)
-				hair.add_child(tip)
+			# Cincin ikal empuk menutupi tepi cangkang di samping & belakang.
+			for k2 in 9:
+				var phi: float = 70.0 + 27.5 * float(k2)
+				var edge: float = rad_to_deg(float(line.call(deg_to_rad(phi))))
+				var curl: Transform3D = _shell_point(radii, phi, edge - 10.0 - 8.0 * float(k2 % 2), -0.004)
+				mb.ellipsoid(Transform3D(curl.basis, curl.origin + hc), Vector3(0.042, 0.044, 0.034),
+					color.lightened(0.05 * float(k2 % 2)), SEG_SMALL.x, SEG_SMALL.y)
 		"jenggot":
-			_add_fringe(hair, color)
-			# Jenggot koki terpangkas rapi di sekeliling dagu.
-			var beard: MeshInstance3D = _sphere("Beard", 0.135, color,
-				SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-			beard.position = Vector3(0.0, -0.115, FRONT * 0.095)
-			beard.scale = Vector3(1.05, 0.85, 0.95)
-			hair.add_child(beard)
-		"cepak":
-			# Cukup tempurung tipis, tanpa poni.
-			pass
+			# Jenggot rapi di sepanjang rahang, di bawah mulut.
+			mb.ellipsoid(Transform3D(Basis(), hc + Vector3(0.0, -0.166, FRONT * 0.070)), Vector3(0.142, 0.056, 0.092), color, 10, 4)
 		_:
-			_add_fringe(hair, color)  # "pendek" dan seluruh nilai tak dikenal.
-	return hair
+			pass
 
 
-## Poni sederhana menutup dahi.
-static func _add_fringe(hair: Node3D, color: Color) -> void:
-	var fringe: MeshInstance3D = _box("HairFringe", Vector3(0.200, 0.080, 0.035), color)
-	fringe.position = Vector3(0.0, 0.102, FRONT * 0.196)
-	fringe.rotation_degrees = Vector3(6.0, 0.0, 0.0)
-	hair.add_child(fringe)
+## Kuncir: lathe menggembung dari ikatan pita di akar ke ujung yang meruncing.
+static func _tail(mb: MeshBuilder, root_p: Vector3, tip_p: Vector3, r: float, color: Color) -> void:
+	var axis: Vector3 = root_p - tip_p
+	var length: float = axis.length()
+	var basis: Basis = MeshBuilder.frame_y(axis / length)
+	var profile := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(r * 0.45, length * 0.06), Vector2(r * 0.95, length * 0.34),
+		Vector2(r * 0.90, length * 0.70), Vector2(r * 0.45, length), Vector2(0.0, length + 0.006),
+	])
+	var shade := func(y: float, _phi: float) -> Color:
+		return color.lightened(0.10 * clampf(y / length, 0.0, 1.0))
+	mb.lathe(Transform3D(basis, tip_p), profile, color, 6, shade)
+	mb.torus(Transform3D(basis, tip_p + basis.y * (length * 0.95)), r * 0.52, 0.009, Palette.PASTEL_STRAWBERRY, 6, 3)
 
 
-# ===========================================================================
-# TOPI
-# ===========================================================================
-
-## Topi. Node "Hat" selalu dibuat (kontrak nama), isinya bisa kosong untuk "none"
-## maupun untuk nilai yang tidak dikenal.
-static func _build_hat(s: Dictionary) -> Node3D:
-	var hat: Node3D = Node3D.new()
-	hat.name = "Hat"
-	hat.position = Vector3(0.0, HEAD_CENTER_Y, 0.0)
-
+## Topi & penutup kepala. Semua geometri masuk HeadMesh; tepi depannya selalu
+## di atas alis.
+static func _build_hat(s: Dictionary, mb: MeshBuilder) -> void:
 	var kind: String = s["hat"]
+	var hr: Vector3 = _hair_radii(s) + Vector3.ONE * 0.006
+	var hc := Vector3(0.0, HEAD_CENTER_Y, 0.0)
 	var cloth: Color = s["cloth"]
-	var accent: Color = Palette.PASTEL_MINT
-	var raw_apron: Variant = s["apron"]
-	if raw_apron is Color:
-		accent = raw_apron
-
+	var accent: Color = s["apron"] if s["apron"] is Color else Palette.PASTEL_MINT
 	match kind:
-		"topi_pet":
-			# Topi pet kasir, sengaja dipakai miring (GDD 3.5: Dimas).
-			var crown: MeshInstance3D = _hemisphere("HatCrown", 0.232, accent,
-				SEG_CAP_RADIAL, SEG_CAP_RINGS)
-			crown.position = Vector3(0.0, 0.005, 0.0)
-			crown.scale = Vector3(1.0, 0.85, 1.0)
-			hat.add_child(crown)
-			var visor: MeshInstance3D = _box("HatVisor", Vector3(0.235, 0.020, 0.130),
-				_shift(accent, -0.10))
-			visor.position = Vector3(0.0, 0.020, FRONT * 0.190)
-			visor.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
-			hat.add_child(visor)
-			hat.rotation_degrees = Vector3(-5.0, 0.0, -14.0)
-		"bando":
-			hat.add_child(_headband(Palette.PASTEL_STRAWBERRY))
-		"bando_kelinci":
-			# Bando telinga kelinci empuk (GDD 3.5: Luna).
-			hat.add_child(_headband(Palette.PASTEL_STRAWBERRY))
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				var ear: MeshInstance3D = _capsule("BunnyEar", 0.150, 0.034,
-					Palette.PASTEL_STRAWBERRY, SEG_TINY_RADIAL, SEG_LIMB_RINGS)
-				ear.position = Vector3(0.088 * dir, 0.290, 0.0)
-				ear.rotation_degrees = Vector3(0.0, 0.0, -13.0 * dir)
-				hat.add_child(ear)
-		"topi_koki":
-			hat.add_child(_toque_band(Palette.FLOUR_WHITE, 0.060, 0.205))
-			var puff: MeshInstance3D = _sphere("ChefPuff", 0.170, Palette.FLOUR_WHITE,
-				SEG_LIMB_RADIAL + 1, SEG_BLOB_RINGS)
-			puff.position = Vector3(0.0, 0.290, 0.0)
-			puff.scale = Vector3(1.15, 0.82, 1.15)
-			hat.add_child(puff)
-			hat.rotation_degrees = Vector3(0.0, 0.0, 8.0)
-		"toque":
-			# Topi toque Prancis yang menjulang (GDD 3.5: Sophie & Pierre).
-			hat.add_child(_toque_band(Palette.FLOUR_WHITE, 0.065, 0.208))
-			var tower: MeshInstance3D = _cylinder("ToqueTower", 0.190, 0.172, 0.178,
-				Palette.FLOUR_WHITE, SEG_CAP_RADIAL, false, false)
-			tower.position = Vector3(0.0, 0.335, 0.0)
-			hat.add_child(tower)
-			var top: MeshInstance3D = _sphere("ToqueTop", 0.175, Palette.FLOUR_WHITE,
-				SEG_LIMB_RADIAL + 1, SEG_TINY_RINGS)
-			top.position = Vector3(0.0, 0.425, 0.0)
-			top.scale = Vector3(1.05, 0.62, 1.05)
-			hat.add_child(top)
+		"topi_koki", "toque":
+			var tall: bool = kind == "toque"
+			var tilt := Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(0.0 if tall else 6.0))
+			var y0: float = BRIM_Y
+			var band_r: float = _ring_r(hr, y0)
+			var band_h: float = 0.072
+			mb.cylinder(Transform3D(tilt, hc + tilt * Vector3(0.0, y0 + band_h * 0.5, 0.0)), band_h, band_r * 0.99, band_r,
+				Palette.FLOUR_WHITE, 14, false, false)
+			var top: PackedVector2Array
+			var folds: int = 8 if tall else 5
+			if tall:
+				top = PackedVector2Array([Vector2(band_r, 0.0), Vector2(band_r + 0.010, 0.120), Vector2(band_r + 0.018, 0.200),
+					Vector2(band_r + 0.006, 0.236), Vector2(band_r * 0.62, 0.256), Vector2(0.0, 0.260)])
+			else:
+				top = PackedVector2Array([Vector2(band_r - 0.004, 0.0), Vector2(band_r + 0.020, 0.040), Vector2(band_r + 0.028, 0.092),
+					Vector2(band_r + 0.016, 0.140), Vector2(band_r * 0.80, 0.172), Vector2(band_r * 0.33, 0.186), Vector2(0.0, 0.188)])
+			var fold_shade := func(y: float, phi: float) -> Color:
+				var k: float = 0.5 + 0.5 * cos(phi * float(folds))
+				return Palette.FLOUR_WHITE.darkened(0.07 * k * clampf(1.2 - y / 0.26, 0.0, 1.0))
+			mb.lathe(Transform3D(tilt, hc + tilt * Vector3(0.0, y0 + band_h - 0.004, 0.0)), top, Palette.FLOUR_WHITE, 16, fold_shade)
 		"bandana":
-			var wrap: MeshInstance3D = _hemisphere("BandanaWrap", 0.238, Palette.GOLDEN_CRUST,
-				SEG_CAP_RADIAL, SEG_TINY_RINGS)
-			wrap.position = Vector3(0.0, -0.010, 0.0)
-			wrap.scale = Vector3(1.0, 0.62, 1.0)
-			hat.add_child(wrap)
-			var knot: MeshInstance3D = _sphere("BandanaKnot", 0.045, Palette.GOLDEN_CRUST,
-				SEG_TINY_RADIAL, SEG_TINY_RINGS)
-			knot.position = Vector3(0.0, 0.030, 0.215)
-			hat.add_child(knot)
-			var tail: MeshInstance3D = _box("BandanaTail", Vector3(0.035, 0.090, 0.020),
-				Palette.GOLDEN_CRUST)
-			tail.position = Vector3(0.0, -0.035, 0.225)
-			tail.rotation_degrees = Vector3(18.0, 0.0, 0.0)
-			hat.add_child(tail)
+			# Cukup jauh dari rambut agar faset bandana tidak ditembus gembungan poni.
+			var br: Vector3 = hr + Vector3.ONE * 0.012
+			var band: Color = Palette.GOLDEN_CRUST
+			var bshade := func(u: Vector3) -> Color:
+				return band.lightened(0.12 * clampf(u.y, 0.0, 1.0))
+			var front: float = rad_to_deg(acos(BRIM_Y / br.y))
+			# Segmen radial sama dengan cangkang rambut agar faset sejajar (rambut
+			# tidak menembus bandana).
+			mb.ellipsoid(Transform3D(Basis(), hc), br, band, SEG_HAIR.x, 4, bshade, _hairline(front, 92.0, 106.0))
+			# Polkadot krem.
+			for k in 3:
+				var dot: Transform3D = _shell_point(br, -34.0 + 34.0 * float(k), 32.0 + 12.0 * float(k % 2), 0.002)
+				mb.polygon(_hc(dot), _circle(0.014, 7), Palette.VANILLA_CREAM)
+			var knot: Vector3 = hc + Vector3(0.0, 0.020, -FRONT * (br.z * 0.93))
+			_bow(mb, knot, band, 1.1, Vector3(0.0, 0.0, -FRONT))
+			for side: float in [-1.0, 1.0]:
+				mb.ellipsoid(Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(10.0 * side)), knot + Vector3(0.018 * side, -0.050, 0.010)),
+					Vector3(0.016, 0.038, 0.010), band.darkened(0.06), SEG_TINY.x + 1, SEG_TINY.y)
+		"bando", "bando_kelinci":
+			_headband(mb, hr, Palette.PASTEL_STRAWBERRY)
+			if kind == "bando_kelinci":
+				for side2: float in [-1.0, 1.0]:
+					var ear_b := Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(-14.0 * side2))
+					var base: Vector3 = hc + Vector3(0.070 * side2, hr.y - 0.012, 0.030)
+					mb.ellipsoid(Transform3D(ear_b, base + ear_b * Vector3(0.0, 0.072, 0.0)), Vector3(0.034, 0.084, 0.020),
+						Palette.PASTEL_STRAWBERRY, SEG_SMALL.x, SEG_SMALL.y + 1)
+					mb.ellipsoid(Transform3D(ear_b, base + ear_b * Vector3(0.0, 0.070, FRONT * 0.013)), Vector3(0.018, 0.060, 0.010),
+						Palette.ROSY_CHEEK.lightened(0.25), SEG_SMALL.x, SEG_SMALL.y)
 		"hachimaki":
-			# Ikat kepala hachimaki hitam-putih khas chef Jepang (GDD 3.5: Aoi).
-			hat.add_child(_headband(Palette.FLOUR_WHITE))
-			var mark: MeshInstance3D = _box("HachimakiMark", Vector3(0.048, 0.048, 0.014),
-				Palette.DANGER)
-			mark.position = Vector3(0.0, 0.135, FRONT * 0.185)
-			hat.add_child(mark)
-			var tail2: MeshInstance3D = _box("HachimakiTail", Vector3(0.030, 0.120, 0.016),
-				Palette.FLOUR_WHITE)
-			tail2.position = Vector3(0.045, 0.040, 0.225)
-			tail2.rotation_degrees = Vector3(14.0, 0.0, -10.0)
-			hat.add_child(tail2)
+			var y1: float = BRIM_Y
+			var rr: float = _ring_r(hr, y1)
+			mb.torus(Transform3D(Basis(), hc + Vector3(0.0, y1, 0.0)), rr, 0.017, Palette.FLOUR_WHITE, 16, 4)
+			var mark: Transform3D = _shell_at_y(Vector3(rr, hr.y, rr) + Vector3.ONE * 0.017, 0.0, y1)
+			mb.polygon(Transform3D(mark.basis, mark.origin + hc + mark.basis.z * 0.002), _circle(0.017, 10), Palette.DANGER)
+			var back: Vector3 = hc + Vector3(0.0, y1, -FRONT * (rr + 0.012))
+			for side3: float in [-1.0, 1.0]:
+				mb.ellipsoid(Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(14.0 * side3)), back + Vector3(0.020 * side3, -0.046, 0.004)),
+					Vector3(0.014, 0.046, 0.006), Palette.FLOUR_WHITE, SEG_TINY.x, SEG_TINY.y)
+		"topi_pet":
+			# Warna topi: celemek staf, atau versi gelap seragam (kurir cokelat).
+			var cap_col: Color = accent if s["apron"] is Color else _shift(cloth, -0.22)
+			var cr: Vector3 = hr + Vector3(0.014, 0.010, 0.014)
+			var cap_b := Basis.from_euler(Vector3(deg_to_rad(-4.0), 0.0, deg_to_rad(-8.0)))
+			var cshade := func(u: Vector3) -> Color:
+				return cap_col.lightened(0.10 * clampf(u.y, 0.0, 1.0))
+			var vy: float = BRIM_Y - 0.004
+			var cfront: float = rad_to_deg(acos(vy / cr.y))
+			mb.ellipsoid(Transform3D(cap_b, hc), cr, cap_col, SEG_HAIR.x, 5, cshade, _hairline(cfront, 88.0, 96.0))
+			var vz: float = _ring_r(cr, vy)
+			# Pet pendek dan sedikit terangkat agar tidak menutupi mata dari kamera atas.
+			var bill := cap_b * Basis(Vector3.RIGHT, deg_to_rad(10.0))
+			mb.ellipsoid(Transform3D(bill, hc + cap_b * Vector3(0.0, vy, FRONT * (vz + 0.004))), Vector3(0.112, 0.013, 0.048),
+				cap_col.darkened(0.16), SEG_SMALL.x + 2, SEG_SMALL.y)
+			mb.ellipsoid(Transform3D(cap_b, hc + cap_b * Vector3(0.0, cr.y, 0.0)), Vector3(0.018, 0.010, 0.018), cap_col.darkened(0.12), SEG_TINY.x, SEG_TINY.y)
 		"helm":
-			# Helm bundar menggemaskan kurir RotiFood (GDD 3.6).
-			var shell: MeshInstance3D = _hemisphere("HelmetShell", 0.252, cloth,
-				SEG_CAP_RADIAL, SEG_CAP_RINGS, 0.55)
-			shell.position = Vector3(0.0, -0.030, 0.0)
-			shell.scale = Vector3(1.0, 1.05, 1.0)
-			hat.add_child(shell)
-			var visor2: MeshInstance3D = _box("HelmetVisor", Vector3(0.245, 0.080, 0.040),
-				DARK_GLASS)
-			visor2.position = Vector3(0.0, 0.035, FRONT * 0.195)
-			visor2.rotation_degrees = Vector3(6.0, 0.0, 0.0)
-			hat.add_child(visor2)
-			var strap: MeshInstance3D = _box("HelmetStrap", Vector3(0.230, 0.018, 0.018),
-				DARK_GLASS)
-			strap.position = Vector3(0.0, -0.140, FRONT * 0.060)
-			hat.add_child(strap)
+			var shell: Vector3 = _head_radii(s) + Vector3.ONE * 0.046
+			var stripe := func(u: Vector3) -> Color:
+				if absf(u.x) < 0.16 and u.y > 0.2:
+					return Palette.FLOUR_WHITE
+				return cloth.lightened(0.10 * clampf(u.y, 0.0, 1.0))
+			var hfront: float = rad_to_deg(acos((BRIM_Y - 0.010) / shell.y))
+			mb.ellipsoid(Transform3D(Basis(), hc + Vector3(0.0, 0.008, 0.0)), shell, cloth, SEG_HAIR.x, 6, stripe, _hairline(hfront, 104.0, 112.0))
+			# Kaca helm terangkat di atas dahi.
+			var visor: Transform3D = _shell_at_y(shell, 0.0, BANG_BOTTOM + 0.050)
+			mb.ellipsoid(Transform3D(visor.basis, visor.origin + hc + Vector3(0.0, 0.008, 0.0)), Vector3(0.130, 0.036, 0.018), DARK_GLASS, SEG_SMALL.x + 2, SEG_SMALL.y)
+			# Tali dagu.
+			var sx: float = HEAD_RX + 0.012
+			var strap := Basis.from_scale(Vector3(1.0, (HEAD_RY + 0.010) / sx, 1.0)) * Basis(Vector3.RIGHT, PI * 0.5)
+			mb.torus(Transform3D(strap, hc + Vector3(0.0, 0.0, FRONT * 0.030)), sx, 0.005, DARK_GLASS, 10, 3,
+				deg_to_rad(118.0), deg_to_rad(242.0))
 		"peci":
-			# Peci hitam Pak Lurah (GDD 3.0.A).
-			var peci: MeshInstance3D = _cylinder("Peci", 0.115, 0.186, 0.196,
-				Color(0.129, 0.141, 0.220), SEG_CAP_RADIAL, true, false)
-			peci.position = Vector3(0.0, 0.195, 0.0)
-			peci.rotation_degrees = Vector3(0.0, 0.0, 5.0)
-			hat.add_child(peci)
+			var tilt2 := Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(4.0))
+			var yb: float = BRIM_Y + 0.010
+			var rb: float = _ring_r(hr, yb) + 0.004
+			# Tutup datar peci selalu sedikit di atas ubun-ubun.
+			var h: float = hr.y + 0.012 - yb
+			mb.cylinder(Transform3D(tilt2 * Basis.from_scale(Vector3(1.03, 1.0, 0.97)), hc + tilt2 * Vector3(0.0, yb + h * 0.5, 0.0)),
+				h, rb * 0.94, rb, PECI_BLACK, 14, true, false)
 		_:
-			# "none" dan nilai tak dikenal: tanpa topi.
 			pass
-	return hat
 
 
-## Bando melengkung dari ubun-ubun ke telinga (torus diputar tegak).
-static func _headband(color: Color) -> MeshInstance3D:
-	var band: MeshInstance3D = _torus("Headband", 0.208, 0.240, color,
-		SEG_CYL_LOW, SEG_TORUS_SEGMENTS)
-	band.position = Vector3(0.0, 0.020, 0.0)
-	band.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-	return band
-
-
-## Pita bawah topi koki / toque.
-static func _toque_band(color: Color, height: float, y: float) -> MeshInstance3D:
-	var band: MeshInstance3D = _cylinder("ToqueBand", height, 0.190, 0.190, color,
-		SEG_CAP_RADIAL, false, false)
-	band.position = Vector3(0.0, y, 0.0)
-	return band
+## Bando melengkung dari telinga ke telinga lewat ubun-ubun (mengikuti elips kepala).
+static func _headband(mb: MeshBuilder, hr: Vector3, color: Color) -> void:
+	var r: float = hr.x + 0.004
+	var basis := Basis.from_scale(Vector3(1.0, (hr.y + 0.004) / r, 1.0)) * Basis(Vector3.RIGHT, PI * 0.5)
+	mb.torus(Transform3D(basis, Vector3(0.0, HEAD_CENTER_Y, 0.030)), r, 0.013, color, 12, 4, deg_to_rad(-100.0), deg_to_rad(100.0))
 
 
 # ===========================================================================
-# AKSESORI (kosakata StaffDB + tambahan pelanggan / kurir / Pak Lurah)
+# ANGGOTA GERAK
 # ===========================================================================
 
-## Pasang satu aksesori. Nilai yang tidak dikenal diabaikan tanpa error (degradasi aman).
-static func _attach_accessory(id: String, s: Dictionary, parts: Dictionary) -> void:
-	var head: Node3D = parts["head"]
-	var face: Node3D = parts["face"]
-	var hair: Node3D = parts["hair"]
-	var body: Node3D = parts["body"]
-	var apron: Node3D = parts["apron"]
-	var arm_l: Node3D = parts["arm_l"]
-	var arm_r: Node3D = parts["arm_r"]
+static func _shoulder_x(chubby: float) -> float:
+	return SHOULDER_X * (1.0 + 0.28 * chubby)
 
+
+## Rotasi lengan saat memeluk barang di depan badan (kardus, adonan, loyang).
+## `dir` -1 = ArmL, +1 = ArmR. Dipakai juga oleh ProceduralAnimationSystem.
+static func carry_arm_rotation(dir: float) -> Vector3:
+	return Vector3(deg_to_rad(52.0), 0.0, deg_to_rad(-6.0 * dir))
+
+
+## Pose istirahat lengan: sedikit terbuka (siluet "A"); kedua lengan maju memeluk
+## barang di depan badan; tangan kanan terangkat memegang kamera.
+static func _arm_pose(s: Dictionary, dir: float) -> Vector3:
+	for p: String in s["prop"]:
+		if p in FRONT_PROPS:
+			return carry_arm_rotation(dir)
+		if p == "kamera" and dir > 0.0:
+			return Vector3(deg_to_rad(78.0), 0.0, deg_to_rad(-10.0))
+	return Vector3(0.0, 0.0, deg_to_rad(7.0 * dir))
+
+
+## Lengan yang memegang barang hampir tidak berayun saat berjalan.
+static func _arm_swing(s: Dictionary, dir: float) -> float:
+	for p: String in s["prop"]:
+		if p in FRONT_PROPS or (p == "kamera" and dir > 0.0):
+			return 0.15
+	return 1.0
+
+
+static func _build_arm(s: Dictionary, mb: MeshBuilder) -> void:
+	var chubby: float = s["chubby"]
+	var cloth: Color = s["cloth"]
+	var skin: Color = s["skin"]
+	var r0: float = ARM_RADIUS * (1.0 + 0.25 * chubby)
+	var cuff: Color = cloth.darkened(0.10)
+	var long_sleeve: bool = s["sleeve"] == "long"
+	var sleeve_end: float = 0.84 if long_sleeve else 0.36
+	var cuff_end: float = 1.2 if long_sleeve else 0.48
+	var cuts := PackedFloat32Array([sleeve_end, sleeve_end + 0.01])
+	if not long_sleeve:
+		cuts.append(cuff_end)
+		cuts.append(cuff_end + 0.01)
+	var shade := func(f: float) -> Color:
+		if f < sleeve_end + 0.005:
+			return cloth
+		return cuff if f < cuff_end + 0.005 else skin
+	# Tutup bahu tetap bulat; tutup pergelangan tertutup tangan, cukup satu cincin.
+	mb.capsule(Vector3.ZERO, Vector3(0.0, -ARM_LENGTH, 0.0), r0, r0 * 0.84, cloth, SEG_LIMB, 2, shade, cuts, 1)
+	var hand_col: Color = skin
+	var hand_r := Vector3(0.046, 0.050, 0.042) * (1.0 + 0.2 * chubby)
+	for acc: String in s["accessory"]:
+		if acc == "sarung_tangan":
+			hand_col = Palette.VANILLA_CREAM
+			hand_r *= 1.12
+		elif acc == "sarung_tangan_satin":
+			hand_col = Palette.FLOUR_WHITE
+			hand_r *= 1.12
+	mb.ellipsoid(Transform3D(Basis(), Vector3(0.0, -ARM_LENGTH - 0.024, 0.0)), hand_r, hand_col, SEG_LIMB, 4)
+
+
+static func _build_leg(s: Dictionary, mb: MeshBuilder) -> void:
+	var chubby: float = s["chubby"]
+	var pants: Color = s["pants"]
+	var skin: Color = s["skin"]
+	var legwear: String = s["legwear"]
+	var r0: float = LEG_RADIUS * (1.0 + 0.2 * chubby)
+	var socks: Color = Palette.FLOUR_WHITE
+	var hem: Color = pants.darkened(0.14)
+	var cuts := PackedFloat32Array()
+	var shade: Callable
+	match legwear:
+		"skin":
+			cuts = PackedFloat32Array([0.72, 0.73])
+			shade = func(f: float) -> Color: return skin if f < 0.725 else socks
+		"shorts":
+			cuts = PackedFloat32Array([0.40, 0.41, 0.72, 0.73])
+			shade = func(f: float) -> Color:
+				if f < 0.405:
+					return pants
+				return skin if f < 0.725 else socks
+		_:
+			shade = func(f: float) -> Color: return pants.lerp(hem, clampf(f, 0.0, 1.0))
+	# Kedua ujung kaki tersembunyi (di dalam torso & sepatu): satu cincin cukup.
+	mb.capsule(Vector3.ZERO, Vector3(0.0, -LEG_LENGTH, 0.0), r0, r0 * 0.86, pants, SEG_LIMB, 1, shade, cuts, 1)
+	# Sepatu mochi bersol datar krem: lathe lonjong, alasnya tepat di lantai.
+	var shoe: Color = s["shoes"]
+	var fat: float = 1.0 + 0.12 * chubby
+	var sole_top: float = -0.034
+	var shoe_profile := PackedVector2Array([
+		Vector2(0.0, -0.044), Vector2(0.051, -0.044), Vector2(0.057, sole_top - 0.0005),
+		Vector2(0.0572, sole_top + 0.0005), Vector2(0.046, 0.026), Vector2(0.0, 0.044),
+	])
+	var shoe_shade := func(y: float, _phi: float) -> Color:
+		if y < sole_top:
+			return SOLE_CREAM
+		return shoe.lightened(0.14 * clampf(y / 0.044, 0.0, 1.0))
+	var foot := Basis.from_scale(Vector3(fat, 1.0, 1.38 * fat))
+	mb.lathe(Transform3D(foot, Vector3(0.0, -0.206, FRONT * 0.020)), shoe_profile, shoe, 8, shoe_shade)
+
+
+# ===========================================================================
+# AKSESORI
+# ===========================================================================
+
+## Pasang satu aksesori ke builder segmen yang tepat. Nilai tak dikenal
+## diabaikan tanpa error (degradasi aman).
+static func _attach_accessory(id: String, s: Dictionary, mb: Dictionary) -> void:
+	var head: MeshBuilder = mb["head"]
+	var body: MeshBuilder = mb["body"]
+	var apron: MeshBuilder = mb["apron"]
+	var arm_l: MeshBuilder = mb["arm_l"]
+	var arm_r: MeshBuilder = mb["arm_r"]
+	var radii: Vector3 = _head_radii(s)
+	var hair_r: Vector3 = _hair_radii(s)
+	var chubby: float = s["chubby"]
+	var hc := Vector3(0.0, HEAD_CENTER_Y, 0.0)
+	# Lencana di dada menempel di atas celemek bila ada.
+	var chest_push: float = 0.013 if s["apron"] is Color else 0.003
 	match id:
 		"kacamata_bulat":
-			_add_glasses(face, Palette.DARK_CHOCOLATE, 0.0)
+			_glasses(head, radii, Palette.DARK_CHOCOLATE)
 		"kacamata_emas":
-			_add_glasses(face, Palette.GOLD_STAR, 0.65)
+			_glasses(head, radii, Palette.GOLD_STAR)
 		"kacamata_rantai":
-			# Kacamata rantai emas vintage (GDD 3.5: Mawar).
-			_add_glasses(face, Palette.GOLD_STAR, 0.65)
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				var chain: MeshInstance3D = _box("Chain", Vector3(0.012, 0.075, 0.012),
-					Palette.GOLD_STAR, 0.4, 0.6)
-				chain.position = Vector3(0.130 * dir, -0.045, FRONT * 0.135)
-				chain.rotation_degrees = Vector3(0.0, 0.0, 12.0 * dir)
-				face.add_child(chain)
+			_glasses(head, radii, Palette.GOLD_STAR)
+			for side: float in [-1.0, 1.0]:
+				var a: Vector3 = _hc(_head_surface(radii, (EYE_X + EYE_RADII.y + 0.004) * side, EYE_Y, 0.010)).origin
+				head.capsule(a, a + Vector3(0.020 * side, -0.100, 0.030), 0.0035, 0.0035, Palette.GOLD_STAR, 4, 1)
 		"pita_kuning":
-			# Dua pita kuning mentega di pangkal kuncir (GDD 3.5: Sari).
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				for j: int in 2:
-					var wing: float = -1.0
-					if j == 1:
-						wing = 1.0
-					var petal: MeshInstance3D = _box("Ribbon", Vector3(0.052, 0.038, 0.022),
-						Palette.BUTTER_YELLOW)
-					petal.position = Vector3(0.185 * dir, 0.075 + 0.035 * wing, 0.030)
-					petal.rotation_degrees = Vector3(0.0, 0.0, 26.0 * wing)
-					hair.add_child(petal)
+			for side2: float in [-1.0, 1.0]:
+				var at: Vector3
+				if s["hair_style"] == "kuncir_ganda":
+					at = hc + Vector3(0.214 * side2, 0.090, 0.060)
+				else:
+					at = hc + _shell_at_y(hair_r, 66.0 * side2, 0.105).origin
+				_bow(head, at, Palette.BUTTER_YELLOW, 1.0, at - hc)
 		"jepit_stroberi":
-			# Jepit rambut stroberi imut (GDD 3.5: Lili).
-			var berry: MeshInstance3D = _sphere("Strawberry", 0.032, Palette.DANGER,
-				SEG_TINY_RADIAL, SEG_TINY_RINGS)
-			berry.position = Vector3(-0.165, 0.125, FRONT * 0.105)
-			hair.add_child(berry)
-			var leaf: MeshInstance3D = _box("StrawberryLeaf", Vector3(0.030, 0.012, 0.022),
-				Palette.SUCCESS)
-			leaf.position = Vector3(-0.165, 0.152, FRONT * 0.105)
-			hair.add_child(leaf)
+			var clip: Transform3D = _shell_at_y(hair_r, -40.0, 0.150)
+			var cxf := Transform3D(clip.basis, clip.origin + hc + clip.basis.z * 0.010)
+			head.ellipsoid(cxf, Vector3(0.022, 0.026, 0.016), Palette.DANGER, SEG_SMALL.x, SEG_SMALL.y)
+			head.ellipsoid(Transform3D(cxf.basis, cxf.origin + cxf.basis.y * 0.024), Vector3(0.017, 0.007, 0.012), Palette.SUCCESS, SEG_TINY.x, SEG_TINY.y)
 		"bando_gingham":
-			# Kotak-kotak gingham di atas bando (GDD 3.5: Maya).
-			for i: int in 3:
-				var ang: float = deg_to_rad(-42.0 + 42.0 * float(i))
-				var square: MeshInstance3D = _box("GinghamSquare",
-					Vector3(0.042, 0.042, 0.026), Palette.GINGHAM_B)
-				square.position = Vector3(sin(ang) * 0.224, cos(ang) * 0.224, 0.0)
-				square.rotation_degrees = Vector3(0.0, 0.0, -rad_to_deg(ang))
-				head.add_child(square)
-		"pin_senyum":
-			var pin: MeshInstance3D = _cylinder("PinSenyum", 0.010, 0.024, 0.024,
-				Palette.BUTTER_YELLOW, SEG_CYL_LOW, true, true)
-			pin.position = Vector3(0.060, 0.255, FRONT * 0.145)
-			pin.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-			body.add_child(pin)
-		"pin_bintang":
-			var star: MeshInstance3D = _cylinder("PinBintang", 0.010, 0.028, 0.028,
-				Palette.GOLD_STAR, SEG_BLOB_RADIAL, true, true, 0.35, 0.6)
-			star.position = Vector3(-0.058, 0.250, FRONT * 0.145)
-			star.rotation_degrees = Vector3(90.0, 0.0, 18.0)
-			body.add_child(star)
-		"jam_vintage":
-			# Jam tangan era 2000-an di pergelangan kiri (GDD 3.5: Reza).
-			var strap: MeshInstance3D = _box("WatchStrap", Vector3(0.100, 0.026, 0.100),
-				Palette.DARK_CHOCOLATE)
-			strap.position = Vector3(0.0, -0.132, 0.0)
-			strap.scale = Vector3(1.0, 1.0, 1.0)
-			arm_l.add_child(strap)
-			var dial: MeshInstance3D = _box("WatchDial", Vector3(0.042, 0.030, 0.014),
-				Palette.CHALK_WHITE)
-			dial.position = Vector3(0.0, -0.132, FRONT * 0.046)
-			arm_l.add_child(dial)
-		"buku_saku":
-			# Buku catatan mini di saku celemek (GDD 3.5: Dewi).
-			var book: MeshInstance3D = _box("PocketBook", Vector3(0.062, 0.082, 0.014),
-				Palette.PARCHMENT)
-			book.position = Vector3(0.062, 0.135, FRONT * 0.150)
-			book.rotation_degrees = Vector3(0.0, 0.0, -8.0)
-			apron.add_child(book)
-		"dasi_kupu":
-			# Dasi kupu-kupu merah marun (GDD 3.5: Kenji).
-			for i: int in 2:
-				var dir2: float = -1.0
-				if i == 1:
-					dir2 = 1.0
-				var wing2: MeshInstance3D = _box("BowTieWing", Vector3(0.042, 0.034, 0.020),
-					Palette.APRON_MAROON)
-				wing2.position = Vector3(0.033 * dir2, 0.300, FRONT * 0.120)
-				wing2.rotation_degrees = Vector3(0.0, 0.0, 22.0 * dir2)
-				body.add_child(wing2)
-			var knot2: MeshInstance3D = _box("BowTieKnot", Vector3(0.020, 0.024, 0.022),
-				_shift(Palette.APRON_MAROON, -0.10))
-			knot2.position = Vector3(0.0, 0.300, FRONT * 0.126)
-			body.add_child(knot2)
+			var at2: Vector3 = hc + _shell_at_y(hair_r, -58.0, 0.150).origin
+			var checks := func(u: Vector3) -> Color:
+				return Palette.GINGHAM_A if int(floorf((u.x + 1.0) * 3.0) + floorf((u.y + 1.0) * 3.0)) % 2 == 0 else Palette.GINGHAM_B
+			var gb: Basis = _basis_facing(at2 - hc)
+			for side3: float in [-1.0, 1.0]:
+				var wing := gb * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(22.0 * side3))
+				head.ellipsoid(Transform3D(wing, at2 + gb.x * (0.030 * side3)), Vector3(0.032, 0.022, 0.013), Palette.GINGHAM_A, 6, 3, checks)
+			head.ellipsoid(Transform3D(gb, at2 + gb.z * 0.004), Vector3(0.012, 0.014, 0.014), Palette.GINGHAM_A.darkened(0.12), SEG_TINY.x, SEG_TINY.y)
 		"anting_mutiara":
-			for i: int in 2:
-				var dir3: float = -1.0
-				if i == 1:
-					dir3 = 1.0
-				var pearl: MeshInstance3D = _sphere("Pearl", 0.022, Palette.FLOUR_WHITE,
-					SEG_TINY_RADIAL, SEG_TINY_RINGS, 0.25, 0.25)
-				pearl.position = Vector3(0.208 * dir3, -0.055, 0.010)
-				head.add_child(pearl)
-		"kalung_mutiara":
-			var necklace: MeshInstance3D = _torus("Necklace", 0.088, 0.106,
-				Palette.FLOUR_WHITE, SEG_CYL_LOW, SEG_TORUS_SEGMENTS, 0.25, 0.25)
-			necklace.position = Vector3(0.0, 0.292, 0.0)
-			body.add_child(necklace)
+			for side4: float in [-1.0, 1.0]:
+				head.ellipsoid(Transform3D(Basis(), hc + Vector3(side4 * (radii.x + 0.004), EAR_Y - 0.048, 0.016)), Vector3.ONE * 0.015,
+					Palette.FLOUR_WHITE, SEG_TINY.x + 1, SEG_TINY.y + 1)
 		"kumis":
-			# Kumis tipis retro (GDD 3.5: Tejo, Aris) & kumis ramah Pak Lurah.
-			for i: int in 2:
-				var dir4: float = -1.0
-				if i == 1:
-					dir4 = 1.0
-				var whisker: MeshInstance3D = _box("Moustache", Vector3(0.042, 0.015, 0.014),
-					HAIR_BLACK)
-				whisker.position = Vector3(0.024 * dir4, -0.030, FRONT * 0.203)
-				whisker.rotation_degrees = Vector3(0.0, 0.0, 10.0 * dir4)
-				face.add_child(whisker)
+			var stache: Color = _shift(s["hair"] as Color, -0.12)
+			for side5: float in [-1.0, 1.0]:
+				var m: Transform3D = _hc(_head_surface(radii, 0.022 * side5, (NOSE_Y + MOUTH_Y) * 0.5 - 0.002, 0.004))
+				head.ellipsoid(Transform3D(m.basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(14.0 * side5)), m.origin),
+					Vector3(0.026, 0.011, 0.009), stache, SEG_TINY.x + 1, SEG_TINY.y)
 		"pena_telinga":
-			var pen: MeshInstance3D = _cylinder("EarPen", 0.075, 0.009, 0.009,
-				Palette.PASTEL_PERIWINKLE, SEG_BLOB_RADIAL, true, true)
-			pen.position = Vector3(0.190, 0.010, 0.025)
-			pen.rotation_degrees = Vector3(18.0, 0.0, -24.0)
-			head.add_child(pen)
-		"sarung_tangan":
-			_add_mittens(arm_l, arm_r, Palette.VANILLA_CREAM, 0.9)
-		"sarung_tangan_satin":
-			_add_mittens(arm_l, arm_r, Palette.FLOUR_WHITE, 0.25)
-		"handuk_pundak":
-			# Handuk kecil tersampir di pundak (GDD 3.5: Doni).
-			var towel: MeshInstance3D = _box("Towel", Vector3(0.105, 0.022, 0.150),
-				Palette.PASTEL_MINT)
-			towel.position = Vector3(-0.115, 0.292, 0.0)
-			towel.rotation_degrees = Vector3(0.0, 0.0, 16.0)
-			body.add_child(towel)
+			var pen := hc + Vector3(radii.x + 0.012, EAR_Y + 0.036, 0.004)
+			head.capsule(pen + Vector3(0.0, -0.004, FRONT * 0.040), pen + Vector3(0.004, 0.006, -FRONT * 0.044), 0.0075, 0.0065, Palette.PASTEL_PERIWINKLE, 5, 1)
 		"tusuk_konde":
-			# Tusuk konde kayu menembus sanggul (GDD 3.5: Tari).
-			var stick: MeshInstance3D = _cylinder("HairPin", 0.150, 0.008, 0.008,
-				Palette.PINE_WOOD, SEG_TINY_RADIAL, true, true)
-			stick.position = Vector3(0.0, 0.135, 0.185)
-			stick.rotation_degrees = Vector3(0.0, 0.0, 90.0)
-			head.add_child(stick)
-		"syal_merah":
-			# Syal leher merah (GDD 3.5: Sophie).
-			var scarf: MeshInstance3D = _torus("Scarf", 0.102, 0.140, Palette.DANGER,
-				SEG_CYL_LOW, SEG_TORUS_SEGMENTS)
-			scarf.position = Vector3(0.0, 0.295, 0.0)
-			body.add_child(scarf)
-		"pisau_kayu":
-			# Pisau roti bergagang kayu di kantong celemek (GDD 3.5: Danu).
-			var knife: MeshInstance3D = _box("BreadKnife", Vector3(0.016, 0.115, 0.032),
-				Palette.PINE_WOOD)
-			knife.position = Vector3(-0.062, 0.150, FRONT * 0.150)
-			knife.rotation_degrees = Vector3(0.0, 0.0, 7.0)
-			apron.add_child(knife)
-		"medali":
-			# Medali kuliner (GDD 3.5: Pierre).
-			var ribbon: MeshInstance3D = _box("MedalRibbon", Vector3(0.026, 0.070, 0.012),
-				Palette.DANGER)
-			ribbon.position = Vector3(0.0, 0.292, FRONT * 0.128)
-			body.add_child(ribbon)
-			var medal: MeshInstance3D = _cylinder("Medal", 0.012, 0.032, 0.032,
-				Palette.GOLD_STAR, SEG_CYL_LOW, true, true, 0.3, 0.7)
-			medal.position = Vector3(0.0, 0.245, FRONT * 0.134)
-			medal.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-			body.add_child(medal)
-		"gelang_karet":
-			# Gelang karet oranye sporty (GDD 3.5: Rian).
-			var band2: MeshInstance3D = _torus("RubberBand", 0.044, 0.058,
-				Palette.WARMER_LAMP, SEG_CYL_LOW, SEG_TORUS_SEGMENTS)
-			band2.position = Vector3(0.0, -0.140, 0.0)
-			arm_r.add_child(band2)
+			var bun: Vector3 = hc + _bun_offset()
+			head.capsule(bun + Vector3(-0.100, 0.024, 0.0), bun + Vector3(0.100, -0.010, 0.0), 0.006, 0.006, Palette.PINE_WOOD, 5, 1)
+			head.ellipsoid(Transform3D(Basis(), bun + Vector3(0.104, -0.010, 0.0)), Vector3.ONE * 0.012, Palette.ROSY_CHEEK, SEG_TINY.x, SEG_TINY.y)
 		"kerah_kemeja":
-			for i: int in 2:
-				var dir5: float = -1.0
-				if i == 1:
-					dir5 = 1.0
-				var collar: MeshInstance3D = _box("Collar", Vector3(0.062, 0.048, 0.022),
-					Palette.FLOUR_WHITE)
-				collar.position = Vector3(0.052 * dir5, 0.288, FRONT * 0.105)
-				collar.rotation_degrees = Vector3(0.0, 0.0, 26.0 * dir5)
-				body.add_child(collar)
-		"dasi_kerja":
-			var tie: MeshInstance3D = _box("NeckTie", Vector3(0.032, 0.130, 0.016),
-				Palette.APRON_NAVY)
-			tie.position = Vector3(0.0, 0.215, FRONT * 0.128)
-			body.add_child(tie)
-		"dasi_merah":
-			var tie2: MeshInstance3D = _box("SchoolTie", Vector3(0.030, 0.095, 0.016),
-				Palette.DANGER)
-			tie2.position = Vector3(0.0, 0.230, FRONT * 0.126)
-			body.add_child(tie2)
+			for side6: float in [-1.0, 1.0]:
+				var col_xf: Transform3D = _torso_surface(0.244, deg_to_rad(24.0 * side6), chubby, 0.004)
+				var flap := col_xf.basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(38.0 * side6))
+				body.ellipsoid(Transform3D(flap, col_xf.origin), Vector3(0.030, 0.018, 0.006), Palette.FLOUR_WHITE, SEG_SMALL.x, 2)
+		"dasi_kerja", "dasi_merah":
+			var tie_col: Color = Palette.APRON_NAVY if id == "dasi_kerja" else Palette.DANGER
+			body.ellipsoid(_torso_surface(0.236, 0.0, chubby, 0.004), Vector3(0.013, 0.011, 0.008), tie_col.darkened(0.12), SEG_TINY.x + 1, SEG_TINY.y)
+			var y_end: float = 0.150 if id == "dasi_kerja" else 0.182
+			var top: Vector3 = _torso_surface(0.228, 0.0, chubby, 0.005).origin
+			var bottom: Vector3 = _torso_surface(y_end, 0.0, chubby, 0.005).origin
+			var yd: Vector3 = (top - bottom).normalized()
+			var xd: Vector3 = yd.cross(Vector3(0.0, 0.0, FRONT)).normalized()
+			var zd: Vector3 = xd.cross(yd).normalized()
+			body.ellipsoid(Transform3D(Basis(xd, yd, zd), (top + bottom) * 0.5), Vector3(0.016, (top - bottom).length() * 0.5 + 0.006, 0.005),
+				tie_col, SEG_SMALL.x, SEG_SMALL.y)
+		"dasi_kupu":
+			var bt: Transform3D = _torso_surface(0.238, 0.0, chubby, 0.008)
+			_bow(body, bt.origin, Palette.APRON_MAROON, 0.85, bt.basis.z)
+		"pin_senyum":
+			var pin: Transform3D = _torso_surface(0.190, deg_to_rad(20.0), chubby, chest_push)
+			body.polygon(pin, _circle(0.016, 10), Palette.BUTTER_YELLOW)
+			body.polygon(Transform3D(pin.basis, pin.origin + pin.basis.z * 0.001), _arc_points(0.009, 7), Palette.DARK_CHOCOLATE)
+		"pin_bintang":
+			body.polygon(_torso_surface(0.190, deg_to_rad(-20.0), chubby, chest_push), _star(0.020, 0.009), Palette.GOLD_STAR)
+		"medali":
+			var rib_top: Transform3D = _torso_surface(0.212, 0.0, chubby, chest_push)
+			var disc: Transform3D = _torso_surface(0.168, 0.0, chubby, chest_push + 0.004)
+			body.box(Transform3D(rib_top.basis, (rib_top.origin + disc.origin) * 0.5), Vector3(0.020, 0.046, 0.003), Palette.DANGER)
+			body.cylinder(Transform3D(disc.basis * Basis(Vector3.RIGHT, PI * 0.5), disc.origin), 0.007, 0.024, 0.024, Palette.GOLD_STAR, 10)
+		"kalung_mutiara":
+			var pearls := func(phi: float) -> Color:
+				return Palette.FLOUR_WHITE if int(round(phi / (TAU / 16.0))) % 2 == 0 else Palette.VANILLA_CREAM
+			var ky: float = 0.246
+			body.torus(Transform3D(Basis(), Vector3(0.0, ky, 0.0)), _torso_r(ky, chubby) + 0.004, 0.008, Palette.FLOUR_WHITE, 16, 3,
+				0.0, TAU, pearls)
+		"syal_merah":
+			var sy: float = 0.250
+			body.torus(Transform3D(Basis(), Vector3(0.0, sy, 0.0)), _torso_r(sy, chubby) - 0.004, 0.022, Palette.DANGER, 10, 4)
+			var tail: Transform3D = _torso_surface(0.190, deg_to_rad(22.0), chubby, 0.012)
+			body.ellipsoid(Transform3D(tail.basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(8.0)), tail.origin), Vector3(0.026, 0.056, 0.010),
+				Palette.DANGER.darkened(0.06), SEG_SMALL.x, SEG_SMALL.y)
+		"handuk_pundak":
+			var sh: Transform3D = _torso_surface(0.225, deg_to_rad(-90.0), chubby, 0.004)
+			body.ellipsoid(Transform3D(sh.basis, sh.origin), Vector3(0.100, 0.052, 0.014), Palette.PASTEL_MINT, SEG_SMALL.x + 1, SEG_SMALL.y)
+		"buku_saku":
+			var pocket: float = _torso_r(Y_BELT_TOP, chubby) + 0.020
+			var ba: float = deg_to_rad(-22.0)
+			var bn := Vector3(sin(ba), 0.0, -cos(ba))
+			apron.box(Transform3D(_basis_facing(bn) * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(-8.0)), Vector3(bn.x * pocket, 0.048, bn.z * pocket)),
+				Vector3(0.044, 0.056, 0.010), Palette.PASTEL_PERIWINKLE)
+		"pisau_kayu":
+			var kr: float = _torso_r(Y_BELT_TOP, chubby) + 0.020
+			var ka: float = deg_to_rad(24.0)
+			var kn := Vector3(sin(ka), 0.0, -cos(ka))
+			var kp := Vector3(kn.x * kr, 0.040, kn.z * kr)
+			apron.capsule(kp + Vector3(0.0, -0.030, 0.0), kp + Vector3(0.004, 0.030, 0.0), 0.0085, 0.0085, Palette.PINE_WOOD, 5, 1)
+			apron.ellipsoid(Transform3D(_basis_facing(kn), kp + Vector3(0.006, 0.070, 0.0)), Vector3(0.016, 0.034, 0.004), Palette.PINE_WOOD.lightened(0.18), SEG_SMALL.x, SEG_SMALL.y)
+		"jam_vintage":
+			var wy: float = -ARM_LENGTH * 0.78
+			arm_l.torus(Transform3D(Basis(), Vector3(0.0, wy, 0.0)), ARM_RADIUS * 0.90, 0.008, Palette.DARK_CHOCOLATE, 10, 3)
+			arm_l.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.0, wy, FRONT * (ARM_RADIUS * 0.90 + 0.004))), 0.006, 0.016, 0.016, Palette.CHALK_WHITE, 8)
+		"gelang_karet":
+			arm_r.torus(Transform3D(Basis(), Vector3(0.0, -ARM_LENGTH * 0.80, 0.0)), ARM_RADIUS * 0.88, 0.009, Palette.WARMER_LAMP, 10, 3)
 		"ponsel":
-			# Ponsel berisi nomor pesanan digital (GDD 3.6.A.3).
-			var phone: MeshInstance3D = _box("Phone", Vector3(0.046, 0.076, 0.012), DARK_GLASS)
-			phone.position = Vector3(0.0, -0.170, FRONT * 0.030)
-			phone.rotation_degrees = Vector3(28.0, 0.0, 0.0)
-			arm_r.add_child(phone)
+			arm_r.box(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(28.0)), Vector3(0.0, -ARM_LENGTH - 0.040, FRONT * 0.034)), Vector3(0.044, 0.070, 0.010), DARK_GLASS)
 		"jas_hujan":
-			# Jas hujan kuning menggemaskan (GDD 10.2) menutup badan + tudung di kepala.
-			var poncho: MeshInstance3D = _cylinder("Raincoat", 0.300, 0.105, 0.215,
-				Palette.RAINCOAT_YELLOW, SEG_CAP_RADIAL, false, false, 0.6)
-			poncho.position = Vector3(0.0, 0.150, 0.0)
-			body.add_child(poncho)
-			var hood: MeshInstance3D = _hemisphere("RaincoatHood", 0.268,
-				Palette.RAINCOAT_YELLOW, SEG_CAP_RADIAL, SEG_TINY_RINGS, 0.6)
-			hood.position = Vector3(0.0, -0.075, 0.030)
-			hood.scale = Vector3(1.0, 1.12, 1.05)
-			head.add_child(hood)
+			var fat := PackedVector2Array()
+			for pt: Vector2 in [Vector2(0.150, -0.074), Vector2(0.192, -0.068), Vector2(0.188, 0.010), Vector2(0.168, 0.120),
+					Vector2(0.132, 0.205), Vector2(0.088, 0.250), Vector2(0.054, 0.272)]:
+				fat.append(Vector2(pt.x * _belly(pt.y, chubby), pt.y))
+			var coat := func(y: float, _p: float) -> Color:
+				return Palette.RAINCOAT_YELLOW.lightened(0.14) if y < -0.06 else Palette.RAINCOAT_YELLOW
+			body.lathe(Transform3D(), fat, Palette.RAINCOAT_YELLOW, SEG_TORSO + 2, coat)
+			if s["hat"] == "none":
+				var hood: Vector3 = hair_r + Vector3(0.050, 0.046, 0.050)
+				var hshade := func(u: Vector3) -> Color:
+					return Palette.RAINCOAT_YELLOW.lightened(0.10 * clampf(u.y, 0.0, 1.0))
+				var hfront: float = rad_to_deg(acos((BANG_BOTTOM + 0.030) / hood.y))
+				head.ellipsoid(Transform3D(Basis(), hc + Vector3(0.0, 0.006, 0.006)), hood, Palette.RAINCOAT_YELLOW, SEG_HAIR.x, 6,
+					hshade, _hairline(hfront, 118.0, 130.0))
 		_:
-			# Aksesori tak dikenal: diabaikan dengan aman.
 			pass
 
 
-## Kacamata bulat: dua bingkai torus tegak + jembatan hidung.
-static func _add_glasses(face: Node3D, color: Color, metal: float) -> void:
-	for i: int in 2:
-		var dir: float = -1.0
-		if i == 1:
-			dir = 1.0
-		var rim: MeshInstance3D = _torus("Rim", 0.030, 0.048, color,
-			SEG_TORUS_RINGS, SEG_TORUS_SEGMENTS, 0.4, metal)
-		rim.position = Vector3(EYE_X * dir, EYE_Y, FRONT * (EYE_Z - 0.004))
-		rim.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-		face.add_child(rim)
-	var bridge: MeshInstance3D = _box("GlassBridge", Vector3(0.048, 0.010, 0.010),
-		color, 0.4, metal)
-	bridge.position = Vector3(0.0, EYE_Y, FRONT * (EYE_Z + 0.006))
-	face.add_child(bridge)
+## Kacamata bulat: dua bingkai + jembatan hidung, di depan mata.
+static func _glasses(head: MeshBuilder, radii: Vector3, color: Color) -> void:
+	var rim_r: float = EYE_RADII.y + 0.004
+	var rims: Array[Transform3D] = []
+	for side: float in [-1.0, 1.0]:
+		var e: Transform3D = _hc(_head_surface(radii, EYE_X * side, EYE_Y, 0.014))
+		head.torus(Transform3D(e.basis * Basis(Vector3.RIGHT, PI * 0.5), e.origin), rim_r, 0.0055, color, 9, 3)
+		rims.append(e)
+	var bridge: Vector3 = _hc(_head_surface(radii, 0.0, EYE_Y + 0.008, 0.014)).origin
+	for rim: Transform3D in rims:
+		var inner: Vector3 = rim.origin + (bridge - rim.origin).normalized() * rim_r
+		head.capsule(inner, bridge, 0.0045, 0.0045, color, 4, 1)
 
 
-## Sarung tangan empuk di kedua telapak.
-static func _add_mittens(arm_l: Node3D, arm_r: Node3D, color: Color, rough: float) -> void:
-	var arms: Array[Node3D] = [arm_l, arm_r]
-	for arm: Node3D in arms:
-		var mitten: MeshInstance3D = _sphere("Mitten", ARM_RADIUS * 1.45, color,
-			SEG_BLOB_RADIAL, SEG_TINY_RINGS, rough)
-		mitten.position = Vector3(0.0, -ARM_LENGTH + 0.008, 0.0)
-		arm.add_child(mitten)
+## Pita kupu-kupu: dua sayap bulat + simpul, menghadap `facing`.
+static func _bow(mb: MeshBuilder, center: Vector3, color: Color, size: float, facing: Vector3) -> void:
+	var b: Basis = _basis_facing(facing)
+	for side: float in [-1.0, 1.0]:
+		var wing := b * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(22.0 * side))
+		mb.ellipsoid(Transform3D(wing, center + b.x * (0.024 * side * size)), Vector3(0.026, 0.018, 0.011) * size, color, SEG_TINY.x + 1, SEG_TINY.y)
+	mb.ellipsoid(Transform3D(b, center + b.z * 0.004), Vector3(0.010, 0.012, 0.012) * size, color.darkened(0.12), SEG_TINY.x, SEG_TINY.y)
 
 
 # ===========================================================================
 # BARANG BAWAAN
 # ===========================================================================
 
-## Pasang satu barang bawaan. Nilai tak dikenal diabaikan dengan aman.
-static func _attach_prop(id: String, s: Dictionary, parts: Dictionary) -> void:
-	var root: Node3D = parts["root"]
-	var body: Node3D = parts["body"]
-	var arm_l: Node3D = parts["arm_l"]
-	var arm_r: Node3D = parts["arm_r"]
+static func _attach_prop(id: String, s: Dictionary, mb: Dictionary) -> void:
+	var body: MeshBuilder = mb["body"]
+	var arm_l: MeshBuilder = mb["arm_l"]
+	var arm_r: MeshBuilder = mb["arm_r"]
+	var extra: MeshBuilder = mb["extra"]
 	var cloth: Color = s["cloth"]
-
+	var chubby: float = s["chubby"]
+	var back_z: float = -FRONT * (_torso_r(0.14, chubby) + 0.058)
+	var front_z: float = FRONT * (_torso_r(0.14, chubby) + 0.090)
 	match id:
 		"kardus":
-			# Kardus paket bahan baku di depan dada kurir (GDD 5.2.3.C).
-			var box_pkg: MeshInstance3D = _box("PackageBox", Vector3(0.200, 0.150, 0.150),
-				Color(0.749, 0.580, 0.380))
-			box_pkg.position = Vector3(0.0, 0.330, -0.170)
-			root.add_child(box_pkg)
-			var tape: MeshInstance3D = _box("PackageTape", Vector3(0.204, 0.024, 0.154),
-				Palette.PASTEL_MINT)
-			tape.position = Vector3(0.0, 0.370, -0.170)
-			root.add_child(tape)
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.140, front_z)), Vector3(0.200, 0.150, 0.150), Color(0.749, 0.580, 0.380))
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.140, front_z)), Vector3(0.204, 0.026, 0.154), Palette.PASTEL_MINT)
 		"tas_belanja":
-			# Tas belanja besar Emak-Emak Arisan (The Bulk Buyer).
-			var bag: MeshInstance3D = _box("ShoppingBag", Vector3(0.165, 0.185, 0.095),
-				Palette.GINGHAM_A)
-			bag.position = Vector3(0.020, -0.290, 0.0)
-			arm_r.add_child(bag)
-			var handle: MeshInstance3D = _box("BagHandle", Vector3(0.105, 0.055, 0.016),
-				Palette.CARAMEL)
-			handle.position = Vector3(0.020, -0.200, 0.0)
-			arm_r.add_child(handle)
+			arm_r.box(Transform3D(Basis(), Vector3(0.020, -ARM_LENGTH - 0.140, 0.0)), Vector3(0.150, 0.160, 0.090), Palette.GINGHAM_A)
+			arm_r.box(Transform3D(Basis(), Vector3(0.020, -ARM_LENGTH - 0.140, 0.0)), Vector3(0.154, 0.030, 0.094), Palette.GINGHAM_B)
+			arm_r.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.020, -ARM_LENGTH - 0.060, 0.0)), 0.040, 0.007, Palette.CARAMEL, 10, 3,
+				deg_to_rad(-90.0), deg_to_rad(90.0))
 		"tas_sekolah":
-			var pack: MeshInstance3D = _box("SchoolBag", Vector3(0.170, 0.180, 0.090),
-				Palette.APRON_NAVY)
-			pack.position = Vector3(0.0, 0.195, 0.145)
-			body.add_child(pack)
-			var flap: MeshInstance3D = _box("SchoolBagFlap", Vector3(0.160, 0.055, 0.080),
-				_shift(Palette.APRON_NAVY, 0.12))
-			flap.position = Vector3(0.0, 0.265, 0.150)
-			body.add_child(flap)
+			var bag_c := Vector3(0.0, 0.150, back_z)
+			body.box(Transform3D(Basis(), bag_c), Vector3(0.170, 0.170, 0.090), Palette.APRON_NAVY)
+			body.ellipsoid(Transform3D(Basis(), bag_c + Vector3(0.0, -0.040, 0.046)), Vector3(0.070, 0.040, 0.020), _shift(Palette.APRON_NAVY, 0.18), SEG_SMALL.x, SEG_SMALL.y)
+			for side: float in [-1.0, 1.0]:
+				var top: Transform3D = _torso_surface(0.238, deg_to_rad(28.0 * side), chubby, 0.004)
+				var low: Transform3D = _torso_surface(0.120, deg_to_rad(34.0 * side), chubby, 0.004)
+				body.capsule(top.origin, low.origin, 0.010, 0.010, _shift(Palette.APRON_NAVY, 0.25), 5, 1)
 		"ransel_termal":
-			# Ransel termal kubus kurir RotiFood (GDD 3.6).
-			var box_bag: MeshInstance3D = _box("ThermalBox", Vector3(0.205, 0.215, 0.135),
-				_shift(cloth, -0.18))
-			box_bag.position = Vector3(0.0, 0.225, 0.165)
-			body.add_child(box_bag)
-			var logo: MeshInstance3D = _box("ThermalLogo", Vector3(0.100, 0.100, 0.014),
-				Palette.FLOUR_WHITE)
-			logo.position = Vector3(0.0, 0.228, 0.238)
-			body.add_child(logo)
-			for i: int in 2:
-				var dir: float = -1.0
-				if i == 1:
-					dir = 1.0
-				var strap: MeshInstance3D = _box("ThermalStrap", Vector3(0.028, 0.170, 0.020),
-					_shift(cloth, -0.32))
-				strap.position = Vector3(0.070 * dir, 0.245, FRONT * 0.115)
-				body.add_child(strap)
+			# Warna merek RotiFood tetap hijau, juga saat kurir berjas hujan.
+			var brand: Color = Palette.OJOL_GREEN
+			var box_c := Vector3(0.0, 0.160, back_z + 0.012)
+			body.box(Transform3D(Basis(), box_c), Vector3(0.205, 0.215, 0.135), _shift(brand, -0.12))
+			body.box(Transform3D(Basis(), box_c + Vector3(0.0, 0.020, 0.068)), Vector3(0.100, 0.070, 0.006), Palette.FLOUR_WHITE)
+			for side2: float in [-1.0, 1.0]:
+				var top2: Transform3D = _torso_surface(0.240, deg_to_rad(30.0 * side2), chubby, 0.004)
+				var low2: Transform3D = _torso_surface(0.110, deg_to_rad(36.0 * side2), chubby, 0.004)
+				body.capsule(top2.origin, low2.origin, 0.011, 0.011, _shift(brand, -0.35), 5, 1)
 		"mangkuk_adonan":
-			# Mangkuk adonan yang dipeluk di depan dada saat memindahkan adonan
-			# dari mixer ke oven. Ditempel ke BADAN, bukan ke satu lengan, supaya
-			# tetap terbaca "dijunjung dua tangan" saat karakter berjalan.
-			var bowl: MeshInstance3D = _sphere("DoughBowl", 0.092,
-				Color(0.807843, 0.831373, 0.850980), SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-			bowl.scale = Vector3(1.0, 0.62, 1.0)
-			bowl.position = Vector3(0.0, 0.105, FRONT * 0.165)
-			body.add_child(bowl)
-			var dough: MeshInstance3D = _sphere("DoughBall", 0.062, Palette.RAW_DOUGH,
-				SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-			dough.scale = Vector3(1.0, 0.72, 1.0)
-			dough.position = Vector3(0.0, 0.150, FRONT * 0.165)
-			body.add_child(dough)
+			body.ellipsoid(Transform3D(Basis(), Vector3(0.0, 0.105, front_z)), Vector3(0.092, 0.057, 0.092), Color(0.808, 0.831, 0.851), SEG_SMALL.x + 2, SEG_SMALL.y)
+			body.ellipsoid(Transform3D(Basis(), Vector3(0.0, 0.150, front_z)), Vector3(0.062, 0.045, 0.062), Palette.RAW_DOUGH, SEG_SMALL.x + 2, SEG_SMALL.y)
 		"loyang_roti":
-			# Loyang roti matang yang dibawa dari oven ke rak display.
-			var tray: MeshInstance3D = _box("BreadTray", Vector3(0.230, 0.022, 0.150),
-				Color(0.556863, 0.588235, 0.619608))
-			tray.position = Vector3(0.0, 0.120, FRONT * 0.170)
-			body.add_child(tray)
-			for i: int in 3:
-				var bun: MeshInstance3D = _sphere("TrayBun", 0.040, Palette.GOLDEN_CRUST,
-					SEG_BLOB_RADIAL, SEG_BLOB_RINGS)
-				bun.scale = Vector3(1.0, 0.70, 1.0)
-				bun.position = Vector3(-0.072 + float(i) * 0.072, 0.152, FRONT * 0.170)
-				body.add_child(bun)
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.120, front_z)), Vector3(0.230, 0.022, 0.150), EquipmentFactory.METAL_STEEL)
+			for k in 3:
+				body.ellipsoid(Transform3D(Basis(), Vector3(-0.072 + float(k) * 0.072, 0.150, front_z)), Vector3(0.040, 0.028, 0.040), Palette.GOLDEN_CRUST, SEG_SMALL.x, SEG_SMALL.y)
 		"kantong_kertas":
-			# Kantong kardus cokelat berpita yang sedang dibungkus di meja kasir
-			# (GDD 3.6.A "Procedural Paper Bag"). Ditempel ke BADAN, bukan ke
-			# satu lengan: kedua tangan yang sedang melipat tepinya bergerak
-			# berlawanan arah, dan kantong yang ikut salah satu lengan akan
-			# terlihat dikibas-kibaskan alih-alih dipegangi.
-			var sack: MeshInstance3D = _box("PaperBag", Vector3(0.150, 0.170, 0.105),
-				Palette.CARAMEL.lightened(0.28))
-			sack.position = Vector3(0.0, 0.130, FRONT * 0.175)
-			body.add_child(sack)
-			# Bibir kantong yang terlipat ke luar.
-			var lipat: MeshInstance3D = _box("PaperBagFold", Vector3(0.162, 0.034, 0.115),
-				Palette.CARAMEL.lightened(0.42))
-			lipat.position = Vector3(0.0, 0.222, FRONT * 0.175)
-			body.add_child(lipat)
-			# Pita manis melintang di badan kantong.
-			var pita: MeshInstance3D = _box("PaperBagRibbon", Vector3(0.158, 0.026, 0.113),
-				Palette.ROSY_CHEEK)
-			pita.position = Vector3(0.0, 0.150, FRONT * 0.176)
-			body.add_child(pita)
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.130, front_z)), Vector3(0.150, 0.170, 0.105), Palette.CARAMEL.lightened(0.28))
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.222, front_z)), Vector3(0.162, 0.034, 0.115), Palette.CARAMEL.lightened(0.42))
+			body.box(Transform3D(Basis(), Vector3(0.0, 0.150, front_z)), Vector3(0.158, 0.026, 0.113), Palette.ROSY_CHEEK)
 		"koper":
-			# Koper kecil (Pak Lurah GDD 3.0.A / tas kerja pekerja kantoran).
-			var case_mesh: MeshInstance3D = _box("Suitcase", Vector3(0.175, 0.130, 0.058),
-				Palette.CARAMEL)
-			case_mesh.position = Vector3(0.0, -0.255, 0.0)
-			arm_r.add_child(case_mesh)
-			var grip: MeshInstance3D = _box("SuitcaseGrip", Vector3(0.060, 0.032, 0.016),
-				Palette.DARK_CHOCOLATE)
-			grip.position = Vector3(0.0, -0.182, 0.0)
-			arm_r.add_child(grip)
+			arm_r.box(Transform3D(Basis(), Vector3(0.0, -ARM_LENGTH - 0.118, 0.0)), Vector3(0.170, 0.125, 0.056), Palette.CARAMEL)
+			arm_r.box(Transform3D(Basis(), Vector3(0.0, -ARM_LENGTH - 0.118, 0.0)), Vector3(0.174, 0.016, 0.060), Palette.CARAMEL.darkened(0.25))
+			arm_r.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.0, -ARM_LENGTH - 0.056, 0.0)), 0.024, 0.006, Palette.DARK_CHOCOLATE, 8, 3,
+				deg_to_rad(-90.0), deg_to_rad(90.0))
 		"amplop":
-			# Amplop berstempel resmi pemerintah daerah (GDD 3.0.A).
-			var env: MeshInstance3D = _box("Envelope", Vector3(0.125, 0.088, 0.010),
-				Palette.PARCHMENT)
-			env.position = Vector3(0.0, -0.195, FRONT * 0.048)
-			env.rotation_degrees = Vector3(62.0, 0.0, 0.0)
-			arm_l.add_child(env)
-			var stamp: MeshInstance3D = _box("EnvelopeStamp", Vector3(0.032, 0.032, 0.006),
-				Palette.DANGER)
-			stamp.position = Vector3(0.036, -0.186, FRONT * 0.070)
-			stamp.rotation_degrees = Vector3(62.0, 0.0, 0.0)
-			arm_l.add_child(stamp)
-		"kamera":
-			# Kamera kecil Food Vlogger yang selalu diacungkan.
-			var cam: MeshInstance3D = _box("Camera", Vector3(0.090, 0.062, 0.050),
-				DARK_GLASS)
-			cam.position = Vector3(0.115, 0.585, FRONT * 0.165)
-			root.add_child(cam)
-			var lens: MeshInstance3D = _cylinder("CameraLens", 0.034, 0.024, 0.024,
-				Palette.CHALKBOARD, SEG_CYL_LOW, true, true, 0.3, 0.4)
-			lens.position = Vector3(0.115, 0.585, FRONT * 0.205)
-			lens.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-			root.add_child(lens)
+			var env := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(62.0)), Vector3(0.0, -ARM_LENGTH - 0.046, FRONT * 0.050))
+			arm_l.box(env, Vector3(0.120, 0.084, 0.008), Palette.PARCHMENT)
+			arm_l.box(Transform3D(env.basis, env.origin + env.basis * Vector3(0.032, 0.012, -0.006)), Vector3(0.030, 0.030, 0.004), Palette.DANGER)
 		"tas_tangan":
-			var clutch: MeshInstance3D = _box("Handbag", Vector3(0.105, 0.082, 0.048),
-				Palette.APRON_MAROON)
-			clutch.position = Vector3(0.0, -0.250, 0.0)
-			arm_l.add_child(clutch)
-			var chain2: MeshInstance3D = _box("HandbagChain", Vector3(0.062, 0.042, 0.012),
-				Palette.GOLD_STAR, 0.35, 0.6)
-			chain2.position = Vector3(0.0, -0.196, 0.0)
-			arm_l.add_child(chain2)
+			arm_l.box(Transform3D(Basis(), Vector3(0.0, -ARM_LENGTH - 0.096, 0.0)), Vector3(0.100, 0.076, 0.046), Palette.APRON_MAROON)
+			arm_l.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.0, -ARM_LENGTH - 0.056, 0.0)), 0.030, 0.005, Palette.GOLD_STAR, 8, 3,
+				deg_to_rad(-90.0), deg_to_rad(90.0))
+		"kamera":
+			# Dipegang tangan kanan yang terangkat; lensa searah lengan (ke depan).
+			var cam := Vector3(0.0, -ARM_LENGTH - 0.064, 0.0)
+			arm_r.box(Transform3D(Basis(), cam), Vector3(0.090, 0.050, 0.062), DARK_GLASS)
+			arm_r.cylinder(Transform3D(Basis(), cam + Vector3(0.0, -0.036, 0.0)), 0.026, 0.023, 0.025, Palette.CHALKBOARD, 10)
+			arm_r.box(Transform3D(Basis(), cam + Vector3(-0.026, 0.0, -0.036)), Vector3(0.020, 0.014, 0.012), Palette.DANGER)
 		"tanda_tanya":
-			# Tanda tanya melayang untuk pelanggan "Si Galau" (The Indecisive).
-			var mark: Node3D = Node3D.new()
-			mark.name = "QuestionMark"
-			mark.position = Vector3(0.155, 1.010, 0.0)
-			mark.rotation_degrees = Vector3(0.0, 0.0, 8.0)
-			root.add_child(mark)
-			var qc: Color = Palette.WARMER_LAMP
-			var bar_top: MeshInstance3D = _box("QTop", Vector3(0.070, 0.022, 0.022), qc)
-			bar_top.position = Vector3(0.0, 0.120, 0.0)
-			mark.add_child(bar_top)
-			var bar_side: MeshInstance3D = _box("QSide", Vector3(0.022, 0.048, 0.022), qc)
-			bar_side.position = Vector3(0.034, 0.096, 0.0)
-			mark.add_child(bar_side)
-			var bar_diag: MeshInstance3D = _box("QDiag", Vector3(0.022, 0.056, 0.022), qc)
-			bar_diag.position = Vector3(0.012, 0.055, 0.0)
-			bar_diag.rotation_degrees = Vector3(0.0, 0.0, 34.0)
-			mark.add_child(bar_diag)
-			var bar_stem: MeshInstance3D = _box("QStem", Vector3(0.022, 0.030, 0.022), qc)
-			bar_stem.position = Vector3(0.0, 0.022, 0.0)
-			mark.add_child(bar_stem)
-			var dot: MeshInstance3D = _box("QDot", Vector3(0.024, 0.024, 0.024), qc)
-			dot.position = Vector3(0.0, -0.022, 0.0)
-			mark.add_child(dot)
+			# Tanda tanya empuk melayang (Si Galau): busur + batang + titik.
+			var q := Vector3(0.155, 1.010, 0.0)
+			extra.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), q + Vector3(0.0, 0.080, 0.0)), 0.036, 0.013, Palette.WARMER_LAMP, 10, 4,
+				deg_to_rad(-120.0), deg_to_rad(150.0))
+			extra.capsule(q + Vector3(0.0, 0.044, 0.0), q + Vector3(0.0, 0.018, 0.0), 0.013, 0.013, Palette.WARMER_LAMP, 6, 1)
+			extra.ellipsoid(Transform3D(Basis(), q + Vector3(0.0, -0.020, 0.0)), Vector3.ONE * 0.016, Palette.WARMER_LAMP, SEG_SMALL.x, SEG_SMALL.y)
 		_:
-			# Barang bawaan tak dikenal: diabaikan dengan aman.
 			pass
 
 
 # ===========================================================================
-# PEMBANTU MESH PRIMITIF (jumlah segmen SELALU eksplisit)
+# PEMBANTU GEOMETRI
 # ===========================================================================
 
-## Material standar: warna solid + roughness saja (GDD 12.2, renderer Compatibility).
-static func _material(color: Color, rough: float = 0.9, metal: float = 0.0) -> StandardMaterial3D:
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = clampf(rough, 0.0, 1.0)
-	mat.metallic = clampf(metal, 0.0, 1.0)
-	return mat
+static func _pivot(parent: Node3D, pivot_name: String, pos: Vector3) -> Node3D:
+	var n := Node3D.new()
+	n.name = pivot_name
+	n.position = pos
+	parent.add_child(n)
+	return n
 
 
-## Bungkus sebuah PrimitiveMesh menjadi MeshInstance3D bermaterial.
-static func _instance(node_name: String, mesh: Mesh, color: Color,
-		rough: float, metal: float) -> MeshInstance3D:
-	var mi: MeshInstance3D = MeshInstance3D.new()
-	mi.name = node_name
-	mi.mesh = mesh
-	mi.material_override = _material(color, rough, metal)
-	# Tanpa bayangan real-time demi performa Android entry-level (GDD 12.2).
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return mi
+static func _circle(r: float, segs: int) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	for k in segs:
+		var a: float = TAU * float(k) / float(segs)
+		p.append(Vector2(cos(a), sin(a)) * r)
+	return p
 
 
-static func _sphere(node_name: String, radius: float, color: Color, radial: int, rings: int,
-		rough: float = 0.9, metal: float = 0.0) -> MeshInstance3D:
-	var mesh: SphereMesh = SphereMesh.new()
-	mesh.radius = radius
-	mesh.height = radius * 2.0
-	mesh.radial_segments = maxi(3, radial)
-	mesh.rings = maxi(1, rings)
-	return _instance(node_name, mesh, color, rough, metal)
+## Busur senyum kecil (setengah lingkaran bawah) untuk lencana.
+static func _arc_points(r: float, segs: int) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	for k in segs:
+		var a: float = PI + PI * float(k) / float(segs - 1)
+		p.append(Vector2(cos(a) * r, sin(a) * r * 0.8))
+	return p
 
 
-static func _hemisphere(node_name: String, radius: float, color: Color, radial: int, rings: int,
-		rough: float = 0.9) -> MeshInstance3D:
-	var mesh: SphereMesh = SphereMesh.new()
-	mesh.radius = radius
-	mesh.height = radius
-	mesh.is_hemisphere = true
-	mesh.radial_segments = maxi(3, radial)
-	mesh.rings = maxi(1, rings)
-	return _instance(node_name, mesh, color, rough, 0.0)
+static func _star(outer: float, inner: float) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	for k in 10:
+		var a: float = PI * 0.5 + TAU * float(k) / 10.0
+		p.append(Vector2(cos(a), sin(a)) * (outer if k % 2 == 0 else inner))
+	return p
 
 
-static func _capsule(node_name: String, height: float, radius: float, color: Color,
-		radial: int, rings: int) -> MeshInstance3D:
-	var mesh: CapsuleMesh = CapsuleMesh.new()
-	mesh.radius = radius
-	mesh.height = maxf(height, radius * 2.0 + 0.001)
-	mesh.radial_segments = maxi(3, radial)
-	mesh.rings = maxi(1, rings)
-	return _instance(node_name, mesh, color, 0.9, 0.0)
-
-
-static func _box(node_name: String, size: Vector3, color: Color,
-		rough: float = 0.9, metal: float = 0.0) -> MeshInstance3D:
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	return _instance(node_name, mesh, color, rough, metal)
-
-
-static func _cylinder(node_name: String, height: float, top_r: float, bottom_r: float,
-		color: Color, radial: int, cap_top: bool = true, cap_bottom: bool = true,
-		rough: float = 0.9, metal: float = 0.0) -> MeshInstance3D:
-	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.height = height
-	mesh.top_radius = top_r
-	mesh.bottom_radius = bottom_r
-	mesh.radial_segments = maxi(3, radial)
-	mesh.rings = 1
-	mesh.cap_top = cap_top
-	mesh.cap_bottom = cap_bottom
-	return _instance(node_name, mesh, color, rough, metal)
-
-
-static func _torus(node_name: String, inner: float, outer: float, color: Color,
-		rings: int, ring_segments: int, rough: float = 0.9,
-		metal: float = 0.0) -> MeshInstance3D:
-	var mesh: TorusMesh = TorusMesh.new()
-	mesh.inner_radius = inner
-	mesh.outer_radius = outer
-	mesh.rings = maxi(3, rings)
-	mesh.ring_segments = maxi(3, ring_segments)
-	return _instance(node_name, mesh, color, rough, metal)
-
-
-## Basis dengan sumbu -Z/+Z lokal mengarah ke `normal` (dipakai menempelkan pipi
-## agar rata mengikuti lengkung kepala).
+## Basis dengan sumbu Z lokal = `normal` dan Y lokal mengarah ke atas.
 static func _basis_facing(normal: Vector3) -> Basis:
 	var z_axis: Vector3 = normal.normalized()
 	var up: Vector3 = Vector3.UP
@@ -1575,7 +1685,7 @@ static func _basis_facing(normal: Vector3) -> Basis:
 
 
 # ===========================================================================
-# PEMBANTU DATA & UTILITAS
+# DATA & UTILITAS
 # ===========================================================================
 
 ## Lengkapi spec dengan seluruh nilai bawaan sehingga build() tidak pernah gagal.
@@ -1586,9 +1696,20 @@ static func _normalize(spec: Dictionary) -> Dictionary:
 	out["tier"] = clampi(int(spec.get("tier", 1)), 1, 5)
 	out["skin"] = _as_color(spec.get("skin"), SKIN_MID)
 	out["hair"] = _as_color(spec.get("hair"), HAIR_BLACK)
-	out["hair_style"] = str(spec.get("hair_style", "pendek"))
+	var style: String = str(spec.get("hair_style", "pendek"))
+	out["hair_style"] = style if HAIR_STYLES.has(style) else "pendek"
 	out["hat"] = str(spec.get("hat", "none"))
 	out["cloth"] = _as_color(spec.get("cloth"), Palette.FLOUR_WHITE)
+	out["pants"] = _as_color(spec.get("pants"), PANTS_COFFEE)
+	out["shoes"] = _as_color(spec.get("shoes"), SHOE_BROWN)
+	var legwear: String = str(spec.get("legwear", "pants"))
+	out["legwear"] = legwear if legwear in ["pants", "skin", "shorts"] else "pants"
+	var sleeve: String = str(spec.get("sleeve", "short"))
+	out["sleeve"] = sleeve if sleeve in ["short", "long"] else "short"
+	var skirt: Variant = spec.get("skirt")
+	out["skirt"] = skirt if skirt is Color else null
+	out["lashes"] = bool(spec.get("lashes", false))
+	out["dots"] = bool(spec.get("dots", false))
 	out["chubby"] = clampf(float(spec.get("chubby", 0.0)), 0.0, 1.0)
 	out["rainy"] = bool(spec.get("rainy", false))
 	out["mood"] = str(spec.get("mood", "netral"))
@@ -1598,17 +1719,21 @@ static func _normalize(spec: Dictionary) -> Dictionary:
 	out["accessory"] = _as_names(spec.get("accessory"))
 	out["prop"] = _as_names(spec.get("prop"))
 	out["archetype"] = str(spec.get("archetype", ""))
-
-	# Celemek bersifat opsional: hanya Color yang dianggap sah.
 	var apron: Variant = spec.get("apron")
-	if apron is Color:
-		out["apron"] = apron
-	else:
-		out["apron"] = null
+	out["apron"] = apron if apron is Color else null
 	return out
 
 
-## Ambil Color dari nilai Variant apa pun, dengan cadangan bila tipenya salah.
+## Petunjuk visual (bukan data gameplay) untuk bulu mata lentik staf.
+static func _soft_features(hair_style: String, hat: String, accessories: PackedStringArray) -> bool:
+	if hair_style in LASH_STYLES or hat in LASH_HATS:
+		return true
+	for a: String in accessories:
+		if a in LASH_ACCESSORIES:
+			return true
+	return false
+
+
 static func _as_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		var c: Color = value
@@ -1618,15 +1743,13 @@ static func _as_color(value: Variant, fallback: Color) -> Color:
 	return fallback
 
 
-## Ubah Array / PackedStringArray / String menjadi PackedStringArray yang rapi.
 static func _as_names(value: Variant) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
 		var packed: PackedStringArray = value
 		return packed.duplicate()
 	if value is Array:
-		var arr: Array = value
-		for item: Variant in arr:
+		for item: Variant in value:
 			out.append(str(item))
 		return out
 	if value is String:
@@ -1634,7 +1757,6 @@ static func _as_names(value: Variant) -> PackedStringArray:
 	return out
 
 
-## Pembungkus ringkas untuk membuat PackedStringArray dari literal Array.
 static func _pack(names: Array) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	for n: Variant in names:
@@ -1642,8 +1764,8 @@ static func _pack(names: Array) -> PackedStringArray:
 	return out
 
 
-## Generator acak lokal yang deterministik per pelanggan + seed (bukan stream gameplay),
-## supaya pelanggan dengan seed sama selalu tampil persis sama.
+## Generator acak lokal yang deterministik per pelanggan + seed (bukan stream
+## gameplay), supaya pelanggan dengan seed sama selalu tampil persis sama.
 static func _seeded_rng(customer_id: String, seed_i: int) -> RandomNumberGenerator:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = hash(customer_id) * 1000003 + seed_i
@@ -1668,71 +1790,56 @@ static func _skin_tones() -> Array[Color]:
 
 
 static func _hair_tones() -> Array[Color]:
-	var list: Array[Color] = [HAIR_BLACK, HAIR_BROWN, HAIR_LIGHT_BROWN, HAIR_BLONDE,
-		HAIR_PASTEL, HAIR_GREY]
+	var list: Array[Color] = [HAIR_BLACK, HAIR_BROWN, HAIR_LIGHT_BROWN, HAIR_BLONDE, HAIR_PASTEL, HAIR_GREY]
 	return list
 
 
 ## Warna baju pelanggan umum: pastel manis GDD 4.1.
 static func _cloth_tones() -> Array[Color]:
-	var list: Array[Color] = [
-		Palette.PASTEL_STRAWBERRY,
-		Palette.PASTEL_PERIWINKLE,
-		Palette.PASTEL_MINT,
-		Palette.BUTTER_YELLOW,
-		Palette.VANILLA_CREAM,
-		Palette.CUSTARD,
-	]
+	var list: Array[Color] = [Palette.PASTEL_STRAWBERRY, Palette.PASTEL_PERIWINKLE, Palette.PASTEL_MINT,
+		Palette.BUTTER_YELLOW, Palette.VANILLA_CREAM, Palette.CUSTARD]
 	return list
 
 
-## Warna kemeja kerja.
-static func _office_tones() -> Array[Color]:
+## Celana hangat: denim pastel, khaki, cokelat susu, abu lembut, navy.
+static func _pants_tones() -> Array[Color]:
 	var list: Array[Color] = [
-		Palette.FLOUR_WHITE,
-		Palette.PASTEL_PERIWINKLE,
-		Color(0.784, 0.851, 0.902),  # biru kemeja pudar #C8D9E6
-	]
-	return list
-
-
-## Warna daster/blus bermotif bunga untuk emak-emak arisan.
-static func _floral_tones() -> Array[Color]:
-	var list: Array[Color] = [
-		Palette.GINGHAM_A,
-		Palette.MOOD_BG_ROUGH,
-		Palette.MOOD_BG_BAILOUT,
-		Palette.CUSTARD,
-	]
-	return list
-
-
-## Warna busana elegan sosialita.
-static func _elegant_tones() -> Array[Color]:
-	var list: Array[Color] = [
+		Color(0.451, 0.537, 0.702),  # denim pastel #7389B3
+		Color(0.769, 0.651, 0.478),  # khaki #C4A67A
+		PANTS_COFFEE,
+		Color(0.463, 0.443, 0.494),  # abu lembut #76717E
 		Palette.APRON_NAVY,
-		Palette.APRON_MAROON,
-		Palette.APRON_GOLD,
-		Color(0.286, 0.243, 0.325),  # ungu tua elegan #493E53
 	]
 	return list
 
 
-## Warna baju cerah food vlogger.
+static func _shoe_tones() -> Array[Color]:
+	var list: Array[Color] = [SHOE_BROWN, HAIR_BLACK, Palette.FLOUR_WHITE, Palette.APRON_MAROON, Palette.CARAMEL]
+	return list
+
+
+static func _office_tones() -> Array[Color]:
+	var list: Array[Color] = [Palette.FLOUR_WHITE, Palette.PASTEL_PERIWINKLE, Color(0.784, 0.851, 0.902)]
+	return list
+
+
+static func _floral_tones() -> Array[Color]:
+	var list: Array[Color] = [Palette.GINGHAM_A, Palette.MOOD_BG_ROUGH, Palette.MOOD_BG_BAILOUT, Palette.CUSTARD]
+	return list
+
+
+static func _elegant_tones() -> Array[Color]:
+	var list: Array[Color] = [Palette.APRON_NAVY, Palette.APRON_MAROON, Palette.APRON_GOLD, Color(0.286, 0.243, 0.325)]
+	return list
+
+
 static func _vivid_tones() -> Array[Color]:
-	var list: Array[Color] = [
-		Palette.WARMER_LAMP,
-		Palette.SUCCESS,
-		Palette.DANGER,
-		Palette.GOLD_STAR,
-	]
+	var list: Array[Color] = [Palette.WARMER_LAMP, Palette.SUCCESS, Palette.DANGER, Palette.GOLD_STAR]
 	return list
 
 
-## Daftar gaya rambut yang boleh diundi untuk pelanggan.
 static func _hair_styles() -> PackedStringArray:
-	return _pack(["pendek", "belah_samping", "bob", "sanggul", "ikal", "cepak",
-		"kuncir_ganda", "panjang_kepang", "spike"])
+	return _pack(["pendek", "belah_samping", "bob", "sanggul", "ikal", "cepak", "kuncir_ganda", "panjang_kepang", "spike"])
 
 
 ## Geser kecerahan warna: `amount` positif menerangkan, negatif menggelapkan.
@@ -1742,25 +1849,25 @@ static func _shift(color: Color, amount: float) -> Color:
 	return color.lerp(Color(0.0, 0.0, 0.0), clampf(-amount, 0.0, 1.0))
 
 
-## Simpan transform dasar sebagai metadata agar animasi & ekspresi bisa kembali ke pose awal.
+## Simpan transform dasar sebagai metadata agar animasi & ekspresi bisa kembali
+## ke pose awal.
 static func _remember(node: Node3D) -> void:
 	node.set_meta("base_position", node.position)
 	node.set_meta("base_rotation", node.rotation)
 	node.set_meta("base_scale", node.scale)
+	node.set_meta("base_basis", node.basis)
 
 
-## Terapkan pengali skala + geseran posisi terhadap transform dasar sebuah bagian wajah.
+## Terapkan pengali skala + geseran posisi terhadap transform dasar bagian wajah.
 static func _apply_part(node: Node3D, scale_mul: Vector3, offset: Vector3) -> void:
 	if node == null:
 		return
 	var base_scale: Vector3 = node.get_meta("base_scale", Vector3.ONE)
 	var base_pos: Vector3 = node.get_meta("base_position", node.position)
-	node.scale = Vector3(base_scale.x * scale_mul.x, base_scale.y * scale_mul.y,
-		base_scale.z * scale_mul.z)
+	node.scale = Vector3(base_scale.x * scale_mul.x, base_scale.y * scale_mul.y, base_scale.z * scale_mul.z)
 	node.position = base_pos + offset
 
 
-## Ambil anak langsung bertipe Node3D berdasarkan nama.
 static func _child3d(parent: Node3D, child_name: String) -> Node3D:
 	if parent == null:
 		return null
@@ -1770,8 +1877,7 @@ static func _child3d(parent: Node3D, child_name: String) -> Node3D:
 	return null
 
 
-## Jadikan root sebagai owner seluruh keturunan, supaya find_child() bawaan Godot
-## (yang secara bawaan hanya mencari node ber-owner) tetap menemukan Head, Hat, dsb.
+## Jadikan root owner seluruh keturunan, supaya find_child() menemukan Head, Hat, dsb.
 static func _assign_owner(root: Node, node: Node) -> void:
 	for child: Node in node.get_children():
 		child.owner = root

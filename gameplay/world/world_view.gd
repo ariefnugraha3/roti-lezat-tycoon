@@ -11,6 +11,12 @@ const MARKER_HZ: float = 12.0
 const BREAD_HZ: float = 4.0
 const MAX_BREAD_PER_SLOT: int = 3
 const PICK_CUSTOMER_PX: float = 56.0
+## Jarak ujung ekor gelembung pikiran di atas puncak kepala/topi pemain (m).
+const THOUGHT_ANCHOR_GAP: float = 0.08
+## Roti yang tampak masuk ke kantong di meja kasir saat membungkus.
+const PACK_BREAD_MAX: int = 3
+## Geser kantong sepanjang meja agar tidak tertutup mesin kasir (m).
+const PACK_BAG_SIDE: float = 0.19
 
 var sim: SimulationRoot = null
 var camera_rig: CameraRig = null
@@ -38,6 +44,12 @@ var _smoke: Dictionary = {}
 var decoration_mode: bool = false
 ## Decoration Mode boleh melihat lantai lain selama simulasi di-pause.
 var view_floor_override: StringName = &""
+## lane_id -> kantong kertas yang sedang diisi di meja kasir (GDD 21.4).
+var _pack_bags: Dictionary = {}
+var _thought_layer: CanvasLayer = null
+var _thought_bubble: ThoughtBubble = null
+## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
+var _quiet_real: float = 0.0
 
 
 func setup(s: SimulationRoot) -> void:
@@ -57,6 +69,12 @@ func setup(s: SimulationRoot) -> void:
 	_tile_overlay = Node3D.new()
 	_tile_overlay.name = "TileOverlay"
 	add_child(_tile_overlay)
+	_thought_layer = CanvasLayer.new()
+	_thought_layer.name = "ThoughtLayer"
+	_thought_layer.layer = 3
+	add_child(_thought_layer)
+	_thought_bubble = ThoughtBubble.new()
+	_thought_layer.add_child(_thought_bubble)
 	sim.world.layout_changed.connect(rebuild_furniture)
 	EventBus.location_changed.connect(func(_id: StringName) -> void: rebuild_all())
 	EventBus.storage_door.connect(_on_storage_door)
@@ -73,6 +91,8 @@ func rebuild_all() -> void:
 	for f: Variant in floors.values():
 		(f as Node3D).queue_free()
 	floors.clear()
+	# Kantong di meja ikut lantai lamanya; dibuat ulang saat membungkus berikutnya.
+	_pack_bags.clear()
 	_counter_aabbs.clear()
 	var skins: Dictionary = sim.decoration.equipped.duplicate()
 	for fd: FloorDefinition in sim.world.location.floors:
@@ -194,6 +214,7 @@ func _process(delta: float) -> void:
 	else:
 		camera_rig.follow(camera_rig.follow_target, delta)
 	_sync_actors(delta)
+	_update_thoughts(delta)
 	_marker_timer -= delta
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ
@@ -211,15 +232,27 @@ func _v3(p: Vector2) -> Vector3:
 
 func _sync_actors(delta: float) -> void:
 	var live: Dictionary = {}
+	var packers: Dictionary = _update_packing()
 	var player: SimActor = sim.player.actor
 	var pkey: String = "player|%s|%s" % [sim.player.appearance.get("gender", "male"), sim.decoration.equipped.get("outfit", "")]
-	_sync_one(player, pkey, _player_spec, delta, live, false)
 	var pv: ActorView = views.get(player.id)
+	if pv != null:
+		# Aksi & status sibuk diatur sebelum sync supaya animasinya frame ini juga.
+		pv.set_idle_enabled(true)
+		pv.set_busy(_player_busy())
+		pv.set_action(&"pack" if packers.has(player.id) else &"")
+	_sync_one(player, pkey, _player_spec, delta, live, false)
+	pv = views.get(player.id)
 	if pv != null:
 		var pj: ProductionJob = sim.player.carried_job()
 		_apply_carry(pv, player, pj)
 	for sid: Variant in sim.staff.actors.keys():
 		var a: SimActor = sim.staff.actors[sid]
+		var sv0: ActorView = views.get(a.id)
+		if sv0 != null:
+			sv0.set_idle_enabled(true)
+			sv0.set_busy(_staff_busy(StringName(str(sid)), a))
+			sv0.set_action(&"pack" if packers.has(a.id) else &"")
 		_sync_one(a, "staff|" + String(sid), _staff_spec.bind(String(sid)), delta, live, false)
 		var sv: ActorView = views.get(a.id)
 		if sv != null:
@@ -232,7 +265,7 @@ func _sync_actors(delta: float) -> void:
 		var v: ActorView = views.get(a2.id)
 		if v == null:
 			continue
-		v.set_carry("bag" if c.held_units() > 0 else "")
+		_apply_customer_carry(v, c)
 		var show_bar: bool = c.state != Customer.CELEBRATING and c.state != Customer.LEAVING and c.state != Customer.LEAVE_NO_STOCK
 		v.set_patience(c.patience_ratio(), show_bar, large)
 		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
@@ -319,6 +352,153 @@ func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:
 		return
 	var t: String = str(a.carried.get("type", ""))
 	v.set_carry(t, String(j.recipe().visual_profile_id), j.bake_quality)
+
+
+## Pembeli menenteng roti lepas dari rak ke kasir; saat fase membungkus roti itu
+## sudah di meja; setelah membayar ia pulang membawa kantong kertas (GDD 2, 21.4).
+## LEAVING hanya dicapai lewat CELEBRATING, yaitu setelah membayar.
+func _apply_customer_carry(v: ActorView, c: Customer) -> void:
+	if c.state == Customer.CELEBRATING or c.state == Customer.LEAVING:
+		v.set_carry("bag")
+		return
+	if c.held_units() <= 0 or (c.state == Customer.BEING_SERVED and sim.cashier.packing_progress(c.lane_id) >= 0.0):
+		v.set_carry("")
+		return
+	var lot: Dictionary = c.held[0]
+	var st: BreadStack = lot["stack"]
+	var r: RecipeDefinition = DataRegistry.recipe(st.recipe_id)
+	v.set_carry("bread", String(r.visual_profile_id) if r != null else "", st.bake_quality, mini(c.held_units(), PACK_BREAD_MAX))
+
+
+## Pemain sedang mengerjakan sesuatu: berjalan, berinteraksi, membawa barang,
+## punya perintah antre, atau melayani transaksi di meja kasir.
+func _player_busy() -> bool:
+	var p: PlayerTaskManager = sim.player
+	if not p.actor.carried.is_empty() or not p.commands.is_empty() or not p.current.is_empty():
+		return true
+	if p.actor.state == &"WALKING" or p.actor.state == &"INTERACTING":
+		return true
+	return p.manning_lane != &"" and not sim.cashier.transaction_for(p.manning_lane).is_empty()
+
+
+func _staff_busy(sid: StringName, a: SimActor) -> bool:
+	if not a.carried.is_empty() or a.state == &"WALKING" or a.state == &"INTERACTING" or sim.staff.tasks.has(sid):
+		return true
+	var lane_id: Variant = sim.staff.lane_assign.get(sid)
+	return lane_id != null and not sim.cashier.transaction_for(StringName(str(lane_id))).is_empty()
+
+
+## Kantong kertas di meja kasir selama fase membungkus (GDD 21.4): kantong
+## membesar, roti pembeli jatuh masuk satu per satu, lalu mulut kantong dilipat.
+## Mengembalikan {actor_id: true} untuk kasir (pemain/staf) yang sedang membungkus.
+func _update_packing() -> Dictionary:
+	var packers: Dictionary = {}
+	var seen: Dictionary = {}
+	for lane: QueueLane in sim.queue.lanes:
+		var prog: float = sim.cashier.packing_progress(lane.id)
+		if prog < 0.0:
+			continue
+		var td: Dictionary = sim.cashier.transaction_for(lane.id)
+		if bool(td.get("manual", false)):
+			packers[sim.player.actor.id] = true
+		else:
+			for sid: Variant in sim.staff.lane_assign.keys():
+				if StringName(str(sim.staff.lane_assign[sid])) == lane.id and sim.staff.actors.has(sid):
+					packers[(sim.staff.actors[sid] as SimActor).id] = true
+		if lane.floor_id != camera_rig.active_floor or not floors.has(lane.floor_id):
+			continue
+		seen[lane.id] = true
+		var bag: Node3D = _pack_bags.get(lane.id)
+		if bag == null or not is_instance_valid(bag):
+			bag = _build_pack_bag(lane)
+			(floors[lane.floor_id] as Node3D).add_child(bag)
+			_pack_bags[lane.id] = bag
+		_animate_pack_bag(bag, prog)
+	for k: Variant in _pack_bags.keys():
+		if not seen.has(k):
+			var old: Node3D = _pack_bags[k]
+			if is_instance_valid(old):
+				old.queue_free()
+			_pack_bags.erase(k)
+	return packers
+
+
+func _build_pack_bag(lane: QueueLane) -> Node3D:
+	var root := Node3D.new()
+	root.name = "PackBag_%s" % lane.id
+	# Mesin kasir berdiri tepat di tengah meja lane; kantong di sampingnya,
+	# sedikit ke arah pembeli.
+	var sp: Vector2 = GridMath.cell_center(lane.service_point)
+	var cp: Vector2 = GridMath.cell_center(lane.cashier_point)
+	var to_customer: Vector2 = (sp - cp).normalized()
+	var along := Vector2(to_customer.y, -to_customer.x)
+	var pos: Vector2 = (sp + cp) * 0.5 + along * PACK_BAG_SIDE + to_customer * 0.04
+	root.position = Vector3(pos.x, EquipmentFactory.COUNTER_HEIGHT, pos.y)
+	var bag: Node3D = BreadFactory.build_paper_bag()
+	bag.name = "Bag"
+	root.add_child(bag)
+	var profile: String = ""
+	var count: int = 1
+	var c: Customer = sim.customers.customer(lane.service_occupant)
+	if c != null and not c.held.is_empty():
+		var st: BreadStack = (c.held[0] as Dictionary)["stack"]
+		var r: RecipeDefinition = DataRegistry.recipe(st.recipe_id)
+		profile = String(r.visual_profile_id) if r != null else ""
+		count = clampi(c.held_units(), 1, PACK_BREAD_MAX)
+	for i in count:
+		var b: Node3D = BreadFactory.build_cached(profile, 1.0, &"FRESH")
+		b.name = "Bread%d" % i
+		b.scale = Vector3(0.45, 0.45, 0.45)
+		b.visible = false
+		root.add_child(b)
+	root.set_meta("breads", count)
+	return root
+
+
+func _animate_pack_bag(root: Node3D, prog: float) -> void:
+	var bag: Node3D = root.get_node_or_null("Bag")
+	if bag != null:
+		var grow: float = lerpf(0.55, 0.78, smoothstep(0.0, 0.2, prog))
+		# Mulut kantong dilipat di akhir fase.
+		var fold: float = 1.0 - 0.14 * sin(PI * clampf((prog - 0.82) / 0.18, 0.0, 1.0))
+		bag.scale = Vector3(grow, grow * fold, grow)
+	var n: int = int(root.get_meta("breads", 0))
+	for i in n:
+		var b: Node3D = root.get_node_or_null("Bread%d" % i)
+		if b == null:
+			continue
+		var t0: float = 0.12 + (0.62 / float(maxi(n, 1))) * float(i)
+		var k: float = clampf((prog - t0) / 0.14, 0.0, 1.0)
+		b.visible = prog >= t0 - 0.06 and k < 1.0
+		b.position = Vector3(0.0, lerpf(0.26, 0.06, k * k), 0.0)
+
+
+## Gelembung pikiran pemain saat toko buka tanpa satu pun pelanggan (GDD 31.7):
+## tidak ada pembeli di toko dan tidak ada pesanan RotiFood aktif. Waktunya detik
+## nyata, berhenti saat pause, dan langsung hilang begitu ada pelanggan.
+func _update_thoughts(delta: float) -> void:
+	if _thought_bubble == null:
+		return
+	var quiet: bool = sim.time.is_open() and sim.customers.customers.is_empty() and sim.rotifood.active_orders().is_empty()
+	if not quiet:
+		_quiet_real = 0.0
+	elif not PauseManager.is_paused():
+		_quiet_real += delta
+	var key: String = ThoughtBubble.key_for(_quiet_real) if quiet else ""
+	var pv: ActorView = views.get(sim.player.actor.id)
+	if key == "" or pv == null or not pv.visible or decoration_mode:
+		_thought_bubble.hide_bubble()
+		return
+	_thought_bubble.show_key(key)
+	_thought_bubble.point_at(camera_rig.world_to_screen(pv.global_position + Vector3(0.0, pv.head_top() + THOUGHT_ANCHOR_GAP, 0.0)))
+
+
+func quiet_seconds() -> float:
+	return _quiet_real
+
+
+func thought_bubble() -> ThoughtBubble:
+	return _thought_bubble
 
 
 func _update_markers() -> void:

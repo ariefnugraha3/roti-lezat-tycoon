@@ -40,7 +40,7 @@ Siklus permainan utama terbagi dalam tiga tahap operasional harian:
 Pemain tidak menekan tombol di menu untuk berproduksi—ia menggerakkan **karakternya** langsung di dalam toko. Seluruh produksi berjalan sebagai rantai ketukan, **satu ketukan per perabot**:
 
 1. **Ketuk Gudang Penyimpanan** → karakter berjalan ke sana, pintu kulkas dan lemarinya berayun terbuka, lalu **Buku Resep** muncul.
-2. **Pilih resep dan jumlah batch** (x1 / x3 / x5; bahan seperti telur dan tepung otomatis dikalikan) → daftar dan pintu gudang tertutup, bahan terpotong dari stok, lalu **gelembung tanda seru "!"** muncul mengambang di atas **Mixer** yang harus dihampiri.
+2. **Pilih resep dan jumlah batch** (x1 / x3 / x5; bahan seperti telur dan tepung serta hasil roti otomatis dikalikan, tetapi durasi mixer dan oven hanya bertambah **20% untuk x3** dan **40% untuk x5**, Seksi 18.9) → daftar dan pintu gudang tertutup, bahan terpotong dari stok, lalu **gelembung tanda seru "!"** muncul mengambang di atas **Mixer** yang harus dihampiri.
 3. **Ketuk Mixer** → karakter berjalan ke sana dan mulai mengaduk. Sebuah **bar progres tanpa angka dan tanpa hitung mundur** mengambang di atas alat yang sedang bekerja—pemain hanya perlu tahu "masih jalan" atau "sudah penuh".
 4. **Adukan selesai** → tanda "!" **tetap di Mixer**: adonannya masih terkunci di dalam alat. **Ketuk Mixer lagi** → karakter mengambil mangkuk adonan, bawaannya terlihat di tangannya, dan barulah tanda "!" berpindah ke **Oven**.
 5. **Ketuk Oven** → karakter mengantarkan adonan yang sedang ia bawa ke oven dan mulai memanggang.
@@ -90,8 +90,8 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Di atas kepala setiap pelanggan juga selalu terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual.
 5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
 6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
-7. **Tekan OK** → karakter membungkus belanjaan ke dalam kantong kertas (animasi membungkus, lama sesuai kecepatan layan kasir).
-8. **Pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang.
+7. **Tekan OK** → karakter melayani sesuai kecepatan layan kasir. Setiap transaksi berlangsung **minimal 3 detik**, dan **3 detik terakhirnya selalu animasi membungkus**: pembeli menyerahkan rotinya, kantong kertas muncul di meja di samping mesin kasir, roti masuk satu per satu, lalu mulut kantong dilipat (Seksi 21.4).
+8. **Pesanan siap, pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang **sambil menenteng kantong kertas berisi rotinya**.
 
 *Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
 
@@ -185,6 +185,8 @@ Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara o
 | **Tier 3: Kasir Terampil** | **800 KR** | **3.5 detik** / pelanggan | Menurunkan tingkat stres antrean pelanggan sebesar -15%. | Tier 3: Bakery Mandiri |
 | **Tier 4: Kasir Profesional** | **1.800 KR** | **2.2 detik** / pelanggan | Mampu memproses tipe pelanggan "Si Galau" 2x lebih cepat. | Tier 4: Flagship Store |
 | **Tier 5: Kasir Superstar** | **4.000 KR** | **1.2 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
+
+*Catatan Packing:* setiap transaksi berlangsung minimal 3 detik karena 3 detik terakhirnya selalu fase membungkus (Seksi 21.4). Karena itu waktu transaksi efektif Kasir Tier 4 dan Tier 5 sama-sama **3,0 detik**; keunggulan mereka tetap ada pada kemampuan khusus dan jalur paralel.
 
 *Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
 
@@ -1482,29 +1484,30 @@ Untuk MVP satu alat memproses satu job pada satu waktu, walaupun narasi alat sep
 
 ## **18.5 Progress Timing**
 
-**CANONICAL:** durasi tiap tahap = waktu dasar resep (Seksi 61.5) × rasio waktu referensi alat (Seksi 5.1) × batch multiplier ÷ kecepatan kerja staf.
+**CANONICAL:** durasi tiap tahap = waktu dasar resep (Seksi 61.5) × rasio waktu referensi alat (Seksi 5.1) × faktor durasi batch ÷ kecepatan kerja staf.
 
 ```text
 mixer_stage_seconds = max(1.0,
     (mix_seconds_base + optional_prep_seconds)
   × mixer_reference_seconds[active_mixer_tier] / mixer_reference_seconds[required_mixer_tier]
-  × batch_multiplier / staff_work_speed)
+  × batch_duration_factor[batch_multiplier] / staff_work_speed)
 
 oven_stage_seconds = max(1.0,
     bake_seconds_base
   × oven_reference_seconds[active_oven_tier] / oven_reference_seconds[required_oven_tier]
-  × batch_multiplier / staff_work_speed)
+  × batch_duration_factor[batch_multiplier] / staff_work_speed)
 ```
 
 - `mixer_reference_seconds` / `oven_reference_seconds` = waktu proses per tier pada Seksi 5.1.
 - Alat dengan tier di bawah `required_mixer_tier` / `required_oven_tier` tidak dapat menerima job resep tersebut (Seksi 61.1).
 - `batch_multiplier` = 1 / 3 / 5 (Seksi 18.9).
+- `batch_duration_factor` = **1.0 untuk x1, 1.2 untuk x3, 1.4 untuk x5** (TUNABLE, `balance.json` `production.batch_duration_factor`): batch x3 hanya menambah 20% dan x5 hanya 40% dari durasi dasar, walau bahan dan hasilnya berlipat 3 dan 5 (Seksi 18.9).
 - `staff_work_speed` = `work_speed_multiplier` Asisten Dapur yang memulai tahap itu (Seksi 3.2). Tahap yang dimulai karakter pemain memakai `1.0`. Nilainya dikunci saat tahap dimulai.
 - Setiap modifier diterapkan tepat satu kali. Durasi akhir tidak pernah kurang dari 1.0 simulation-second.
 - `optional_prep_seconds` dijalankan di Mixer sebagai bagian akhir tahap `MIXING` (shaping, filling, laminasi, fermentasi). Mixer tetap occupied, dan satu progress bar mencakup mix + prep. Tidak ada stage atau station prep terpisah.
 - `recipe_total_time` = mix + prep + bake pada tier minimum. Nilai ini ringkasan desain untuk balancing/UI, **bukan timer kedua**.
 
-Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 14 s + 21 s. Di Mixer T3 + Oven T3 menjadi `14 × 10/20 = 7 s` dan `21 × 15/30 = 10.5 s`. Croissant Klasik di Mixer T3 = `22.5 + 18.75 = 41.25 s`; bila dimulai Asisten Dapur 1.60×, menjadi ±25.8 s.
+Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 14 s + 21 s. Di Mixer T3 + Oven T3 menjadi `14 × 10/20 = 7 s` dan `21 × 15/30 = 10.5 s`. Croissant Klasik di Mixer T3 = `22.5 + 18.75 = 41.25 s`; bila dimulai Asisten Dapur 1.60×, menjadi ±25.8 s. Roti Goreng Polos x5 di Mixer T1 + Oven T1 = `14 × 1.4 = 19.6 s` + `21 × 1.4 = 29.4 s` untuk lima kali lipat roti.
 
 ## **18.6 Completion Lock**
 
@@ -1541,8 +1544,9 @@ Tombol x1/x3/x5:
 
 - Mengalikan ingredients.
 - Mengalikan output.
+- Durasi hanya bertambah: x3 = 1.2× dan x5 = 1.4× durasi dasar (`batch_duration_factor`, Seksi 18.5).
 - Tidak otomatis mengalikan jumlah alat paralel.
-- **CANONICAL:** x3/x5 membuat satu production job besar; ingredient, yield, mixing duration, dan baking duration dikalikan linear oleh batch multiplier. Satu equipment memproses satu logical job pada satu waktu kecuali data equipment di revisi masa depan secara eksplisit memiliki `parallel_job_slots > 1`.
+- **CANONICAL:** x3/x5 membuat satu production job besar; ingredient dan yield dikalikan linear oleh batch multiplier, sedangkan mixing duration dan baking duration memakai `batch_duration_factor` (1.0 / 1.2 / 1.4). Biaya utilitas mengikuti durasi aktif alat yang lebih pendek ini (Seksi 86). Satu equipment memproses satu logical job pada satu waktu kecuali data equipment di revisi masa depan secara eksplisit memiliki `parallel_job_slots > 1`.
 
 ---
 
@@ -2025,10 +2029,19 @@ customer reaches front
  -> player walks to cashier anchor
  -> popup order shown
  -> player confirms OK
- -> packing animation
- -> payment
- -> customer leaves
+ -> serving (cashier service speed)
+ -> packing animation (always the last 3 s)
+ -> order ready, payment
+ -> customer leaves carrying the paper bag
 ```
+
+**CANONICAL — Packing Phase:**
+
+- `transaction_seconds = max(service_seconds × archetype_service_multiplier, packing_seconds)`, dengan `packing_seconds = 3.0` (TUNABLE, `balance.json` `cashier.packing_seconds`). `service_seconds` = kecepatan layan kasir (Seksi 3.1) atau waktu manual pemain (Seksi 3.0.C).
+- `packing_seconds` terakhir setiap transaksi adalah fase membungkus. Selama fase itu pembeli sudah menyerahkan rotinya (tangannya kosong), kantong kertas prosedural muncul di permukaan meja di samping mesin kasir, roti pembeli masuk satu per satu, lalu mulut kantong dilipat. Kasir (pemain atau Asisten Kasir) memainkan animasi membungkus dengan kedua tangan di atas meja. SFX `cashier_pack` berbunyi tepat saat fase ini dimulai.
+- Sebelum fase membungkus pembeli menenteng roti lepas yang ia ambil dari rak (langkah 3 Seksi 2). Setelah membayar ia pulang menenteng kantong kertas.
+- Fase membungkus adalah bagian dari waktu transaksi, bukan tambahan: pemain (10,5 s) dan Kasir Tier 1–3 tidak berubah; Kasir Tier 4 (2,2 s) dan Tier 5 (1,2 s) menjadi 3,0 s.
+- Durasi ini berjalan dalam simulation time seperti semua durasi lain (pada 2×/3× ikut lebih cepat) agar determinisme lintas kecepatan tetap terjaga (Seksi 71, 81.7).
 
 Jika player pergi saat transaction progress:
 
@@ -2042,10 +2055,11 @@ Jika player pergi saat transaction progress:
 - Tidak membutuhkan tap player.
 - Service dimulai otomatis saat customer berada di depan lane.
 - Popup order tidak menghalangi gameplay; detail transaksi dapat tampil sebagai compact bubble.
+- Fase membungkus 3 detik terakhir berlaku sama persis seperti alur manual (Seksi 21.4).
 
 ## **21.6 Payment Commit Point**
 
-Koin masuk hanya setelah packing selesai dan transaksi berhasil.
+Koin masuk hanya setelah packing selesai dan transaksi berhasil. Selama fase membungkus belum ada koin yang masuk.
 
 ## **21.7 Closing Time**
 
@@ -2781,6 +2795,37 @@ Gunakan seed dari customer instance untuk:
 - accessory.
 
 Hindari kombinasi warna yang mengurangi keterbacaan role khusus seperti driver ojol.
+
+## **31.6 Idle Gestures (Pemain & Staf)**
+
+Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak menganggur murni visual:
+
+| Lama menganggur (detik nyata) | Gerak |
+| :--- | :--- |
+| **15 detik** | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±2,4 detik) dengan wajah lega, lalu kain disimpan lagi. |
+| **25 detik** | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
+
+- **Tidak melakukan apa pun** = tidak berjalan, tidak berinteraksi dengan perabot, tidak membawa barang, tidak punya perintah dalam antrean, dan (untuk kasir atau pemain yang berjaga di meja) tidak sedang melayani transaksi. Berjaga di meja kasir tanpa pembeli termasuk menganggur. Asisten Dapur tanpa tugas termasuk menganggur.
+- Timer memakai **detik nyata** (tidak ikut 2×/3×), berhenti saat game di-pause, dan kembali ke nol begitu ada aktivitas; pose dan ekspresi langsung kembali normal.
+- Pelanggan, driver, dan kurir tidak memakai gerak menganggur.
+- Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation`.
+
+## **31.7 Player Thought Bubbles (Toko Sepi)**
+
+Selama **toko buka (08:00–18:00)** dan **sama sekali tidak ada pelanggan**, baik pembeli fisik di dalam toko maupun pesanan RotiFood yang masih aktif, gelembung pikiran muncul di atas kepala karakter pemain:
+
+| Lama toko sepi (detik nyata) | String ID (Seksi 127.12) |
+| :--- | :--- |
+| 10 detik | `thought_quiet_1` |
+| 20 detik | `thought_quiet_2` |
+| 30 detik | `thought_quiet_3` |
+| 40 detik | `thought_quiet_4` |
+
+- Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal.
+- Begitu ada satu pelanggan (pembeli masuk atau pesanan RotiFood aktif), gelembung **langsung hilang** dan hitungan kembali ke nol.
+- Timer memakai detik nyata, berhenti saat pause, dan tidak berjalan sebelum toko buka atau setelah toko tutup.
+- Gelembung digambar di ruang layar (panel krem bersudut membulat, teks Inggris dari katalog string, tiga lingkaran kecil menunjuk ke kepala), tidak menangkap ketukan, dan disembunyikan selama Decoration Mode atau bila pemain berada di lantai lain.
+- Murni presentasi: tidak memengaruhi simulasi, save, maupun rating.
 
 ---
 
@@ -4805,6 +4850,8 @@ estimated_wait(lane) =
   + walking_time_to_lane_tail
 ```
 
+`expected_service_time` memakai waktu transaksi efektif Seksi 21.4, termasuk batas minimum fase membungkus 3 detik.
+
 Tie-breaker berurutan:
 
 1. queue length lebih pendek;
@@ -5308,7 +5355,7 @@ Semua audio dibuat/di-generate sesuai kebijakan aset proyek. AI audio implemento
 | `customer_happy` | very short positive non-verbal chirp/chime |
 | `customer_impatient` | soft sigh/tap, rate-limited |
 | `customer_leave_angry` | disappointed sigh + descending woodblock, not comedic yelling |
-| `cashier_pack` | paper bag fold/rustle |
+| `cashier_pack` | paper bag fold/rustle, played once when a transaction enters its packing phase (Seksi 21.4) |
 | `cashier_coin` | 2–4 warm coin clinks, randomized |
 | `sale_success` | compact register click-ding + tiny sparkle |
 | `rotifood_incoming` | distinctive three-note digital-but-warm tablet chime |
@@ -6761,6 +6808,17 @@ Pemicu tiap tip dan highlight mengikuti Seksi 11.3–11.4. `tip_holiday_soon` mu
 | `decor_brass_bell` | `Brass Shop Bell` |
 | `decor_plaque_infinity` | `Infinity Plaque` |
 
+## **127.12 Player Thought Strings**
+
+Gelembung pikiran pemain saat toko sepi (Seksi 31.7), berurutan:
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `thought_quiet_1` | `Hmm... why hasn't anyone come in yet?` |
+| `thought_quiet_2` | `Where is everybody?` |
+| `thought_quiet_3` | `Is my shop really that unpopular? Maybe my bread isn't any good...` |
+| `thought_quiet_4` | `Maybe I should just take up catfish farming instead.` |
+
 ---
 
 # **128. REPRODUCIBLE TOOLCHAIN MANIFEST**
@@ -6860,7 +6918,7 @@ Character total world height: approximately **0.90 m** chibi scale.
 - Head: ~42% total character height.
 - Torso: ~30%.
 - Legs/feet: ~28%.
-- Eye line: ~65% of head height from chin.
+- Eye line: ~45% of head height from chin (chibi: large eyes sit just below the middle of the head).
 - Hands/feet use rounded primitives; no realistic fingers required.
 - Silhouette must remain readable at reference gameplay zoom.
 - Character collision/navigation occupancy uses canonical actor cell logic, not full visual mesh volume.

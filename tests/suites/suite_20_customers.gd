@@ -248,23 +248,23 @@ func _lane_choice() -> void:
 	var lanes: Array[QueueLane] = s.queue.lanes
 	var a: QueueLane = lanes[0]
 	var b: QueueLane = lanes[1]
-	# Kasir lambat (T1) di A, cepat (T5) di B.
+	# Kasir lambat (T1) di A, cepat (T5) di B. Transaksi T5 (1.2 s) dijepit ke
+	# fase membungkus minimal 3 s (GDD 21.4).
 	s.staff.lane_assign = {"staff_cashier_budi": a.id, "staff_cashier_grace": b.id}
 	eq(s.queue.open_physical_lanes().size(), 2, "both lanes open with a cashier each")
+	var pack: float = DataRegistry.packing_seconds()
 	s.queue.reserve(b, &"q1")
-	s.queue.reserve(b, &"q2")
 	var from: Vector2i = s.world.entrance_cell()
 	var wa: float = s.queue.estimated_wait(a, &"customer_generic", 0.0)
 	var wb: float = s.queue.estimated_wait(b, &"customer_generic", 0.0)
 	near(wa, 7.0, 0.001, "lane A estimate = own service 7 s")
-	near(wb, 3.0 * 1.2, 0.001, "lane B estimate = 2 queued + own at 1.2 s")
+	near(wb, 2.0 * maxf(1.2, pack), 0.001, "lane B estimate = 1 queued + own at the 3 s packing minimum")
 	var pick: QueueLane = s.queue.choose_physical_lane(&"customer_generic", from, 1.2)
 	var walk_a: float = GridMath.tiles_to_meters(float(GridMath.manhattan(from, a.slots[0]))) / 1.2
-	var walk_b: float = GridMath.tiles_to_meters(float(GridMath.manhattan(from, b.slots[2]))) / 1.2
+	var walk_b: float = GridMath.tiles_to_meters(float(GridMath.manhattan(from, b.slots[1]))) / 1.2
 	eq(pick.id, a.id if wa + walk_a < wb + walk_b else b.id, "lowest estimated total wait wins, not the shortest line")
 	# Seri: kasir sama, antrean kosong -> antrean pendek, jarak, lalu lane_id.
 	s.queue.release(&"q1")
-	s.queue.release(&"q2")
 	s.staff.lane_assign = {"staff_cashier_budi": a.id, "staff_cashier_sari": b.id}
 	var pick2: QueueLane = s.queue.choose_physical_lane(&"customer_generic", from, 1000000.0)
 	var da: int = GridMath.manhattan(from, a.slots[0])

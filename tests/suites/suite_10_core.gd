@@ -213,19 +213,24 @@ func _burn_thresholds() -> void:
 
 func _stage_durations() -> void:
 	var s: SimulationRoot = new_sim()
+	# Batch hanya memperpanjang durasi: x1 1.0, x3 1.2, x5 1.4 (GDD 18.5, 18.9).
+	var factor: Dictionary = {1: 1.0, 3: 1.2, 5: 1.4}
+	for b0: int in factor.keys():
+		near(DataRegistry.batch_duration_factor(b0), float(factor[b0]), 0.0001, "x%d duration factor" % b0)
 	for r: RecipeDefinition in DataRegistry.recipes():
 		for mt in range(r.required_mixer_tier, 6):
 			var active: EquipmentDefinition = DataRegistry.equipment_for(&"mixer", mt)
 			var req: EquipmentDefinition = DataRegistry.equipment_for(&"mixer", r.required_mixer_tier)
 			for batch: int in [1, 3, 5]:
 				for speed: float in [1.0, 1.25]:
-					var want: float = maxf(1.0, (r.mix_duration_seconds + r.prep_duration_seconds) * active.reference_seconds / req.reference_seconds * float(batch) / speed)
+					var want: float = maxf(1.0, (r.mix_duration_seconds + r.prep_duration_seconds) * active.reference_seconds / req.reference_seconds * float(factor[batch]) / speed)
 					near(s.production.mixer_stage_seconds(r, mt, batch, speed), want, 0.001, "%s mixer T%d x%d /%.2f" % [r.id, mt, batch, speed])
 		for ot in range(r.required_oven_tier, 6):
 			var a2: EquipmentDefinition = DataRegistry.equipment_for(&"oven", ot)
 			var q2: EquipmentDefinition = DataRegistry.equipment_for(&"oven", r.required_oven_tier)
-			var want2: float = maxf(1.0, r.bake_duration_seconds * a2.reference_seconds / q2.reference_seconds * 3.0)
-			near(s.production.oven_stage_seconds(r, ot, 3, 1.0), want2, 0.001, "%s oven T%d x3" % [r.id, ot])
+			for batch2: int in [3, 5]:
+				var want2: float = maxf(1.0, r.bake_duration_seconds * a2.reference_seconds / q2.reference_seconds * float(factor[batch2]))
+				near(s.production.oven_stage_seconds(r, ot, batch2, 1.0), want2, 0.001, "%s oven T%d x%d" % [r.id, ot, batch2])
 	# Prep dihitung di dalam MIXING: job nyata memakai durasi yang sama.
 	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, &"test")
 	s.production.start_mixing(j.job_id, &"test", 1.0)
