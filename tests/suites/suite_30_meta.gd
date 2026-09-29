@@ -18,7 +18,31 @@ func tests() -> Array:
 		{"id": "TEST_MULTIFLOOR_001", "name": "instant floor transition and inactive simulation", "fn": _multifloor},
 		{"id": "TEST_UPGRADE_001", "name": "location migration no-loss invariant", "fn": _upgrade},
 		{"id": "TEST_LIFECYCLE_001", "name": "app/browser focus-loss pause", "fn": _lifecycle},
+		{"id": "ACC_33_AUDIO_BUSES", "name": "33 audio buses follow Master in order and send to it; nothing calls AudioServer.add_bus (silences every sound on Web)", "fn": _audio_buses},
 	]
+
+
+## Bus audio (GDD 33, 35.2). Di Web (playback Sample, Godot 4.7.2) add_bus()
+## menyisipkan bus JavaScript di depan Master; set_bus_send lalu membuat lingkaran
+## yang dibungkam Web Audio, sehingga game sunyi total di browser. Bug itu tidak
+## terlihat di desktop, jadi pemakaiannya dijaga lewat pemindaian sumber.
+func _audio_buses() -> void:
+	eq(AudioServer.get_bus_index("Master"), 0, "Master is bus 0")
+	var first: int = AudioServer.get_bus_index(AudioManager.BUSES[0])
+	for i in AudioManager.BUSES.size():
+		var b: String = AudioManager.BUSES[i]
+		var idx: int = AudioServer.get_bus_index(b)
+		check(idx > 0, "%s bus exists after Master" % b)
+		eq(idx, first + i, "%s keeps its order" % b)
+		eq(String(AudioServer.get_bus_send(idx)), "Master", "%s sends to Master" % b)
+	var files: Array[String] = []
+	for root: String in ["res://autoload", "res://core", "res://gameplay", "res://ui", "res://scenes", "res://procedural", "res://audio", "res://tools"]:
+		StringLint.collect_gd(root, files)
+	var hits: Array[String] = []
+	for f: String in files:
+		if FileAccess.get_file_as_string(f).contains("AudioServer." + "add_bus("):
+			hits.append(f.get_file())
+	check(hits.is_empty(), "no script calls AudioServer.add_bus (use set_bus_count): %s" % ", ".join(hits))
 
 
 func _use_test_dir() -> void:

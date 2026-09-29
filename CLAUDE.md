@@ -96,6 +96,7 @@ The official 4.7.2 export templates were installed on 2026-09-29 (`%APPDATA%\God
 - The golden fixture changes whenever simulation or bot behaviour changes. Regenerate it on purpose with `-- --only=TEST_SAVE_001 --update-fixtures` and review the diff.
 - JSON numbers load as floats. `Array.has(3)` is false for `[3.0]`, so compare catalog arrays with `int()`. This exact bug once disabled the 2×/3× speed buttons.
 - Never call `sort()` on arrays of StringName IDs in simulation code; use `Ids.sort` (`core/ids.gd`). `Array.sort()` orders StringName by internal address, so the same seed played out differently between sessions (`ACC_116_ID_ORDER`).
+- Never call `AudioServer.add_bus()`; add buses with `AudioServer.set_bus_count()` (`AudioManager._ensure_buses`). On Web, Godot 4.7.2 plays audio in Sample mode, and there `add_bus()` inserts the JavaScript bus in front of Master. `set_bus_send` then routes Master back into the other buses, Web Audio silences the loop, and the whole game is mute in browsers while desktop sounds fine (`ACC_33_AUDIO_BUSES`).
 
 No linter or CI is configured.
 

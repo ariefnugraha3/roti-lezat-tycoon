@@ -12,7 +12,7 @@ and the tests that verify it (GDD 121 item 16).
   has not been done yet.
 - **Open**: the GDD leaves a question that needs a maintainer decision.
 
-Last full run (2026-09-29): 68 non-long tests passed, 0 failed (`--skip-long`). Soak results are
+Last full run (2026-09-29): 69 non-long tests passed, 0 failed (`--skip-long`). Soak results are
 listed under GDD 94.
 
 ## Core loop and time
@@ -128,7 +128,8 @@ listed under GDD 94.
 | 31.6 | Idle player/staff: face wipe with a cloth after 15 real seconds, dozing with floating "Z" after 25; real-time, paused with the game, reset by any activity, never for customers | `world/actor_view.gd`, `anim_system.gd` `wipe_face`/`doze`, `character_factory.gd` `wipe_cloth`/`sleep_z` | ACC_31_IDLE_GESTURES | Tested |
 | 31.7, 127.12 | Player thought bubbles at 10/20/30/40 real seconds while the open shop has no customers and no active RotiFood order; hidden at once when someone arrives; the player only falls asleep 5 s after the last thought (45 s of quiet) and never under a bubble | `world/world_view.gd` `_update_thoughts`, `ui/components/thought_bubble.gd` | ACC_31_THOUGHTS, ACC_31_DOZE_AFTER_THOUGHTS | Tested |
 | 32, 130 | Furniture visuals, rest of the golden visual spec | `procedural/meshes/*` | Manual screenshots at Tier 1/3/5 | Not verified against every GDD 130 detail |
-| 33, 76, 93 | Generated audio events, mixing priorities | `audio/audio_generator.gd`, `autoload/audio_manager.gd` | none | Implemented (not listened to) |
+| 33, 76, 93 | Generated audio events, mixing priorities | `audio/audio_generator.gd`, `autoload/audio_manager.gd` | none | Implemented (not listened to by a person) |
+| 33, 35.2 | Music/SFX/UI/Ambient buses sit after Master in order and send to it. They are created with `set_bus_count`, because on Web (Sample playback, Godot 4.7.2) `AudioServer.add_bus()` inserts the JavaScript bus in front of Master; `set_bus_send` then loops Master back into the other buses, and Web Audio silences the loop, so the whole game was mute in browsers (found 2026-09-29) | `autoload/audio_manager.gd` `_ensure_buses` | ACC_33_AUDIO_BUSES (order, sends, no `add_bus` calls); a headless Chrome check confirmed menu music reaches the audio output after "Tap to Start" | Tested |
 | 91, 115 | Procedural caches, pooling, release on exit | `procedural/procedural_caches.gd`, `world/world_view.gd` | release_validator (no leaks at exit) | Tested |
 
 ## Platform, build, release

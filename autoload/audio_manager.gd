@@ -76,11 +76,15 @@ func _ready() -> void:
 	apply_volumes()
 
 
+## Bus ditambah lewat set_bus_count, bukan add_bus(). Di Web (playback Sample,
+## Godot 4.7.2) add_bus() menyisipkan bus JavaScript di depan Master, sehingga
+## urutannya tidak lagi cocok dengan AudioServer; set_bus_send lalu menyambung
+## keluaran Master ke bus lain, dan lingkaran itu dibungkam Web Audio (tanpa suara).
 func _ensure_buses() -> void:
 	for b: String in BUSES:
 		if AudioServer.get_bus_index(b) == -1:
-			AudioServer.add_bus()
-			var idx: int = AudioServer.bus_count - 1
+			var idx: int = AudioServer.bus_count
+			AudioServer.set_bus_count(idx + 1)
 			AudioServer.set_bus_name(idx, b)
 			AudioServer.set_bus_send(idx, "Master")
 
