@@ -180,6 +180,8 @@ func migrate(data: Dictionary) -> Dictionary:
 				d = _migrate_v1_to_v2(d)
 			2:
 				d = _migrate_v2_to_v3(d)
+			3:
+				d = _migrate_v3_to_v4(d)
 			_:
 				return {"ok": false, "error": "no migrator from v%d" % v}
 		v = int(d["schema_version"])
@@ -215,6 +217,13 @@ func _migrate_v2_to_v3(d: Dictionary) -> Dictionary:
 	if not d.has("active_floor_id"):
 		d["active_floor_id"] = "floor_1"
 	d["schema_version"] = 3
+	return d
+
+
+## v3: belum ada Meja Tunggu. Instance meja dibuat dan ditempatkan otomatis saat
+## load (SimulationRoot._ensure_table); field meja pada job memakai default 0.
+func _migrate_v3_to_v4(d: Dictionary) -> Dictionary:
+	d["schema_version"] = 4
 	return d
 
 

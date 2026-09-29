@@ -80,6 +80,12 @@ mkdir -p build/web build/android
 
 - **Web:** single-threaded, so itch.io needs no cross-origin isolation. Upload the
   contents of `build/web/` as an HTML5 game.
+- **GitHub Pages:** `.github/workflows/deploy-web.yml` exports the Web build with the
+  official Godot 4.7.2 (downloads checked against `SHA512-SUMS.txt`) and deploys it.
+  Once, set *Settings → Pages → Build and deployment → Source* to **GitHub Actions**.
+  Then push, open the *Actions* tab, choose **Deploy Web ke GitHub Pages** and press
+  **Run workflow**. The game appears at `https://<user>.github.io/<repo>/`. It runs
+  only when started by hand, so a push never publishes by accident.
 - **Android release:** supply the keystore outside the repository, for example with
   the `GODOT_ANDROID_KEYSTORE_RELEASE_PATH`, `GODOT_ANDROID_KEYSTORE_RELEASE_USER` and
   `GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD` environment variables. Never commit it

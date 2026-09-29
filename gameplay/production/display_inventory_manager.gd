@@ -117,8 +117,9 @@ func slot_room(iid: int, index: int, recipe: StringName) -> int:
 
 
 ## Menaruh roti matang dari loyang ke satu petak (GDD 19.3, 85). Mengembalikan
-## jumlah yang benar-benar masuk. BURNT tidak pernah sampai ke sini.
-func place(iid: int, index: int, recipe_id: StringName, qty: int, bake_quality: float, produced_at: float, job_id: int) -> int:
+## jumlah yang benar-benar masuk. BURNT tidak pernah sampai ke sini. `age_hours`
+## = umur yang sudah terkumpul di Meja Tunggu (GDD 19.7.6), 0 untuk loyang lain.
+func place(iid: int, index: int, recipe_id: StringName, qty: int, bake_quality: float, produced_at: float, job_id: int, age_hours: float = 0.0) -> int:
 	var room: int = slot_room(iid, index, recipe_id)
 	var n: int = mini(room, qty)
 	if n <= 0:
@@ -128,7 +129,7 @@ func place(iid: int, index: int, recipe_id: StringName, qty: int, bake_quality: 
 	var stacks: Array = s["stacks"]
 	# Stack yang sama (satu batch) digabung; batch berbeda tetap terpisah (GDD 19.7.1).
 	for st: BreadStack in stacks:
-		if st.source_job_id == job_id and st.age_ingame_hours == 0.0 and absf(st.bake_quality - bake_quality) < 0.0001:
+		if st.source_job_id == job_id and absf(st.age_ingame_hours - age_hours) < 0.0001 and absf(st.bake_quality - bake_quality) < 0.0001:
 			st.quantity += n
 			EventBus.bread_added_to_display.emit(iid, recipe_id, n)
 			return n
@@ -140,7 +141,7 @@ func place(iid: int, index: int, recipe_id: StringName, qty: int, bake_quality: 
 	b.source_job_id = job_id
 	b.produced_at_game_time = produced_at
 	b.bake_quality = bake_quality
-	b.age_ingame_hours = 0.0
+	b.age_ingame_hours = age_hours
 	b.base_expiry_hours = r.expired_duration_hours
 	b.display_tier = tier_of(iid)
 	b.refresh_state()

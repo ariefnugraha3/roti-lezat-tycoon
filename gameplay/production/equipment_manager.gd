@@ -101,11 +101,26 @@ func slot_limit(category: StringName) -> int:
 
 
 func storage_instance() -> EquipmentInstance:
-	var l: Array[EquipmentInstance] = placed_list(&"storage")
+	return _fixture(&"storage")
+
+
+## Meja Tunggu satu-satunya di lokasi ini (GDD 5.1.3).
+func table_instance() -> EquipmentInstance:
+	return _fixture(&"table")
+
+
+func _fixture(category: StringName) -> EquipmentInstance:
+	var l: Array[EquipmentInstance] = placed_list(category)
 	if not l.is_empty():
 		return l[0]
-	var u: Array[EquipmentInstance] = unplaced_list(&"storage")
+	var u: Array[EquipmentInstance] = unplaced_list(category)
 	return u[0] if not u.is_empty() else null
+
+
+## Gudang dan Meja Tunggu sepaket dengan bangunan: tidak dijual, tidak bisa
+## disimpan, dan tidak memakai slot alat (GDD 5.1.1, 5.1.3).
+static func is_fixture(category: StringName) -> bool:
+	return category == &"storage" or category == &"table"
 
 
 ## Tier tertinggi alat terpasang per kategori (syarat resep, GDD 61.1).
@@ -138,6 +153,12 @@ func market_open_for_equipment() -> bool:
 	return sim.time.is_after_hours()
 
 
+## Pasar hanya menjual alat setinggi tier lokasi (GDD 5.1.2). Alat yang sudah
+## dimiliki tidak terpengaruh.
+func tier_allowed(def: EquipmentDefinition) -> bool:
+	return def != null and def.tier <= sim.world.location.tier
+
+
 ## {ok, reason, iid}. Alat baru masuk unplaced lalu Decoration Mode dibuka.
 func buy(def_id: StringName) -> Dictionary:
 	var def: EquipmentDefinition = DataRegistry.equipment(def_id)
@@ -145,6 +166,8 @@ func buy(def_id: StringName) -> Dictionary:
 		return {"ok": false, "reason": "invalid"}
 	if not market_open_for_equipment():
 		return {"ok": false, "reason": "after_hours"}
+	if not tier_allowed(def):
+		return {"ok": false, "reason": "tier_locked"}
 	if placed_count(def.category_id) + unplaced_list(def.category_id).size() >= slot_limit(def.category_id):
 		return {"ok": false, "reason": "slots_full"}
 	if not sim.economy.spend(def.price_kr, &"EQUIPMENT_PURCHASE", def_id, {}):
@@ -165,6 +188,8 @@ func buy_replace(def_id: StringName, old_iid: int) -> Dictionary:
 		return {"ok": false, "reason": "invalid"}
 	if not market_open_for_equipment():
 		return {"ok": false, "reason": "after_hours"}
+	if not tier_allowed(def):
+		return {"ok": false, "reason": "tier_locked"}
 	if is_in_use(old_iid):
 		return {"ok": false, "reason": "in_use"}
 	if not sim.economy.can_afford(def.price_kr):
@@ -198,7 +223,7 @@ func sell_value(iid: int) -> float:
 ## Jual alat yang tidak terpasang seharga 50% (GDD 5.1.2). Tier 1 bernilai 0.
 func sell(iid: int) -> Dictionary:
 	var e: EquipmentInstance = get_inst(iid)
-	if e == null or e.placed or e.category() == &"storage":
+	if e == null or e.placed or is_fixture(e.category()):
 		return {"ok": false, "reason": "invalid"}
 	if not market_open_for_equipment():
 		return {"ok": false, "reason": "after_hours"}
@@ -225,7 +250,7 @@ func place(iid: int, floor_id: StringName, anchor: Vector2i, rotation: int) -> S
 		return &"invalid"
 	if e.placed and is_in_use(iid):
 		return &"in_use"
-	if not e.placed and placed_count(e.category()) >= slot_limit(e.category()) and e.category() != &"storage":
+	if not e.placed and placed_count(e.category()) >= slot_limit(e.category()) and not is_fixture(e.category()):
 		return &"slots_full"
 	var reason: StringName = sim.world.validate_placement(e, floor_id, anchor, rotation)
 	if reason != &"":
@@ -247,7 +272,7 @@ func put_away(iid: int) -> StringName:
 	var e: EquipmentInstance = get_inst(iid)
 	if e == null or not e.placed:
 		return &"invalid"
-	if e.category() == &"storage":
+	if is_fixture(e.category()):
 		return &"invalid"
 	if is_in_use(iid):
 		return &"in_use"

@@ -49,6 +49,11 @@ func employed_ids(role: StringName = &"") -> Array[StringName]:
 	return out
 
 
+## Sedang bertugas saat ini (terjadwal hari ini dan berada di lantai).
+func is_working(staff_id: StringName) -> bool:
+	return bool(contract(staff_id).get("working", false)) and actors.has(staff_id)
+
+
 func working_ids(role: StringName = &"") -> Array[StringName]:
 	var out: Array[StringName] = []
 	for id: StringName in employed_ids(role):
@@ -217,6 +222,7 @@ func _stop_working(staff_id: StringName) -> void:
 	if a != null:
 		_drop_carried(staff_id, a)
 	_release_claims(staff_id)
+	_hand_over_jobs(staff_id)
 	sim.world.release_all_for(staff_id)
 	actors.erase(staff_id)
 	tasks.erase(staff_id)
@@ -230,17 +236,35 @@ func _release_claims(staff_id: StringName) -> void:
 			j.claimed_by = &""
 
 
-## Serah terima atomik saat staf berhenti (GDD 87.2): loyang ke rak, adonan
-## kembali ke mixer bebas agar tidak ada job yatim.
-func _drop_carried(staff_id: StringName, a: SimActor) -> void:
+## Baker dipecat, diliburkan, atau Mode Solo (GDD 87.2, 49): job yang belum
+## selesai berpindah ke pemain (tanda "!" muncul di alatnya), dan loyang yang
+## terlindung untuknya kembali seperti roll auto-retrieve gagal (GDD 18.8):
+## burn timer berjalan dan pemain diberi alert. Tidak ada job yatim.
+func _hand_over_jobs(staff_id: StringName) -> void:
+	for j: ProductionJob in sim.production.sorted_jobs():
+		if j.owner_actor_id == staff_id:
+			j.owner_actor_id = PlayerTaskManager.PLAYER_ID
+		if j.protected and j.stage_started_by == staff_id:
+			j.protected = false
+			j.claimed_by = &""
+			if j.is_waiting_oven_pickup():
+				sim.alerts.raise_oven(j.oven_id, &"ready")
+
+
+## Serah terima atomik saat staf berhenti (GDD 87.2, 104): loyang ke rak, adonan
+## kembali ke mixer bebas. Yang tidak muat (rak penuh, tidak ada mixer bebas)
+## diparkir di Meja Tunggu (GDD 5.1.3), supaya tidak ada job yatim yang menahan
+## upgrade lokasi (GDD 105 no.11).
+func _drop_carried(_staff_id: StringName, a: SimActor) -> void:
 	if a.carried.is_empty():
 		return
 	var j: ProductionJob = sim.production.get_job(int(a.carried.get("job_id", -1)))
 	if j != null:
 		if j.stage == ProductionJob.CARRIED_TO_DISPLAY:
 			sim.production.auto_place_tray(j.job_id, -1)
-			if j.carried_units > 0:
-				j.carrier_id = &"player_handoff"
+			var rest: ProductionJob = sim.production.get_job(j.job_id)
+			if rest != null and rest.carried_units > 0:
+				sim.production.put_on_table(rest.job_id)
 		elif j.stage == ProductionJob.CARRIED_TO_OVEN:
 			var mixer: EquipmentInstance = sim.production.free_mixer_for(j.recipe())
 			if mixer != null:
@@ -248,6 +272,8 @@ func _drop_carried(staff_id: StringName, a: SimActor) -> void:
 				j.mixer_id = mixer.iid
 				j.stage = ProductionJob.MIX_DONE_WAITING_PICKUP
 				j.carrier_id = &""
+			else:
+				sim.production.put_on_table(j.job_id)
 	a.carried = {}
 
 
@@ -315,8 +341,7 @@ func cashier_at_post(lane_id: StringName) -> bool:
 func step(dt: float) -> void:
 	if not sim.time.is_running_phase():
 		return
-	var ids: Array = actors.keys()
-	ids.sort()
+	var ids: Array = Ids.sort(actors.keys())
 	for k: Variant in ids:
 		var sid: StringName = StringName(str(k))
 		var a: SimActor = actors[sid]
@@ -389,9 +414,12 @@ func _choose_task(sid: StringName, a: SimActor, def: StaffDefinition) -> Diction
 			if disp >= 0:
 				return {"type": "place_display", "job_id": j.job_id, "iid": disp}
 			return {}
-	# 1. Ambil tray yang auto-retrieve-nya berhasil.
+	# 1. Ambil tray yang auto-retrieve-nya berhasil. Klaim dilepas pukul 18:00;
+	# baker yang memanggangnya mengklaim lagi keesokan harinya (GDD 18.8).
 	for j2: ProductionJob in sim.production.sorted_jobs():
-		if j2.protected and j2.claimed_by == sid and j2.is_waiting_oven_pickup():
+		if j2.protected and j2.is_waiting_oven_pickup() \
+				and (j2.claimed_by == sid or (j2.claimed_by == &"" and j2.stage_started_by == sid)):
+			j2.claimed_by = sid
 			return {"type": "pickup_tray", "job_id": j2.job_id, "iid": j2.oven_id}
 	# 3. Pindahkan adonan selesai milik baker ke oven kosong.
 	for j3: ProductionJob in sim.production.sorted_jobs():
@@ -464,12 +492,33 @@ func _display_with_room() -> int:
 	return -1
 
 
+## Batch ini selesai dipanggang paling lambat `staff_ai.baker_finish_by_seconds`
+## (GDD 23.3)? Memakai mixer bebas yang akan dipakai, oven paling lambat yang bisa
+## memanggangnya, dan kecepatan baker, supaya dapur kosong saat tutup (GDD 105).
+func finishes_before_cutoff(r: RecipeDefinition, batch: int, speed: float) -> bool:
+	var mixer: EquipmentInstance = sim.production.free_mixer_for(r)
+	if mixer == null:
+		return false
+	var oven_tier: int = 0
+	for o: EquipmentInstance in sim.equipment.placed_list(&"oven"):
+		if o.tier() >= r.required_oven_tier and (oven_tier == 0 or o.tier() < oven_tier):
+			oven_tier = o.tier()
+	if oven_tier == 0:
+		return false
+	var secs: float = sim.production.mixer_stage_seconds(r, mixer.tier(), batch, speed) \
+		+ sim.production.oven_stage_seconds(r, oven_tier, batch, speed)
+	return sim.time.time_seconds + secs * sim.time.ratio <= DataRegistry.balf("staff_ai.baker_finish_by_seconds")
+
+
 ## Pilih resep & batch baru (GDD 3.2, 23.3-23.4, 23.7). {} bila tidak ada.
-func _plan_new_job(sid: StringName, _def: StaffDefinition) -> Dictionary:
+func _plan_new_job(sid: StringName, def: StaffDefinition) -> Dictionary:
 	var c: Dictionary = contract(sid)
 	var in_flight: int = 0
 	for j: ProductionJob in sim.production.sorted_jobs():
-		in_flight += j.quantity_output if j.stage != ProductionJob.CARRIED_TO_DISPLAY else j.carried_units
+		# Loyang yang sudah diangkat (dibawa, di pemilih petak, atau di Meja Tunggu)
+		# hanya menyisakan unit yang belum masuk rak.
+		var lifted: bool = j.stage in [ProductionJob.CARRIED_TO_DISPLAY, ProductionJob.PLACEMENT_UI, ProductionJob.TRAY_ON_TABLE]
+		in_flight += j.carried_units if lifted else j.quantity_output
 	var free_display: int = sim.display.total_free_units() - in_flight
 	if free_display <= 0:
 		return {}
@@ -492,6 +541,8 @@ func _plan_new_job(sid: StringName, _def: StaffDefinition) -> Dictionary:
 			continue
 		if r.batch_yield > free_display:
 			continue
+		if not finishes_before_cutoff(r, 1, def.work_speed_multiplier):
+			continue
 		var s: int = int(stock.get(r.id, 0))
 		if s < best_stock:
 			best_stock = s
@@ -507,7 +558,8 @@ func _plan_new_job(sid: StringName, _def: StaffDefinition) -> Dictionary:
 		3:
 			options = [3, 1]
 	for b: int in options:
-		if sim.inventory.has_for_recipe(best, b) and best.batch_yield * b <= free_display:
+		if sim.inventory.has_for_recipe(best, b) and best.batch_yield * b <= free_display \
+				and finishes_before_cutoff(best, b, def.work_speed_multiplier):
 			return {"recipe": best.id, "batch": b}
 	return {}
 

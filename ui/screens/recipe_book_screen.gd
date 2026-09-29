@@ -155,6 +155,10 @@ func _build_price(r: RecipeDefinition) -> void:
 	_reaction = lbl(rrow, "", 16)
 	lbl(_detail, "%s · %s" % [Tx.t("ui_recipe_default_price", {"price": Tx.kr(r.base_sell_price_kr)}),
 		Tx.t("ui_recipe_price_range", {"min": Tx.kr(r.min_price_kr), "max": Tx.kr(r.max_price_kr)})], 14, Palette.TEXT_MUTED, true)
+	# Hari 1-3 harga terkunci di harga referensi (GDD 63.2).
+	if sim.pricing.prices_locked():
+		sl.editable = false
+		lbl(_detail, Tx.t("ui_recipe_price_locked"), 14, Palette.DANGER, true)
 	sl.value_changed.connect(func(v: float) -> void:
 		sim.pricing.set_price(r.id, v)
 		_update_price(r))

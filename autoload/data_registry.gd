@@ -203,6 +203,12 @@ func equipment_for(category: StringName, tier: int) -> EquipmentDefinition:
 	return _equipment_map.get(StringName("%s_t%d" % [category, tier]))
 
 
+## Definisi Meja Tunggu, satu-satunya perabot kategori `table` (GDD 5.1.3).
+func table_definition() -> EquipmentDefinition:
+	var list: Array[EquipmentDefinition] = equipment_in_category(&"table")
+	return list[0] if not list.is_empty() else null
+
+
 func equipment_in_category(category: StringName) -> Array[EquipmentDefinition]:
 	var out: Array[EquipmentDefinition] = []
 	for e: EquipmentDefinition in _equipment:
@@ -660,12 +666,18 @@ func _validate_equipment() -> void:
 					_err("storage %s capacity must be > 0" % e.id)
 			&"counter":
 				pass
+			&"table":
+				# Meja Tunggu: sepaket bangunan, tanpa batas isi (GDD 5.1.3).
+				if e.for_sale or e.capacity != 0:
+					_err("table %s must not be for sale and has no capacity limit" % e.id)
 			_:
 				_err("equipment %s unknown category %s" % [e.id, e.category_id])
 	for cat: StringName in [&"mixer", &"oven", &"display", &"storage"]:
 		for t in range(1, 6):
 			if equipment_for(cat, t) == null:
 				_err("missing equipment %s_t%d" % [cat, t])
+	if equipment_in_category(&"table").size() != 1:
+		_err("exactly one holding table (category table) is required")
 	# Waktu referensi makin cepat tiap tier (GDD 5.1); process_multiplier =
 	# referensi T1 / referensi tier itu (GDD 101.3).
 	for cat: StringName in [&"mixer", &"oven"]:
@@ -898,3 +910,21 @@ func _validate_balance() -> void:
 			_err("presentation.thought_after_seconds must rise and leave room for each bubble")
 	for k: String in THOUGHT_KEYS:
 		_check_text(StringName(k), "presentation")
+	if float(p.get("doze_after_last_thought_seconds", -1.0)) < 0.0:
+		_err("presentation.doze_after_last_thought_seconds must be zero or positive")
+	# Meja Tunggu (GDD 5.1.3, 19.7.6).
+	var ht: Dictionary = _balance.get("holding_table", {})
+	if float(ht.get("bread_aging_rate", 0.0)) <= 0.0 or float(ht.get("dough_aging_multiplier", 0.0)) <= 0.0:
+		_err("holding_table aging rates must be positive")
+	for k2: String in ["ui_table_dough_spoiled", "ui_table_bread_spoiled"]:
+		_check_text(StringName(k2), "holding_table")
+	# Bobot menu RotiFood (GDD 22.9), gerbang tier alat (5.1.2), kunci harga Hari 1-3 (63.2).
+	if float((_balance.get("rotifood", {}) as Dictionary).get("price_sensitivity", -1.0)) < 0.0:
+		_err("rotifood.price_sensitivity must be zero or positive")
+	for k3: String in ["ui_equipment_tier_locked", "ui_recipe_price_locked"]:
+		_check_text(StringName(k3), "balance rules")
+	# Baker berhenti memulai batch yang tidak selesai sebelum batas ini (GDD 23.3).
+	var clock: Dictionary = _balance.get("clock", {})
+	var finish_by: float = float((_balance.get("staff_ai", {}) as Dictionary).get("baker_finish_by_seconds", -1.0))
+	if finish_by <= float(clock.get("open_seconds", 0.0)) or finish_by > float(clock.get("close_seconds", 0.0)):
+		_err("staff_ai.baker_finish_by_seconds must fall inside opening hours")

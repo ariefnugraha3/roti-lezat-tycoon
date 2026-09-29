@@ -16,17 +16,28 @@ func new_game() -> void:
 
 
 func price_of(recipe_id: StringName) -> float:
-	if prices.has(recipe_id):
-		return float(prices[recipe_id])
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
+	if prices.has(recipe_id) and not prices_locked():
+		return float(prices[recipe_id])
 	return r.base_sell_price_kr if r != null else 0.0
 
 
-## Set harga; di-clamp ke min..max dan kelipatan step (GDD 63.2).
+## Hari 1-3 (manifest, GDD 20.3) selalu memakai harga referensi: pembeli skenario
+## tidak bereaksi pada harga. Slider aktif lagi sejak after-hours Hari 3, yang
+## merencanakan Hari 4 (GDD 63.2).
+func prices_locked() -> bool:
+	var selling_day: int = sim.time.day + (1 if sim.time.is_after_hours() else 0)
+	return not DataRegistry.opening_day(selling_day).is_empty()
+
+
+## Set harga; di-clamp ke min..max dan kelipatan step (GDD 63.2). Selama harga
+## terkunci tidak ada yang berubah.
 func set_price(recipe_id: StringName, value: float) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
+	if prices_locked():
+		return price_of(recipe_id)
 	var v: float = Money.round_to(value, r.price_step_kr)
 	v = clampf(v, r.min_price_kr, r.max_price_kr)
 	if absf(v - r.base_sell_price_kr) < 0.001:

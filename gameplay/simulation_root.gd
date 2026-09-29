@@ -113,14 +113,25 @@ func start_new_game(pid: StringName, name_text: String, gender: String, master_s
 	GameLogger.important("BOOT", "new game in %s seed %d" % [pid, master_seed])
 
 
-## Starter: storage + 1 Mixer T1 + 1 Oven T1 + 1 Display T1 terpasang (GDD 5.1.2).
+## Starter: storage + 1 Mixer T1 + 1 Oven T1 + 1 Display T1 terpasang (GDD 5.1.2),
+## lalu Meja Tunggu di dapur (GDD 5.1.3).
 func _create_starter_equipment() -> void:
 	var loc: LocationDefinition = world.location
-	var order: Array[StringName] = [loc.storage_id, &"oven_t1", &"mixer_t1", &"display_t1"]
+	var order: Array[StringName] = [loc.storage_id, &"oven_t1", &"mixer_t1", &"display_t1", DataRegistry.table_definition().id]
 	for def_id: StringName in order:
 		var e: EquipmentInstance = equipment.create_instance(def_id)
 		if not world.auto_place(e):
 			GameLogger.error("WORLD", "starter %s could not be placed" % def_id)
+
+
+## Save lama (skema < 4) belum punya Meja Tunggu: dibuat dan ditempatkan saat
+## load (GDD 5.1.3, 106).
+func _ensure_table() -> void:
+	var t: EquipmentInstance = equipment.table_instance()
+	if t == null:
+		t = equipment.create_instance(DataRegistry.table_definition().id)
+	if not t.placed and not world.auto_place(t):
+		GameLogger.error("WORLD", "holding table could not be placed")
 
 
 # ===========================================================================
@@ -205,9 +216,12 @@ func _begin_day(first: bool) -> void:
 	queue.highest_occupancy_today = 0
 	ui_requests.clear()
 	if not first:
-		# Penuaan semalam 11 jam, tepat sekali (GDD 19.7.3, 19.9); HPP yang
-		# dibuang tercatat di laporan hari baru.
+		# Penuaan semalam 11 jam, tepat sekali (GDD 19.7.3, 19.7.6, 19.9); HPP
+		# yang dibuang tercatat di laporan hari baru. Isi Meja Tunggu ikut menua.
+		var fresh_night: bool = display.last_rollover_day < time.day - 1
 		display.overnight_rollover(time.day - 1)
+		if fresh_night:
+			production.age_table(DataRegistry.balf("clock.overnight_aging_hours"))
 	weather.begin_day(first)
 	reputation.begin_day()
 	bailout.apply_if_pending()
@@ -303,7 +317,8 @@ func upgrade_block_reason() -> String:
 		return "ui_upgrade_max"
 	if not time.is_after_hours():
 		return "ui_available_after_closing"
-	if not production.jobs.is_empty() or not player.actor.carried.is_empty():
+	# Isi Meja Tunggu ikut pindah bersama mejanya, jadi tidak menahan upgrade (GDD 5.1.3).
+	if production.has_active_jobs() or not player.actor.carried.is_empty():
 		return "ui_upgrade_blocked_jobs"
 	if not economy.can_afford(nxt.upgrade_cost_kr):
 		return "ui_feedback_not_enough_kr"
@@ -362,6 +377,10 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 		if equipment.placed_count(e4.category()) >= world.location.slot_count(e4.category()):
 			continue
 		world.auto_place(e4)
+	# Meja Tunggu ditempatkan setelah alat produksi, bersama isinya (GDD 5.1.3).
+	var table: EquipmentInstance = equipment.table_instance()
+	if table != null and not world.auto_place(table):
+		return false
 	for iid: Variant in display.display_ids():
 		var d: EquipmentInstance = equipment.get_inst(int(iid))
 		if d != null and display.used(d.iid) > 0 and not d.placed:
@@ -449,6 +468,7 @@ func load_from_save(d: Dictionary) -> void:
 			display.ensure_display(e.iid, e.tier())
 	decoration.restore(d.get("decorations", {}))
 	world.rebuild_occupancy()
+	_ensure_table()
 	production.restore(d.get("production_jobs", {}))
 	queue.restore(d.get("queues", {}))
 	cashier.restore(d.get("cashier", {}))

@@ -71,7 +71,8 @@ func tap_equipment(iid: int) -> bool:
 	# Tangan penuh: hanya pengantaran yang cocok yang diterima (GDD 16.5).
 	if commands.is_empty() and current.is_empty() and not actor.carried.is_empty():
 		var t: String = str(actor.carried.get("type", ""))
-		var ok: bool = (t == "dough" and kind == &"oven") or (t == "tray" and kind == &"display")
+		# Meja Tunggu menerima adonan maupun loyang (GDD 5.1.3).
+		var ok: bool = (t == "dough" and kind == &"oven") or (t == "tray" and kind == &"display") or kind == &"table"
 		if not ok and kind != &"display":
 			_feedback(&"hands_full", e.floor_id, sim.world.access_of(iid).get("cell", e.anchor))
 			return false
@@ -208,6 +209,8 @@ func _execute(cmd: Dictionary) -> void:
 			_at_oven(int(cmd["target"]))
 		&"display":
 			_at_display(int(cmd["target"]))
+		&"table":
+			_at_table(int(cmd["target"]))
 		&"portal":
 			pass
 		&"cashier":
@@ -293,7 +296,9 @@ func _at_oven(iid: int) -> void:
 	var e: EquipmentInstance = sim.equipment.get_inst(iid)
 	var carried: ProductionJob = carried_job()
 	if carried != null and carried.stage == ProductionJob.CARRIED_TO_OVEN:
-		if e.job_id >= 0:
+		# Loyang gosong dibuang otomatis agar adonan bisa masuk (GDD 16.5, 62).
+		var swap: bool = sim.production.holds_burnt(e)
+		if e.job_id >= 0 and not swap:
 			_feedback_at(&"station_busy", iid)
 			return
 		if e.tier() < carried.recipe().required_oven_tier:
@@ -301,6 +306,8 @@ func _at_oven(iid: int) -> void:
 			return
 		if sim.production.insert_oven(carried.job_id, iid, PLAYER_ID, 1.0):
 			actor.carried = {}
+			if swap:
+				_feedback_at(&"burnt_discarded", iid)
 			sim.tutorial.on_event(&"oven_inserted")
 		return
 	var j: ProductionJob = sim.production.get_job(e.job_id) if e.job_id >= 0 else null
@@ -339,6 +346,32 @@ func _at_display(iid: int) -> void:
 		return
 	sim.ui_requests.display_detail = iid
 	EventBus.display_detail_requested.emit(iid)
+
+
+## Meja Tunggu (GDD 5.1.3): tangan berisi -> barang ditaruh; tangan kosong ->
+## barang paling dekat basi yang tujuannya kosong ikut diambil.
+func _at_table(iid: int) -> void:
+	var j: ProductionJob = carried_job()
+	if j != null:
+		if sim.production.put_on_table(j.job_id):
+			actor.carried = {}
+		return
+	var items: Array[ProductionJob] = sim.production.table_jobs()
+	if items.is_empty():
+		_feedback_at(&"nothing_to_do", iid)
+		return
+	var pick: ProductionJob = sim.production.table_pick()
+	if pick == null:
+		# Tidak ada yang bisa diantar: ikon oven/rak penuh untuk barang paling mendesak.
+		var urgent: ProductionJob = items[0]
+		for it: ProductionJob in items:
+			if sim.production.table_spoil_ratio(it) > sim.production.table_spoil_ratio(urgent):
+				urgent = it
+		_feedback_at(&"no_free_oven" if urgent.stage == ProductionJob.DOUGH_ON_TABLE else &"display_full", iid)
+		return
+	if sim.production.take_from_table(pick.job_id, PLAYER_ID):
+		actor.carried = {"type": "dough" if pick.stage == ProductionJob.CARRIED_TO_OVEN else "tray",
+			"job_id": pick.job_id, "recipe_id": String(pick.recipe_id)}
 
 
 ## Pemilih petak: taruh `qty` unit ke satu petak (GDD 7, 85).
@@ -406,7 +439,31 @@ func station_markers() -> Dictionary:
 			&"display":
 				if carried != null and (carried.stage == ProductionJob.CARRIED_TO_DISPLAY or carried.stage == ProductionJob.PLACEMENT_UI) and sim.display.free_units(e.iid) > 0:
 					out[e.iid] = {"mode": &"alert", "value": 0.0, "burn": 0.0, "state": &"deliver"}
+			&"table":
+				var tm: Dictionary = _table_marker(carried)
+				if not tm.is_empty():
+					out[e.iid] = tm
 	return out
+
+
+## Meja Tunggu: "taruh di sini" saat barang bawaan tidak punya tujuan kosong,
+## "ambil" saat tangan kosong dan ada barang yang bisa diantar. Penanda makin
+## cepat berdenyut saat isi meja mendekati basi.
+func _table_marker(carried: ProductionJob) -> Dictionary:
+	if carried != null:
+		var stuck: bool = false
+		if carried.stage == ProductionJob.CARRIED_TO_OVEN:
+			stuck = sim.production.free_oven_for(carried.recipe()) == null
+		elif carried.stage == ProductionJob.CARRIED_TO_DISPLAY:
+			stuck = sim.display.total_free_units() <= 0
+		return {"mode": &"alert", "value": 0.0, "burn": 0.0, "state": &"deliver"} if stuck else {}
+	var pick: ProductionJob = sim.production.table_pick()
+	if pick == null:
+		return {}
+	var worst: float = 0.0
+	for j: ProductionJob in sim.production.table_jobs():
+		worst = maxf(worst, sim.production.table_spoil_ratio(j))
+	return {"mode": &"alert", "value": 1.0, "burn": clampf(worst, 0.0, 1.0), "state": &"table"}
 
 
 func capture() -> Dictionary:

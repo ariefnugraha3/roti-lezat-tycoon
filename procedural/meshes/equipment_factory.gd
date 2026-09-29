@@ -634,6 +634,60 @@ const STORAGE_UNIT_WIDTH: float = 0.46
 ## Setiap daun pintu adalah anak Node3D yang namanya diawali "Pintu"
 ## ("Pintu", "Pintu2", "PintuLemari"). ProceduralAnimationSystem.storage_door()
 ## membuka SEMUANYA sekaligus saat pemain mengetuk gudang.
+## Meja Tunggu (GDD 5.1.3): meja kerja kayu pinus dengan taplak gingham mint
+## dan rak bawah berisi lap serta loyang cadangan. Isi meja (mangkuk adonan,
+## loyang) dipasang ShopWorld pada titik "Top" di permukaan daun meja.
+static func build_holding_table() -> Node3D:
+	var root: Node3D = _root("HoldingTable", 1)
+	var pine: Color = Palette.PINE_WOOD
+	# Daun meja rendah seukuran karakter chibi, dengan lis di bawah tepinya.
+	var top_y: float = 0.575
+	_slab(root, Vector3(0.96, 0.05, 0.46), 0.012, pine.lightened(0.08), Vector3(0.0, top_y, 0.0))
+	_box(root, Vector3(0.88, 0.06, 0.40), pine.darkened(0.10), Vector3(0.0, top_y - 0.05, 0.0))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_box(root, Vector3(0.06, top_y, 0.06), pine.darkened(0.18), Vector3(sx * 0.42, top_y * 0.5, sz * 0.17))
+	# Rak bawah: tumpukan lap mint dan satu loyang cadangan.
+	_slab(root, Vector3(0.84, 0.03, 0.36), 0.008, pine.darkened(0.08), Vector3(0.0, 0.12, 0.0))
+	_slab(root, Vector3(0.26, 0.05, 0.18), 0.010, Palette.PASTEL_MINT, Vector3(-0.22, 0.16, 0.0))
+	_box(root, Vector3(0.30, 0.012, 0.22), METAL_STEEL, Vector3(0.20, 0.141, 0.0))
+	# Taplak gingham mint melintang di tengah daun meja.
+	var runner_y: float = top_y + 0.028
+	_box(root, Vector3(0.97, 0.006, 0.22), Palette.PASTEL_MINT, Vector3(0.0, runner_y, 0.0))
+	for i in 5:
+		_box(root, Vector3(0.020, 0.007, 0.22), Palette.FLOUR_WHITE, Vector3(-0.40 + 0.20 * float(i), runner_y + 0.001, 0.0))
+	var top := Node3D.new()
+	top.name = "Top"
+	top.position = Vector3(0.0, top_y + 0.031, 0.0)
+	root.add_child(top)
+	return root
+
+
+## Mangkuk kayu berisi adonan, alasnya di y = 0. Dipakai di tangan karakter
+## dan di Meja Tunggu.
+static func dough_bowl(dough_color: Color = Palette.RAW_DOUGH) -> Node3D:
+	var n := Node3D.new()
+	n.name = "DoughBowl"
+	_cyl(n, 0.09, 0.13, 0.09, Palette.PINE_WOOD, Vector3(0.0, 0.045, 0.0))
+	var dough: MeshInstance3D = _sph(n, 0.10, dough_color, Vector3(0.0, 0.095, 0.0))
+	dough.scale = Vector3(1.0, 0.55, 1.0)
+	return n
+
+
+## Loyang baja berisi tiga roti, alasnya di y = 0. Dipakai di tangan karakter
+## dan di Meja Tunggu.
+static func bread_tray(profile: String, quality: float, freshness: StringName) -> Node3D:
+	var n := Node3D.new()
+	n.name = "BreadTray"
+	_box(n, Vector3(0.34, 0.025, 0.24), METAL_STEEL, Vector3(0.0, 0.0125, 0.0))
+	for i in 3:
+		var b: Node3D = BreadFactory.build_cached(profile, quality, freshness)
+		b.scale = Vector3(0.55, 0.55, 0.55)
+		b.position = Vector3(-0.10 + 0.10 * float(i), 0.0275, 0.0)
+		n.add_child(b)
+	return n
+
+
 static func build_storage(loc_tier: int) -> Node3D:
 	var t: int = clampi(loc_tier, 1, 5)
 	var root: Node3D = _root("Storage", t)

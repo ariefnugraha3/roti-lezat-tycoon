@@ -204,7 +204,8 @@ func _render_panel() -> void:
 	match _tab:
 		0:
 			for e: EquipmentInstance in sim.equipment.all_sorted():
-				if e.category() == &"storage" and e.placed:
+				# Fixture bangunan (Gudang, Meja Tunggu) dipilih lewat ketukan di dunia.
+				if EquipmentManager.is_fixture(e.category()) and e.placed:
 					continue
 				var t: String = "%s%s" % [Tx.item_name(e.def_id), "" if e.placed else " · " + Tx.t("ui_decor_unplaced")]
 				var b: Button = btn(_panel_body, t, "primary" if e.iid == _sel_iid else "secondary", _select_equipment.bind(e.iid))

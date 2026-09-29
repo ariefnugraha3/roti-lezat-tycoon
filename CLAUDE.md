@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Godot 4.7 project for **Roti Lezat Tycoon**, a bakery management tycoon game targeting Web (itch.io, HTML5) and Android from one codebase.
 
-**The only authoritative specification is [docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md](docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md) (GDD v3.1 FINAL).** The older [docs/gdd-roti-lezaat-tycoon.md](docs/gdd-roti-lezaat-tycoon.md) is obsolete (maintainer decision, 2026-09-24): do not read it for requirements or cite it. On 2026-09-25, at the maintainer's request, its recipe data was copied into v3.1 (§61.5); anything else missing from v3.1 needs the maintainer's decision, not the old GDD. On 2026-09-28 the maintainer lowered the §130.2 eye line from ~65% to ~45% of head height for a more chibi look. On 2026-09-29 the maintainer made three timing changes. The clock now runs at 1 in-game hour = 2 real minutes (§15.2). The §5.1 equipment reference times were replaced. Every §61.5 recipe duration was halved, so the reference table sets only the speed-up between tiers (§18.5).
+**The only authoritative specification is [docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md](docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md) (GDD v3.1 FINAL).** The older [docs/gdd-roti-lezaat-tycoon.md](docs/gdd-roti-lezaat-tycoon.md) is obsolete (maintainer decision, 2026-09-24): do not read it for requirements or cite it. On 2026-09-25, at the maintainer's request, its recipe data was copied into v3.1 (§61.5); anything else missing from v3.1 needs the maintainer's decision, not the old GDD. On 2026-09-28 the maintainer lowered the §130.2 eye line from ~65% to ~45% of head height for a more chibi look. On 2026-09-29 the maintainer made three timing changes. The clock now runs at 1 in-game hour = 2 real minutes (§15.2). The §5.1 equipment reference times were replaced. Every §61.5 recipe duration was halved, so the reference table sets only the speed-up between tiers (§18.5). The same day, the maintainer moved the RotiFood last-order time to 16:55 (§22.9) and decided that dough in hand replaces a burnt tray (§16.5, §62). Later that day the maintainer set the target game length: a typical player at about 2× owns every location, all Tier 5 equipment and all shop decor in about 6 hours (roughly 26 in-game days), after which they simply enjoy being rich. Four rules were approved for it. The Market sells equipment only up to the store tier (§5.1.2). Prices stay at the reference price on Days 1–3 (§63.2). RotiFood picks menu recipes by price acceptance (§22.9). Bakers only start batches that finish by 17:30, so the kitchen is empty at closing (§23.3).
 
 v3.1 (~6,500 lines, narrative in Indonesian) has three layers: §1–12 product narrative, §13–95 technical specification (state machines, formulas, layout templates, save, tests), and §96–135 the hard implementation contract (engine lock, state-ownership matrix, test IDs, release validator, English content catalog). Read the relevant section before implementing any system — balance numbers, tier tables and flows are defined there and nowhere else. Per §126.1, reference canonical IDs/fields instead of copying numbers into code comments or other docs.
 
@@ -75,7 +75,9 @@ G='D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
 "$G" --headless --path . --export-release "Android Release AAB" build/android/roti-lezat-tycoon.aab
 ```
 
-Export templates for 4.7.2 are **not installed** on this machine (nor an Android SDK), so exports fail here with "No export template found". The presets themselves parse.
+The official 4.7.2 export templates were installed on 2026-09-29 (`%APPDATA%\Godot\export_templates\4.7.2.stable`, SHA-512 checked against the release), so the Web export works here. It writes `build/web/` (about 40 MB, almost all engine `.wasm`; the game `.pck` is under 1 MB), and `/build/` is git-ignored (a local `build/.gdignore` stops the editor from importing the exported icons). Serve it with `python -m http.server 8000` from `build/web`, because `index.html` does not run from `file://`. There is no Android SDK, so Android exports still fail.
+
+`.github/workflows/deploy-web.yml` publishes the Web build to GitHub Pages at https://ariefnugraha3.github.io/roti-lezat-tycoon/. It downloads the official Godot 4.7.2 editor and templates on Linux, verifies them against `SHA512-SUMS.txt`, imports, exports, and deploys. It runs only on a manual *Run workflow*, and the repository's Pages source must be set to *GitHub Actions*.
 
 ### Tests (run after any change)
 
@@ -93,6 +95,7 @@ Export templates for 4.7.2 are **not installed** on this machine (nor an Android
 - Save comparisons use `logical_state()`, because loading snaps actors to canonical cells (§77.2, §81 no. 16).
 - The golden fixture changes whenever simulation or bot behaviour changes. Regenerate it on purpose with `-- --only=TEST_SAVE_001 --update-fixtures` and review the diff.
 - JSON numbers load as floats. `Array.has(3)` is false for `[3.0]`, so compare catalog arrays with `int()`. This exact bug once disabled the 2×/3× speed buttons.
+- Never call `sort()` on arrays of StringName IDs in simulation code; use `Ids.sort` (`core/ids.gd`). `Array.sort()` orders StringName by internal address, so the same seed played out differently between sessions (`ACC_116_ID_ORDER`).
 
 No linter or CI is configured.
 
@@ -118,6 +121,8 @@ The game is a **daily cycle state machine**; 1 in-game hour = 120 real seconds a
 2. **Sell 08:00–18:00** — the store opens automatically at 08:00. Walk-in customers take bread from the display and then queue at a cashier; RotiFood delivery orders run in parallel (§20–§22). Baking continues, and unattended ovens burn (§62).
 3. **Close 18:00** — deterministic shutdown (§104) → Daily Summary (§11, §46) → after-hours management → night transition to 05:00.
 
+A **Holding Table** in the kitchen (§5.1.3, §19.7.6) lets the player park carried dough or trays when ovens or shelves are full. It is player-only, has no item limit, and is not a shop shelf. Its contents spoil: bread at the base rate, dough twice as fast, and 11 hours overnight. In code these are production jobs in stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`; saves are schema 4.
+
 Without an on-duty Cashier Assistant the player character must stand at the counter for the walk-in queue to move (§2, §21.4), so early game forces a choice between baking and serving. In code, the manual lane only advances while `PlayerTaskManager.manning_lane` points at it (`CashierManager`), and player-owned jobs wait for a tap at each stage boundary while hired bakers auto-produce (`StaffManager`).
 
 Cross-cutting systems, all specified in v3.1: utility cost from equipment active time (§86); staff automation with a fixed roster and wage liability fixed at 05:00 (§3.1–3.5, §87); two independent ratings (§9, §25); weather and holiday modifiers (§10, §26); market purchases with 3-hour daytime courier delivery from Day 4 (§5.2, §24A); freshness and shelf life (§19.7, §61.3).
@@ -126,7 +131,7 @@ Cross-cutting systems, all specified in v3.1: utility cost from equipment active
 
 ## Tier is the central progression variable
 
-Location tier (1–5, §6, §57) gates mixer/oven/display/cashier slot counts, staff caps and queue capacity; upgrading costs only KR (§64). There is no recipe unlocking: a recipe can be made whenever its ingredients and minimum equipment are available (§61.1). Equipment tiers (§5.1, §60, §86) and fixed ingredient prices (§5.2 — deliberately no market fluctuation) are separate tables. Implement all of this as data catalogs validated at boot (§101, §134) rather than scattered constants, since the mesh factories, UI and economy all read the same tier values.
+Location tier (1–5, §6, §57) gates mixer/oven/display/cashier slot counts, staff caps, queue capacity and the highest equipment tier the Market sells (§5.1.2); upgrading costs only KR (§64). There is no recipe unlocking: a recipe can be made whenever its ingredients and minimum equipment are available (§61.1). Equipment tiers (§5.1, §60, §86) and fixed ingredient prices (§5.2 — deliberately no market fluctuation) are separate tables. Implement all of this as data catalogs validated at boot (§101, §134) rather than scattered constants, since the mesh factories, UI and economy all read the same tier values.
 
 ## Input, save and platform constraints
 

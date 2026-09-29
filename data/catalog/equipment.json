@@ -518,6 +518,30 @@
    "visual_profile_id": "storage_t5"
   },
   {
+   "id": "holding_table",
+   "localization_key": "holding_table",
+   "category_id": "table",
+   "tier": 1,
+   "footprint_tiles": [
+    2,
+    1
+   ],
+   "height_m": 0.62,
+   "interaction_face": "front",
+   "rotations_allowed": [
+    0,
+    90,
+    180,
+    270
+   ],
+   "utility_cost_kr_per_ingame_hour": 0,
+   "process_multiplier": 1.0,
+   "capacity": 0,
+   "price_kr": 0,
+   "for_sale": false,
+   "visual_profile_id": "holding_table"
+  },
+  {
    "id": "counter_cashier",
    "localization_key": "counter_cashier",
    "category_id": "counter",

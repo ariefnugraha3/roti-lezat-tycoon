@@ -41,6 +41,13 @@ var _sparkle_cd: float = 0.0
 var _idle_enabled: bool = false
 var _busy: bool = true
 var _action: StringName = &""
+## Progres fase membungkus (0..1, -1 = siklus sendiri) dan jumlah roti (GDD 21.4).
+var _pack_p: float = -1.0
+var _pack_n: int = 3
+## Pembeli mengulurkan tangan menerima kantong (0..1, GDD 21.4).
+var _receive_k: float = 0.0
+## Tidur ditahan sementara (pemain: rangkaian pikiran toko sepi belum selesai, GDD 31.6).
+var _doze_blocked: bool = false
 var _idle_real: float = 0.0
 var _gesture: int = GESTURE_NONE
 var _cloth: Node3D = null
@@ -96,11 +103,13 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 		return
 	_update_idle(a, delta)
 	if _action == &"pack" and not a.moving:
-		ProceduralAnimationSystem.pack(model, _t)
+		ProceduralAnimationSystem.pack(model, _t, _pack_p, _pack_n)
 	elif a.moving:
 		ProceduralAnimationSystem.walk(model, _t, a.speed_mps * 4.5)
 	else:
 		ProceduralAnimationSystem.idle_bob(model, _t)
+		if _receive_k > 0.0:
+			ProceduralAnimationSystem.receive(model, _t, _receive_k)
 		match _gesture:
 			GESTURE_WIPE:
 				ProceduralAnimationSystem.wipe_face(model, _wipe_progress(), _t)
@@ -129,9 +138,32 @@ func set_action(action: StringName) -> void:
 		return
 	var was_pack: bool = _action == &"pack"
 	_action = action
+	if was_pack:
+		_pack_p = -1.0
 	if was_pack and model != null:
 		ProceduralAnimationSystem.end_pose(model)
 		_apply_carry_pose()
+
+
+## Tahan tidur walau sudah lama diam; yang sedang tidur langsung terbangun.
+func set_doze_blocked(on: bool) -> void:
+	_doze_blocked = on
+
+
+## Pembeli mengulurkan tangan menerima kantong (0..1). Saat kembali ke 0, lengan
+## dan kepala dipulihkan ke pose istirahat.
+func set_receive(k: float) -> void:
+	var was: bool = _receive_k > 0.0
+	_receive_k = clampf(k, 0.0, 1.0)
+	if was and _receive_k <= 0.0 and model != null:
+		ProceduralAnimationSystem.end_pose(model)
+		_apply_carry_pose()
+
+
+## Progres fase membungkus dari kasir ini, supaya tangannya sinkron dengan kantong.
+func set_pack_progress(p: float, n: int) -> void:
+	_pack_p = p
+	_pack_n = maxi(n, 1)
 
 
 func gesture() -> int:
@@ -172,7 +204,10 @@ func _update_idle(a: SimActor, delta: float) -> void:
 		_idle_real = 0.0
 	elif not PauseManager.is_paused():
 		_idle_real += delta
-	_set_gesture(gesture_for(_idle_real))
+	var g: int = gesture_for(_idle_real)
+	if g == GESTURE_DOZE and _doze_blocked:
+		g = GESTURE_NONE
+	_set_gesture(g)
 
 
 func _wipe_progress() -> float:
@@ -284,20 +319,13 @@ func _set_carry(kind: String, recipe_profile: String = "", quality: float = 1.0,
 	_carry.position = Vector3(0.0, 0.40, -0.22)
 	match kind:
 		"dough":
-			var bowl := ProceduralMeshFactory.cylinder(0.09, 0.13, 0.09, Palette.PINE_WOOD)
+			var bowl: Node3D = EquipmentFactory.dough_bowl()
+			bowl.position = Vector3(0.0, -0.045, 0.0)
 			_carry.add_child(bowl)
-			var dough := ProceduralMeshFactory.sphere(0.10, Palette.RAW_DOUGH)
-			dough.scale = Vector3(1.0, 0.55, 1.0)
-			dough.position = Vector3(0.0, 0.05, 0.0)
-			_carry.add_child(dough)
 		"tray":
-			var tray := ProceduralMeshFactory.box(Vector3(0.34, 0.025, 0.24), EquipmentFactory.METAL_STEEL)
+			var tray: Node3D = EquipmentFactory.bread_tray(recipe_profile, quality, &"FRESH")
+			tray.position = Vector3(0.0, -0.0125, 0.0)
 			_carry.add_child(tray)
-			for i in 3:
-				var b: Node3D = BreadFactory.build_cached(recipe_profile, quality, &"FRESH")
-				b.scale = Vector3(0.55, 0.55, 0.55)
-				b.position = Vector3(-0.10 + 0.10 * float(i), 0.015, 0.0)
-				_carry.add_child(b)
 		"bag":
 			var bag: Node3D = BreadFactory.build_paper_bag()
 			bag.scale = Vector3(0.8, 0.8, 0.8)

@@ -63,10 +63,11 @@ func _decide() -> void:
 	var carried: ProductionJob = p.carried_job()
 	if carried != null:
 		if carried.stage == ProductionJob.CARRIED_TO_OVEN:
-			for e: EquipmentInstance in sim.equipment.placed_list(&"oven"):
-				if e.job_id < 0 and e.tier() >= carried.recipe().required_oven_tier:
-					p.tap_equipment(e.iid)
-					return
+			# Oven kosong, atau oven berisi loyang gosong yang ditukar (GDD 62).
+			var oven: EquipmentInstance = sim.production.free_oven_for(carried.recipe())
+			if oven != null:
+				p.tap_equipment(oven.iid)
+				return
 		elif carried.stage == ProductionJob.CARRIED_TO_DISPLAY:
 			for e2: EquipmentInstance in sim.equipment.placed_list(&"display"):
 				if sim.display.free_units(e2.iid) > 0:
@@ -220,7 +221,8 @@ func _manage() -> void:
 			continue
 		var best: EquipmentDefinition = null
 		for def: EquipmentDefinition in DataRegistry.equipment_in_category(cat):
-			if def.for_sale and sim.economy.balance - def.price_kr > reserve and (best == null or def.tier > best.tier):
+			if def.for_sale and sim.equipment.tier_allowed(def) and sim.economy.balance - def.price_kr > reserve \
+					and (best == null or def.tier > best.tier):
 				best = def
 		if best != null:
 			var r: Dictionary = sim.equipment.buy(best.id)

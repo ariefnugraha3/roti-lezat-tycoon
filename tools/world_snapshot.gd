@@ -36,14 +36,43 @@ func _ready() -> void:
 func _run() -> void:
 	var bot := SimBot.new(sim)
 	var lane: QueueLane = sim.queue.main_lane()
-	# 1. Membungkus di meja kasir (manual, pemain berjaga).
-	var ok: bool = await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) >= 0.45)
+	# 1. Urutan membungkus di meja kasir (GDD 21.4, manual, pemain berjaga):
+	# buka kantong, roti melompat masuk, pita diikat, kantong disodorkan, lalu
+	# menunggu bayaran. Titik fotonya dihitung dari jumlah roti yang dibungkus.
+	var ok: bool = await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) >= 0.0)
 	print("packing reached: ", ok)
-	await _frames(12)
-	await _shot("world_packing")
-	# Close-up meja kasir: kantong di samping mesin kasir, pose membungkus.
+	await _frames(2)
 	var rig: CameraRig = world.camera_rig
 	var normal_size: float = rig.ortho_size
+	rig.ortho_size = 1.9
+	rig.camera.size = 1.9
+	var bag_rig: PackBagRig = world._pack_bags.get(lane.id) as PackBagRig
+	var n: int = bag_rig.count if bag_rig != null else 1
+	var ph: Vector3 = ProceduralAnimationSystem.pack_phases(n)
+	var w0: Vector2 = ProceduralAnimationSystem.pack_bread_window(0, n)
+	var marks: Array[float] = [0.05, lerpf(w0.x, w0.y, 0.30), lerpf(w0.x, w0.y, 0.62),
+		lerpf(ph.y, ph.z, 0.45), ph.z + ProceduralAnimationSystem.PACK_OFFER_SPAN * 0.7, 0.93]
+	print("pack breads: ", n, " marks: ", marks)
+	var strip: Image = null
+	for i in marks.size():
+		await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) >= marks[i])
+		await _frames(8)
+		await RenderingServer.frame_post_draw
+		var img: Image = get_viewport().get_texture().get_image()
+		img.save_png(_out.path_join("pack_seq_%d.png" % (i + 1)))
+		var crop: Image = img.get_region(Rect2i(img.get_width() / 2 - 420, img.get_height() / 2 - 330, 840, 660))
+		if strip == null:
+			strip = Image.create(crop.get_width() * marks.size(), crop.get_height(), false, crop.get_format())
+		strip.blit_rect(crop, Rect2i(Vector2i.ZERO, crop.get_size()), Vector2i(crop.get_width() * i, 0))
+	if strip != null:
+		strip.save_png(_out.path_join("pack_sequence.png"))
+	# Gambaran toko dan close-up meja kasir saat membungkus berikutnya.
+	rig.ortho_size = normal_size
+	rig.camera.size = normal_size
+	await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) < 0.0)
+	await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) >= 0.45)
+	await _frames(12)
+	await _shot("world_packing")
 	rig.ortho_size = 2.6
 	rig.camera.size = 2.6
 	await _frames(12)
@@ -67,6 +96,36 @@ func _run() -> void:
 		pv._idle_real = 27.0
 	await _frames(90)
 	await _shot("world_doze")
+	# 4. Meja Tunggu berisi adonan dan loyang dengan kesegaran berbeda (GDD 5.1.3).
+	if pv != null:
+		pv._idle_real = 0.0
+	var table: EquipmentInstance = sim.equipment.table_instance()
+	var recipes: Array[StringName] = [&"recipe_plain_loaf", &"recipe_plain_loaf", &"recipe_sugar_donut", &"recipe_plain_fried_bread", &"recipe_sugar_donut"]
+	var ages: Array[float] = [0.0, 1.0, 4.5, 3.0, 9.0]
+	for i in recipes.size():
+		var j := ProductionJob.new()
+		j.job_id = 90000 + i
+		j.recipe_id = recipes[i]
+		j.quantity_output = DataRegistry.recipe(recipes[i]).batch_yield
+		j.carried_units = j.quantity_output
+		j.stage = ProductionJob.DOUGH_ON_TABLE if i % 2 == 0 else ProductionJob.TRAY_ON_TABLE
+		j.table_seq = i + 1
+		j.table_age_hours = ages[i]
+		sim.production.jobs[j.job_id] = j
+	var acc: Dictionary = sim.world.access_of(table.iid)
+	sim.player.actor.place_at(acc["floor"], acc["cell"])
+	rig.ortho_size = 2.4
+	rig.camera.size = 2.4
+	await _frames(40)
+	await _shot("world_table")
+	# Tanpa penanda "!" agar isi meja terlihat utuh.
+	world._marker_timer = 1.0e9
+	(world.markers[table.iid] as StationMarker).hide_marker()
+	await _frames(6)
+	await _shot("world_table_items")
+	world._marker_timer = 0.0
+	rig.ortho_size = normal_size
+	rig.camera.size = normal_size
 
 
 ## Majukan simulasi (bot bermain) sampai `cond` benar, sambil tetap merender.

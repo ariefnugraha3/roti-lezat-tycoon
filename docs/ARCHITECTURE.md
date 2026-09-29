@@ -48,7 +48,7 @@ It owns one instance of each manager as a child `SimManager` node:
 |---|---|---|
 | Clock & RNG | `TimeManager`, `RNGManager` (`core/`) | Day, time, phase, speed; the eight RNG streams of GDD 116. |
 | Economy | `EconomyManager`, `InventoryManager`, `PricingManager` (`gameplay/economy/`) | Balance and ledger; ingredient stock; price overrides. |
-| Production | `EquipmentManager`, `ProductionManager`, `DisplayInventoryManager` (`gameplay/production/`) | Equipment instances and utility; production jobs (GDD 18); display slots and `BreadStack`s with freshness (GDD 19). |
+| Production | `EquipmentManager`, `ProductionManager`, `DisplayInventoryManager` (`gameplay/production/`) | Equipment instances and utility; production jobs (GDD 18), including dough and trays parked on the Holding Table (stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`, aged and discarded by `ProductionManager.age_table`, GDD 5.1.3, 19.7.6); display slots and `BreadStack`s with freshness (GDD 19). Storage and the Holding Table are building fixtures (`EquipmentManager.is_fixture`): one per location, never sold or put away, outside slot limits. |
 | World | `WorldManager`, `DecorationManager` (`gameplay/world/`) | Location, per-floor `FloorGrid`, placement validation, routes, exclusive points; decorations. |
 | Actors | `PlayerTaskManager` (`gameplay/actors/`) | The player character and its command queue (GDD 16). |
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers; arrivals and the pending pool. |
@@ -75,7 +75,9 @@ Economy, reputation and statistics are updated inside those calls, at the moment
 each event commits. Presentation never runs inside a tick. The world view, HUD and
 audio read state every frame and react to `EventBus` signals. Iteration inside a
 manager uses sorted IDs, never node order, so the same ticks give the same result
-at any speed (`TEST_TIME_002`).
+at any speed (`TEST_TIME_002`). Text IDs are sorted with `Ids.sort` (`core/ids.gd`).
+A plain `Array.sort()` orders StringName by internal address, so the order, and
+with it the whole run, would change between sessions (`ACC_116_ID_ORDER`).
 
 One sim-second is one real second at 1×. Each sim-second advances the in-game clock by
 `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
@@ -164,8 +166,10 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   `ProceduralAnimationSystem.set_carry_pose()` swings both arms forward while an actor
   carries dough, a tray, a parcel or a customer's loose bread.
 - Presentation-only behaviour (GDD 21.4, 31.6, 31.7) never touches the simulation:
-  `WorldView` reads `CashierManager.packing_progress()` to show a paper bag filling on
-  the counter and to switch the cashier to the `pack` pose, tells each player/staff
+  `WorldView` reads `CashierManager.packing_progress()` and drives a `PackBagRig`
+  (`gameplay/world/pack_bag_rig.gd`) on the counter: bag opening, bread hopping in,
+  ribbon and offer. It passes the same progress to the cashier's `pack` pose and the
+  customer's `receive` pose, so hands and bag share the `pack_phases` beats. It also tells each player/staff
   `ActorView` whether it is busy, and drives the player's `ThoughtBubble`
   (`ui/components/thought_bubble.gd`, screen space) from the real-time "open shop, no
   customers" timer. `ActorView` owns the idle timer (face wipe, then dozing with
@@ -199,5 +203,7 @@ of starting a broken game.
   (default `user://lineup`), plus a triangle and draw-call report, and a poses page
   (packing, face wipe, dozing, carried bread and bag, thought bubble).
   `tools/world_snapshot.tscn` (also windowed) plays a real day with `SimBot` and
-  captures the shop at the gameplay camera: packing at the counter (plus a close-up),
-  the quiet-shop thought bubble and the dozing player.
+  captures the shop at the gameplay camera: the packing sequence at the counter
+  (`pack_seq_*.png` plus a `pack_sequence.png` strip), packing in the overview and close-up,
+  the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
+  and trays at different freshness (with and without its marker).

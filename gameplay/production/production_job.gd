@@ -13,6 +13,9 @@ const OVERBAKING: StringName = &"OVERBAKING"
 const BURNT: StringName = &"BURNT"
 const CARRIED_TO_DISPLAY: StringName = &"CARRIED_TO_DISPLAY"
 const PLACEMENT_UI: StringName = &"PLACEMENT_UI"
+## Mangkuk adonan / loyang matang yang ditaruh pemain di Meja Tunggu (GDD 5.1.3).
+const DOUGH_ON_TABLE: StringName = &"DOUGH_ON_TABLE"
+const TRAY_ON_TABLE: StringName = &"TRAY_ON_TABLE"
 const ON_DISPLAY: StringName = &"ON_DISPLAY"
 const FAILED: StringName = &"FAILED"
 
@@ -46,6 +49,11 @@ var carrier_id: StringName = &""
 var claimed_by: StringName = &""
 var cogs_noted: bool = false
 var produced_at: float = 0.0
+## Umur yang terkumpul di Meja Tunggu, dalam jam setara roti matang (GDD 19.7.6).
+## Tidak di-reset saat diambil lalu ditaruh lagi.
+var table_age_hours: float = 0.0
+## Urutan ditaruh di meja (tampilan & pemutus seri).
+var table_seq: int = 0
 
 
 func recipe() -> RecipeDefinition:
@@ -62,6 +70,10 @@ func is_waiting_oven_pickup() -> bool:
 	return stage == BAKE_DONE_WAITING_PICKUP or stage == OVERBAKING or stage == BURNT
 
 
+func is_on_table() -> bool:
+	return stage == DOUGH_ON_TABLE or stage == TRAY_ON_TABLE
+
+
 func to_dict() -> Dictionary:
 	return {
 		"job_id": job_id, "recipe_id": String(recipe_id), "batch_multiplier": batch_multiplier,
@@ -73,6 +85,7 @@ func to_dict() -> Dictionary:
 		"stage_elapsed": stage_elapsed, "burn_elapsed": burn_elapsed, "protected": protected,
 		"bake_quality": bake_quality, "carried_units": carried_units, "carrier_id": String(carrier_id),
 		"claimed_by": String(claimed_by), "cogs_noted": cogs_noted, "produced_at": produced_at,
+		"table_age_hours": table_age_hours, "table_seq": table_seq,
 	}
 
 
@@ -100,4 +113,6 @@ static func from_dict(d: Dictionary) -> ProductionJob:
 	j.claimed_by = StringName(str(d.get("claimed_by", "")))
 	j.cogs_noted = bool(d.get("cogs_noted", false))
 	j.produced_at = float(d.get("produced_at", 0.0))
+	j.table_age_hours = float(d.get("table_age_hours", 0.0))
+	j.table_seq = int(d.get("table_seq", 0))
 	return j

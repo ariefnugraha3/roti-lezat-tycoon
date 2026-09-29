@@ -1,0 +1,68 @@
+# Bangun build Web dengan Godot 4.7.2 resmi, lalu pasang ke GitHub Pages.
+# Jalankan dari tab Actions: pilih "Deploy Web ke GitHub Pages", lalu "Run workflow".
+# Syarat sekali saja: Settings > Pages > Build and deployment > Source = GitHub Actions.
+name: Deploy Web ke GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Satu deploy dalam satu waktu; yang lama dibatalkan bila ada yang baru.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Unduh Godot dan export template (diverifikasi SHA-512)
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          editor="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          templates="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSLO "$base/$editor.zip"
+          curl -fsSLO "$base/$templates"
+          curl -fsSLO "$base/SHA512-SUMS.txt"
+          grep -E "  ($editor\.zip|$templates)$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$editor.zip"
+          mv "$editor" godot
+          chmod +x godot
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest"
+          unzip -q "$templates"
+          mv templates/* "$dest/"
+
+      - name: Import dan ekspor Web
+        run: |
+          mkdir -p build/web
+          touch build/.gdignore
+          ./godot --headless --path . --import
+          ./godot --headless --path . --export-release "Web" build/web/index.html
+          test -f build/web/index.pck
+          test -f build/web/index.wasm
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

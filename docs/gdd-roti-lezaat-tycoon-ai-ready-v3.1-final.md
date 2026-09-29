@@ -49,7 +49,7 @@ Pemain tidak menekan tombol di menu untuk berproduksi—ia menggerakkan **karakt
 
 *Aturan tetap:* **alat yang selesai bekerja menahan isinya sampai diambil.** Tanda "!" berpindah ke stasiun berikutnya hanya SESUDAH barangnya benar-benar ada di tangan karakter. Jadi tanda yang sama dibaca dua cara: "ambil dari sini" saat tangannya kosong, dan "antar ke sini" saat ia sudah menenteng sesuatu.
 
-*Tangannya cuma sepasang:* selama satu bawaan belum diantar, alat lain yang juga sudah selesai tidak bisa diambil isinya—dan adonan kedua yang menunggu di mixer itulah yang membuat pemain harus memilih urutan kerjanya sendiri.
+*Tangannya cuma sepasang:* selama satu bawaan belum diantar, alat lain yang juga sudah selesai tidak bisa diambil isinya—dan adonan kedua yang menunggu di mixer itulah yang membuat pemain harus memilih urutan kerjanya sendiri. Kalau oven atau rak sedang penuh, bawaan boleh diparkir dulu di **Meja Tunggu** supaya tangannya bebas, dengan risiko isinya membusuk (Seksi 5.1.3).
 
 *Berjalan paralel:* yang mengantre hanyalah **kaki karakter**. Mixer dan oven berdetak sendiri setelah dinyalakan, jadi selagi roti dipanggang pemain tetap bisa memilih resep baru dan mengaduk adonan berikutnya. Beberapa pesanan berjalan sekaligus, masing-masing dengan tandanya sendiri.
 
@@ -90,7 +90,7 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Di atas kepala setiap pelanggan juga selalu terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual.
 5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
 6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
-7. **Tekan OK** → karakter melayani sesuai kecepatan layan kasir. Setiap transaksi berlangsung **minimal 3 detik**, dan **3 detik terakhirnya selalu animasi membungkus**: pembeli menyerahkan rotinya, kantong kertas muncul di meja di samping mesin kasir, roti masuk satu per satu, lalu mulut kantong dilipat (Seksi 21.4).
+7. **Tekan OK** → karakter melayani sesuai kecepatan layan kasir. Setiap transaksi berlangsung **minimal 3 detik**, dan **3 detik terakhirnya selalu animasi membungkus**: pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
 8. **Pesanan siap, pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang **sambil menenteng kantong kertas berisi rotinya**.
 
 *Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
@@ -432,7 +432,8 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
 
 - **Tempat:** tab **Equipment** di layar Pasar. Pasar punya tiga tab: Ingredients, Equipment, dan Store Upgrade.
 - **Waktu:** tab Equipment dan Store Upgrade hanya aktif **after-hours** (setelah Daily Summary). Di waktu lain keduanya tampil read-only dengan label `Available after closing`. Dengan begitu tidak ada alat yang diganti saat masih berisi job, dan keputusan investasi jatuh di momen perencanaan yang sama dengan staf dan iklan.
-- **Katalog:** Mixer, Oven, dan Display Tier 1–5 dengan harga Seksi 5.1. Gudang dan meja tidak dijual (Seksi 5.1.1, 32.2). Tidak ada gate tier lokasi: tier apa pun boleh dibeli selama footprint-nya muat (Seksi 60).
+- **Katalog:** Mixer, Oven, dan Display Tier 1–5 dengan harga Seksi 5.1. Gudang dan meja tidak dijual (Seksi 5.1.1, 32.2).
+- **Gerbang tier lokasi** (keputusan maintainer 2026-09-29): Pasar hanya menjual alat dengan tier ≤ tier lokasi. Garasi menjual Tier 1, Ruko sampai Tier 2, dan seterusnya, sehingga setiap upgrade lokasi membuka alat dan resep tier berikutnya. Beli maupun Replace di atas tier lokasi ditolak (`tier_locked`), dan kartunya tampil terkunci dengan `ui_equipment_tier_locked` (Seksi 127.14). Alat yang sudah dimiliki tidak terpengaruh. Footprint tetap harus muat (Seksi 60).
 - **Kartu alat** menampilkan:
   - nama English (Seksi 127.7) dan tier;
   - waktu referensi atau kapasitas;
@@ -446,6 +447,18 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
 - Konfirmasi pembelian mahal mengikuti setting Seksi 75.3.
 - **Starter:** New Game memberi 1 Mixer T1, 1 Oven T1, dan 1 Display T1 yang sudah terpasang. Salinan Tier 1 tambahan boleh dibeli seharga 0 KR selama slot tersedia.
 - **Save:** alat terpasang maupun `unplaced_owned_furniture` disimpan di `equipment_states` (Seksi 106).
+
+### **5.1.3 Meja Tunggu (Holding Table) — CANONICAL**
+
+Meja kerja kayu sederhana di dapur untuk **menaruh sementara** mangkuk adonan dan loyang roti matang saat oven atau rak sedang penuh. Meja ini **bukan rak jualan**: pembeli dan pesanan RotiFood tidak pernah mengambil apa pun darinya.
+
+* **Sepaket bangunan**: satu meja per lokasi (`holding_table`, jejak 2 × 1 ubin, Seksi 60), gratis, tidak dijual di Pasar, dan tidak bisa disimpan (Put Away). Seperti Gudang, meja boleh digeser di Mode Dekorasi dan ikut pindah saat upgrade lokasi. New Game dan save lama (Seksi 106) menempatkannya otomatis di zona dapur.
+* **Hanya pemain**: Asisten Dapur tidak pernah menaruh maupun mengambil barang di meja. Satu-satunya pengecualian adalah serah terima otomatis saat staf berhenti bertugas (Seksi 87.2): loyang yang tidak muat di rak dan adonan yang tidak mendapat mixer bebas diparkir di meja, supaya tidak ada job yatim.
+* **Tanpa batas isi**: pemain boleh menaruh berapa pun adonan dan loyang. Isi meja tidak dihitung dalam batas job serentak (Seksi 129) dan tidak menahan upgrade lokasi (Seksi 105).
+* **Menaruh** (satu ketukan): karakter yang membawa adonan atau loyang mengetuk meja; bawaannya diletakkan di sana dan tangannya kosong lagi. Loyang yang sebagian isinya sudah masuk rak ditaruh bersama sisa unitnya.
+* **Mengambil** (satu ketukan, tangan kosong): karakter mengambil **barang yang paling dekat basi dan punya tujuan kosong**, yaitu adonan bila ada oven yang bisa menerimanya (termasuk oven berisi loyang gosong, Seksi 16.5) atau loyang bila rak masih punya ruang. Bila tidak ada barang yang bisa diantar, muncul ikon oven penuh atau rak penuh (Seksi 16.7) sesuai barang yang paling mendesak.
+* **Membusuk**: isi meja menua menurut Seksi 19.7.6, dan barang yang basi dibuang otomatis sebagai waste.
+* **Penanda**: tanda "!" muncul di meja saat bawaan tidak punya tujuan kosong ("taruh di sini"), atau saat tangan kosong dan ada barang yang bisa diantar ("ambil"). Denyutnya makin cepat saat isi meja mendekati basi.
 
 ## **5.2 Sistem Bahan Baku (Fixed Price Ingredients)**
 
@@ -1329,8 +1342,10 @@ var priority: int
 - `carried_item = null` berarti tangan kosong.
 - Satu actor hanya membawa satu container logis sekaligus.
 - Container dapat mewakili beberapa unit roti dalam satu batch/loyang.
-- Saat membawa mangkuk adonan, hanya Oven yang menerima delivery yang cocok.
-- Saat membawa loyang matang, hanya Rak Display yang menerima delivery yang cocok.
+- Saat membawa mangkuk adonan, hanya Oven yang menerima delivery yang cocok, ditambah Meja Tunggu sebagai tempat parkir (Seksi 5.1.3).
+- **CANONICAL — tukar loyang gosong:** oven yang masih menahan loyang `BURNT` juga menerima adonan. Loyang gosong otomatis dibuang lebih dulu (tetap tercatat sebagai waste, Seksi 62), lalu adonan langsung masuk. Berlaku untuk pemain dan Asisten Dapur. Loyang yang masih bisa dijual (`BAKING`, `READY_PERFECT`, `OVERBAKING`) tidak pernah ditukar. Aturan ini mencegah permainan macet saat semua oven berisi loyang gosong sementara tangan pemain sedang memegang adonan.
+- Saat membawa loyang matang, hanya Rak Display yang menerima delivery yang cocok, ditambah Meja Tunggu sebagai tempat parkir (Seksi 5.1.3).
+- Mengetuk Meja Tunggu dengan tangan kosong mengambil satu barang menurut aturan Seksi 5.1.3.
 - Item tidak boleh hilang jika path gagal; actor kembali ke state BLOCKED dan bubble target tetap aktif.
 
 ## **16.6 Interaction Range**
@@ -1435,6 +1450,8 @@ var oven_id: StringName
 var created_at: float
 var quality_state: Dictionary
 var owner_actor_id: StringName
+var table_age_hours: float   # umur di Meja Tunggu, jam setara roti (Seksi 19.7.6)
+var table_seq: int           # urutan ditaruh di meja
 ```
 
 ## **18.2 Job Stages**
@@ -1450,9 +1467,13 @@ BAKE_DONE_WAITING_PICKUP
 OVERBAKING
 CARRIED_TO_DISPLAY
 PLACEMENT_UI
+DOUGH_ON_TABLE
+TRAY_ON_TABLE
 ON_DISPLAY
 FAILED
 ```
+
+`DOUGH_ON_TABLE` / `TRAY_ON_TABLE` = adonan atau loyang yang diparkir pemain di Meja Tunggu (Seksi 5.1.3). Saat diambil lagi, job kembali ke `CARRIED_TO_OVEN` / `CARRIED_TO_DISPLAY`.
 
 `MIXING` mencakup mix dan prep resep (Seksi 18.5). Tidak ada stage prep terpisah.
 
@@ -1526,7 +1547,7 @@ Saat oven selesai:
 
 ## **18.7 Burn Logic**
 
-**CANONICAL:** Burn timing mengikuti tabel final per oven tier pada Seksi 62. State minimum adalah `READY_PERFECT`, `OVERBAKE_WARNING`, dan `BURNT`. `BURNT` tidak boleh ditaruh di display; tray dibuang sebagai waste saat diambil. Visual browning harus mengikuti normalized burn progress.
+**CANONICAL:** Burn timing mengikuti tabel final per oven tier pada Seksi 62. State minimum adalah `READY_PERFECT`, `OVERBAKE_WARNING`, dan `BURNT`. `BURNT` tidak boleh ditaruh di display; tray dibuang sebagai waste saat diambil, atau saat adonan baru dimasukkan ke oven itu (Seksi 16.5, 62). Visual browning harus mengikuti normalized burn progress.
 
 Auto-Retrieve baker melakukan check tepat pada completion event sesuai chance tier.
 
@@ -1535,8 +1556,11 @@ Auto-Retrieve baker melakukan check tepat pada completion event sesuai chance ti
 - Roll chance satu kali per job saat oven selesai (transisi ke `READY_PERFECT`), memakai `staff_rng` (Seksi 116). Roll hanya berlaku untuk job yang tahap ovennya dimulai Asisten Dapur; job yang dimulai karakter pemain tidak di-roll.
 - Jika sukses: job **terlindung dari gosong**. Burn timer dibekukan sampai baker mengambil tray, lalu baker mengirimnya ke display sesuai mode kerjanya.
 - Jika baker sedang membawa item lain, pengambilan masuk priority queue dan tidak dianggap gagal; perlindungan gosong tetap berlaku sampai tray diambil.
-- Jika gagal: baker tidak mengambil tray itu. Tanda "!" dan alert Oven Ready menunggu pemain, dan burn timer berjalan normal (Seksi 3.2, 62).
+- Jika gagal: baker tidak mengambil tray itu. Tanda "!" dan alert Oven Ready menunggu pemain, dan burn timer berjalan normal (Seksi 3.2, 62). Setelah tray itu `BURNT`, baker yang membawa adonan boleh memakai oven tersebut; loyang gosong dibuang otomatis (Seksi 16.5).
 - Tier 5 100% berarti tidak melakukan RNG; selalu sukses.
+- Roll hanya berlaku bila baker yang memulai tahap oven **masih bertugas** saat oven selesai. Baker yang sudah pergi (dipecat, diliburkan, Mode Solo) tidak bisa mengambil tray, jadi hasilnya sama dengan roll gagal.
+- Klaim dilepas pukul 18:00, tetapi tray tetap terlindung; keesokan harinya baker yang memanggangnya mengklaim dan mengambilnya lagi.
+- Bila baker dipecat atau diliburkan, tray yang terlindung untuknya kembali seperti roll gagal (tanda "!", alert, burn timer berjalan), dan job miliknya yang belum selesai berpindah ke pemain (Seksi 87.2).
 
 ## **18.9 Batch Multiplier**
 
@@ -1674,6 +1698,16 @@ Urutan rollover hari:
 ### **19.7.5 Manual Disposal**
 
 Pemain boleh membuka detail Display dan memilih **Discard Stale/Expired**. `UNSALEABLE` selalu dapat dibuang; `STALE` boleh dibuang sukarela. Tidak ada refund bahan.
+
+### **19.7.6 Meja Tunggu — CANONICAL**
+
+- Adonan dan roti **hanya menua di Meja Tunggu** (Seksi 5.1.3). Adonan yang tertahan di mixer atau sedang dibawa tidak menua, begitu juga roti di loyang yang sedang dibawa.
+- Roti matang di meja menua dengan laju `holding_table.bread_aging_rate` = **1.0** per jam in-game (TUNABLE). Adonan menua **2× lebih cepat** (`holding_table.dough_aging_multiplier`, TUNABLE), sehingga adonan basi dalam separuh `base_expiry_ingame_hours` resepnya (Seksi 61.3).
+- Umur di meja disimpan per job (`table_age_hours`, dalam jam setara roti matang) dan **tidak di-reset** saat barang diambil lalu ditaruh lagi.
+- Batas basi = `unsaleable_ratio` × `base_expiry_ingame_hours`. Barang yang mencapainya **langsung dibuang** sebagai waste, lalu pemain mendapat notifikasi. Adonan dicatat senilai HPP batch, sedangkan roti senilai HPP unit yang tersisa di loyang (Seksi 24.4).
+- **Semalam** (18:00 → 05:00) isi meja ikut menua **11 jam in-game** bersama rollover Seksi 19.7.3, tepat sekali per hari. Adonan menua setara 22 jam, jadi adonan yang ditinggal semalam hampir pasti basi.
+- Roti dari loyang yang pernah di meja **membawa umurnya** ke rak: stack barunya dimulai dengan umur itu, bukan nol.
+- Adonan dari meja dipanggang normal selama belum basi. Roti hasilnya mulai segar (umur 0) dan kualitas panggangnya tidak berkurang.
 
 ## **19.8 Burned Bread Sales — FINAL**
 
@@ -2038,7 +2072,13 @@ customer reaches front
 **CANONICAL — Packing Phase:**
 
 - `transaction_seconds = max(service_seconds × archetype_service_multiplier, packing_seconds)`, dengan `packing_seconds = 3.0` (TUNABLE, `balance.json` `cashier.packing_seconds`). `service_seconds` = kecepatan layan kasir (Seksi 3.1) atau waktu manual pemain (Seksi 3.0.C).
-- `packing_seconds` terakhir setiap transaksi adalah fase membungkus. Selama fase itu pembeli sudah menyerahkan rotinya (tangannya kosong), kantong kertas prosedural muncul di permukaan meja di samping mesin kasir, roti pembeli masuk satu per satu, lalu mulut kantong dilipat. Kasir (pemain atau Asisten Kasir) memainkan animasi membungkus dengan kedua tangan di atas meja. SFX `cashier_pack` berbunyi tepat saat fase ini dimulai.
+- `packing_seconds` terakhir setiap transaksi adalah fase membungkus. Selama fase itu pembeli sudah menyerahkan rotinya (tangannya kosong). SFX `cashier_pack` berbunyi tepat saat fase ini dimulai.
+- **Koreografi membungkus** (presentasi saja; kasir dan kantong membaca progres fase yang sama, jadi selalu sinkron di 1×/2×/3×). Babak dihitung dari jumlah roti yang digambar (maksimal 3):
+  1. **Buka kantong** (14% pertama): kantong kertas yang masih terlipat di meja, di samping mesin kasir, disentak terbuka dengan squash & stretch. Kedua tangan kasir menyentak ke atas. Roti pembeli menunggu di samping kantong.
+  2. **Masukkan roti**: tiap roti paling lama 20% fase. Tangan kiri kasir (sisi kantong) meraih roti, sehingga roti bergoyang sesaat, lalu mengangkatnya. Roti melompat melengkung ke mulut kantong sambil berputar, sementara tangan kanan menahan kantong dan badan condong serta menoleh ke arah roti. Kantong memantul tiap roti masuk (SFX `customer_pick_bread`).
+  3. **Ikat pita** (16%): roti teratas mengintip dari mulut kantong, pita dan simpul muncul dengan pop dan kilau kecil (SFX `bread_place_display`), dan kasir menepuk kantong dua kali.
+  4. **Sodorkan** (12%): kedua lengan kasir lurus ke depan dan kantong bergeser ke arah pembeli. Pembeli mengulurkan kedua tangan untuk menerimanya.
+  5. **Tunggu bayar** (sisa fase): tangan kasir santai di tepi meja. Kalau rotinya sedikit, babak 3–4 maju lebih awal dan sisa waktunya dipakai menunggu.
 - Sebelum fase membungkus pembeli menenteng roti lepas yang ia ambil dari rak (langkah 3 Seksi 2). Setelah membayar ia pulang menenteng kantong kertas.
 - Fase membungkus adalah bagian dari waktu transaksi, bukan tambahan: pemain (10,5 s) dan Kasir Tier 1–3 tidak berubah; Kasir Tier 4 (2,2 s) dan Tier 5 (1,2 s) menjadi 3,0 s.
 - Durasi ini berjalan dalam simulation time seperti semua durasi lain (pada 2×/3× ikut lebih cepat) agar determinisme lintas kecepatan tetap terjaga (Seksi 71, 81.7).
@@ -2161,10 +2201,11 @@ Hari 1–3 memakai manifest Seksi 20.3 dengan `prep_window` tetap 90 simulation-
 
 **Pembuatan order**
 - Laju order mengikuti Seksi 65.
-- Tidak ada order baru setelah **17:15**, supaya driver sempat datang sebelum tutup.
+- Tidak ada order baru setelah **16:55**, supaya driver sempat datang sebelum tutup: `prep_window` terpanjang (90 simulation-seconds = 45 menit in-game) ditambah pending maksimal driver (40 simulation-seconds = 20 menit in-game, Seksi 67) berakhir tepat 18:00.
 - Jumlah unit per order: 2 (10%), 3 (20%), 4 (40%), 5 (20%), 6 (10%).
 - Jumlah jenis resep: 1 jenis (70%) atau 2 jenis (30%, unit dibagi serata mungkin). Bila menu hanya punya satu resep, selalu 1 jenis.
-- **Menu** = resep yang saat order dibuat punya stok sellable di display, atau sudah selesai diproduksi hari itu. Resep dipilih dengan bobot sama. Bila menu kosong, order tidak dibuat dan demand itu terlewat tanpa penalti.
+- **Menu** = resep yang saat order dibuat punya stok sellable di display, atau sudah selesai diproduksi hari itu. Bila menu kosong, order tidak dibuat dan demand itu terlewat tanpa penalti.
+- **Pilihan resep** berbobot penerimaan harga (keputusan maintainer 2026-09-29): bobot = `max(clamp(effective_price_demand(rasio harga, rotifood.price_sensitivity) / substitution.price_acceptance_divisor, 0, 1), 0.01)` (Seksi 63.2, 84.3). Resep yang dihargai jauh di atas referensi jarang dipesan, seperti oleh pembeli fisik. Jenis kedua dipilih dengan bobot yang sama dari resep yang tersisa.
 - Harga per unit dikunci saat order dibuat (Seksi 63.2). Semua roll memakai `rotifood_rng`.
 
 **Timing**
@@ -2218,12 +2259,14 @@ Task harus memiliki owner lock agar dua baker tidak mengambil batch yang sama.
 
 1. Ambil tray dari oven untuk job yang auto-retrieve-nya berhasil (Seksi 18.8).
 2. Deliver carried item.
-3. Pindahkan adonan selesai dari mixer ke oven kosong (job milik baker).
+3. Pindahkan adonan selesai dari mixer ke oven kosong, atau ke oven berisi loyang gosong yang otomatis dibuang (job milik baker, Seksi 16.5).
 4. Refill display untuk resep dengan unit sellable paling sedikit (Seksi 3.2).
 5. Mulai job baru jika ingredients cukup dan target mode mengizinkan.
 6. Idle animation.
 
-Tray yang auto-retrieve-nya gagal tidak diambil baker. Oven itu tertahan sampai pemain mengambilnya, dan baker memakai alat lain atau menunggu (Seksi 3.2, 30.4).
+Tray yang auto-retrieve-nya gagal tidak diambil baker. Oven itu tertahan sampai pemain mengambilnya, dan baker memakai alat lain atau menunggu (Seksi 3.2, 30.4). Setelah tray itu gosong, baker yang membawa adonan boleh memakainya (Seksi 16.5).
+
+**Batas mulai batch** (keputusan maintainer 2026-09-29): baker hanya memulai job baru (langkah 5) bila mixing + baking-nya selesai paling lambat `staff_ai.baker_finish_by_seconds`. Durasinya dihitung dengan kecepatan baker itu, mixer bebas yang akan dipakai, dan oven paling lambat yang bisa memanggang resep itu; bila batch terbesar tidak sempat, baker mencoba batch lebih kecil. Batch yang sudah berjalan tetap diselesaikan dan diantar ke rak, sehingga dapur kosong saat tutup dan upgrade lokasi tidak tertahan (Seksi 105 no.11).
 
 ## **23.4 Baker Target Recipe Mode**
 
@@ -2246,7 +2289,7 @@ Jika dua staff saling menghalangi secara visual, mereka tidak boleh deadlock kar
 - Setiap Asisten Dapur punya setting batch di Staff Management: `Auto` (default), `x1`, `x3`, atau `x5`.
 - `Auto`: baker memakai batch terbesar (x5 → x3 → x1) yang bahannya cukup di Gudang dan output-nya muat di sisa kapasitas display saat job dimulai. Bila x1 pun tidak muat, baker tidak memulai job (Seksi 23.4).
 - Setting manual dibatasi aturan yang sama. Bila tidak terpenuhi, baker turun ke batch yang lebih kecil.
-- Batch besar tidak lebih cepat per unit, karena durasi dikalikan linear (Seksi 18.9). Keuntungannya hanya jumlah bolak-balik yang lebih sedikit; risikonya lebih banyak unit menua bersamaan (Seksi 19.7).
+- Batch besar jauh lebih cepat per unit, karena durasinya hanya dikali `batch_duration_factor` (x3 ×1.2, x5 ×1.4; Seksi 18.5, 18.9) dan bolak-balik juga lebih sedikit. Risikonya: bahan untuk seluruh batch terpakai sekaligus, dan lebih banyak unit menua bersamaan (Seksi 19.7).
 
 ---
 
@@ -2808,6 +2851,7 @@ Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak mengan
 - **Tidak melakukan apa pun** = tidak berjalan, tidak berinteraksi dengan perabot, tidak membawa barang, tidak punya perintah dalam antrean, dan (untuk kasir atau pemain yang berjaga di meja) tidak sedang melayani transaksi. Berjaga di meja kasir tanpa pembeli termasuk menganggur. Asisten Dapur tanpa tugas termasuk menganggur.
 - Timer memakai **detik nyata** (tidak ikut 2×/3×), berhenti saat game di-pause, dan kembali ke nol begitu ada aktivitas; pose dan ekspresi langsung kembali normal.
 - Pelanggan, driver, dan kurir tidak memakai gerak menganggur.
+- **Pengecualian tertidur untuk pemain — CANONICAL:** karakter pemain tidak pernah tertidur saat gelembung pikiran (Seksi 31.7) sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur `presentation.doze_after_last_thought_seconds` (5 detik, TUNABLE) sesudah pikiran terakhir muncul, yaitu pada detik ke-45 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 25 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
 - Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation`.
 
 ## **31.7 Player Thought Bubbles (Toko Sepi)**
@@ -2821,7 +2865,7 @@ Selama **toko buka (08:00–18:00)** dan **sama sekali tidak ada pelanggan**, ba
 | 30 detik | `thought_quiet_3` |
 | 40 detik | `thought_quiet_4` |
 
-- Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal.
+- Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal; sesudahnya karakter yang menganggur boleh tertidur (Seksi 31.6), jadi gelembung dan tidur tidak pernah tampil bersamaan.
 - Begitu ada satu pelanggan (pembeli masuk atau pesanan RotiFood aktif), gelembung **langsung hilang** dan hitungan kembali ke nol.
 - Timer memakai detik nyata, berhenti saat pause, dan tidak berjalan sebelum toko buka atau setelah toko tutup.
 - Gelembung digambar di ruang layar (panel krem bersudut membulat, teks Inggris dari katalog string, tiga lingkaran kecil menunjuk ke kepala), tidak menangkap ketukan, dan disembunyikan selama Decoration Mode atau bila pemain berada di lantai lain.
@@ -4001,6 +4045,7 @@ Semua footprint wajib bilangan bulat tile. Mesh visual boleh sedikit inset dari 
 | RotiFood Counter | T3+ | 2×1 | 1.0×0.5 m | **0.42 m** | driver side |
 | Stair Door / Portal | T2–T3 | 2×1 reserved | 1.0×0.5 m | door-height | front |
 | Supply Package Visual | all | 1×1 max | ≤0.5×0.5 m | ≤0.45 m | none |
+| Holding Table (Meja Tunggu) | all | 2×1 | 1.0×0.5 m | 0.62 m | front long side |
 
 ### **60.1 Rotation Rules**
 
@@ -4186,7 +4231,7 @@ During `READY_PERFECT`: quality multiplier = `1.00`.
 
 During `OVERBAKING`, quality multiplier turun linear dari `0.95 -> 0.60`. Visual berubah golden-brown ke dark-brown dan smoke meningkat.
 
-Saat timer overbake berakhir: status `BURNT`, quality multiplier `0.0`, item **tidak dapat dijual**. Player/staff harus mengambil batch dari oven; batch lalu otomatis masuk disposal/trash dan tidak menghasilkan KR. Oven tidak bisa menerima batch baru selama batch burnt masih tertahan.
+Saat timer overbake berakhir: status `BURNT`, quality multiplier `0.0`, item **tidak dapat dijual**. Player/staff harus mengambil batch dari oven; batch lalu otomatis masuk disposal/trash dan tidak menghasilkan KR. Oven tidak bisa menerima batch baru selama batch burnt masih tertahan, kecuali pemain atau baker yang membawa adonan mengetuk oven itu: loyang gosong otomatis dibuang (tetap tercatat sebagai waste dan burnt batch), lalu adonan langsung masuk (Seksi 16.5).
 
 Baker `Auto-Retrieve` melakukan retrieval tepat pada transisi ke `READY_PERFECT` bila proc berhasil; Tier 5 Baker selalu berhasil.
 
@@ -4243,6 +4288,7 @@ Per recipe:
 - `max_price = round_to_5(default_price × 1.80)`.
 - Slider step = 5 KR untuk default price < 1,000 KR; 25 KR untuk >=1,000 KR. Nilai slider selalu di-clamp ke `min_price..max_price`.
 - Harga per unit **dikunci** saat customer mengambil roti dari rak, atau saat pesanan RotiFood dibuat. Perubahan harga sesudahnya tidak memengaruhi transaksi itu.
+- **Hari 1–3** (manifest Seksi 20.3) memakai harga default, karena pembeli manifest tidak bereaksi pada harga (keputusan maintainer 2026-09-29). Slider tampil read-only dengan `ui_recipe_price_locked` (Seksi 127.14), dan override yang tersimpan tidak berlaku selama hari manifest. Slider aktif sejak after-hours Hari 3, yang merencanakan Hari 4.
 
 Baseline demand multiplier (kontinu, piecewise linear):
 
@@ -4274,6 +4320,7 @@ effective_price_demand = clamp(1.0 + s × (price_demand − 1.0), 0.0, 1.5)
 Pemakaian:
 - `price_mix_multiplier` pada Seksi 65 memakai `price_demand` baseline.
 - Bobot pilihan resep dan `price_acceptance` customer (Seksi 20.6, 84.2, 84.3) memakai `effective_price_demand`.
+- Bobot menu RotiFood (Seksi 22.9) memakai `effective_price_demand` dengan `s` = `rotifood.price_sensitivity`.
 - Label reaksi untuk UI diturunkan dari nilai ini (Seksi 84.5).
 
 Harga murah dapat menaikkan demand tetapi tidak pernah meningkatkan revenue per item secara ajaib. Customer membeli berdasarkan affordability/preference check saat memilih display.
@@ -4282,7 +4329,7 @@ Harga murah dapat menaikkan demand tetapi tidak pernah meningkatkan revenue per 
 
 # **64. Location Progression — Money Only**
 
-Upgrade lokasi hanya membutuhkan KR. Tidak ada rating gate, day gate, achievement gate, atau skill gate.
+Upgrade lokasi hanya membutuhkan KR. Tidak ada rating gate, day gate, achievement gate, atau skill gate. Setiap upgrade juga membuka alat tier berikutnya di Pasar (Seksi 5.1.2).
 
 Biaya upgrade canonical: baris **Harga Beli / Upgrade** pada tabel Seksi 6 (satu-satunya definisi).
 
@@ -4651,7 +4698,7 @@ Naming rule: lowercase snake_case, stable selamanya setelah shipped. Seksi ini a
 Floor: `floor_1` (lantai dasar/toko; satu-satunya floor untuk Tier 1, 4, 5) dan `floor_2` (lantai atas/dapur Tier 2–3).
 
 ## **78.3 Equipment**
-`storage_t1..storage_t5`, `mixer_t1..mixer_t5`, `oven_t1..oven_t5`, `display_t1..display_t5`, `counter_cashier`, `counter_rotifood`.
+`storage_t1..storage_t5`, `mixer_t1..mixer_t5`, `oven_t1..oven_t5`, `display_t1..display_t5`, `counter_cashier`, `counter_rotifood`, `holding_table`.
 
 ## **78.4 Ingredients**
 `ingredient_flour`, `ingredient_sugar`, `ingredient_yeast`, `ingredient_egg`, `ingredient_butter`, `ingredient_water_salt`, `ingredient_chocolate`, `ingredient_cheddar`, `ingredient_strawberry_jam`, `ingredient_milk`, `ingredient_beef_sausage`, `ingredient_cinnamon`, `ingredient_whole_wheat_flour`, `ingredient_organic_butter`, `ingredient_almond`, `ingredient_cream_cheese`, `ingredient_matcha`, `ingredient_truffle`.
@@ -4972,6 +5019,8 @@ Roster pada Seksi 3.5 adalah **fixed canonical roster**.
 - Cashier mengambil service position menjelang 08:00 dan melayani otomatis selama Open phase.
 - Baker mulai bekerja sejak Preparation 05:00 mengikuti mode automation.
 - Pada 18:00 staff menyelesaikan atomic handoff yang sedang committed, lalu berhenti mengambil task baru dan despawn/idle after-hours.
+- **Serah terima tanpa job yatim**: loyang yang dibawa staf masuk rak; sisa yang tidak muat diparkir di Meja Tunggu (Seksi 5.1.3). Adonan kembali ke mixer bebas, atau ke Meja Tunggu bila tidak ada. Aturan yang sama berlaku saat staf dipecat atau diliburkan.
+- Baker yang dipecat, diliburkan, atau masuk Mode Solo menyerahkan job miliknya yang belum selesai kepada pemain, sehingga tanda "!" muncul di alatnya (Seksi 18.8). Tidak ada job yang tertinggal tanpa pemilik yang bisa mengerjakannya.
 - Tidak ada shift editor atau jam kerja individual.
 
 ## **87.3 Wage Liability**
@@ -5605,7 +5654,7 @@ category_id: StringName
 
 ```text
 id: StringName
-category_id: StringName           mixer/oven/display/storage/counter/etc.
+category_id: StringName           mixer/oven/display/storage/counter/table/etc.
 tier: int                         1..5
 footprint_tiles: Vector2i
 interaction_offsets: Array[Vector2i]
@@ -5736,7 +5785,8 @@ At exactly 18:00, stop admitting new physical customers and new RotiFood orders 
 | Finished oven contents waiting | remains in oven state; resumes risk only when simulation resumes |
 | Supply courier due at/after 18:00 | courier visual is skipped; purchase order auto-commits directly to storage |
 | Supply courier already walking inside | complete commit immediately at closing boundary, then despawn; no blocking |
-| Staff | duty day ends after required state cleanup; wage liability remains owed |
+| Staff | duty day ends after required state cleanup (Section 87.2: carried trays to the display, leftovers and dough without a free mixer to the Holding Table, never an orphan job); wage liability remains owed |
+| Items on the Holding Table | stay on the table; they age 11 in-game hours overnight together with the display rollover (Section 19.7.6) |
 
 Daily Summary opens after deterministic shutdown cleanup and pauses simulation.
 
@@ -5757,7 +5807,7 @@ Migration order:
 8. Preserve ratings, analytics, achievements, statistics, market purchase orders, and RNG states.
 9. Pending physical arrivals are cleared because the store topology changes while paused; no penalty.
 10. Active in-store customers/RotiFood must be zero before upgrade UI enables purchase.
-11. Active production jobs must be complete/empty before equipment can migrate; otherwise purchase button remains disabled.
+11. Active production jobs must be complete/empty before equipment can migrate; otherwise purchase button remains disabled. Items on the Holding Table are not active jobs: they move with the table, which is re-placed after the production equipment (Section 5.1.3).
 12. Furniture positions do **not** carry blindly across a different floor plan. Each item is placed using deterministic migration anchors; remaining movable items go to an `unplaced_owned_furniture` inventory for player placement.
 13. Rebuild navigation/no-build masks and validate protected routes.
 14. Save stable checkpoint before resuming.
@@ -5784,7 +5834,7 @@ Minimum root shape:
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "game_version": "1.0.0",
   "catalog_versions": { "catalog_schema_version": 1, "content_version": 1 },
   "created_at": "2026-09-25T10:00:00Z",
@@ -5840,6 +5890,8 @@ Minimum root shape:
   }
 }
 ```
+
+Schema 4 adds the Holding Table (Section 5.1.3): job stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`, job fields `table_age_hours` and `table_seq`, and `production_jobs.next_table_seq`. The v3 → v4 migrator only bumps the version; a save without a table gets one created and auto-placed in the kitchen on load.
 
 The actual project must include a version-controlled **golden save fixture** under `tests/fixtures/` that loads successfully and is used by migration/regression tests. Transient pooled-node IDs, cached mesh references, signal connections, UI animation progress, and ephemeral pathfinding routes must never be serialized.
 
@@ -6627,6 +6679,7 @@ Seksi 127.7–127.11 melengkapi katalog ini. Placeholder `{…}` diisi runtime; 
 | `storage_t5` | `Cold Room & Industrial Racks` |
 | `counter_cashier` | `Cashier Counter` |
 | `counter_rotifood` | `RotiFood Pickup Counter` |
+| `holding_table` | `Holding Table` |
 
 ## **127.8 Staff Titles & Bios**
 
@@ -6819,6 +6872,25 @@ Gelembung pikiran pemain saat toko sepi (Seksi 31.7), berurutan:
 | `thought_quiet_3` | `Is my shop really that unpopular? Maybe my bread isn't any good...` |
 | `thought_quiet_4` | `Maybe I should just take up catfish farming instead.` |
 
+
+## **127.13 Holding Table Strings**
+
+Notifikasi saat isi Meja Tunggu basi dan dibuang (Seksi 19.7.6). `{recipe}` = nama resep dari Seksi 127.2.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_table_dough_spoiled` | `The {recipe} dough on the holding table went bad and was thrown away.` |
+| `ui_table_bread_spoiled` | `The {recipe} on the holding table went bad and was thrown away.` |
+
+## **127.14 Equipment Tier & Price Lock Strings**
+
+Kartu alat di atas tier lokasi (Seksi 5.1.2) dan slider harga Hari 1–3 (Seksi 63.2). `{tier}` = tier lokasi yang dibutuhkan.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_equipment_tier_locked` | `Needs a Tier {tier} store` |
+| `ui_recipe_price_locked` | `Prices can be changed from Day 4.` |
+
 ---
 
 # **128. REPRODUCIBLE TOOLCHAIN MANIFEST**
@@ -6881,7 +6953,8 @@ Hard limits melindungi endless simulation dari runaway allocations. Mencapai lim
 | Supply courier actors | 2 | Additional deliveries stay queued as data. |
 | Pending physical arrivals | 128 | Oldest pending request expires by normal maximum-delay rule before accepting more. |
 | Pending RotiFood arrivals/orders | 128 | New demand is deferred; never allocate unbounded arrays. |
-| Concurrent ProductionJob objects | 64 | New production request rejected with clear UI feedback. |
+| Concurrent ProductionJob objects | 64 | New production request rejected with clear UI feedback. Items resting on the Holding Table do not count; ingredients and spoilage bound them (Section 19.7.6). |
+| Holding Table items drawn | 6 (`limits.table_items_visible`) | Every item is still simulated; only the first ones are drawn on the table. |
 | Concurrent active equipment jobs | physical station capacity | Cannot exceed actual equipment slots. |
 | Toast/notification cards visible | 3 | Lower-priority notices collapse into notification center/icon. |
 | Placed decorations per floor | 24 | Decor Shop and Decoration Mode refuse further placement with a clear message (Section 72.1). |

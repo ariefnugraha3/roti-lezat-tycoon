@@ -53,8 +53,7 @@ static func _derive(seed_value: int, salt: String) -> int:
 ## Pilihan berbobot dari Dictionary key -> bobot. Mengembalikan key atau null.
 static func weighted_pick(r: RandomNumberGenerator, weights: Dictionary) -> Variant:
 	var total: float = 0.0
-	var keys: Array = weights.keys()
-	keys.sort()
+	var keys: Array = Ids.sort(weights.keys())
 	for k: Variant in keys:
 		total += maxf(0.0, float(weights[k]))
 	if total <= 0.0:

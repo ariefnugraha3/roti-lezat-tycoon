@@ -20,6 +20,7 @@ func tests() -> Array:
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
 		{"id": "ACC_129_FX_TEARDOWN", "name": "129 one-shot effects freed early leave no errors behind", "fn": _effect_teardown},
+		{"id": "ACC_62_BURNT_SWAP", "name": "62 dough in hand replaces a burnt tray, never a sellable one", "fn": _burnt_swap},
 	]
 
 
@@ -222,6 +223,8 @@ func _layout_solver() -> void:
 				check(s.world.auto_place(e), "T%d auto-places %s #%d" % [tier, cat, s.equipment.placed_count(cat) + 1])
 			eq(s.equipment.placed_count(cat), limit, "T%d %s slots filled (%d)" % [tier, cat, limit])
 		check(s.world.layout_valid(), "T%d layout valid with every slot filled" % tier)
+		var table: EquipmentInstance = s.equipment.table_instance()
+		check(table != null and table.placed, "T%d holding table placed alongside full slots (GDD 5.1.3)" % tier)
 		for e2: EquipmentInstance in s.equipment.placed_list():
 			check(not s.world.access_of(e2.iid).is_empty(), "T%d %s#%d has an access tile" % [tier, e2.def_id, e2.iid])
 		free_sim(s)
@@ -347,6 +350,64 @@ func _effect_teardown() -> void:
 	eq(FX.live_effects(), base, "freeing the world releases the effect slot")
 	await runner.get_tree().create_timer(FX.SPARKLE_LIFETIME * 1.4 + FX.AUTO_FREE_MARGIN + 0.3).timeout
 	eq(FX.live_effects(), base, "the late auto-free timer changes nothing")
+
+
+## Soft-lock oven gosong (GDD 16.5, 62): siapa pun yang membawa adonan boleh
+## memakai oven berisi loyang gosong. Loyang itu dibuang sebagai waste, lalu
+## adonan masuk. Loyang yang masih bisa dijual tetap menahan oven.
+func _burnt_swap() -> void:
+	var s: SimulationRoot = new_sim(6262)
+	s.tutorial.skip()
+	var p: PlayerTaskManager = s.player
+	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
+	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
+	var loaf: RecipeDefinition = DataRegistry.recipe(&"recipe_plain_loaf")
+	# Loyang A dibiarkan sampai gosong.
+	var a: ProductionJob = s.production.create_job(loaf.id, 1, &"test")
+	s.production.start_mixing(a.job_id, &"test", 1.0)
+	_step_until(s, func() -> bool: return a.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
+	s.production.pickup_dough(a.job_id, &"test")
+	s.production.insert_oven(a.job_id, oven.iid, &"test", 1.0)
+	_step_until(s, func() -> bool: return a.stage == ProductionJob.BURNT)
+	check(s.production.holds_burnt(oven), "oven holds the burnt tray")
+	eq(s.production.free_oven_for(loaf), oven, "a burnt oven still takes dough")
+	# Adonan B diambil pemain dari mixer, lalu dibawa ke oven gosong.
+	var b: ProductionJob = s.production.create_job(loaf.id, 1, PlayerTaskManager.PLAYER_ID)
+	s.production.start_mixing(b.job_id, PlayerTaskManager.PLAYER_ID, 1.0)
+	_step_until(s, func() -> bool: return b.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
+	check(p.tap_equipment(mixer.iid), "tap the finished mixer")
+	_step_until(s, func() -> bool: return not p.actor.carried.is_empty())
+	eq(p.carried_job(), b, "player carries the dough")
+	var waste0: float = s.economy.waste_cost_today
+	var burnt0: int = s.production.batches_burnt_today
+	var bal0: float = s.economy.balance
+	check(p.tap_equipment(oven.iid), "tap the burnt oven with dough in hand")
+	_step_until(s, func() -> bool: return p.actor.carried.is_empty())
+	check(s.production.get_job(a.job_id) == null, "burnt tray discarded")
+	near(s.economy.waste_cost_today - waste0, a.ingredient_value_kr, 0.001, "discarded tray counted as waste")
+	eq(s.production.batches_burnt_today, burnt0 + 1, "counted as a burnt batch")
+	near(s.economy.balance, bal0, 0.001, "no KR from the burnt tray")
+	eq(b.stage, ProductionJob.BAKING, "the new dough bakes")
+	eq(oven.job_id, b.job_id, "oven holds the new dough")
+	# Loyang yang sedang dipanggang atau siap jual tidak pernah ditukar.
+	var c: ProductionJob = s.production.create_job(loaf.id, 1, &"test")
+	s.production.start_mixing(c.job_id, &"test", 1.0)
+	_step_until(s, func() -> bool: return c.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
+	s.production.pickup_dough(c.job_id, &"test")
+	check(s.production.free_oven_for(loaf) == null, "a baking oven is not offered for dough")
+	check(not s.production.insert_oven(c.job_id, oven.iid, &"test", 1.0), "dough cannot replace a baking tray")
+	_step_until(s, func() -> bool: return b.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP)
+	check(not s.production.insert_oven(c.job_id, oven.iid, &"test", 1.0), "dough cannot replace a ready tray")
+	eq(oven.job_id, b.job_id, "the ready tray stays in the oven")
+	free_sim(s)
+
+
+func _step_until(s: SimulationRoot, cond: Callable, max_ticks: int = 4000) -> bool:
+	for i in max_ticks:
+		if cond.call():
+			return true
+		s.step(s.tick_seconds)
+	return cond.call()
 
 
 func _mixed_taps() -> void:

@@ -195,12 +195,16 @@ func _equipment_card(def: EquipmentDefinition, open: bool) -> Control:
 			recipes.append(Tx.recipe_name(r.id))
 	if not recipes.is_empty():
 		lbl(body, Tx.t("ui_equipment_recipes", {"recipes": ", ".join(recipes)}), 14, Palette.TEXT_MUTED, true)
+	# Alat di atas tier lokasi belum dijual (GDD 5.1.2).
+	var locked: bool = not sim.equipment.tier_allowed(def)
+	if locked:
+		lbl(body, Tx.t("ui_equipment_tier_locked", {"tier": def.tier}), 15, Palette.DANGER, true)
 	var row: HBoxContainer = hbox(body, 10)
 	row.alignment = BoxContainer.ALIGNMENT_END
 	var full: bool = sim.equipment.placed_count(def.category_id) + sim.equipment.unplaced_list(def.category_id).size() >= sim.equipment.slot_limit(def.category_id)
 	var buy: Button = btn(row, Tx.t("ui_equipment_buy", {"price": Tx.kr(def.price_kr)}), "primary", _buy_equipment.bind(def.id))
-	buy.disabled = not open or full or not sim.economy.can_afford(def.price_kr)
-	if full:
+	buy.disabled = not open or locked or full or not sim.economy.can_afford(def.price_kr)
+	if full and not locked:
 		for e: EquipmentInstance in sim.equipment.placed_list(def.category_id):
 			var rb: Button = btn(row, "%s: %s" % [Tx.t("ui_equipment_replace"), Tx.item_name(e.def_id)], "secondary", _replace.bind(def.id, e.iid))
 			rb.disabled = not open or sim.equipment.is_in_use(e.iid) or not sim.economy.can_afford(def.price_kr)
@@ -296,6 +300,7 @@ func _confirm_if_expensive(cost: float, go: Callable) -> void:
 func _reason_toast(reason: String) -> void:
 	var key: String = {"kr": "ui_feedback_not_enough_kr", "capacity": "ui_feedback_storage_full",
 		"after_hours": "ui_available_after_closing", "slots_full": "ui_equipment_slots_full",
-		"in_use": "ui_feedback_in_use", "locked": "ui_market_locked"}.get(reason, "ui_feedback_nothing_to_do")
-	EventBus.notify.emit(1, key, {}, &"warning")
+		"in_use": "ui_feedback_in_use", "locked": "ui_market_locked",
+		"tier_locked": "ui_equipment_tier_locked"}.get(reason, "ui_feedback_nothing_to_do")
+	EventBus.notify.emit(1, key, {"tier": sim.world.location.tier + 1}, &"warning")
 	EventBus.sfx.emit(&"ui_error", &"")

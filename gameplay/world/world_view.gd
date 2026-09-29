@@ -10,13 +10,17 @@ extends Node3D
 const MARKER_HZ: float = 12.0
 const BREAD_HZ: float = 4.0
 const MAX_BREAD_PER_SLOT: int = 3
+## Isi Meja Tunggu digambar lebih kecil dari barang di tangan agar enam muat.
+const TABLE_ITEM_SCALE: float = 0.75
+## Warna adonan yang hampir basi di meja.
+const TABLE_DOUGH_STALE: Color = Color(0.72, 0.74, 0.58)
 const PICK_CUSTOMER_PX: float = 56.0
 ## Jarak ujung ekor gelembung pikiran di atas puncak kepala/topi pemain (m).
 const THOUGHT_ANCHOR_GAP: float = 0.08
 ## Roti yang tampak masuk ke kantong di meja kasir saat membungkus.
 const PACK_BREAD_MAX: int = 3
 ## Geser kantong sepanjang meja agar tidak tertutup mesin kasir (m).
-const PACK_BAG_SIDE: float = 0.19
+const PACK_BAG_SIDE: float = 0.24
 
 var sim: SimulationRoot = null
 var camera_rig: CameraRig = null
@@ -24,6 +28,8 @@ var floors: Dictionary = {}
 var furniture: Dictionary = {}
 var markers: Dictionary = {}
 var _bread_sig: Dictionary = {}
+## Tanda isi Meja Tunggu terakhir yang digambar (GDD 5.1.3).
+var _table_sig: String = ""
 var _aabbs: Dictionary = {}
 var _counter_aabbs: Array[Dictionary] = []
 var views: Dictionary = {}
@@ -112,6 +118,7 @@ func rebuild_furniture() -> void:
 	furniture.clear()
 	markers.clear()
 	_bread_sig.clear()
+	_table_sig = ""
 	_aabbs.clear()
 	for e: EquipmentInstance in sim.equipment.placed_list():
 		var parent: Node3D = floors.get(e.floor_id)
@@ -139,6 +146,8 @@ func _build_furniture(e: EquipmentInstance) -> Node3D:
 			node = EquipmentFactory.build_oven(def.tier)
 		&"display":
 			node = EquipmentFactory.build_display(def.tier)
+		&"table":
+			node = EquipmentFactory.build_holding_table()
 		_:
 			node = EquipmentFactory.build_storage(def.tier)
 	node.name = "Equip_%d" % e.iid
@@ -223,6 +232,7 @@ func _process(delta: float) -> void:
 	if _bread_timer <= 0.0:
 		_bread_timer = 1.0 / BREAD_HZ
 		_update_bread()
+		_update_table()
 	_animate_stations(delta)
 
 
@@ -240,7 +250,9 @@ func _sync_actors(delta: float) -> void:
 		# Aksi & status sibuk diatur sebelum sync supaya animasinya frame ini juga.
 		pv.set_idle_enabled(true)
 		pv.set_busy(_player_busy())
+		pv.set_doze_blocked(_player_doze_blocked())
 		pv.set_action(&"pack" if packers.has(player.id) else &"")
+		_apply_pack(pv, packers.get(player.id))
 	_sync_one(player, pkey, _player_spec, delta, live, false)
 	pv = views.get(player.id)
 	if pv != null:
@@ -253,6 +265,7 @@ func _sync_actors(delta: float) -> void:
 			sv0.set_idle_enabled(true)
 			sv0.set_busy(_staff_busy(StringName(str(sid)), a))
 			sv0.set_action(&"pack" if packers.has(a.id) else &"")
+			_apply_pack(sv0, packers.get(a.id))
 		_sync_one(a, "staff|" + String(sid), _staff_spec.bind(String(sid)), delta, live, false)
 		var sv: ActorView = views.get(a.id)
 		if sv != null:
@@ -266,6 +279,7 @@ func _sync_actors(delta: float) -> void:
 		if v == null:
 			continue
 		_apply_customer_carry(v, c)
+		v.set_receive(_receive_amount(c))
 		var show_bar: bool = c.state != Customer.CELEBRATING and c.state != Customer.LEAVING and c.state != Customer.LEAVE_NO_STOCK
 		v.set_patience(c.patience_ratio(), show_bar, large)
 		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
@@ -370,6 +384,18 @@ func _apply_customer_carry(v: ActorView, c: Customer) -> void:
 	v.set_carry("bread", String(r.visual_profile_id) if r != null else "", st.bake_quality, mini(c.held_units(), PACK_BREAD_MAX))
 
 
+## Pembeli mengulurkan tangan sejak kantong disodorkan sampai membayar (GDD 21.4).
+func _receive_amount(c: Customer) -> float:
+	if c.state != Customer.BEING_SERVED:
+		return 0.0
+	var p: float = sim.cashier.packing_progress(c.lane_id)
+	if p < 0.0:
+		return 0.0
+	var rig: PackBagRig = _pack_bags.get(c.lane_id) as PackBagRig
+	var ph: Vector3 = ProceduralAnimationSystem.pack_phases(rig.count if rig != null else 1)
+	return smoothstep(ph.z, ph.z + ProceduralAnimationSystem.PACK_OFFER_SPAN, p)
+
+
 ## Pemain sedang mengerjakan sesuatu: berjalan, berinteraksi, membawa barang,
 ## punya perintah antre, atau melayani transaksi di meja kasir.
 func _player_busy() -> bool:
@@ -388,9 +414,9 @@ func _staff_busy(sid: StringName, a: SimActor) -> bool:
 	return lane_id != null and not sim.cashier.transaction_for(StringName(str(lane_id))).is_empty()
 
 
-## Kantong kertas di meja kasir selama fase membungkus (GDD 21.4): kantong
-## membesar, roti pembeli jatuh masuk satu per satu, lalu mulut kantong dilipat.
-## Mengembalikan {actor_id: true} untuk kasir (pemain/staf) yang sedang membungkus.
+## Kantong kertas di meja kasir selama fase membungkus (GDD 21.4), digerakkan
+## PackBagRig pada progres yang sama dengan pose kasir. Mengembalikan
+## {actor_id: {p, n}} untuk kasir (pemain/staf) yang sedang membungkus.
 func _update_packing() -> Dictionary:
 	var packers: Dictionary = {}
 	var seen: Dictionary = {}
@@ -398,22 +424,29 @@ func _update_packing() -> Dictionary:
 		var prog: float = sim.cashier.packing_progress(lane.id)
 		if prog < 0.0:
 			continue
+		var n: int = _pack_count(lane)
+		if lane.floor_id == camera_rig.active_floor and floors.has(lane.floor_id):
+			seen[lane.id] = true
+			var rig: PackBagRig = _pack_bags.get(lane.id) as PackBagRig
+			if rig == null or not is_instance_valid(rig):
+				rig = _build_pack_bag(lane)
+				(floors[lane.floor_id] as Node3D).add_child(rig)
+				_pack_bags[lane.id] = rig
+			n = rig.count
+			for ev: StringName in rig.animate(prog):
+				if ev == &"bread_in":
+					EventBus.sfx.emit(&"customer_pick_bread", lane.floor_id)
+				elif ev == &"sealed":
+					EventBus.sfx.emit(&"bread_place_display", lane.floor_id)
+					FX.sugar_sparkle(floors[lane.floor_id], rig.position + Vector3(0.0, PackBagRig.MOUTH_Y + 0.04, 0.0))
+		var info: Dictionary = {"p": prog, "n": n}
 		var td: Dictionary = sim.cashier.transaction_for(lane.id)
 		if bool(td.get("manual", false)):
-			packers[sim.player.actor.id] = true
+			packers[sim.player.actor.id] = info
 		else:
 			for sid: Variant in sim.staff.lane_assign.keys():
 				if StringName(str(sim.staff.lane_assign[sid])) == lane.id and sim.staff.actors.has(sid):
-					packers[(sim.staff.actors[sid] as SimActor).id] = true
-		if lane.floor_id != camera_rig.active_floor or not floors.has(lane.floor_id):
-			continue
-		seen[lane.id] = true
-		var bag: Node3D = _pack_bags.get(lane.id)
-		if bag == null or not is_instance_valid(bag):
-			bag = _build_pack_bag(lane)
-			(floors[lane.floor_id] as Node3D).add_child(bag)
-			_pack_bags[lane.id] = bag
-		_animate_pack_bag(bag, prog)
+					packers[(sim.staff.actors[sid] as SimActor).id] = info
 	for k: Variant in _pack_bags.keys():
 		if not seen.has(k):
 			var old: Node3D = _pack_bags[k]
@@ -423,54 +456,38 @@ func _update_packing() -> Dictionary:
 	return packers
 
 
-func _build_pack_bag(lane: QueueLane) -> Node3D:
-	var root := Node3D.new()
-	root.name = "PackBag_%s" % lane.id
+func _apply_pack(view: ActorView, info: Variant) -> void:
+	if info is Dictionary:
+		view.set_pack_progress(float((info as Dictionary)["p"]), int((info as Dictionary)["n"]))
+
+
+## Roti pembeli yang digambar saat dibungkus (maksimal PACK_BREAD_MAX).
+func _pack_count(lane: QueueLane) -> int:
+	var c: Customer = sim.customers.customer(lane.service_occupant)
+	if c == null or c.held.is_empty():
+		return 1
+	return clampi(c.held_units(), 1, PACK_BREAD_MAX)
+
+
+func _build_pack_bag(lane: QueueLane) -> PackBagRig:
+	var rig := PackBagRig.new()
+	rig.name = "PackBag_%s" % lane.id
 	# Mesin kasir berdiri tepat di tengah meja lane; kantong di sampingnya,
-	# sedikit ke arah pembeli.
+	# sedikit ke arah pembeli, dan roti pembeli berjajar di tepi meja.
 	var sp: Vector2 = GridMath.cell_center(lane.service_point)
 	var cp: Vector2 = GridMath.cell_center(lane.cashier_point)
 	var to_customer: Vector2 = (sp - cp).normalized()
 	var along := Vector2(to_customer.y, -to_customer.x)
 	var pos: Vector2 = (sp + cp) * 0.5 + along * PACK_BAG_SIDE + to_customer * 0.04
-	root.position = Vector3(pos.x, EquipmentFactory.COUNTER_HEIGHT, pos.y)
-	var bag: Node3D = BreadFactory.build_paper_bag()
-	bag.name = "Bag"
-	root.add_child(bag)
+	rig.position = Vector3(pos.x, EquipmentFactory.COUNTER_HEIGHT, pos.y)
 	var profile: String = ""
-	var count: int = 1
 	var c: Customer = sim.customers.customer(lane.service_occupant)
 	if c != null and not c.held.is_empty():
 		var st: BreadStack = (c.held[0] as Dictionary)["stack"]
 		var r: RecipeDefinition = DataRegistry.recipe(st.recipe_id)
 		profile = String(r.visual_profile_id) if r != null else ""
-		count = clampi(c.held_units(), 1, PACK_BREAD_MAX)
-	for i in count:
-		var b: Node3D = BreadFactory.build_cached(profile, 1.0, &"FRESH")
-		b.name = "Bread%d" % i
-		b.scale = Vector3(0.45, 0.45, 0.45)
-		b.visible = false
-		root.add_child(b)
-	root.set_meta("breads", count)
-	return root
-
-
-func _animate_pack_bag(root: Node3D, prog: float) -> void:
-	var bag: Node3D = root.get_node_or_null("Bag")
-	if bag != null:
-		var grow: float = lerpf(0.55, 0.78, smoothstep(0.0, 0.2, prog))
-		# Mulut kantong dilipat di akhir fase.
-		var fold: float = 1.0 - 0.14 * sin(PI * clampf((prog - 0.82) / 0.18, 0.0, 1.0))
-		bag.scale = Vector3(grow, grow * fold, grow)
-	var n: int = int(root.get_meta("breads", 0))
-	for i in n:
-		var b: Node3D = root.get_node_or_null("Bread%d" % i)
-		if b == null:
-			continue
-		var t0: float = 0.12 + (0.62 / float(maxi(n, 1))) * float(i)
-		var k: float = clampf((prog - t0) / 0.14, 0.0, 1.0)
-		b.visible = prog >= t0 - 0.06 and k < 1.0
-		b.position = Vector3(0.0, lerpf(0.26, 0.06, k * k), 0.0)
+	rig.setup(profile, _pack_count(lane), Vector3(to_customer.x, 0.0, to_customer.y))
+	return rig
 
 
 ## Gelembung pikiran pemain saat toko buka tanpa satu pun pelanggan (GDD 31.7):
@@ -479,7 +496,7 @@ func _animate_pack_bag(root: Node3D, prog: float) -> void:
 func _update_thoughts(delta: float) -> void:
 	if _thought_bubble == null:
 		return
-	var quiet: bool = sim.time.is_open() and sim.customers.customers.is_empty() and sim.rotifood.active_orders().is_empty()
+	var quiet: bool = _shop_quiet()
 	if not quiet:
 		_quiet_real = 0.0
 	elif not PauseManager.is_paused():
@@ -495,6 +512,25 @@ func _update_thoughts(delta: float) -> void:
 
 func quiet_seconds() -> float:
 	return _quiet_real
+
+
+## Toko buka tanpa pembeli di dalam dan tanpa pesanan RotiFood aktif (GDD 31.7).
+func _shop_quiet() -> bool:
+	return sim.time.is_open() and sim.customers.customers.is_empty() and sim.rotifood.active_orders().is_empty()
+
+
+## Pemain tidak tertidur saat gelembung pikiran tampil, dan selama toko sepi baru
+## boleh tertidur `presentation.doze_after_last_thought_seconds` sesudah pikiran
+## terakhir muncul (GDD 31.6, 31.7). Yang sudah tertidur sejak persiapan terbangun
+## begitu toko buka dan sepi, lalu rangkaian pikirannya berjalan lebih dulu.
+func _player_doze_blocked() -> bool:
+	if _thought_bubble != null and _thought_bubble.is_showing():
+		return true
+	if not _shop_quiet():
+		return false
+	var after: Array = DataRegistry.bal("presentation.thought_after_seconds")
+	var doze_at: float = float(after[after.size() - 1]) + DataRegistry.balf("presentation.doze_after_last_thought_seconds")
+	return _quiet_real < doze_at
 
 
 func thought_bubble() -> ThoughtBubble:
@@ -561,6 +597,42 @@ func _update_bread() -> void:
 				b.scale = Vector3(0.45, 0.45, 0.45)
 				b.position = Vector3((float(k) - float(n - 1) * 0.5) * 0.06, 0.0, float(k % 2) * 0.03)
 				slot_node.add_child(b)
+
+
+## Isi Meja Tunggu (GDD 5.1.3): mangkuk adonan dan loyang di atas daun meja,
+## maksimal `limits.table_items_visible`. Adonan memucat kehijauan dan roti
+## memakai tampilan kesegarannya saat mendekati basi.
+func _update_table() -> void:
+	var table: EquipmentInstance = sim.equipment.table_instance()
+	if table == null or not furniture.has(table.iid):
+		return
+	var items: Array[ProductionJob] = sim.production.table_jobs()
+	var shown: int = mini(items.size(), DataRegistry.bali("limits.table_items_visible"))
+	var parts: PackedStringArray = PackedStringArray([str(table.iid)])
+	for i in shown:
+		var j: ProductionJob = items[i]
+		parts.append("%d:%s:%s" % [j.job_id, j.stage, BreadStack.state_for_ratio(sim.production.table_spoil_ratio(j))])
+	var sig: String = ",".join(parts)
+	if sig == _table_sig:
+		return
+	_table_sig = sig
+	var top: Node3D = (furniture[table.iid] as Node3D).find_child("Top", true, false) as Node3D
+	if top == null:
+		return
+	for c: Node in top.get_children():
+		c.queue_free()
+	for i2 in shown:
+		var j2: ProductionJob = items[i2]
+		var state: StringName = BreadStack.state_for_ratio(sim.production.table_spoil_ratio(j2))
+		var item: Node3D
+		if j2.stage == ProductionJob.DOUGH_ON_TABLE:
+			var stale: float = 0.0 if state == &"FRESH" else (0.45 if state == &"GOOD" else 1.0)
+			item = EquipmentFactory.dough_bowl(Palette.RAW_DOUGH.lerp(TABLE_DOUGH_STALE, stale))
+		else:
+			item = EquipmentFactory.bread_tray(String(j2.recipe().visual_profile_id), j2.bake_quality, state)
+		item.scale = Vector3(TABLE_ITEM_SCALE, TABLE_ITEM_SCALE, TABLE_ITEM_SCALE)
+		item.position = Vector3((float(i2 % 3) - 1.0) * 0.30, 0.0, (floorf(float(i2) / 3.0) - 0.5) * 0.20)
+		top.add_child(item)
 
 
 func _display_signature(iid: int) -> String:

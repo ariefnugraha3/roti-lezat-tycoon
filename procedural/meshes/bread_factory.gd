@@ -189,13 +189,21 @@ static func build_paper_bag() -> Node3D:
 	for s: float in [-1.0, 1.0]:
 		_place(root, _box(Vector3(0.005, 0.180, 0.006), kraft_dark, 0.92),
 				Vector3(0.052 * s, 0.098, 0.0425))
-	# Pita manis melingkar + simpulnya.
-	_place(root, _box(Vector3(0.158, 0.022, 0.093), ribbon, 0.55), Vector3(0.0, 0.148, 0.0),
+	# Mulut kantong yang terbuka: bidang gelap di atas bibir.
+	_place(root, _box(Vector3(0.140, 0.004, 0.078), kraft.darkened(0.55), 0.95), Vector3(0.0, 0.2165, 0.0),
+			Vector3.ZERO, Vector3.ONE, "Mouth")
+	# Pita manis melingkar + simpulnya, dikelompokkan di node "Seal" (berpusat di
+	# pita) supaya animasi membungkus bisa memunculkannya (PackBagRig).
+	var seal := Node3D.new()
+	seal.name = "Seal"
+	seal.position = Vector3(0.0, 0.149, 0.0)
+	root.add_child(seal)
+	_place(seal, _box(Vector3(0.158, 0.022, 0.093), ribbon, 0.55), Vector3(0.0, -0.001, 0.0),
 			Vector3.ZERO, Vector3.ONE, "Ribbon")
 	for s2: float in [-1.0, 1.0]:
-		_place(root, _sphere(0.024, ribbon, 0.55, 8, 2), Vector3(0.030 * s2, 0.150, 0.054),
+		_place(seal, _sphere(0.024, ribbon, 0.55, 8, 2), Vector3(0.030 * s2, 0.001, 0.054),
 				Vector3(0.0, 0.0, 28.0 * s2), Vector3(1.0, 0.55, 0.38))
-	_place(root, _sphere(0.014, ribbon, 0.50, 8, 2), Vector3(0.0, 0.150, 0.056))
+	_place(seal, _sphere(0.014, ribbon, 0.50, 8, 2), Vector3(0.0, 0.001, 0.056))
 	# Ujung roti hangat mengintip dari mulut kantong.
 	_place(root, _sphere(0.045, Palette.GOLDEN_CRUST, 0.62, 10, 3), Vector3(0.0, 0.208, 0.0),
 			Vector3.ZERO, Vector3(1.28, 0.70, 0.95), "Peek")

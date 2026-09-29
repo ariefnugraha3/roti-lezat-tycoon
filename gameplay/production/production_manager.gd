@@ -6,12 +6,15 @@ extends SimManager
 ## MIXING (mix + prep dalam satu progress) -> MIX_DONE_WAITING_PICKUP ->
 ## CARRIED_TO_OVEN -> BAKING -> BAKE_DONE_WAITING_PICKUP (READY_PERFECT) ->
 ## OVERBAKING -> BURNT, atau diangkat -> CARRIED_TO_DISPLAY -> ON_DISPLAY.
-## Alat yang selesai menahan isinya sampai diambil (GDD 18.6).
+## Alat yang selesai menahan isinya sampai diambil (GDD 18.6). Adonan dan loyang
+## yang dibawa pemain boleh diparkir di Meja Tunggu (DOUGH_ON_TABLE /
+## TRAY_ON_TABLE) lalu diambil lagi (GDD 5.1.3, 19.7.6).
 
 var jobs: Dictionary = {}
 var next_job_id: int = 1
 var batches_burnt_today: int = 0
 var completed_today: Dictionary = {}
+var next_table_seq: int = 1
 
 var _min_stage: float = 1.0
 var _max_jobs: int = 64
@@ -26,6 +29,7 @@ func setup(s: SimulationRoot) -> void:
 func new_game() -> void:
 	jobs.clear()
 	next_job_id = 1
+	next_table_seq = 1
 	reset_day()
 
 
@@ -72,11 +76,25 @@ func free_mixer_for(recipe: RecipeDefinition) -> EquipmentInstance:
 	return null
 
 
+## Oven yang bisa menerima adonan resep ini sekarang: oven kosong lebih dulu,
+## lalu oven berisi loyang gosong yang dibuang otomatis saat adonan masuk
+## (GDD 16.5, 62).
 func free_oven_for(recipe: RecipeDefinition) -> EquipmentInstance:
+	var burnt: EquipmentInstance = null
 	for e: EquipmentInstance in sim.equipment.placed_list(&"oven"):
-		if e.tier() >= recipe.required_oven_tier and e.job_id < 0:
+		if e.tier() < recipe.required_oven_tier:
+			continue
+		if e.job_id < 0:
 			return e
-	return null
+		if burnt == null and holds_burnt(e):
+			burnt = e
+	return burnt
+
+
+## true bila oven masih menahan loyang gosong (GDD 62).
+func holds_burnt(oven: EquipmentInstance) -> bool:
+	var j: ProductionJob = get_job(oven.job_id) if oven != null and oven.job_id >= 0 else null
+	return j != null and j.stage == ProductionJob.BURNT
 
 
 func owns_equipment_for(recipe: RecipeDefinition) -> bool:
@@ -93,7 +111,7 @@ func make_block_reason(recipe_id: StringName, batch: int) -> String:
 		return "ui_feedback_needs_equipment"
 	if not sim.inventory.has_for_recipe(r, batch):
 		return "ui_feedback_missing_ingredients"
-	if jobs.size() >= _max_jobs:
+	if active_job_count() >= _max_jobs:
 		return "ui_feedback_job_limit"
 	if free_mixer_for(r) == null:
 		return "ui_feedback_no_free_mixer"
@@ -201,12 +219,24 @@ func insert_oven(job_id: int, oven_iid: int, actor_id: StringName, staff_speed: 
 	var oven: EquipmentInstance = sim.equipment.get_inst(oven_iid)
 	if j == null or oven == null or j.stage != ProductionJob.CARRIED_TO_OVEN:
 		return false
-	if oven.job_id >= 0 or oven.tier() < j.recipe().required_oven_tier:
+	if oven.tier() < j.recipe().required_oven_tier:
 		return false
+	if oven.job_id >= 0:
+		# Loyang gosong dibuang otomatis agar adonan bisa masuk; loyang yang
+		# masih bisa dijual tidak pernah ditukar (GDD 16.5, 62).
+		var old: ProductionJob = get_job(oven.job_id)
+		if old == null or old.stage != ProductionJob.BURNT:
+			return false
+		oven.job_id = -1
+		old.claimed_by = &""
+		_discard_burnt(old, oven)
+		sim.alerts.clear_oven(oven_iid)
 	oven.job_id = j.job_id
 	j.oven_id = oven_iid
 	j.stage = ProductionJob.BAKING
 	j.stage_started_by = actor_id
+	# Adonan dari Meja Tunggu dipanggang normal: roti mulai segar (GDD 19.7.6).
+	j.table_age_hours = 0.0
 	j.stage_duration = oven_stage_seconds(j.recipe(), oven.tier(), j.batch_multiplier, staff_speed)
 	j.stage_elapsed = 0.0
 	j.burn_elapsed = 0.0
@@ -228,15 +258,7 @@ func pickup_tray(job_id: int, actor_id: StringName) -> Dictionary:
 		EventBus.sfx.emit(&"oven_open", oven.floor_id)
 	j.claimed_by = &""
 	if j.stage == ProductionJob.BURNT:
-		# Batch gosong langsung ke disposal, tanpa KR (GDD 19.8, 62).
-		j.stage = ProductionJob.FAILED
-		sim.analytics.note_burnt(j.recipe_id, j.quantity_output, j.ingredient_value_kr)
-		sim.statistics.add(&"total_bread_burned", j.quantity_output)
-		sim.statistics.add(&"total_bread_wasted", j.quantity_output)
-		sim.economy.note_waste(j.ingredient_value_kr)
-		batches_burnt_today += 1
-		jobs.erase(job_id)
-		EventBus.sfx.emit(&"bread_burnt", oven.floor_id if oven != null else &"floor_1")
+		_discard_burnt(j, oven)
 		return {"ok": true, "burnt": true}
 	j.stage = ProductionJob.CARRIED_TO_DISPLAY
 	j.carrier_id = actor_id
@@ -245,13 +267,25 @@ func pickup_tray(job_id: int, actor_id: StringName) -> Dictionary:
 	return {"ok": true, "burnt": false}
 
 
+## Batch gosong langsung ke disposal, tanpa KR (GDD 19.8, 62).
+func _discard_burnt(j: ProductionJob, oven: EquipmentInstance) -> void:
+	j.stage = ProductionJob.FAILED
+	sim.analytics.note_burnt(j.recipe_id, j.quantity_output, j.ingredient_value_kr)
+	sim.statistics.add(&"total_bread_burned", j.quantity_output)
+	sim.statistics.add(&"total_bread_wasted", j.quantity_output)
+	sim.economy.note_waste(j.ingredient_value_kr)
+	batches_burnt_today += 1
+	jobs.erase(j.job_id)
+	EventBus.sfx.emit(&"bread_burnt", oven.floor_id if oven != null else &"floor_1")
+
+
 ## Taruh sebagian/seluruh isi loyang ke satu petak rak (GDD 85). Mengembalikan
 ## jumlah yang masuk; job selesai saat loyang kosong.
 func place_from_tray(job_id: int, display_iid: int, slot_index: int, qty: int) -> int:
 	var j: ProductionJob = get_job(job_id)
 	if j == null or (j.stage != ProductionJob.CARRIED_TO_DISPLAY and j.stage != ProductionJob.PLACEMENT_UI):
 		return 0
-	var n: int = sim.display.place(display_iid, slot_index, j.recipe_id, mini(qty, j.carried_units), j.bake_quality, j.produced_at, j.job_id)
+	var n: int = sim.display.place(display_iid, slot_index, j.recipe_id, mini(qty, j.carried_units), j.bake_quality, j.produced_at, j.job_id, j.table_age_hours)
 	if n <= 0:
 		return 0
 	j.carried_units -= n
@@ -345,6 +379,7 @@ func step(dt: float) -> void:
 					continue
 				j.burn_elapsed += dt
 				_update_burn(j)
+	age_table(sim.time.ingame_hours(dt))
 
 
 func _on_bake_complete(j: ProductionJob) -> void:
@@ -354,9 +389,11 @@ func _on_bake_complete(j: ProductionJob) -> void:
 	var floor_id: StringName = oven.floor_id if oven != null else &"floor_1"
 	EventBus.station_completed.emit(j.oven_id, j.stage)
 	EventBus.sfx.emit(&"oven_done", floor_id)
-	# Auto-retrieve: satu roll per job, hanya bila tahap oven dimulai Asisten Dapur (GDD 18.8).
+	# Auto-retrieve: satu roll per job, hanya bila tahap oven dimulai Asisten Dapur
+	# yang masih bertugas (GDD 18.8). Baker yang sudah pergi (dipecat, libur)
+	# tidak bisa mengambilnya, jadi hasilnya sama dengan roll gagal.
 	var staff_def: StaffDefinition = DataRegistry.staff(j.stage_started_by)
-	if staff_def != null and staff_def.is_baker():
+	if staff_def != null and staff_def.is_baker() and sim.staff.is_working(staff_def.id):
 		var p: float = staff_def.auto_retrieve_probability
 		var ok: bool = p >= 1.0 or (p > 0.0 and sim.rng.stream(&"staff_rng").randf() < p)
 		if ok:
@@ -383,6 +420,126 @@ func _update_burn(j: ProductionJob) -> void:
 
 
 # ===========================================================================
+# MEJA TUNGGU (GDD 5.1.3, 19.7.6) — hanya pemain yang memakainya
+# ===========================================================================
+
+## Isi Meja Tunggu, urut waktu ditaruh.
+func table_jobs() -> Array[ProductionJob]:
+	var out: Array[ProductionJob] = []
+	for j: ProductionJob in sorted_jobs():
+		if j.is_on_table():
+			out.append(j)
+	out.sort_custom(func(a: ProductionJob, b: ProductionJob) -> bool: return a.table_seq < b.table_seq)
+	return out
+
+
+## Job yang memakai alat atau sedang dibawa. Isi meja tidak dihitung dalam batas
+## job serentak (GDD 129) dan tidak menahan upgrade lokasi (GDD 105).
+func active_job_count() -> int:
+	var n: int = 0
+	for j: ProductionJob in jobs.values():
+		if not j.is_on_table():
+			n += 1
+	return n
+
+
+func has_active_jobs() -> bool:
+	return active_job_count() > 0
+
+
+## Taruh mangkuk adonan atau loyang yang sedang dibawa ke meja.
+func put_on_table(job_id: int) -> bool:
+	var j: ProductionJob = get_job(job_id)
+	if j == null:
+		return false
+	match j.stage:
+		ProductionJob.CARRIED_TO_OVEN:
+			j.stage = ProductionJob.DOUGH_ON_TABLE
+		ProductionJob.CARRIED_TO_DISPLAY, ProductionJob.PLACEMENT_UI:
+			j.stage = ProductionJob.TRAY_ON_TABLE
+		_:
+			return false
+	j.carrier_id = &""
+	j.table_seq = next_table_seq
+	next_table_seq += 1
+	EventBus.sfx.emit(&"bread_place_display", _table_floor())
+	return true
+
+
+## Ambil satu barang dari meja ke tangan `actor_id`.
+func take_from_table(job_id: int, actor_id: StringName) -> bool:
+	var j: ProductionJob = get_job(job_id)
+	if j == null or not j.is_on_table():
+		return false
+	j.stage = ProductionJob.CARRIED_TO_OVEN if j.stage == ProductionJob.DOUGH_ON_TABLE else ProductionJob.CARRIED_TO_DISPLAY
+	j.carrier_id = actor_id
+	EventBus.sfx.emit(&"bread_place_display", _table_floor())
+	return true
+
+
+## Barang paling dekat basi yang tujuannya kosong: adonan bila ada oven yang
+## bisa menerimanya, loyang bila rak masih punya ruang. null bila tidak ada.
+func table_pick() -> ProductionJob:
+	var best: ProductionJob = null
+	for j: ProductionJob in table_jobs():
+		if not table_has_destination(j):
+			continue
+		if best == null or table_spoil_ratio(j) > table_spoil_ratio(best) + 0.000001:
+			best = j
+	return best
+
+
+func table_has_destination(j: ProductionJob) -> bool:
+	if j.stage == ProductionJob.DOUGH_ON_TABLE:
+		return free_oven_for(j.recipe()) != null
+	return sim.display.total_free_units() > 0
+
+
+## 0..1: umur di meja terhadap batas basi resep.
+func table_spoil_ratio(j: ProductionJob) -> float:
+	return j.table_age_hours / maxf(j.recipe().expired_duration_hours, 0.0001)
+
+
+## Laju penuaan per jam in-game di meja: roti matang memakai laju dasar, adonan
+## dikali `holding_table.dough_aging_multiplier` (GDD 19.7.6).
+func table_aging_rate(j: ProductionJob) -> float:
+	var rate: float = DataRegistry.balf("holding_table.bread_aging_rate")
+	if j.stage == ProductionJob.DOUGH_ON_TABLE:
+		rate *= DataRegistry.balf("holding_table.dough_aging_multiplier")
+	return rate
+
+
+## Menuakan isi meja `hours` jam in-game; yang mencapai batas basi langsung
+## dibuang sebagai waste. Dipakai tiap tick dan sekali saat rollover malam.
+func age_table(hours: float) -> void:
+	if hours <= 0.0:
+		return
+	for j: ProductionJob in table_jobs():
+		j.table_age_hours += hours * table_aging_rate(j)
+		if table_spoil_ratio(j) >= DataRegistry.balf("freshness.unsaleable_ratio"):
+			_discard_table_item(j)
+
+
+func _discard_table_item(j: ProductionJob) -> void:
+	var dough: bool = j.stage == ProductionJob.DOUGH_ON_TABLE
+	var units: int = 0 if dough else j.carried_units
+	var cost: float = j.ingredient_value_kr if dough else j.recipe().unit_cogs_kr() * float(j.carried_units)
+	sim.economy.note_waste(cost)
+	sim.analytics.note_wasted(j.recipe_id, units, cost, &"table_spoiled")
+	if units > 0:
+		sim.statistics.add(&"total_bread_wasted", units)
+	j.stage = ProductionJob.FAILED
+	jobs.erase(j.job_id)
+	EventBus.notify.emit(1, "ui_table_dough_spoiled" if dough else "ui_table_bread_spoiled", {"recipe": Tx.recipe_name(j.recipe_id)}, &"box")
+	GameLogger.info("PRODUCTION", "job %d spoiled on the holding table" % j.job_id)
+
+
+func _table_floor() -> StringName:
+	var t: EquipmentInstance = sim.equipment.table_instance()
+	return t.floor_id if t != null else sim.world.kitchen_floor()
+
+
+# ===========================================================================
 # DEBUG (GDD 39.1)
 # ===========================================================================
 
@@ -401,12 +558,13 @@ func capture() -> Dictionary:
 	for j: ProductionJob in sorted_jobs():
 		list.append(j.to_dict())
 	return {"next_job_id": next_job_id, "jobs": list, "batches_burnt_today": batches_burnt_today,
-		"completed_today": sn_dict_to_json(completed_today)}
+		"completed_today": sn_dict_to_json(completed_today), "next_table_seq": next_table_seq}
 
 
 func restore(d: Dictionary) -> void:
 	jobs.clear()
 	next_job_id = int(d.get("next_job_id", 1))
+	next_table_seq = int(d.get("next_table_seq", 1))
 	batches_burnt_today = int(d.get("batches_burnt_today", 0))
 	completed_today = json_to_sn_dict(d.get("completed_today", {}))
 	for item: Variant in d.get("jobs", []):

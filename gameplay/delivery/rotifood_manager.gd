@@ -71,6 +71,16 @@ func create_scripted_order(recipe_id: StringName, qty: int) -> DeliveryOrder:
 	return _create(items, float(DataRegistry.opening_raw().get("manifest_prep_window_seconds", 90)), true)
 
 
+## Bobot resep menu RotiFood = penerimaan harga (GDD 22.9, 84.3) dengan
+## `rotifood.price_sensitivity`: resep yang dihargai jauh di atas referensi
+## jarang dipesan, seperti oleh pembeli fisik.
+func menu_weight(recipe_id: StringName) -> float:
+	var ratio: float = sim.pricing.ratio(recipe_id)
+	var s: float = DataRegistry.balf("rotifood.price_sensitivity")
+	var acc: float = DataRegistry.effective_price_demand(ratio, s) / DataRegistry.balf("substitution.price_acceptance_divisor")
+	return maxf(clampf(acc, 0.0, 1.0), 0.01)
+
+
 ## Order acak Hari 4+. Menu = resep yang punya stok sellable atau sudah selesai
 ## diproduksi hari ini; bila kosong, demand terlewat tanpa penalti.
 func create_random_order() -> DeliveryOrder:
@@ -83,7 +93,7 @@ func create_random_order() -> DeliveryOrder:
 			menu.append(rid2)
 	if menu.is_empty():
 		return null
-	menu.sort()
+	Ids.sort(menu)
 	var r: RandomNumberGenerator = sim.rng.stream(&"rotifood_rng")
 	var dist: Dictionary = {}
 	for pair: Variant in DataRegistry.bal("rotifood.units_distribution"):
@@ -96,9 +106,15 @@ func create_random_order() -> DeliveryOrder:
 	var picks: Array = []
 	var pool: Array = menu.duplicate()
 	for k in kinds:
-		var idx: int = r.randi_range(0, pool.size() - 1)
-		picks.append(pool[idx])
-		pool.remove_at(idx)
+		var weights: Dictionary = {}
+		for rid3: Variant in pool:
+			weights[String(rid3)] = menu_weight(StringName(str(rid3)))
+		var pid := StringName(str(RNGManager.weighted_pick(r, weights)))
+		picks.append(pid)
+		for j in pool.size():
+			if str(pool[j]) == String(pid):
+				pool.remove_at(j)
+				break
 	for i in picks.size():
 		var share: int = units / picks.size() + (1 if i < units % picks.size() else 0)
 		if share > 0:
@@ -164,8 +180,7 @@ func pack(order_id: int) -> bool:
 	var all_lots: Array = []
 	var ok: bool = true
 	var no_filter: Callable = Callable()
-	var keys: Array = o.items.keys()
-	keys.sort()
+	var keys: Array = Ids.sort(o.items.keys())
 	for rid: Variant in keys:
 		var lots: Array[Dictionary] = sim.display.take(rid, int(o.items[rid]), no_filter, -1, float(o.unit_prices[rid]), false)
 		if lots.is_empty():

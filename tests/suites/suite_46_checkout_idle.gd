@@ -7,6 +7,8 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "ACC_21_PACKING", "name": "checkout ends with a 3 s packing phase, then payment, then the bag leaves with the customer", "fn": _packing},
+		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "the player falls asleep only 5 s after the last quiet-shop thought, never under a bubble", "fn": _doze_after_thoughts},
+		{"id": "ACC_21_PACK_CHOREOGRAPHY", "name": "packing reads as open bag, bread hops in one by one, ribbon, offer; cashier and customer hands follow", "fn": _pack_choreography},
 		{"id": "ACC_18_BATCH_DURATION", "name": "x3/x5 batches multiply ingredients and yield but only stretch durations by 20%/40%", "fn": _batch_duration},
 		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face at 15 s and doze at 25 s of real time", "fn": _idle_gestures},
 		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear only while the open shop has no customers", "fn": _thoughts},
@@ -210,6 +212,131 @@ func _thoughts() -> void:
 	s.time.phase = TimeManager.PREPARATION
 	world._update_thoughts(50.0)
 	check(not bubble.is_showing(), "no thought bubbles before the shop opens")
+	world.queue_free()
+	await runner.get_tree().process_frame
+	free_sim(s)
+	PauseManager.clear_all()
+
+
+## Koreografi membungkus (GDD 21.4): PackBagRig dan pose kasir memakai babak
+## yang sama; pembeli mengulurkan tangan saat kantong disodorkan.
+func _pack_choreography() -> void:
+	var toward := Vector3(0.0, 0.0, 1.0)
+	var rig := PackBagRig.new()
+	runner.add_child(rig)
+	rig.setup("loaf.plain", 3, toward)
+	var ph: Vector3 = ProceduralAnimationSystem.pack_phases(3)
+	check(rig.bag().scale.y < PackBagRig.BAG_SCALE * 0.5, "the bag starts folded")
+	rig.animate(ph.x)
+	near(rig.bag().scale.y, PackBagRig.BAG_SCALE, 0.02, "the bag is open after the opening beat")
+	for i in 3:
+		check(rig.bread(i).visible and rig.bread(i).position.y < 0.001, "bread %d waits on the counter" % i)
+	var w: Vector2 = ProceduralAnimationSystem.pack_bread_window(0, 3)
+	rig.animate(lerpf(w.x, w.y, 0.62))
+	check(rig.bread(0).position.y > PackBagRig.MOUTH_Y, "the first bread arcs above the bag mouth")
+	check(rig.bread(1).position.y < 0.001, "the next bread still waits")
+	rig.animate(w.y + 0.001)
+	check(not rig.bread(0).visible, "the first bread is inside the bag")
+	rig.animate(lerpf(ph.y, ph.z, 0.6))
+	check((rig.bag().get_node("Seal") as Node3D).visible, "the ribbon appears")
+	check((rig.bag().get_node("Peek") as Node3D).visible, "the top bread peeks out")
+	rig.animate(ph.z + ProceduralAnimationSystem.PACK_OFFER_SPAN)
+	near(rig.bag().position.z, PackBagRig.OFFER_SLIDE, 0.005, "the bag slides toward the customer")
+	# Event: satu per roti dan satu untuk pita, meski digerakkan langkah kecil.
+	var rig2 := PackBagRig.new()
+	runner.add_child(rig2)
+	rig2.setup("loaf.plain", 3, toward)
+	var ins: int = 0
+	var seals: int = 0
+	var p: float = 0.0
+	while p <= 1.0:
+		for ev: StringName in rig2.animate(p):
+			if ev == &"bread_in":
+				ins += 1
+			elif ev == &"sealed":
+				seals += 1
+		p += 0.004
+	eq(ins, 3, "one bread_in event per bread")
+	eq(seals, 1, "one seal event")
+	var rig3 := PackBagRig.new()
+	runner.add_child(rig3)
+	rig3.setup("loaf.plain", 3, toward)
+	eq(rig3.animate(0.95).size(), 0, "a bag rebuilt late in the phase replays no events")
+	# Roti sedikit: babak berikutnya maju, lompatan roti tetap singkat.
+	var ph1: Vector3 = ProceduralAnimationSystem.pack_phases(1)
+	check(ph1.y < ph.y, "one bread reaches the ribbon earlier")
+	check(ph1.y - ph1.x <= ProceduralAnimationSystem.PACK_BREAD_SPAN_MAX + 0.0001, "a single bread still hops briskly")
+	# Kasir: tangan kiri mengambil roti, tangan kanan menahan; menyodorkan meluruskan keduanya.
+	var cv := ActorView.new()
+	runner.add_child(cv)
+	cv.bind(&"player", "player|pack_test", CharacterFactory.spec_for_player("pria"))
+	cv.set_action(&"pack")
+	var arm_l: Node3D = CharacterFactory.part(cv.model, "ArmL")
+	var arm_r: Node3D = CharacterFactory.part(cv.model, "ArmR")
+	var a := SimActor.new()
+	cv.set_pack_progress(lerpf(w.x, w.y, 0.65), 3)
+	cv.sync(a, 0.05, true)
+	check(arm_l.rotation.x > arm_r.rotation.x + 0.2, "the left hand lifts the bread while the right hand holds the bag")
+	cv.set_pack_progress(ph.z + ProceduralAnimationSystem.PACK_OFFER_SPAN * 0.5, 3)
+	cv.sync(a, 0.05, true)
+	check(arm_l.rotation.x > ProceduralAnimationSystem.PACK_ARM_PITCH + 0.15 and arm_r.rotation.x > ProceduralAnimationSystem.PACK_ARM_PITCH + 0.15, "both arms stretch out to offer the bag")
+	# Pembeli: mengulurkan tangan, lalu kembali normal.
+	var bv := ActorView.new()
+	runner.add_child(bv)
+	bv.bind(&"customer_school_child", "cust|pack_test", CharacterFactory.spec_for_player("wanita"))
+	var b_arm: Node3D = CharacterFactory.part(bv.model, "ArmL")
+	bv.set_receive(1.0)
+	bv.sync(a, 0.05, true)
+	check(b_arm.rotation.x > ProceduralAnimationSystem.RECEIVE_ARM_PITCH - 0.1, "the customer reaches out for the bag")
+	bv.set_receive(0.0)
+	bv.sync(a, 0.05, true)
+	check(b_arm.rotation.x < 0.5, "the customer's arms relax again")
+	for n: Node in [rig, rig2, rig3, cv, bv]:
+		n.queue_free()
+
+
+## Pemain di toko sepi (GDD 31.6, 31.7): gelembung pikiran di detik 10/20/30/40,
+## lalu tertidur 5 detik sesudah pikiran terakhir (detik 45), tidak pernah saat
+## gelembung tampil. Yang tertidur sejak persiapan terbangun saat toko buka sepi.
+func _doze_after_thoughts() -> void:
+	PauseManager.clear_all()
+	var after: Array = DataRegistry.bal("presentation.thought_after_seconds")
+	var doze_at: float = float(after[after.size() - 1]) + DataRegistry.balf("presentation.doze_after_last_thought_seconds")
+	near(doze_at, 45.0, 0.0001, "sleep comes 5 s after the last thought (40 s)")
+	var s: SimulationRoot = new_sim(718)
+	s.tutorial.skip()
+	var world := WorldView.new()
+	runner.add_child(world)
+	world.setup(s)
+	world._process(0.016)
+	var pv: ActorView = world.views.get(s.player.actor.id)
+	var bubble: ThoughtBubble = world.thought_bubble()
+	# Persiapan: tertidur biasa setelah 25 detik diam.
+	for i in 120:
+		world._process(0.25)
+	eq(pv.gesture(), ActorView.GESTURE_DOZE, "idle during preparation: dozing as usual")
+	# Toko buka dan sepi: terbangun, berpikir, baru tertidur di detik 45.
+	s.time.phase = TimeManager.OPEN
+	s.customers.customers.clear()
+	var overlap: bool = false
+	var first_doze: float = -1.0
+	var thoughts_seen: int = 0
+	var last_key: String = ""
+	world._process(0.25)
+	eq(pv.gesture(), ActorView.GESTURE_NONE, "the player wakes up when the quiet shop opens")
+	for i2 in 240:
+		world._process(0.25)
+		if pv.gesture() == ActorView.GESTURE_DOZE and bubble.is_showing():
+			overlap = true
+		if pv.gesture() == ActorView.GESTURE_DOZE and first_doze < 0.0:
+			first_doze = world.quiet_seconds()
+		if bubble.is_showing() and bubble.current_key() != last_key:
+			last_key = bubble.current_key()
+			thoughts_seen += 1
+	check(not overlap, "never asleep while a thought bubble shows")
+	eq(thoughts_seen, 4, "all four thoughts play before sleep")
+	check(first_doze >= doze_at - 0.001 and first_doze < doze_at + 0.5, "falls asleep at 45 s of quiet (got %.2f)" % first_doze)
+	eq(pv.gesture(), ActorView.GESTURE_DOZE, "stays asleep afterwards")
 	world.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(s)

@@ -8,6 +8,7 @@ func tests() -> Array:
 		{"id": "TEST_TIME_001", "name": "05:00/08:00/18:00 boundaries", "fn": _time_boundaries},
 		{"id": "TEST_TIME_002", "name": "pause and 1x/2x/3x determinism", "fn": _time_determinism},
 		{"id": "TEST_RNG_001", "name": "separated deterministic streams", "fn": _rng_streams},
+		{"id": "ACC_116_ID_ORDER", "name": "text IDs sort alphabetically in every session", "fn": _id_order},
 		{"id": "TEST_PRODUCTION_001", "name": "ingredient -> mixer -> oven -> display happy path", "fn": _production_happy},
 		{"id": "TEST_PRODUCTION_002", "name": "burn thresholds per oven tier", "fn": _burn_thresholds},
 		{"id": "TEST_PRODUCTION_003", "name": "stage duration formula", "fn": _stage_durations},
@@ -97,6 +98,34 @@ func _time_determinism() -> void:
 		free_sim(s)
 	same_state(states[1], states[0], "2x reaches the 1x state after the same ticks")
 	same_state(states[2], states[0], "3x reaches the 1x state after the same ticks")
+
+
+## `Array.sort()` mengurutkan StringName menurut alamat internal, bukan huruf,
+## jadi urutannya bisa berbeda antar-sesi. Simulasi memakai Ids.sort (GDD 102, 116).
+func _id_order() -> void:
+	# Dua belas StringName baru dibuat dalam urutan acak; kemungkinan urutan
+	# alamatnya kebetulan sama dengan urutan huruf praktis nol.
+	var tag: String = str(Time.get_ticks_usec())
+	var made: Array = []
+	for i: int in [7, 2, 11, 0, 9, 4, 1, 10, 5, 3, 8, 6]:
+		made.append(StringName("zz_%s_%02d" % [tag, i]))
+	var want: Array = []
+	for i2 in 12:
+		want.append(StringName("zz_%s_%02d" % [tag, i2]))
+	eq(Ids.sort(made.duplicate()), want, "StringName IDs sort alphabetically")
+	eq(Ids.sort([3, &"b", 1.5, "a", 2]), [1.5, 2, 3, "a", &"b"], "numbers by value first, then text")
+	# weighted_pick menelusuri kunci menurut huruf: dengan bobot sama, roll
+	# memilih kunci ke-floor(roll) dari urutan alfabet.
+	var weights: Dictionary = {}
+	for k: Variant in made:
+		weights[k] = 1.0
+	for seed_value in range(1, 9):
+		var probe := RandomNumberGenerator.new()
+		probe.seed = seed_value
+		var idx: int = mini(int(probe.randf() * 12.0), 11)
+		var r := RandomNumberGenerator.new()
+		r.seed = seed_value
+		eq(RNGManager.weighted_pick(r, weights), want[idx], "weighted_pick walks keys alphabetically (seed %d)" % seed_value)
 
 
 func _ticks(s: SimulationRoot) -> int:
@@ -196,13 +225,7 @@ func _burn_thresholds() -> void:
 		eq(j.stage, ProductionJob.OVERBAKING, "T%d still overbaking before grace ends" % tier)
 		s.run_for(0.6)
 		eq(j.stage, ProductionJob.BURNT, "T%d burnt after %ss total grace" % [tier, def.burn_grace_seconds()])
-		# Oven menolak batch baru selama batch gosong tertahan (GDD 62).
-		var j2: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, &"test")
-		if j2 != null:
-			s.production.start_mixing(j2.job_id, &"test", 1.0)
-			_run_stage(s, j2, ProductionJob.MIX_DONE_WAITING_PICKUP)
-			s.production.pickup_dough(j2.job_id, &"test")
-			check(not s.production.insert_oven(j2.job_id, oven.iid, &"test", 1.0), "T%d oven blocked by the burnt batch" % tier)
+		# Tukar loyang gosong dengan adonan baru diuji di ACC_62_BURNT_SWAP.
 		var bal: float = s.economy.balance
 		var res: Dictionary = s.production.pickup_tray(j.job_id, &"test")
 		check(bool(res["burnt"]), "T%d burnt batch goes to disposal" % tier)
@@ -346,6 +369,8 @@ func _economy() -> void:
 	near(loaf.max_price_kr, 160.0, 0.001, "plain loaf max price")
 	near(loaf.price_step_kr, 5.0, 0.001, "plain loaf slider step")
 	var s: SimulationRoot = new_sim()
+	# Harga terkunci selama Hari 1-3 (GDD 63.2); slider diuji di Hari 4.
+	s.time.day = 4
 	near(s.pricing.set_price(loaf.id, 10.0), 60.0, 0.001, "price clamps to min")
 	near(s.pricing.set_price(loaf.id, 999.0), 160.0, 0.001, "price clamps to max")
 	near(s.pricing.set_price(loaf.id, 103.0), 105.0, 0.001, "price snaps to step")

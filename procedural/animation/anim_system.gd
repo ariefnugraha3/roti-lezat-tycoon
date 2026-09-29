@@ -89,17 +89,60 @@ const IDLE_HEAD_TILT: float = 0.035
 # GDD 21.4 — membungkus roti di meja kasir
 # ---------------------------------------------------------------------------
 
-## Frekuensi tangan bergantian memasukkan roti ke kantong (radian/detik).
-const PACK_FREQ: float = 9.0
+#
+# Kasir dan kantongnya (PackBagRig) membaca progres fase yang sama (0..1), jadi
+# tangan dan kantong selalu sinkron di 1x/2x/3x: buka kantong -> roti masuk satu
+# per satu -> ikat pita -> sodorkan ke pembeli.
+
+## Babak membungkus (progres 0..1): buka kantong sampai PACK_OPEN_END; tiap roti
+## paling lama PACK_BREAD_SPAN_MAX dan semua roti selesai paling lambat
+## PACK_FILL_MAX_END; mengikat pita PACK_SEAL_SPAN; menggeser kantong ke pembeli
+## PACK_OFFER_SPAN; sisanya menunggu pembayaran (lihat pack_phases).
+const PACK_OPEN_END: float = 0.14
+const PACK_BREAD_SPAN_MAX: float = 0.20
+const PACK_FILL_MAX_END: float = 0.72
+const PACK_SEAL_SPAN: float = 0.16
+const PACK_OFFER_SPAN: float = 0.12
 ## Lengan hampir mendatar: tangan chibi yang pendek tepat di atas permukaan meja
-## kasir (0,42 m), bukan tenggelam di dalamnya (radian).
+## kasir (0,42 m), memegang kantong (radian).
 const PACK_ARM_PITCH: float = 1.50
 ## Lengan sedikit merapat ke tengah (radian).
 const PACK_ARM_IN: float = 0.10
-## Ayunan tiap tangan, hanya ke atas dari PACK_ARM_PITCH (radian).
-const PACK_ARM_SWING: float = 0.22
-## Kepala menunduk melihat kantong (radian, negatif = menunduk).
+## Sentakan membuka kantong: kedua tangan terangkat sejauh ini (radian).
+const PACK_OPEN_SNAP: float = 0.38
+## Tangan yang meraih roti: sedikit maju dan melebar, lalu terangkat ke mulut
+## kantong (radian, relatif PACK_ARM_PITCH).
+const PACK_REACH: float = 0.08
+const PACK_REACH_OUT: float = 0.16
+const PACK_LIFT: float = 0.34
+## Tangan yang tidak meraih menahan kantong sedikit lebih rendah (radian).
+const PACK_HOLD: float = -0.05
+## Badan condong dan berputar ke arah tangan yang meraih (radian).
+const PACK_LEAN: float = 0.10
+const PACK_TWIST: float = 0.14
+## Tepukan saat mengikat pita (radian) dan jumlah tepukan per babak.
+const PACK_PAT: float = 0.16
+const PACK_PATS: float = 2.0
+## Menyodorkan kantong: lengan lurus ke depan, badan sedikit condong (radian).
+const PACK_OFFER_PITCH: float = 1.72
+const PACK_OFFER_LEAN: float = 0.08
+## Menunggu pembayaran: tangan santai di tepi meja dan badan bergoyang pelan
+## (radian, radian/detik).
+const PACK_WAIT_PITCH: float = 1.30
+const PACK_WAIT_SWAY: float = 0.05
+const PACK_WAIT_FREQ: float = 3.0
+## Kepala menunduk melihat kantong dan menoleh ke tangan yang bekerja (radian,
+## negatif = menunduk).
 const PACK_HEAD_NOD: float = -0.16
+const PACK_HEAD_FOLLOW: float = 0.10
+## Pembeli mengulurkan kedua tangan menerima kantong (radian), dengan goyang kecil
+## berlawanan arah (radian, radian/detik) dan kepala menunduk-miring senang.
+const RECEIVE_ARM_PITCH: float = 1.15
+const RECEIVE_ARM_IN: float = 0.12
+const RECEIVE_WIGGLE: float = 0.05
+const RECEIVE_FREQ: float = 7.0
+const RECEIVE_HEAD_NOD: float = -0.10
+const RECEIVE_HEAD_TILT: float = 0.10
 
 # ---------------------------------------------------------------------------
 # GDD 31.6 — gerak saat menganggur
@@ -278,34 +321,129 @@ static func idle_bob(actor: Node3D, t: float) -> void:
 		leg_r.rotation.x = _rest_rot(leg_r).x
 
 
-## Membungkus roti di meja kasir (GDD 21.4): kedua lengan maju ke meja dan
-## bergantian naik-turun memasukkan roti ke kantong, kepala menunduk melihatnya.
-## Stateless, dipanggil tiap frame selama fase membungkus.
-static func pack(actor: Node3D, t: float) -> void:
+## Batas babak membungkus untuk `n` roti: x = akhir membuka kantong, y = akhir
+## memasukkan roti, z = akhir mengikat pita. Roti sedikit tidak melayang lambat:
+## babak berikutnya maju lebih awal dan sisa waktunya dipakai menunggu bayaran.
+static func pack_phases(n: int) -> Vector3:
+	var count: int = maxi(n, 1)
+	var span: float = minf((PACK_FILL_MAX_END - PACK_OPEN_END) / float(count), PACK_BREAD_SPAN_MAX)
+	var fill_end: float = PACK_OPEN_END + span * float(count)
+	return Vector3(PACK_OPEN_END, fill_end, fill_end + PACK_SEAL_SPAN)
+
+
+## Jendela progres roti ke-`i` dari `n` yang dimasukkan ke kantong: [mulai, selesai].
+static func pack_bread_window(i: int, n: int) -> Vector2:
+	var ph: Vector3 = pack_phases(n)
+	var span: float = (ph.y - ph.x) / float(maxi(n, 1))
+	var start: float = ph.x + span * float(i)
+	return Vector2(start, start + span)
+
+
+## Membungkus di meja kasir (GDD 21.4) mengikuti progres fase `p` (0..1) dan
+## jumlah roti `n`: kedua tangan menyentak membuka kantong; tangan kiri (sisi
+## kantong dan roti, lihat PackBagRig) meraih tiap roti lalu mengangkatnya ke
+## mulut kantong sementara tangan kanan menahan kantong dan badan condong serta
+## menoleh; dua tepukan saat pita diikat; kedua lengan menyodorkan kantong; lalu
+## tangan santai menunggu pembayaran. `p` < 0 memutar siklus 3 detik.
+static func pack(actor: Node3D, t: float, p: float = -1.0, n: int = 3) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return
-	var phase: float = t * PACK_FREQ
-	for i in 2:
-		var arm: Node3D = _part(actor, "ArmL" if i == 0 else "ArmR")
+	if p < 0.0:
+		p = fmod(t / 3.0, 1.0)
+	var ph: Vector3 = pack_phases(n)
+	var pitch: Array[float] = [PACK_ARM_PITCH, PACK_ARM_PITCH]
+	var spread: Array[float] = [0.0, 0.0]
+	var lean: float = 0.0
+	var twist: float = 0.0
+	var follow: float = 0.0
+	var nod: float = PACK_HEAD_NOD
+	var bounce: float = 0.0
+	if p < ph.x:
+		var snap: float = sin(clampf(p / ph.x, 0.0, 1.0) * PI)
+		pitch[0] += snap * PACK_OPEN_SNAP
+		pitch[1] += snap * PACK_OPEN_SNAP
+		bounce = snap
+	elif p < ph.y:
+		var count: int = maxi(n, 1)
+		for i in count:
+			var w: Vector2 = pack_bread_window(i, count)
+			if p < w.x or p >= w.y:
+				continue
+			var k: float = (p - w.x) / (w.y - w.x)
+			# Meraih roti di samping kantong, lalu mengangkatnya ke mulut kantong.
+			var reach: float = smoothstep(0.0, 0.30, k) * (1.0 - smoothstep(0.40, 0.65, k))
+			var lift: float = sin(clampf((k - 0.35) / 0.65, 0.0, 1.0) * PI)
+			pitch[0] += PACK_REACH * reach + PACK_LIFT * lift
+			pitch[1] += PACK_HOLD
+			spread[0] = PACK_REACH_OUT * reach
+			lean = PACK_LEAN * reach
+			twist = PACK_TWIST * maxf(reach, lift * 0.5)
+			follow = PACK_HEAD_FOLLOW * maxf(reach, lift)
+	elif p < ph.z:
+		var ks: float = (p - ph.y) / (ph.z - ph.y)
+		var pat: float = absf(sin(ks * PI * PACK_PATS))
+		pitch[0] += PACK_PAT * pat
+		pitch[1] += PACK_PAT * pat
+		nod -= 0.06 * pat
+		bounce = pat * 0.5
+	else:
+		# Sodorkan (lengan lurus), lalu santai menunggu pembeli membayar.
+		var ko: float = clampf((p - ph.z) / PACK_OFFER_SPAN, 0.0, 1.0)
+		var offer: float = sin(ko * PI)
+		var wait: float = smoothstep(0.5, 1.0, ko)
+		var sway: float = sin(t * PACK_WAIT_FREQ) * PACK_WAIT_SWAY * wait
+		pitch[0] = lerpf(PACK_ARM_PITCH, PACK_WAIT_PITCH, wait) + (PACK_OFFER_PITCH - PACK_ARM_PITCH) * offer + sway
+		pitch[1] = lerpf(PACK_ARM_PITCH, PACK_WAIT_PITCH, wait) + (PACK_OFFER_PITCH - PACK_ARM_PITCH) * offer - sway
+		lean = PACK_OFFER_LEAN * offer
+		nod = lerpf(PACK_HEAD_NOD, PACK_HEAD_NOD * 0.3, maxf(offer, wait))
+		follow = 0.08 * maxf(offer, wait)
+	for a in 2:
+		var arm: Node3D = _part(actor, "ArmL" if a == 0 else "ArmR")
 		if arm == null:
 			continue
-		var dir: float = -1.0 if i == 0 else 1.0
-		var swing: float = (0.5 + 0.5 * sin(phase + (0.0 if i == 0 else PI))) * PACK_ARM_SWING
-		arm.rotation = Vector3(PACK_ARM_PITCH + swing, 0.0, -PACK_ARM_IN * dir)
+		var dir: float = -1.0 if a == 0 else 1.0
+		arm.rotation = Vector3(pitch[a], 0.0, -(PACK_ARM_IN - spread[a]) * dir)
+	# Badan (induk kedua lengan) condong dan menoleh; kepala bukan anak badan,
+	# jadi posisinya ikut digeser supaya tetap menempel di leher.
+	var body: Node3D = _part(actor, "Body")
+	var bp: Vector3 = _rest_pos(body) if body != null else Vector3.ZERO
+	var lift_y: float = bounce * 0.008
+	if body != null:
+		var br: Vector3 = _rest_rot(body)
+		body.position = Vector3(bp.x, bp.y + lift_y, bp.z)
+		body.rotation = Vector3(br.x - lean, br.y + twist, br.z)
 	var head: Node3D = _part(actor, "Head")
 	if head != null:
-		var head_rot: Vector3 = _rest_rot(head)
-		head.position.y = _rest_pos(head).y
-		head.rotation.x = head_rot.x + PACK_HEAD_NOD + sin(phase * 0.5) * 0.03
-		head.rotation.z = head_rot.z
-	var body: Node3D = _part(actor, "Body")
-	if body != null:
-		body.position.y = _rest_pos(body).y + absf(sin(phase)) * 0.006
-		body.rotation.z = _rest_rot(body).z
+		var hp: Vector3 = _rest_pos(head)
+		var hr: Vector3 = _rest_rot(head)
+		var h: float = hp.y - bp.y
+		head.position = Vector3(hp.x, bp.y + lift_y + h * cos(lean), hp.z - h * sin(lean))
+		head.rotation = Vector3(hr.x + nod - lean, hr.y + twist, hr.z + follow)
 	for leg_name: String in ["LegL", "LegR"]:
 		var leg: Node3D = _part(actor, leg_name)
 		if leg != null:
 			leg.rotation.x = _rest_rot(leg).x
+
+
+## Pembeli mengulurkan kedua tangan menerima kantong yang disodorkan kasir
+## (GDD 21.4). `k` 0..1 memudarkan pose masuk; dipanggil setelah idle_bob().
+static func receive(actor: Node3D, t: float, k: float) -> void:
+	if actor == null or not is_instance_valid(actor) or k <= 0.0:
+		return
+	var wiggle: float = sin(t * RECEIVE_FREQ) * RECEIVE_WIGGLE
+	for a in 2:
+		var arm: Node3D = _part(actor, "ArmL" if a == 0 else "ArmR")
+		if arm == null:
+			continue
+		var rest: Vector3 = _rest_rot(arm)
+		var dir: float = -1.0 if a == 0 else 1.0
+		arm.rotation = Vector3(lerpf(rest.x, RECEIVE_ARM_PITCH + wiggle * dir, k), rest.y,
+			lerpf(rest.z, -RECEIVE_ARM_IN * dir, k))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var hr: Vector3 = _rest_rot(head)
+		head.rotation.x = lerpf(head.rotation.x, hr.x + RECEIVE_HEAD_NOD, k)
+		head.rotation.z = lerpf(head.rotation.z, hr.z + RECEIVE_HEAD_TILT, k)
 
 
 ## Mengelap wajah dengan kain lap setelah lama menganggur (GDD 31.6): lengan
@@ -354,12 +492,12 @@ static func doze(actor: Node3D, t: float) -> void:
 			arm.rotation.x = _rest_rot(arm).x + 0.04 * sin(t * 1.1 + float(i))
 
 
-## Kembalikan lengan & kepala ke pose istirahat setelah gerakan khusus (pack,
+## Kembalikan lengan, kepala & badan ke pose istirahat setelah gerakan khusus (pack,
 ## wipe_face, doze) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
 static func end_pose(actor: Node3D) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return
-	for part_name: String in ["ArmL", "ArmR", "Head"]:
+	for part_name: String in ["ArmL", "ArmR", "Head", "Body"]:
 		var n: Node3D = _part(actor, part_name)
 		if n != null:
 			n.rotation = _rest_rot(n)

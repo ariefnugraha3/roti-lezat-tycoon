@@ -34,8 +34,7 @@ func customer(id: StringName) -> Customer:
 
 
 func sorted() -> Array[Customer]:
-	var keys: Array = customers.keys()
-	keys.sort()
+	var keys: Array = Ids.sort(customers.keys())
 	var out: Array[Customer] = []
 	for k: Variant in keys:
 		out.append(customers[k])
@@ -214,8 +213,7 @@ func best_alternative(c: Customer, avail: Dictionary, original: StringName) -> S
 		var d: int = GridMath.manhattan(c.actor.cell(), sim.world.access_of(iid)["cell"])
 		dist[rid] = d
 		dmin = mini(dmin, d)
-	var keys: Array = dist.keys()
-	keys.sort()
+	var keys: Array = Ids.sort(dist.keys())
 	var sub: Dictionary = DataRegistry.balance_section("substitution")
 	var best: StringName = &""
 	var best_score: float = -1.0
