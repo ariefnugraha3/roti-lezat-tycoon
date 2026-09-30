@@ -736,6 +736,23 @@ func _validate_staff() -> void:
 			_err("staff %s invalid wage/speed" % s.id)
 		if s.auto_retrieve_probability < 0.0 or s.auto_retrieve_probability > 1.0:
 			_err("staff %s auto-retrieve outside 0..1" % s.id)
+		# Kemampuan khusus kasir (GDD 3.1) yang dikenali kode, dengan rentangnya.
+		for k: Variant in s.special.keys():
+			var v: float = float(s.special[k])
+			match str(k):
+				"queue_patience_drain_multiplier":
+					if v <= 0.0 or v > 1.0:
+						_err("staff %s queue patience multiplier outside (0, 1]" % s.id)
+				"sale_rating_multiplier":
+					if v < 1.0:
+						_err("staff %s sale rating multiplier below 1" % s.id)
+				"physical_tip_chance":
+					if v < 0.0 or v > 1.0:
+						_err("staff %s tip chance outside 0..1" % s.id)
+				_:
+					_err("staff %s unknown special %s" % [s.id, k])
+	for k4: String in ["staff_special_queue", "staff_special_rating", "staff_special_tip"]:
+		_check_text(StringName(k4), "staff")
 
 
 func _validate_locations() -> void:
@@ -748,6 +765,13 @@ func _validate_locations() -> void:
 		if l.floors.is_empty():
 			_err("location %s has no floors" % l.id)
 			continue
+		# Slot dekorasi per tier (GDD 72.3): meja kasir punya satu ujung bebas per meja.
+		for pt: StringName in [&"wall", &"counter_prop", &"floor_prop", &"floor_overlay"]:
+			if not l.decor_slots.has(pt) or l.decor_slot_count(pt) < 0:
+				_err("location %s needs a non-negative decor_slots.%s" % [l.id, pt])
+		var store_def: FloorDefinition = l.floor_def(l.store_floor())
+		if store_def != null and l.decor_slot_count(&"counter_prop") > store_def.counters.size():
+			_err("location %s has more counter decor slots than cashier counters" % l.id)
 		var q_phys: int = 0
 		var q_rf: int = 0
 		for f: FloorDefinition in l.floors:
@@ -865,6 +889,11 @@ func _validate_meta() -> void:
 			_err("decoration %s floor_prop needs a footprint" % dd.id)
 		if dd.placement_type != &"floor_prop" and dd.footprint_tiles != Vector2i.ZERO:
 			_err("decoration %s footprint only allowed for floor_prop" % dd.id)
+		# Karpet menempati jejak overlay_size_tiles (GDD 72.3).
+		if dd.placement_type == &"floor_overlay" and (dd.overlay_size_tiles.x <= 0 or dd.overlay_size_tiles.y <= 0):
+			_err("decoration %s floor_overlay needs overlay_size_tiles" % dd.id)
+		if dd.placement_type != &"floor_overlay" and dd.overlay_size_tiles != Vector2i.ZERO:
+			_err("decoration %s overlay_size_tiles only allowed for floor_overlay" % dd.id)
 	var seen_a: Dictionary = {}
 	for ae: Variant in _audio:
 		var aed: MiscDefinitions.AudioEventDefinition = ae

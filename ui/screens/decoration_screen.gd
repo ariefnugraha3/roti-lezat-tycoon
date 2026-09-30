@@ -16,6 +16,11 @@ extends UIScreen
 ## perabot terpilih dan ikut pindah bersamanya. Barang yang belum punya tempat di
 ## dunia (belum dipasang, dekorasi dinding/meja) memakai toolbar yang berlabuh di
 ## atas tab.
+##
+## Dekorasi (GDD 72.3): semuanya di lantai toko. Dekorasi dinding/meja yang
+## dipilih menyalakan penanda slot bebas; ketuk penanda untuk memasang atau
+## memindahkannya. Karpet mengikuti ubin yang diketuk dan bisa diputar. Batas
+## per jenis mengikuti tier toko; baki "Your Decorations" menunjukkan sisa slot.
 
 const REASON_KEYS: Dictionary = {
 	&"zone": "ui_decor_invalid_zone", &"overlap": "ui_decor_invalid_overlap", &"path": "ui_decor_invalid_path",
@@ -35,6 +40,8 @@ const TAB_SHOP: int = 2
 const TAB_KEYS: Array[String] = ["ui_market_tab_equipment", "ui_decor_owned", "ui_decor_shop"]
 const TAB_ICONS: Array[String] = ["kitchen", "frame", "cart"]
 const CARD_SIZE: Vector2 = Vector2(184.0, 92.0)
+## Jenis dekorasi berpasang dan urutannya di ringkasan slot baki.
+const DECOR_TYPES: Array[StringName] = [&"wall", &"counter_prop", &"floor_prop", &"floor_overlay"]
 ## Jarak ujung ekor toolbar di atas puncak perabot (meter) dan dari tepi layar (px).
 const TOOLBAR_LIFT_M: float = 0.18
 const EDGE_PX: float = 10.0
@@ -51,6 +58,7 @@ var _tray: PanelContainer = null
 var _tray_row: HBoxContainer = null
 var _tabs_box: HBoxContainer = null
 var _legend_zone: Control = null
+var _legend_clear: Control = null
 var _toolbar: ActionBar = null
 var _tb_name: Label = null
 var _tb_rotate: Button = null
@@ -190,7 +198,8 @@ func _build_legend() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 2)
 	pc.add_child(v)
-	v.add_child(_legend_row(Palette.DANGER, "ui_decor_legend_clear_short", "ui_decor_legend_clear"))
+	_legend_clear = _legend_row(Palette.DANGER, "ui_decor_legend_clear_short", "ui_decor_legend_clear")
+	v.add_child(_legend_clear)
 	_legend_zone = _legend_row(Palette.TEXT_MUTED, "ui_decor_legend_zone_short", "ui_decor_legend_zone")
 	_legend_zone.visible = false
 	v.add_child(_legend_zone)
@@ -339,6 +348,7 @@ func _render_tray() -> void:
 				var sub: String = Tx.t("ui_decor_placed") if e.placed else Tx.t("ui_decor_unplaced")
 				_tray_row.add_child(_card(Tx.item_name(e.def_id), sub, e.iid == _sel_iid, false, _pick_equipment_card.bind(e.iid)))
 		TAB_OWNED:
+			_tray_row.add_child(_slot_usage_card())
 			for o: Dictionary in sim.decoration.owned:
 				var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
 				var name_text: String = Tx.t(String(def.localization_key))
@@ -362,6 +372,35 @@ func _render_tray() -> void:
 					continue
 				var price: String = Tx.t("ui_decor_buy", {"price": Tx.kr(d.price_kr)})
 				_tray_row.add_child(_card(Tx.t(String(d.localization_key)), price, false, sim.decoration.can_buy(d.id) != &"", _buy.bind(d.id)))
+
+
+## Ringkasan slot dekorasi lokasi ini (GDD 72.3): "Wall 1/2" dan seterusnya;
+## jenis yang penuh ditulis dengan warna kayu.
+func _slot_usage_card() -> Control:
+	var pc := PanelContainer.new()
+	pc.name = "SlotUsage"
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.VANILLA_CREAM, 0.9), 16, false)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.custom_minimum_size = Vector2(0, CARD_SIZE.y)
+	pc.tooltip_text = Tx.t("ui_decor_slot_usage_tip")
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 1)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(v)
+	for t: StringName in DECOR_TYPES:
+		var used: int = sim.decoration.placed_of_type(t)
+		var cap: int = sim.decoration.cap(t)
+		var l: Label = ProceduralUIFactory.label(Tx.t("ui_decor_slot_count", {"type": Tx.t("decor_type_" + String(t)), "used": used, "max": cap}),
+			14, Palette.UI_WOOD if used >= cap else Palette.TEXT)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(l)
+	return pc
 
 
 ## Kartu barang di baki: nama (dua baris) dan keterangan kecil.
@@ -443,6 +482,8 @@ func _select_equipment(iid: int) -> void:
 	_rot = e.rotation
 	_last_cell = Vector2i(-1, -1)
 	game.world.clear_ghost()
+	game.world.clear_slot_markers()
+	game.world.set_decor_lift(-1)
 	game.world.view_floor_override = e.floor_id if e.placed else sim.world.floors_for_category(e.category())[0]
 	game.world.set_lift(iid if e.placed else -1)
 	if e.placed:
@@ -451,25 +492,68 @@ func _select_equipment(iid: int) -> void:
 	_refresh_all()
 
 
+## Pilih dekorasi (GDD 72.3). Kamera pindah ke lantai toko. Dinding/meja:
+## penanda slot bebas menyala. Lantai/karpet terpasang: jejaknya disorot. Jenis
+## yang sudah penuh langsung memberi tahu pemain.
 func _select_decor(uid: int) -> void:
+	var o: Dictionary = sim.decoration.item(uid)
+	if o.is_empty():
+		return
 	_sel_decor = uid
 	_sel_iid = -1
 	_last_cell = Vector2i(-1, -1)
 	game.world.set_lift(-1)
 	game.world.clear_ghost()
-	var o: Dictionary = sim.decoration.item(uid)
-	var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
+	game.world.clear_slot_markers()
+	var placed: bool = bool(o["placed"])
+	game.world.view_floor_override = sim.decoration.store_floor()
+	game.world.set_decor_lift(uid if placed else -1)
 	_refresh_overlay()
-	if def.placement_type == &"wall" or def.placement_type == &"counter_prop":
-		# Slot dinding/meja: taruh di slot bebas berikutnya.
-		var floor_id: StringName = game.world.camera_rig.active_floor
-		for slot in 64:
-			if sim.decoration.place(uid, floor_id, Vector2i.ZERO, slot) != &"overlap":
-				break
-		game.world.rebuild_all()
-	elif bool(o["placed"]) and def.placement_type == &"floor_prop":
+	var t: StringName = sim.decoration.type_of(o)
+	if sim.decoration.type_full(uid):
+		_warn_rejected(&"slots_full")
+	elif _is_slot_type(t):
+		_show_slots()
+	elif placed and t == &"floor_prop":
 		game.world.show_ghost([SimManager.arr_to_cell(o["cell"])], StringName(str(o["floor_id"])), true)
+	elif placed and t == &"floor_overlay":
+		game.world.show_ghost(sim.decoration.overlay_cells(o), StringName(str(o["floor_id"])), true)
 	_refresh_all()
+
+
+static func _is_slot_type(t: StringName) -> bool:
+	return t == &"wall" or t == &"counter_prop"
+
+
+func _sel_decor_type() -> StringName:
+	return sim.decoration.type_of(sim.decoration.item(_sel_decor)) if _sel_decor >= 0 else &""
+
+
+## Nyalakan penanda slot yang boleh dipakai dekorasi terpilih; slotnya sendiri emas.
+func _show_slots() -> void:
+	var o: Dictionary = sim.decoration.item(_sel_decor)
+	var t: StringName = sim.decoration.type_of(o)
+	var current: int = int(o["slot"]) if bool(o["placed"]) else -1
+	game.world.show_slot_markers(t, sim.decoration.free_slots(t, _sel_decor), current)
+
+
+## Pasang/pindahkan dekorasi dinding/meja terpilih ke `slot`. Mengetuk slotnya
+## sendiri = selesai, seperti mengetuk perabot terpilih.
+func _place_decor_slot(slot: int) -> void:
+	var o: Dictionary = sim.decoration.item(_sel_decor)
+	if bool(o["placed"]) and int(o["slot"]) == slot:
+		_deselect()
+		return
+	var r: StringName = sim.decoration.place(_sel_decor, sim.decoration.store_floor(), Vector2i(-1, -1), slot)
+	if r != &"":
+		_set_status(r, false)
+		_warn_rejected(r)
+		return
+	EventBus.sfx.emit(&"bread_place_display", sim.decoration.store_floor())
+	game.world.set_decor_lift(_sel_decor)
+	_show_slots()
+	_refresh_all()
+	_set_status(&"", true)
 
 
 func _deselect() -> void:
@@ -477,7 +561,9 @@ func _deselect() -> void:
 	_sel_decor = -1
 	_last_cell = Vector2i(-1, -1)
 	game.world.set_lift(-1)
+	game.world.set_decor_lift(-1)
 	game.world.clear_ghost()
+	game.world.clear_slot_markers()
 	_refresh_overlay()
 	_refresh_all()
 
@@ -504,7 +590,7 @@ func _update_toolbar_content() -> void:
 	else:
 		var o: Dictionary = sim.decoration.item(_sel_decor)
 		_tb_name.text = Tx.t(String(sim.decoration.def_of(o).localization_key))
-		_tb_rotate.visible = false
+		_tb_rotate.visible = sim.decoration.type_of(o) == &"floor_overlay"
 		_tb_store.visible = bool(o.get("placed", false))
 	_toolbar.panel.reset_size()
 
@@ -523,10 +609,12 @@ func _toolbar_anchor() -> Vector2:
 		return world.camera_rig.world_to_screen(top + Vector3(0.0, TOOLBAR_LIFT_M, 0.0))
 	if _sel_decor >= 0:
 		var o: Dictionary = sim.decoration.item(_sel_decor)
-		var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
-		if def.placement_type != &"floor_prop" or not bool(o["placed"]) or StringName(str(o["floor_id"])) != world.camera_rig.active_floor:
+		if not bool(o["placed"]) or StringName(str(o["floor_id"])) != world.camera_rig.active_floor:
 			return Vector2(-1, -1)
-		return world.camera_rig.world_to_screen(GridMath.cell_center3(SimManager.arr_to_cell(o["cell"]), 0.55))
+		var top2: Vector3 = world.top_of_decor(_sel_decor)
+		if top2 == Vector3.INF:
+			return Vector2(-1, -1)
+		return world.camera_rig.world_to_screen(top2 + Vector3(0.0, TOOLBAR_LIFT_M, 0.0))
 	return Vector2(-1, -1)
 
 
@@ -568,6 +656,17 @@ func _update_status() -> void:
 		placed = sim.equipment.get_inst(_sel_iid).placed
 	else:
 		placed = bool(sim.decoration.item(_sel_decor).get("placed", false))
+		var t: StringName = _sel_decor_type()
+		if sim.decoration.type_full(_sel_decor):
+			_status.text = _reason_text(&"slots_full")
+			_status.add_theme_color_override("font_color", Palette.DANGER)
+			return
+		if _is_slot_type(t):
+			_status.text = Tx.t("ui_decor_slot_move") if placed else Tx.t("ui_decor_slot_hint_wall" if t == &"wall" else "ui_decor_slot_hint_counter")
+			return
+		if t == &"floor_overlay":
+			_status.text = Tx.t("ui_decor_rug_hint")
+			return
 	_status.text = Tx.t("ui_decor_move_hint") if placed else Tx.t("ui_decor_place_hint")
 
 
@@ -580,7 +679,8 @@ func _update_status() -> void:
 func _warn_rejected(reason: StringName) -> void:
 	if _warn == null:
 		return
-	_warn_detail.text = Tx.t(str(WARN_KEYS.get(reason, REASON_KEYS.get(reason, "ui_decor_invalid_reserved"))))
+	_warn_title.text = Tx.t("ui_decor_full_title" if reason == &"slots_full" and _sel_decor >= 0 else "ui_decor_warn_title")
+	_warn_detail.text = _reason_text(reason) if not WARN_KEYS.has(reason) else Tx.t(str(WARN_KEYS[reason]))
 	_warn.visible = true
 	_warn.modulate.a = 1.0
 	if _warn_tween != null and _warn_tween.is_valid():
@@ -590,6 +690,15 @@ func _warn_rejected(reason: StringName) -> void:
 	_warn_tween.tween_property(_warn, "modulate:a", 0.0, 0.3)
 	_warn_tween.tween_callback(func() -> void: _warn.visible = false)
 	EventBus.sfx.emit(&"ui_error", &"")
+
+
+## Teks alasan penolakan. "Slot penuh" untuk dekorasi menyebut jenis dan batas
+## lokasi ini (GDD 72.3).
+func _reason_text(reason: StringName) -> String:
+	if reason == &"slots_full" and _sel_decor >= 0:
+		var t: StringName = _sel_decor_type()
+		return Tx.t("ui_decor_slots_full", {"type": Tx.t("decor_type_" + String(t)), "count": sim.decoration.cap(t)})
+	return Tx.t(str(REASON_KEYS.get(reason, "ui_decor_invalid_reserved")))
 
 
 ## Arsir ubin yang harus tetap kosong di lantai yang sedang dilihat; bila ada
@@ -603,6 +712,11 @@ func _refresh_overlay() -> void:
 	if fg == null:
 		return
 	var keep: Dictionary = sim.world.keep_clear_cells(floor_id, _sel_iid)
+	# Karpet tidak memblok apa pun (GDD 72.1) dan dekorasi dinding/meja tidak
+	# memakai ubin: arsiran ubin wajib kosong hanya mengganggu penanda slotnya.
+	var dt0: StringName = _sel_decor_type()
+	if dt0 == &"floor_overlay" or _is_slot_type(dt0):
+		keep = {}
 	var clear_cells: Array[Vector2i] = []
 	for c: Variant in keep.keys():
 		clear_cells.append(c)
@@ -612,8 +726,8 @@ func _refresh_overlay() -> void:
 		if e != null:
 			target_zone = &"store" if e.category() == &"display" else &"kitchen"
 	elif _sel_decor >= 0:
-		var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(sim.decoration.item(_sel_decor))
-		if def != null and def.placement_type == &"floor_prop":
+		var dt: StringName = _sel_decor_type()
+		if dt == &"floor_prop" or dt == &"floor_overlay":
 			target_zone = &"store"
 	var wrong: Array[Vector2i] = []
 	if target_zone != &"":
@@ -626,7 +740,9 @@ func _refresh_overlay() -> void:
 				if fg.flag(c2) == FloorGrid.Flag.WALKABLE_BUILDABLE and not fg.furniture_at.has(c2):
 					wrong.append(c2)
 	game.world.show_tile_overlay(clear_cells, wrong)
+	_legend_clear.visible = not clear_cells.is_empty()
 	_legend_zone.visible = not wrong.is_empty()
+	_legend_clear.get_parent().get_parent().visible = _legend_clear.visible or _legend_zone.visible
 
 
 func _process(_delta: float) -> void:
@@ -637,10 +753,13 @@ func _process(_delta: float) -> void:
 
 
 func _anchor_for(cell: Vector2i) -> Vector2i:
-	if _sel_iid < 0:
-		return cell
-	var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-	var fp: Vector2i = GridMath.rotated_footprint(e.def().footprint_tiles, _rot)
+	var fp := Vector2i.ONE
+	if _sel_iid >= 0:
+		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
+		fp = GridMath.rotated_footprint(e.def().footprint_tiles, _rot)
+	elif _sel_decor_type() == &"floor_overlay":
+		var o: Dictionary = sim.decoration.item(_sel_decor)
+		fp = DecorSlots.overlay_footprint(sim.decoration.def_of(o), int(o.get("rot", 0)))
 	return cell - Vector2i((fp.x - 1) / 2, (fp.y - 1) / 2)
 
 
@@ -653,9 +772,21 @@ func _preview(anchor: Vector2i) -> void:
 		game.world.show_ghost(GridMath.footprint_cells(anchor, e.def().footprint_tiles, _rot), floor_id, reason == &"")
 		_set_status(reason, reason == &"")
 	elif _sel_decor >= 0:
-		var reason2: StringName = sim.world.validate_decor_cell(floor_id, anchor, _sel_decor)
-		game.world.show_ghost([anchor], floor_id, reason2 == &"")
+		var t: StringName = _sel_decor_type()
+		if _is_slot_type(t):
+			return
+		var o: Dictionary = sim.decoration.item(_sel_decor)
+		var reason2: StringName = sim.decoration.check_place(_sel_decor, floor_id, anchor, -1, int(o.get("rot", 0)))
+		game.world.show_ghost(_decor_cells(anchor), floor_id, reason2 == &"")
 		_set_status(reason2, reason2 == &"")
+
+
+## Ubin yang akan ditempati dekorasi lantai/karpet terpilih berjangkar `anchor`.
+func _decor_cells(anchor: Vector2i) -> Array[Vector2i]:
+	var o: Dictionary = sim.decoration.item(_sel_decor)
+	if sim.decoration.type_of(o) == &"floor_overlay":
+		return DecorSlots.overlay_cells(sim.decoration.def_of(o), anchor, int(o.get("rot", 0)))
+	return [anchor]
 
 
 func _set_status(reason: StringName, ok: bool) -> void:
@@ -663,7 +794,7 @@ func _set_status(reason: StringName, ok: bool) -> void:
 		_status.text = Tx.t("ui_decor_valid")
 		_status.add_theme_color_override("font_color", Palette.SUCCESS)
 	else:
-		_status.text = Tx.t(str(REASON_KEYS.get(reason, "ui_decor_invalid_reserved")))
+		_status.text = _reason_text(reason)
 		_status.add_theme_color_override("font_color", Palette.DANGER)
 
 
@@ -677,18 +808,44 @@ func _set_status(reason: StringName, ok: bool) -> void:
 func _on_world_tap(pos: Vector2) -> void:
 	var cell: Vector2i = game.world.cell_at_screen(pos)
 	var floor_id: StringName = game.world.camera_rig.active_floor
+	# Dekorasi dinding/meja terpilih: penanda slot yang menyala didahulukan.
+	if _sel_decor >= 0 and _is_slot_type(_sel_decor_type()):
+		var slot: int = game.world.slot_at_screen(pos)
+		if slot >= 0:
+			_place_decor_slot(slot)
+			return
 	var p: Dictionary = game.world.pick(pos)
+	var kind: StringName = p.get("kind", &"")
 	if not has_selection():
-		if p.get("kind", &"") == &"equipment":
+		if kind == &"equipment":
 			_select_equipment(int(p["iid"]))
+		elif kind == &"decor":
+			_select_decor(int(p["uid"]))
 		return
 	# Badan perabot yang terlihat (kotak 3D-nya, bukan ubin akses di depannya):
 	# perabot terpilih itu sendiri -> selesai, perabot lain -> ganti pilihan.
-	if p.get("kind", &"") == &"equipment" and not p.has("cell"):
+	if kind == &"equipment" and not p.has("cell"):
 		if int(p["iid"]) == _sel_iid:
 			_deselect()
 		else:
 			_select_equipment(int(p["iid"]))
+		return
+	if kind == &"decor":
+		var duid: int = int(p["uid"])
+		if duid == _sel_decor:
+			_deselect()
+			return
+		# Karpet di bawah jari tetap sasaran bagi alat dan dekorasi lantai.
+		if not p.has("cell") or (_sel_iid < 0 and _sel_decor_type() != &"floor_prop"):
+			_select_decor(duid)
+			return
+	if _sel_decor >= 0 and _is_slot_type(_sel_decor_type()):
+		if sim.decoration.free_slots(_sel_decor_type(), _sel_decor).is_empty():
+			_set_status(&"slots_full", false)
+			_warn_rejected(&"slots_full")
+		else:
+			_status.text = Tx.t("ui_decor_pick_slot")
+			_status.add_theme_color_override("font_color", Palette.WARNING)
 		return
 	if _sel_iid >= 0:
 		var anchor: Vector2i = _anchor_for(cell)
@@ -707,15 +864,17 @@ func _on_world_tap(pos: Vector2) -> void:
 			_set_status(reason, false)
 			_warn_rejected(reason)
 	elif _sel_decor >= 0:
-		var r2: StringName = sim.decoration.place(_sel_decor, floor_id, cell, -1)
+		var anchor2: Vector2i = _anchor_for(cell)
+		var r2: StringName = sim.decoration.place(_sel_decor, floor_id, anchor2, -1)
 		if r2 == &"":
-			game.world.rebuild_all()
-			game.world.show_ghost([cell], floor_id, true)
+			EventBus.sfx.emit(&"bread_place_display", floor_id)
+			game.world.set_decor_lift(_sel_decor)
+			game.world.show_ghost(_decor_cells(anchor2), floor_id, true)
 			_refresh_overlay()
 			_refresh_all()
 			_set_status(&"", true)
 		else:
-			game.world.show_ghost([cell], floor_id, false)
+			game.world.show_ghost(_decor_cells(anchor2), floor_id, false)
 			_set_status(r2, false)
 			_warn_rejected(r2)
 
@@ -744,6 +903,9 @@ func _over_ui(p: Vector2) -> bool:
 ## tengahnya tetap) bila posisinya sah; bila tidak, pratinjau merah beserta
 ## alasannya tampil dan putaran itu dipakai saat ubin tujuan diketuk.
 func _rotate() -> void:
+	if _sel_decor >= 0:
+		_rotate_rug()
+		return
 	if _sel_iid < 0:
 		return
 	var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
@@ -776,6 +938,25 @@ func _rotate() -> void:
 	_warn_rejected(reason)
 
 
+## Karpet (GDD 72.1): terpasang = berputar di tempat bila muat; belum
+## terpasang = putaran dipakai saat ubin tujuan diketuk.
+func _rotate_rug() -> void:
+	var o: Dictionary = sim.decoration.item(_sel_decor)
+	if sim.decoration.type_of(o) != &"floor_overlay":
+		return
+	var r: StringName = sim.decoration.rotate_overlay(_sel_decor)
+	if r != &"":
+		_set_status(r, false)
+		_warn_rejected(r)
+		return
+	if bool(o["placed"]):
+		EventBus.sfx.emit(&"bread_place_display", StringName(str(o["floor_id"])))
+		game.world.show_ghost(sim.decoration.overlay_cells(o), StringName(str(o["floor_id"])), true)
+		_set_status(&"", true)
+	elif _last_cell.x >= 0:
+		_preview(_last_cell)
+
+
 func _put_away() -> void:
 	if _sel_iid >= 0:
 		var r: StringName = sim.equipment.put_away(_sel_iid)
@@ -784,7 +965,6 @@ func _put_away() -> void:
 			return
 	elif _sel_decor >= 0:
 		sim.decoration.put_away(_sel_decor)
-		game.world.rebuild_all()
 	_deselect()
 
 
@@ -803,7 +983,9 @@ func on_closed() -> void:
 	game.world.clear_tile_overlay()
 	game.world.camera_rig.set_free_pan(false)
 	game.world.clear_ghost()
+	game.world.clear_slot_markers()
 	game.world.set_lift(-1)
+	game.world.set_decor_lift(-1)
 	game.world.decoration_mode = false
 	game.world.view_floor_override = &""
 	game.commands.tap_override = Callable()

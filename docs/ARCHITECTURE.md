@@ -136,6 +136,14 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   pass per nav graph, sharing `_floor_targets()` with the connectivity check.
   Decoration Mode stripes these tiles and warns when a placement would block the
   walkway.
+- Decorations (GDD 72.1, 72.3) all go on the shop floor, capped per type by the
+  location's `decor_slots`. `DecorSlots` (`gameplay/world/decor_slots.gd`) derives the
+  wall spots (between the windows of the two full walls) and the counter spots (the end
+  of each register counter away from the paper bag) from the layout template, so saves
+  store only a slot number. `DecorationManager.check_place` is the one validation for
+  every type (cap, slot, floor tile, rug footprint); `enforce_rules()` runs after load
+  and after moving shop and puts back what no longer fits, oldest uid first. Rugs never
+  enter `decor_at`, so they never block anyone.
 - Routes are cell paths smoothed by line of sight. Between floors a route has one
   instant portal waypoint (GDD 68). Positions are logical metres (0.5 m per tile).
 
@@ -159,7 +167,7 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   blocking screen pushes a pause reason and cleans up in `on_closed()`. Every visible
   text goes through `Tx.t(key, params)` → `strings_en.json` (GDD 43, 127).
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
-  `CharacterFactory`, `RoomFactory` (meshes); `ProceduralAnimationSystem`, `FX`
+  `CharacterFactory`, `RoomFactory`, `DecorFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas` (UI). Their shared
   caches are released by `ProceduralCaches.clear_all()` on exit.
 - Characters (GDD 31, 130.2): `CharacterFactory` places one `Node3D` pivot per animated
@@ -183,6 +191,10 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   when the last thought ends); both timers use real seconds and stop while the game is
   paused. In Decoration Mode `WorldView` hides station markers, lifts the selected
   furniture (`set_lift`) and gives `top_of_iid` to the screen's floating action toolbar.
+  It draws placed decorations with `DecorFactory` (one cached prototype per item,
+  placed copies share meshes), swings the pendulums, makes decorations pickable, and
+  shows the wall/counter slot markers the screen taps (`show_slot_markers`,
+  `slot_at_screen`).
 - Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
   `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
   `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.

@@ -10,3 +10,4 @@ static func clear_all() -> void:
 	ProceduralUIFactory.clear_caches()
 	MeshBuilder.clear_materials()
 	CharacterFactory.clear_caches()
+	DecorFactory.clear_caches()

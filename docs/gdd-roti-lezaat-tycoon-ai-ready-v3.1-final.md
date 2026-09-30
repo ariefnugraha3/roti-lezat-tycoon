@@ -181,12 +181,12 @@ Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara o
 | Tingkat / Jabatan | Gaji Harian (Per Hari) | Kecepatan Transaksi (Work Speed) | Kemampuan Khusus & Efek | Cocok untuk Lokasi |
 | :--- | :---: | :---: | :--- | :--- |
 | **Tier 1: Kasir Magang** | **150 KR** | **3.0 detik** / pelanggan | Pemula, kadang lambat menghitung koin. | Tier 1: Garasi Rumah |
-| **Tier 2: Kasir Junior** | **350 KR** | **3.0 detik** / pelanggan | Cukup tanggap untuk arus belanja pejalan kaki. | Tier 2: Ruko 1 Pintu |
+| **Tier 2: Kasir Junior** | **350 KR** | **3.0 detik** / pelanggan | Sabar: pembeli di antreannya 8% lebih sabar (`queue_patience_drain_multiplier` 0,92). | Tier 2: Ruko 1 Pintu |
 | **Tier 3: Kasir Terampil** | **800 KR** | **3.0 detik** / pelanggan | Menurunkan tingkat stres antrean pelanggan sebesar -15%. | Tier 3: Bakery Mandiri |
-| **Tier 4: Kasir Profesional** | **1.800 KR** | **3.0 detik** / pelanggan | *Belum ada.* Kemampuan lamanya (memproses "Si Galau" 2x lebih cepat) gugur sejak semua transaksi 3 detik; menunggu keputusan maintainer. | Tier 4: Flagship Store |
+| **Tier 4: Kasir Profesional** | **1.800 KR** | **3.0 detik** / pelanggan | Sabar + ramah: pembeli di antreannya 15% lebih sabar (`queue_patience_drain_multiplier` 0,85), dan setiap penjualannya menaikkan Store Rating 1,5x (`sale_rating_multiplier` 1,5; berlaku untuk `successful_sale` dan `fast_service`, tidak untuk penalti). | Tier 4: Flagship Store |
 | **Tier 5: Kasir Superstar** | **4.000 KR** | **3.0 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
 
-*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** dan seluruhnya fase membungkus (Seksi 21.4). Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus (Tier 3: antrean lebih sabar; Tier 5: tip). Tier 2 dan Tier 4 saat ini tidak punya keunggulan atas Tier 1 (keputusan terbuka).
+*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** dan seluruhnya fase membungkus (Seksi 21.4). Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus. Kemampuan Tier 2 dan Tier 4 di atas adalah keputusan maintainer 2026-09-30 ("sabar + ramah"), menggantikan kemampuan lama yang gugur bersama kecepatan kasir; Tier 1, 3, dan 5 tidak berubah. Nilainya tinggal di `staff.json` `special`, dan kartu kasir di layar Staff menjelaskan setiap kemampuan dalam kalimat (Seksi 127.17).
 
 *Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
 
@@ -253,7 +253,7 @@ Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan me
 | **Maya** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
 | **Reza** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
 | **Dewi** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
-| **Hendra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Ahli psikologi konsumen; sanggup memandu pembeli "Si Galau" memutuskan pilihan dalam 2 detik. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
+| **Hendra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Ahli psikologi konsumen; obrolan hangatnya membuat setiap pembeli pulang tersenyum. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
 | **Citra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
 | **Kenji** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan dan kecepatan kilatnya. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
 | **Grace** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | "Duta Senyum Nasional"; aura ramahnya membuat pembeli bahagia dan sering memberi tip koin ekstra. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
@@ -635,6 +635,8 @@ Sistem properti menggunakan mekanisme **Beli Putus (Hak Milik)** sehingga pemain
 | **Ukuran Bangunan Fisik** | **3 m × 6 m** | **L1: 3 m × 6 m; L2: 3 m × 4 m** | **L1: 3 m × 6 m; L2: 3 m × 6 m** | **8 m × 8 m** | **10 m × 10 m** |
 | **Ukuran Grid** | **6 × 12 ubin** | **L1: 6 × 12; L2: 6 × 8 ubin** | **L1: 6 × 12; L2: 6 × 12 ubin** | **16 × 16 ubin** | **20 × 20 ubin** |
 | **Pembagian Zona** | **3×3 m toko + 3×3 m dapur** | **Lantai bawah seluruhnya toko; lantai atas 3×4 m dapur** | **Lantai bawah seluruhnya toko; lantai atas seluruhnya dapur** | **4×8 m kiri toko + 4×8 m kanan dapur** | **6×10 m kiri toko + 4×10 m kanan dapur** |
+
+Jumlah dekorasi yang boleh dipasang per tier (dinding, meja kasir, lantai, karpet) ada di Seksi 72.3.
 
 ### **6.1 Skala Ruang Canonical**
 
@@ -4526,16 +4528,17 @@ Keputusan maintainer 2026-09-30: **tidak ada panel samping**, supaya dunia terli
 - **Toolbar aksi melayang tepat di atas perabot terpilih**, dengan ekor yang menunjuk ke perabot itu, dan ikut pindah bersamanya: nama perabot, **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang dan Meja Tunggu (Seksi 5.1.3) atau barang yang belum dipasang; Rotate hanya untuk alat. Barang yang belum punya tempat di lantai yang sedang dilihat (alat belum dipasang, dekorasi dinding/meja) memakai toolbar yang sama, berlabuh di atas tab.
 - Perabot terpilih terangkat sedikit dan mengambang pelan. Penanda "!" dan bar progres disembunyikan selama mode ini.
 - Ketuk ubin kosong untuk memindahkan perabot terpilih ke sana; perabot tetap terpilih sesudahnya. Ketuk perabot lain untuk berganti pilihan, ketuk perabot terpilih itu sendiri atau tekan Back untuk selesai. **Rotate** memutar perabot yang sudah terpasang di tempatnya (titik tengahnya tetap) bila posisinya sah; bila tidak, pratinjau merah beserta alasannya tampil dan putaran itu dipakai saat ubin tujuan diketuk.
+- **Dekorasi** (keputusan maintainer 2026-09-30, aturan slot di Seksi 72.3): dekorasi yang terpasang digambar di dunia dan diketuk seperti perabot. Memilih dekorasi memindahkan tampilan ke lantai toko. Dekorasi **dinding** atau **meja kasir** menyalakan **penanda slot** di setiap slot bebas (bingkai krem bertanda tambah di dinding, cincin bertanda tambah di meja; slot yang sedang ditempati barang itu sendiri berwarna emas). Ketuk penanda untuk memasang atau memindahkannya; ketuk slotnya sendiri untuk selesai. Dekorasi **lantai** dan **karpet** mengikuti ubin yang diketuk; karpet menampilkan pratinjau seluruh jejaknya dan **Rotate** memutarnya 90°. Selama karpet atau dekorasi dinding/meja terpilih, ubin wajib kosong tidak diarsir (karpet tidak memblok apa pun, dinding/meja tidak memakai ubin). Jenis yang sudah penuh langsung menampilkan banner "No free spot left" dengan batas lokasi itu. Baki "Your Decorations" diawali ringkasan slot, misalnya `Wall 1/2`.
 
 ## **72.1 Decoration Catalog — CANONICAL**
 
 Dekorasi murni kosmetik. Ia tidak mengubah demand, rating, kecepatan, footprint alat, atau interaction (Seksi 92.1). Dekorasi dibeli lewat tab **Decor Shop** di Decoration Mode, atau didapat dari achievement. Seperti equipment (Seksi 5.1.2), Decor Shop hanya aktif after-hours; menata ulang dekorasi yang sudah dimiliki boleh kapan saja.
 
 **Jenis penempatan:**
-- `wall`: slot dinding; tidak memakai cell grid.
+- `wall`: slot dinding (Seksi 72.3); tidak memakai cell grid.
 - `floor_prop`: footprint 1×1 di `WALKABLE_BUILDABLE` zona store; ikut validasi placement Seksi 17.3 dan 56.1.2.
-- `floor_overlay`: karpet atau tikar; walkable dan tidak memblok apa pun.
-- `counter_prop`: di atas meja kasir; tidak memakai cell.
+- `floor_overlay`: karpet atau tikar seluas `overlay_size_tiles` (Seksi 72.3); walkable dan tidak memblok apa pun.
+- `counter_prop`: slot di atas meja kasir (Seksi 72.3); tidak memakai cell.
 - `skin`: mengganti tampilan alat, meja, papan nama, atau UI; tidak memakai cell.
 - `outfit`: kosmetik karakter pemain atau staf.
 - `badge`: tanda di kartu profil.
@@ -4583,6 +4586,34 @@ Maksimal **24** dekorasi terpasang per floor (Seksi 129). Nama English: Seksi 12
 | `ach_solo_recovery` | `decor_photo_pak_lurah` | wall |
 | `ach_big_day` | `decor_brass_bell` | counter_prop |
 | `ach_overflow` | `decor_plaque_infinity` | wall |
+
+## **72.3 Decoration Slots per Store Tier — CANONICAL**
+
+Keputusan maintainer 2026-09-30. Setiap dekorasi yang bisa dipasang punya **model prosedural sendiri** (`DecorFactory`, Seksi 12.3; tanpa teks, di bawah 2.000 segitiga) dan tampil di dunia begitu dipasang. Sebelumnya dekorasi hanya tercatat di save: dinding dan meja tidak digambar sama sekali, dan dekorasi lantai menjadi penghalang tak terlihat.
+
+**Aturan umum:**
+- Semua dekorasi dipasang di **lantai toko** (lantai yang punya zona store: lantai 1 di setiap tier).
+- Jumlah dekorasi terpasang **per jenis** dibatasi tier toko (kolom `decor_slots` di `locations.json`, divalidasi saat boot):
+
+| Tier Lokasi | Dinding (`wall`) | Meja kasir (`counter_prop`) | Lantai (`floor_prop`) | Karpet (`floor_overlay`) |
+| :--- | :---: | :---: | :---: | :---: |
+| Tier 1: Garasi Rumah | 2 | 1 | 1 | 1 |
+| Tier 2: Ruko 1 Pintu | 3 | 1 | 2 | 1 |
+| Tier 3: Toko Bakery Mandiri | 4 | 2 | 3 | 1 |
+| Tier 4: Flagship Store | 6 | 2 | 4 | 2 |
+| Tier 5: Mega Bakery Landmark | 8 | 3 | 6 | 2 |
+
+- Batas 24 dekorasi per lantai (Seksi 129) tetap berlaku di atasnya. Barang yang belum terpasang boleh dimiliki tanpa batas; jenis yang penuh ditolak dengan alasan `slots_full` (`ui_decor_slots_full`, Seksi 127.17). Memindahkan barang yang sudah terpasang tidak dihitung ulang.
+
+**Slot dinding.** Tempatnya diturunkan dari template lokasi (Seksi 57), tidak disimpan di save. Kandidatnya ada di dua dinding setinggi penuh lantai toko (dinding belakang dan kanan): setiap celah di sela jendela (0,45 m dari pusat jendela), sudut (0,06 m; ditambah 0,12 m untuk pilar sudut Tier 4–5), dan pintu tangga yang menempel di dinding diisi slot selebar **0,62 m** dengan jarak antarslot minimal **0,28 m**, disebar rata. Pusatnya setinggi pusat jendela (55% tinggi dinding). Urutannya: slot yang menghadap zona toko lebih dulu, lalu dinding belakang sebelum dinding kanan, lalu dari sisi pintu depan. Hanya **N slot pertama** (N = batas dinding tier itu) yang boleh dipakai; setiap template punya kandidat lebih banyak dari batasnya.
+
+**Slot meja kasir.** Satu slot per meja kasir lantai toko, urut daftar meja di template, dan hanya **N meja pertama** yang dipakai. Mesin kasir berdiri di tengah meja dan kantong belanja di sisi `bag_side` mesin kasir itu (Seksi 21.4); slot dekorasi ada di **ujung seberangnya**, 0,18 m dari ujung meja dan sedikit ke sisi pembeli, menghadap pembeli. Bila ujung itu dipakai tablet RotiFood (Tier 1–2), slotnya pindah ke ujung satunya.
+
+**Lantai dan karpet.** Dekorasi lantai tetap satu ubin dengan validasi Seksi 17.3 dan 56.1.2. Karpet menempati jejak `overlay_size_tiles` (Terracotta Rug 2×2, Smooth Queue Floor Mat 2×1), diputar 90° oleh Rotate (`rot` 0/1 di save). Seluruh jejaknya harus di zona toko, pada ubin yang bisa diinjak, bukan pintu masuk atau pintu tangga, dan tidak menindih karpet lain. Karpet boleh di jalur, antrean, dan di bawah perabot, karena tidak memblok apa pun.
+
+**Save lama dan pindah lokasi.** Setelah load dan setelah upgrade lokasi, setiap dekorasi terpasang diperiksa ulang berurutan menurut `uid` (yang lebih dulu dimiliki bertahan). Dekorasi yang melanggar aturan di atas (bukan lantai toko, melebihi batas, slot di luar batas atau dipakai dua kali, ubin/jejak tidak sah) kembali ke inventaris dan tetap dimiliki. Slot dinding/meja memakai nomor yang sama di lokasi baru.
+
+**Model.** Titik asal dan arah hadap per jenis: dinding di permukaan dinding (menonjol ke dalam ruangan), meja di permukaan meja (muka ke pembeli), lantai di pusat ubin, karpet di pusat jejak. Jam dinding bandul berayun pelan dan lampu gantung menyala hangat; Reduced Motion menghentikan ayunan. Plakat tier membawa 2, 3, dan 4 bintang. Dinding kanan kini memperlihatkan kaca dan tirai jendelanya, dan jam dinding bawaan ruangan menghadap ke dalam (keduanya dulu menghadap dinding).
 
 ---
 
@@ -6751,7 +6782,7 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `staff_cashier_maya` | `A persuasive talker who can soothe even the most hurried office worker.` |
 | `staff_cashier_reza` | `His fingers dance across the register keys without a single mistake.` |
 | `staff_cashier_dewi` | `Remembers every regular's name and favorite bread.` |
-| `staff_cashier_hendra` | `A shopper-psychology expert who helps indecisive customers choose in two seconds.` |
+| `staff_cashier_hendra` | `A shopper-psychology expert whose warm chat sends every customer home smiling.` |
 | `staff_cashier_citra` | `Calm and composed, she can handle a queue of twenty without breaking a sweat.` |
 | `staff_cashier_kenji` | `Disciplined and courteous, famous for his polite bow and lightning speed.` |
 | `staff_cashier_grace` | `The "Ambassador of Smiles". Happy customers often leave her an extra tip.` |
@@ -6972,6 +7003,25 @@ Tahap layar loading (Seksi 89.5), layar "Rotate your phone" dan tombol layar pen
 | `ui_rotate_body` | `Roti Lezat Tycoon is played in landscape. Turn your phone sideways to continue.` |
 | `ui_rotate_tap` | `Auto-rotate turned off? Tap anywhere to switch to landscape.` |
 | `ui_settings_fullscreen_enter` | `Play in full screen` |
+
+## **127.17 Decoration Slot & Cashier Perk Strings**
+
+Slot dekorasi Decoration Mode (Seksi 72.2–72.3) dan kalimat kemampuan kasir di kartu Staff (Seksi 3.1). `{type}` = nama jenis dari `decor_type_*` (`Wall`, `Counter`, `Floor`, `Rug`); `{count}`/`{max}` = batas lokasi; `{percent}` dihitung dari nilai `special` kasir.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_decor_slots_full` | `{type} spots are full ({count}/{count}). Put one away, or upgrade the shop for more.` |
+| `ui_decor_full_title` | `No free spot left` |
+| `ui_decor_slot_hint_wall` | `Tap a glowing spot on the wall to hang it.` |
+| `ui_decor_slot_hint_counter` | `Tap a glowing spot on a counter to put it there.` |
+| `ui_decor_slot_move` | `Tap another glowing spot to move it, or tap it again when you are done.` |
+| `ui_decor_pick_slot` | `Tap one of the glowing spots.` |
+| `ui_decor_rug_hint` | `Tap a floor tile in the shop to lay the rug. Rotate turns it.` |
+| `ui_decor_slot_count` | `{type} {used}/{max}` |
+| `ui_decor_slot_usage_tip` | `Decorations in use at this shop. A bigger shop has more spots.` |
+| `staff_special_queue` | `Customers in this lane stay calmer (−{percent}% impatience).` |
+| `staff_special_rating` | `Friendly service: every sale in this lane lifts your rating {percent}% more.` |
+| `staff_special_tip` | `A sweet smile: {percent}% chance of an extra tip.` |
 
 ---
 

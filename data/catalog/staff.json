@@ -78,7 +78,9 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.92
+   },
    "visual": {
     "accessory": [],
     "apron": "#b5ead7",
@@ -99,7 +101,9 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.92
+   },
    "visual": {
     "accessory": [
      "gelang_karet"
@@ -122,7 +126,9 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.92
+   },
    "visual": {
     "accessory": [
      "jepit_stroberi"
@@ -221,7 +227,10 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.85,
+    "sale_rating_multiplier": 1.5
+   },
    "visual": {
     "accessory": [
      "kacamata_emas"
@@ -244,7 +253,10 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.85,
+    "sale_rating_multiplier": 1.5
+   },
    "visual": {
     "accessory": [],
     "apron": "#22355b",
@@ -265,7 +277,10 @@
    "work_speed_multiplier": 1.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {},
+   "special": {
+    "queue_patience_drain_multiplier": 0.85,
+    "sale_rating_multiplier": 1.5
+   },
    "visual": {
     "accessory": [
      "dasi_kupu"

@@ -12,6 +12,12 @@
     "display": 1,
     "cashier": 1
    },
+   "decor_slots": {
+    "wall": 2,
+    "counter_prop": 1,
+    "floor_prop": 1,
+    "floor_overlay": 1
+   },
    "staff_capacity_by_role": {
     "cashier": 1,
     "baker": 1
@@ -258,6 +264,12 @@
     "oven": 2,
     "display": 2,
     "cashier": 1
+   },
+   "decor_slots": {
+    "wall": 3,
+    "counter_prop": 1,
+    "floor_prop": 2,
+    "floor_overlay": 1
    },
    "staff_capacity_by_role": {
     "cashier": 1,
@@ -611,6 +623,12 @@
     "oven": 3,
     "display": 3,
     "cashier": 2
+   },
+   "decor_slots": {
+    "wall": 4,
+    "counter_prop": 2,
+    "floor_prop": 3,
+    "floor_overlay": 1
    },
    "staff_capacity_by_role": {
     "cashier": 2,
@@ -1104,6 +1122,12 @@
     "oven": 4,
     "display": 4,
     "cashier": 2
+   },
+   "decor_slots": {
+    "wall": 6,
+    "counter_prop": 2,
+    "floor_prop": 4,
+    "floor_overlay": 2
    },
    "staff_capacity_by_role": {
     "cashier": 2,
@@ -1689,6 +1713,12 @@
     "oven": 5,
     "display": 6,
     "cashier": 3
+   },
+   "decor_slots": {
+    "wall": 8,
+    "counter_prop": 3,
+    "floor_prop": 6,
+    "floor_overlay": 2
    },
    "staff_capacity_by_role": {
     "cashier": 3,
