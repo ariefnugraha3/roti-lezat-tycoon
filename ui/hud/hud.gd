@@ -27,6 +27,7 @@ var _campaign: Label = null
 var _solo: Label = null
 var _speed_buttons: Array[Button] = []
 var _pause_btn: Button = null
+var _skip_btn: Button = null
 var _stock_box: VBoxContainer = null
 var _orders_box: VBoxContainer = null
 var _quick: HBoxContainer = null
@@ -162,12 +163,35 @@ func _build_top_center(frame: Control) -> void:
 		b.pressed.connect(func() -> void: sim.time.set_speed(s))
 		speed.add_child(b)
 		_speed_buttons.append(b)
+	_skip_btn = _build_skip_button()
+	v.add_child(_skip_btn)
 	_demand = ProceduralUIFactory.label("", 16, Palette.UI_WOOD)
 	_demand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_demand)
 	_holiday = ProceduralUIFactory.label("", 14, Palette.GOLDEN_CRUST)
 	_holiday.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_holiday)
+
+
+## "Skip to Open" (GDD 15.4): hanya selama persiapan. Ikon + teks di dalam satu
+## tombol pil; seluruh tombol tetap bidang sentuhnya.
+func _build_skip_button() -> Button:
+	var b: Button = ProceduralUIFactory.button("", "primary")
+	b.name = "SkipToOpen"
+	b.tooltip_text = Tx.t("ui_skip_open_tip", {"time": Tx.clock(sim.time.open_time)})
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	row.add_child(ProceduralUIFactory.icon("skip", 22, Palette.FLOUR_WHITE))
+	var l: Label = ProceduralUIFactory.label(Tx.t("ui_skip_open"), 16, Palette.FLOUR_WHITE)
+	row.add_child(l)
+	b.add_child(row)
+	b.custom_minimum_size = Vector2(maxf(190.0, l.get_combined_minimum_size().x + 60.0), 48)
+	b.pressed.connect(func() -> void: game.request_skip_to_open())
+	b.visible = false
+	return b
 
 
 func _build_top_right(frame: Control) -> void:
@@ -383,6 +407,10 @@ func _refresh_all() -> void:
 	_campaign.text = Tx.t("ui_hud_campaign", {"campaign": Tx.t(str(camp["campaign_id"])), "days": camp["remaining_days"]}) if not camp.is_empty() else ""
 	_market_btn.modulate = Color(1, 1, 1, 1.0 if sim.supply.market_unlocked else 0.55)
 	_after_hours.visible = sim.time.phase == TimeManager.AFTER_HOURS
+	var block: StringName = sim.skip_to_open_block()
+	_skip_btn.visible = block != &"phase" and block != &"tutorial" and not game.is_skipping_to_open()
+	# Oven menunggu diangkat: tombol tetap bisa diketuk dan menjelaskan alasannya.
+	_skip_btn.modulate = Color(1, 1, 1, 0.6 if block == &"oven" else 1.0)
 	if _after_hours.visible:
 		(_after_hours.get_node("Continue") as Button).disabled = not sim.reports.can_continue()
 	_refresh_speed()

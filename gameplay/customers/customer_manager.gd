@@ -72,7 +72,7 @@ func try_admit(arrival: Dictionary) -> bool:
 	if def == null:
 		return true
 	var door: Vector2i = sim.world.entrance_cell()
-	var lane: QueueLane = sim.queue.choose_physical_lane(archetype, door, def.movement_speed_mps)
+	var lane: QueueLane = sim.queue.choose_physical_lane(door, def.movement_speed_mps)
 	if lane == null:
 		return false
 	var c := Customer.new()

@@ -21,7 +21,6 @@ var allowed_freshness_states: Array[StringName] = []
 var max_unit_price_kr: float = 0.0
 var price_sensitivity: float = 1.0
 var min_recipe_tier: int = 1
-var service_multiplier: float = 1.0
 var spawn_weight_by_tier: Array[float] = []
 ## blok jam -> pengali bobot (GDD 20.11).
 var time_modifiers: Dictionary = {}
@@ -55,7 +54,6 @@ static func from_dict(d: Dictionary) -> CustomerArchetypeDefinition:
 	c.max_unit_price_kr = float(d.get("max_unit_price_kr", 0.0))
 	c.price_sensitivity = float(d.get("price_sensitivity", 1.0))
 	c.min_recipe_tier = int(d.get("min_recipe_tier", 1))
-	c.service_multiplier = float(d.get("service_multiplier", 1.0))
 	for w: Variant in d.get("spawn_weight_by_tier", []):
 		c.spawn_weight_by_tier.append(float(w))
 	var tm: Dictionary = d.get("time_modifiers", {})

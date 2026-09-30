@@ -29,7 +29,7 @@
 		"speed": 1.0,
 		"time_seconds": 18000.0
 	},
-	"created_at": "2026-09-29T03:41:26Z",
+	"created_at": "2026-09-29T22:26:06Z",
 	"customers": {
 		"abandoned_today": 0.0,
 		"customers": [],
@@ -213,7 +213,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 31084.5,
+				"game_time": 30861.0,
 				"metadata": {
 					"customer": "c1",
 					"units": 2.0
@@ -225,7 +225,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 33786.0,
+				"game_time": 33562.5,
 				"metadata": {
 					"customer": "c2",
 					"units": 2.0
@@ -237,7 +237,7 @@
 				"amount": 540.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 36502.5,
+				"game_time": 36279.0,
 				"metadata": {
 					"customer": "c3",
 					"units": 6.0
@@ -260,7 +260,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 40081.5,
+				"game_time": 39858.0,
 				"metadata": {
 					"customer": "c4",
 					"units": 2.0
@@ -272,7 +272,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 44028.0,
+				"game_time": 43489.5,
 				"metadata": {
 					"customer": "c5",
 					"units": 2.0
@@ -284,7 +284,7 @@
 				"amount": 720.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 49107.0,
+				"game_time": 48883.5,
 				"metadata": {
 					"customer": "c6",
 					"units": 8.0
@@ -318,7 +318,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 54486.0,
+				"game_time": 54262.5,
 				"metadata": {
 					"customer": "c7",
 					"units": 2.0
@@ -330,7 +330,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1.0,
-				"game_time": 59880.0,
+				"game_time": 59656.5,
 				"metadata": {
 					"customer": "c8",
 					"units": 2.0

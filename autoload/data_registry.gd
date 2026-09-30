@@ -272,27 +272,20 @@ func batch_duration_factor(batch: int) -> float:
 	return 1.0
 
 
-## Lama fase membungkus di akhir setiap transaksi kasir (GDD 21.4).
+## Lama satu transaksi kasir, seluruhnya fase membungkus (GDD 21.4).
 func packing_seconds() -> float:
 	return balf("cashier.packing_seconds")
 
 
-func manual_cashier_penalty() -> float:
-	return float(_staff_raw.get("manual_cashier_penalty", 1.5))
+## Detik diam sebelum karakter pemain tertidur (GDD 31.6): tepat saat gelembung
+## pikiran terakhir toko sepi hilang (GDD 31.7), di fase mana pun.
+func player_doze_after_seconds() -> float:
+	var after: Array = bal("presentation.thought_after_seconds")
+	return float(after[after.size() - 1]) + balf("presentation.thought_show_seconds")
 
 
 func player_speed_mps() -> float:
 	return float(_staff_raw.get("player_movement_speed_mps", 1.5))
-
-
-## Waktu layan Asisten Kasir Tier 1: dasar kecepatan layan manual (GDD 3.0.C).
-func tier1_cashier_seconds() -> float:
-	var best: float = 0.0
-	for s: StaffDefinition in _staff:
-		if s.is_cashier() and s.tier == 1:
-			best = s.cashier_service_seconds
-			break
-	return best
 
 
 func locations() -> Array[LocationDefinition]:
@@ -741,8 +734,6 @@ func _validate_staff() -> void:
 			_err("staff %s tier outside 1..5" % s.id)
 		if s.daily_wage_kr <= 0.0 or s.work_speed_multiplier <= 0.0:
 			_err("staff %s invalid wage/speed" % s.id)
-		if s.is_cashier() and s.cashier_service_seconds <= 0.0:
-			_err("cashier %s needs service seconds" % s.id)
 		if s.auto_retrieve_probability < 0.0 or s.auto_retrieve_probability > 1.0:
 			_err("staff %s auto-retrieve outside 0..1" % s.id)
 
@@ -898,10 +889,11 @@ func _validate_balance() -> void:
 	if float((_balance.get("cashier", {}) as Dictionary).get("packing_seconds", 0.0)) <= 0.0:
 		_err("cashier.packing_seconds must be positive")
 	var p: Dictionary = _balance.get("presentation", {})
-	var wipe: float = float(p.get("idle_wipe_after_seconds", 0.0))
-	var doze: float = float(p.get("idle_doze_after_seconds", 0.0))
-	if wipe <= 0.0 or doze <= wipe + float(p.get("wipe_gesture_seconds", 0.0)):
-		_err("presentation idle gesture thresholds must be positive and the wipe must end before dozing")
+	var wipe_every: float = float(p.get("idle_wipe_every_seconds", 0.0))
+	var wipe_len: float = float(p.get("wipe_gesture_seconds", 0.0))
+	var staff_doze: float = float(p.get("staff_doze_after_seconds", 0.0))
+	if wipe_len <= 0.0 or wipe_every <= wipe_len or staff_doze <= wipe_every + wipe_len:
+		_err("presentation: each face wipe must end before the next one and before staff doze off")
 	var thoughts: Array = p.get("thought_after_seconds", [])
 	if thoughts.size() != THOUGHT_KEYS.size():
 		_err("presentation.thought_after_seconds needs %d entries" % THOUGHT_KEYS.size())
@@ -910,8 +902,8 @@ func _validate_balance() -> void:
 			_err("presentation.thought_after_seconds must rise and leave room for each bubble")
 	for k: String in THOUGHT_KEYS:
 		_check_text(StringName(k), "presentation")
-	if float(p.get("doze_after_last_thought_seconds", -1.0)) < 0.0:
-		_err("presentation.doze_after_last_thought_seconds must be zero or positive")
+	if not thoughts.is_empty() and float(thoughts[thoughts.size() - 1]) + float(p.get("thought_show_seconds", 0.0)) <= wipe_every + wipe_len:
+		_err("presentation: the player must wipe at least once before falling asleep")
 	# Meja Tunggu (GDD 5.1.3, 19.7.6).
 	var ht: Dictionary = _balance.get("holding_table", {})
 	if float(ht.get("bread_aging_rate", 0.0)) <= 0.0 or float(ht.get("dough_aging_multiplier", 0.0)) <= 0.0:

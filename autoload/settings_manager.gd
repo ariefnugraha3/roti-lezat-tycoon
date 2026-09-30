@@ -166,6 +166,10 @@ func _apply(key: String) -> void:
 				return
 			if OS.has_feature("mobile"):
 				return
+			# Browser HP masuk layar penuh dari ketukan "Tap to Start" (GDD 12.5);
+			# nilai tersimpan tidak boleh memaksanya keluar.
+			if WebPlatform.is_mobile_web():
+				return
 			var mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_FULLSCREEN if get_bool(key) else DisplayServer.WINDOW_MODE_WINDOWED
 			if DisplayServer.window_get_mode() != mode:
 				DisplayServer.window_set_mode(mode)

@@ -187,6 +187,36 @@ func step(dt: float) -> void:
 	_in_step = false
 
 
+## "Skip to Open" (GDD 15.4): alasan lompatan ke 08:00 belum boleh dipakai, atau
+## &"" bila boleh. &"phase" = bukan fase persiapan; &"tutorial" = Hari 1 masih
+## menunggu Gudang dibuka (GDD 88.1); &"oven" = ada loyang yang harus diangkat.
+func skip_to_open_block() -> StringName:
+	if time.phase != TimeManager.PREPARATION:
+		return &"phase"
+	if not tutorial.allows_tap(&"skip"):
+		return &"tutorial"
+	if production.oven_needs_player():
+		return &"oven"
+	return &""
+
+
+## Satu potong lompatan ke 08:00: paling banyak `max_ticks` tick biasa, jadi waktu
+## berjalan persis seperti menunggu, hanya lebih cepat (GDD 15.4). Mengembalikan
+## &"" bila belum selesai, &"open" saat toko sudah buka, atau &"oven" bila
+## berhenti lebih awal karena ada loyang yang harus diangkat pemain.
+func skip_to_open_step(max_ticks: int) -> StringName:
+	_accumulator = 0.0
+	if time.phase != TimeManager.PREPARATION:
+		return &"open"
+	for i in max_ticks:
+		step(tick_seconds)
+		if time.phase != TimeManager.PREPARATION:
+			return &"open"
+		if production.oven_needs_player():
+			return &"oven"
+	return &""
+
+
 ## Menjalankan simulasi headless selama `seconds` detik-simulasi (test).
 func run_for(seconds: float, dt: float = -1.0) -> void:
 	var d: float = dt if dt > 0.0 else tick_seconds

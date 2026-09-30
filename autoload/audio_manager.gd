@@ -5,6 +5,11 @@ extends Node
 ##
 ## Kebijakan web (GDD 33.4): tidak ada bunyi sebelum `unlock()` dipanggil dari
 ## gestur pertama pemain di layar "Tap to Start".
+##
+## Musik tidak pernah dibangun sekaligus di tengah permainan: satu bed musik
+## menahan layar hampir satu detik di PC dan beberapa detik di browser HP. Bed
+## dirakit MusicBuild sedikit demi sedikit di sela frame (GDD 91, 114). Selama bed
+## baru belum jadi, bed lama terus berputar, lalu berpindah dengan crossfade.
 
 signal caption_requested(key: String)
 
@@ -28,6 +33,10 @@ const CAPTIONS: Dictionary = {
 const DUCK_DB: float = -7.0
 const DUCK_SECONDS: float = 0.6
 const MUSIC_FADE: float = 1.2
+## Anggaran pembangkit musik per frame (mikrodetik): prewarm di latar dan musik
+## yang sedang ditunggu pemain.
+const JOB_BUDGET_USEC: int = 4000
+const JOB_URGENT_BUDGET_USEC: int = 10000
 
 ## Stream audio_rng milik RNGManager profil aktif (GDD 116). Null di menu.
 var rng_source: RandomNumberGenerator = null
@@ -48,10 +57,22 @@ var _last_played: Dictionary = {}
 var _duck_left: float = 0.0
 var _local_rng := RandomNumberGenerator.new()
 var _focus_muted: bool = false
+## Prewarm musik di latar; mati di headless (tidak ada suara yang diputar).
+var background_prewarm: bool = true
+## Kunci cache -> MusicBuild yang belum selesai, dan urutan kerjanya.
+var _jobs: Dictionary = {}
+var _job_order: Array[String] = []
+var _urgent: Dictionary = {}
+## Event musik yang sedang terdengar di pemutar aktif.
+var _music_playing: StringName = &""
+## Musik/lapisan ramai menunggu bed-nya selesai dirakit.
+var _pending_music: bool = false
+var _pending_busy: bool = false
 
 
 func _ready() -> void:
 	_local_rng.seed = 7331
+	background_prewarm = DisplayServer.get_name() != "headless"
 	_ensure_buses()
 	var voices: int = int(DataRegistry.bal("limits.sfx_voices")) if DataRegistry.is_valid() else 24
 	for i in voices:
@@ -124,25 +145,108 @@ func unlock() -> void:
 		set_music_state(s)
 
 
+## Stream untuk event, dibangun sekarang juga bila belum ada (bunyi pendek, atau
+## musik yang memang harus ada saat itu). Bed musik yang identik berbagi stream.
 func stream_for(event_id: StringName) -> AudioStream:
 	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(event_id)
 	if def == null:
 		GameLogger.warn_once("audio_" + String(event_id), "AUDIO", "unknown audio event %s" % event_id)
 		return null
-	var key: String = String(def.generator)
+	var key: String = MusicBuild.cache_key(String(def.generator))
 	if not _streams.has(key):
-		var s: AudioStreamWAV = AudioGenerator.build(key)
+		var job: MusicBuild = _jobs.get(key)
+		var s: AudioStreamWAV = job.finish_now() if job != null else AudioGenerator.build(String(def.generator))
+		_drop_job(key)
 		if s == null:
-			GameLogger.warn_once("audiogen_" + key, "AUDIO", "generator %s failed" % key)
+			GameLogger.warn_once("audiogen_" + key, "AUDIO", "generator %s failed" % def.generator)
 			return null
 		_streams[key] = s
 	return _streams[key]
 
 
-## Pra-bangkitkan stream (tahap warm-up loading, GDD 114 tahap 7).
-func prewarm(event_ids: Array) -> void:
+func is_stream_ready(event_id: StringName) -> bool:
+	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(event_id)
+	return def != null and _streams.has(MusicBuild.cache_key(String(def.generator)))
+
+
+## Kemajuan perakitan stream (0..1; 1 = siap).
+func stream_progress(event_id: StringName) -> float:
+	if is_stream_ready(event_id):
+		return 1.0
+	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(event_id)
+	if def == null:
+		return 0.0
+	var job: MusicBuild = _jobs.get(MusicBuild.cache_key(String(def.generator)))
+	return job.progress() if job != null else 0.0
+
+
+## Minta stream disiapkan. Musik masuk antrean perakitan bertahap (`urgent` =
+## di depan antrean, anggaran lebih besar); bunyi pendek langsung dibangun.
+func request_stream(event_id: StringName, urgent: bool = false) -> void:
+	if is_stream_ready(event_id):
+		return
+	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(event_id)
+	if def == null:
+		return
+	var key: String = MusicBuild.cache_key(String(def.generator))
+	if not _jobs.has(key):
+		var job: MusicBuild = MusicBuild.for_generator(String(def.generator))
+		if job == null:
+			stream_for(event_id)
+			return
+		_jobs[key] = job
+		_job_order.append(key)
+	if urgent and not _urgent.has(key):
+		_urgent[key] = true
+		_job_order.erase(key)
+		_job_order.push_front(key)
+
+
+## Siapkan musik di latar (menu, pagi, siang...) supaya tidak ada yang ditunggu nanti.
+func prewarm_music(event_ids: Array) -> void:
+	if not background_prewarm:
+		return
 	for id: Variant in event_ids:
-		stream_for(StringName(str(id)))
+		request_stream(StringName(str(id)), false)
+
+
+func has_pending_jobs() -> bool:
+	return not _job_order.is_empty()
+
+
+## Kerjakan antrean perakitan sampai `budget_usec` habis (juga dipakai layar loading).
+func step_jobs(budget_usec: int) -> void:
+	var t0: int = Time.get_ticks_usec()
+	while not _job_order.is_empty():
+		var left: int = budget_usec - (Time.get_ticks_usec() - t0)
+		if left <= 0:
+			return
+		var key: String = _job_order[0]
+		var job: MusicBuild = _jobs[key]
+		if not job.step(left):
+			return
+		_streams[key] = job.result
+		_drop_job(key)
+		_on_stream_ready()
+
+
+func _drop_job(key: String) -> void:
+	_jobs.erase(key)
+	_job_order.erase(key)
+	_urgent.erase(key)
+
+
+## Bed yang ditunggu sudah jadi: musik atau lapisan ramai yang tertunda dimainkan.
+func _on_stream_ready() -> void:
+	if _pending_music:
+		var want: StringName = MUSIC_FOR_STATE.get(music_state, &"")
+		if want == &"" or is_stream_ready(want):
+			_pending_music = false
+			if want != _music_playing or not _music[_music_active].playing:
+				_crossfade_to(want)
+	if _pending_busy and is_stream_ready(&"shop_music_busy_layer"):
+		_pending_busy = false
+		_set_busy_layer(music_state == &"STORE_OPEN_BUSY")
 
 
 func play(event_id: StringName) -> void:
@@ -236,16 +340,26 @@ func stop_all_loops() -> void:
 func set_music_state(state: StringName) -> void:
 	if state == music_state:
 		return
-	var old_music: StringName = MUSIC_FOR_STATE.get(music_state, &"")
 	music_state = state
 	var new_music: StringName = MUSIC_FOR_STATE.get(state, &"")
 	_set_busy_layer(state == &"STORE_OPEN_BUSY")
 	if not unlocked:
 		return
-	if new_music == old_music and _music[_music_active].playing:
+	if new_music == _music_playing and _music[_music_active].playing:
+		_pending_music = false
 		return
-	# Crossfade memakai kedua pemutar; layer ramai dihentikan agar tidak ada suara
-	# musik ketiga (GDD 129).
+	# Bed baru belum jadi: bed lama terus berputar sampai MusicBuild selesai.
+	if new_music != &"" and not is_stream_ready(new_music):
+		request_stream(new_music, true)
+		_pending_music = true
+		return
+	_pending_music = false
+	_crossfade_to(new_music)
+
+
+## Crossfade memakai kedua pemutar; layer ramai dihentikan agar tidak ada suara
+## musik ketiga (GDD 129).
+func _crossfade_to(new_music: StringName) -> void:
 	if _busy_layer.playing:
 		_busy_layer.stop()
 	var from: AudioStreamPlayer = _music[_music_active]
@@ -253,6 +367,7 @@ func set_music_state(state: StringName) -> void:
 	var to: AudioStreamPlayer = _music[_music_active]
 	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(new_music)
 	var stream: AudioStream = stream_for(new_music) if new_music != &"" else null
+	_music_playing = new_music if stream != null else &""
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(from, "volume_db", -60.0, MUSIC_FADE)
 	tw.chain().tween_callback(from.stop)
@@ -272,7 +387,13 @@ func _set_busy_layer(on: bool) -> void:
 	# crossfade yang sedang memakai pemutar kedua.
 	if on and _music_voices_playing() >= DataRegistry.bali("limits.music_voices"):
 		return
+	if not on:
+		_pending_busy = false
 	if on and not _busy_layer.playing:
+		if not is_stream_ready(&"shop_music_busy_layer"):
+			request_stream(&"shop_music_busy_layer", true)
+			_pending_busy = true
+			return
 		_busy_layer.stream = stream_for(&"shop_music_busy_layer")
 		_busy_layer.volume_db = -60.0
 		# Sejajarkan ketuk dengan bed musik day yang sedang berputar.
@@ -321,6 +442,8 @@ func set_ambience(event_ids: Array) -> void:
 
 
 func _process(delta: float) -> void:
+	if not _job_order.is_empty() and (background_prewarm or not _urgent.is_empty()):
+		step_jobs(JOB_URGENT_BUDGET_USEC if not _urgent.is_empty() else JOB_BUDGET_USEC)
 	var idx: int = AudioServer.get_bus_index("Music")
 	if idx < 0:
 		return

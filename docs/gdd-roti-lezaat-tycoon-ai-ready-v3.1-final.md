@@ -90,7 +90,7 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Di atas kepala setiap pelanggan juga selalu terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual.
 5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
 6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
-7. **Tekan OK** → karakter melayani sesuai kecepatan layan kasir. Setiap transaksi berlangsung **minimal 3 detik**, dan **3 detik terakhirnya selalu animasi membungkus**: pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
+7. **Tekan OK** → karakter langsung membungkus, tanpa jeda. Setiap transaksi berlangsung **tepat 3 detik** dan **seluruhnya animasi membungkus** (keputusan maintainer 2026-09-30): pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
 8. **Pesanan siap, pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang **sambil menenteng kantong kertas berisi rotinya**.
 
 *Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
@@ -146,7 +146,7 @@ Begitu bailout diterapkan, toko memasuki **Mode Solo** (state machine: Seksi 49)
 
 * **Semua karyawan aktif diliburkan sementara** (bukan dipecat; mereka akan kembali saat pemain punya cukup dana untuk menggaji lagi). Karakter karyawan yang sedang diliburkan muncul sebagai ikon tidur kecil di panel Manajemen Karyawan.
 * **Pemain melakukan semua pekerjaan sendiri**: mengaduk adonan, membakar roti, melayani kasir, dan mengemas pesanan ojol—semua dilakukan secara manual seperti hari-hari pertama bermain. Ini berlaku **harfiah**: karakter pemain harus benar-benar berjalan ke tiap perabot, dan meja kasir hanya melayani selama ia berdiri di depannya (lihat Tahap Jualan pada Seksi 2).
-* **Kecepatan layan manual**: 10,5 detik per pembeli—yaitu kecepatan Asisten Kasir Tier 1 (7,0 detik) dikali penalti manual 1,5x. Pemain memang lebih lambat daripada kasir yang digaji, dan itu disengaja: itulah harga yang dibayar saat kas sedang kosong.
+* **Kecepatan layan manual**: 3 detik per pembeli, sama dengan setiap Asisten Kasir (Seksi 21.4; keputusan maintainer 2026-09-30 menghapus penalti manual 1,5x). Harga bekerja sendiri kini ada pada kakinya, bukan kecepatannya: selama ia berjaga di meja kasir, tidak ada yang mengurus dapur.
 * **Tidak ada utilitas yang diputus**: Listrik dan gas tetap menyala agar produksi bisa berjalan.
 * **Bonus "Semangat Bangkit" (+Mood)**: Selama Mode Solo aktif, setiap roti yang berhasil dijual memunculkan animasi semangat kecil di atas karakter pemain (bintang kecil berkilauan ✨) sebagai bentuk apresiasi perjuangan bangkit dari nol.
 
@@ -180,13 +180,13 @@ Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara o
 
 | Tingkat / Jabatan | Gaji Harian (Per Hari) | Kecepatan Transaksi (Work Speed) | Kemampuan Khusus & Efek | Cocok untuk Lokasi |
 | :--- | :---: | :---: | :--- | :--- |
-| **Tier 1: Kasir Magang** | **150 KR** | **7.0 detik** / pelanggan | Pemula, kadang lambat menghitung koin. | Tier 1: Garasi Rumah |
-| **Tier 2: Kasir Junior** | **350 KR** | **5.0 detik** / pelanggan | Cukup tanggap untuk arus belanja pejalan kaki. | Tier 2: Ruko 1 Pintu |
-| **Tier 3: Kasir Terampil** | **800 KR** | **3.5 detik** / pelanggan | Menurunkan tingkat stres antrean pelanggan sebesar -15%. | Tier 3: Bakery Mandiri |
-| **Tier 4: Kasir Profesional** | **1.800 KR** | **2.2 detik** / pelanggan | Mampu memproses tipe pelanggan "Si Galau" 2x lebih cepat. | Tier 4: Flagship Store |
-| **Tier 5: Kasir Superstar** | **4.000 KR** | **1.2 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
+| **Tier 1: Kasir Magang** | **150 KR** | **3.0 detik** / pelanggan | Pemula, kadang lambat menghitung koin. | Tier 1: Garasi Rumah |
+| **Tier 2: Kasir Junior** | **350 KR** | **3.0 detik** / pelanggan | Cukup tanggap untuk arus belanja pejalan kaki. | Tier 2: Ruko 1 Pintu |
+| **Tier 3: Kasir Terampil** | **800 KR** | **3.0 detik** / pelanggan | Menurunkan tingkat stres antrean pelanggan sebesar -15%. | Tier 3: Bakery Mandiri |
+| **Tier 4: Kasir Profesional** | **1.800 KR** | **3.0 detik** / pelanggan | *Belum ada.* Kemampuan lamanya (memproses "Si Galau" 2x lebih cepat) gugur sejak semua transaksi 3 detik; menunggu keputusan maintainer. | Tier 4: Flagship Store |
+| **Tier 5: Kasir Superstar** | **4.000 KR** | **3.0 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
 
-*Catatan Packing:* setiap transaksi berlangsung minimal 3 detik karena 3 detik terakhirnya selalu fase membungkus (Seksi 21.4). Karena itu waktu transaksi efektif Kasir Tier 4 dan Tier 5 sama-sama **3,0 detik**; keunggulan mereka tetap ada pada kemampuan khusus dan jalur paralel.
+*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** dan seluruhnya fase membungkus (Seksi 21.4). Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus (Tier 3: antrean lebih sabar; Tier 5: tip). Tier 2 dan Tier 4 saat ini tidak punya keunggulan atas Tier 1 (keputusan terbuka).
 
 *Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
 
@@ -242,23 +242,23 @@ Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan me
 
 #### **A. Roster Kandidat Asisten Kasir**
 
-| Nama Staf | Tier Jabatan | Gaji Harian | Kecepatan Transaksi | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
+| Nama Staf | Tier Jabatan | Gaji Harian | Kecepatan Transaksi (Seksi 21.4) | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
 | :--- | :---: | :---: | :---: | :--- | :--- |
-| **Budi** | Tier 1 (Magang) | **150 KR** | 7.0 detik | Mahasiswa baru yang rajin; sering grogi saat menghitung koin kembalian tapi selalu tersenyum tulus. | Kacamata bulat besar, celemek katun putih polos, rambut belah samping rapi. |
-| **Sari** | Tier 1 (Magang) | **150 KR** | 7.0 detik | Gadis ramah tetangga toko; suka menyapa pembeli dengan suara riang ceria ala kartun Minggu pagi. | Kuncir kuda ganda, pita rambut kuning mentega, celemek putih bergaris tipis. |
-| **Dimas** | Tier 1 (Magang) | **150 KR** | 7.0 detik | Terlalu asyik bercerita cuaca dengan pelanggan sampai kadang lupa menekan tombol konfirmasi kasir. | Topi pet kasir miring ke samping, celemek putih gading, ekspresi cengengesan. |
-| **Nadia** | Tier 2 (Junior) | **350 KR** | 5.0 detik | Mantan kasir minimarket; terbiasa menyusun struk transaksi dengan sangat rapi dan teliti. | Rambut bob pendek rapi, celemek hijau mint pastel, senyum profesional ramah. |
-| **Rian** | Tier 2 (Junior) | **350 KR** | 5.0 detik | Pemuda aktif yang gesit; tanggap melayani arus pejalan kaki jam pulang sekolah. | Rambut spike pendek, celemek hijau mint, gelang karet oranye sporty. |
-| **Lili** | Tier 2 (Junior) | **350 KR** | 5.0 detik | Pembawaannya tenang dan sabar; membuat pembeli yang sedang antre merasa adem dan tidak gelisah. | Jepit rambut stroberi imut, celemek hijau mint lembut, pipi merona merah muda. |
-| **Maya** | Tier 3 (Terampil)| **800 KR** | 3.5 detik | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
-| **Reza** | Tier 3 (Terampil)| **800 KR** | 3.5 detik | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
-| **Dewi** | Tier 3 (Terampil)| **800 KR** | 3.5 detik | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
-| **Hendra** | Tier 4 (Profesional)| **1.800 KR**| 2.2 detik | Ahli psikologi konsumen; sanggup memandu pembeli "Si Galau" memutuskan pilihan dalam 2 detik. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
-| **Citra** | Tier 4 (Profesional)| **1.800 KR**| 2.2 detik | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
-| **Kenji** | Tier 4 (Profesional)| **1.800 KR**| 2.2 detik | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan dan kecepatan kilatnya. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
-| **Grace** | Tier 5 (Superstar) | **4.000 KR**| 1.2 detik | "Duta Senyum Nasional"; aura ramahnya membuat pembeli bahagia dan sering memberi tip koin ekstra. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
-| **Tejo** | Tier 5 (Superstar) | **4.000 KR**| 1.2 detik | Kasir legendaris era toserba 90-an; sanggup menghitung kembalian secepat kilat bahkan sambil merem. | Kumis tipis retro nostalgia, celemek emas koki kepala, pena terselip di telinga. |
-| **Luna** | Tier 5 (Superstar) | **4.000 KR**| 1.2 detik | Bintang idola lokal yang magang santai di toko roti; kehadirannya membuat kasir selalu ramai gembira. | Rambut ombre pastel manis, bando telinga kelinci empuk, celemek emas bertabur pin bintang. |
+| **Budi** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Mahasiswa baru yang rajin; sering grogi saat menghitung koin kembalian tapi selalu tersenyum tulus. | Kacamata bulat besar, celemek katun putih polos, rambut belah samping rapi. |
+| **Sari** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Gadis ramah tetangga toko; suka menyapa pembeli dengan suara riang ceria ala kartun Minggu pagi. | Kuncir kuda ganda, pita rambut kuning mentega, celemek putih bergaris tipis. |
+| **Dimas** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Terlalu asyik bercerita cuaca dengan pelanggan sampai kadang lupa menekan tombol konfirmasi kasir. | Topi pet kasir miring ke samping, celemek putih gading, ekspresi cengengesan. |
+| **Nadia** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Mantan kasir minimarket; terbiasa menyusun struk transaksi dengan sangat rapi dan teliti. | Rambut bob pendek rapi, celemek hijau mint pastel, senyum profesional ramah. |
+| **Rian** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Pemuda aktif yang gesit; tanggap melayani arus pejalan kaki jam pulang sekolah. | Rambut spike pendek, celemek hijau mint, gelang karet oranye sporty. |
+| **Lili** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Pembawaannya tenang dan sabar; membuat pembeli yang sedang antre merasa adem dan tidak gelisah. | Jepit rambut stroberi imut, celemek hijau mint lembut, pipi merona merah muda. |
+| **Maya** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
+| **Reza** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
+| **Dewi** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
+| **Hendra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Ahli psikologi konsumen; sanggup memandu pembeli "Si Galau" memutuskan pilihan dalam 2 detik. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
+| **Citra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
+| **Kenji** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan dan kecepatan kilatnya. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
+| **Grace** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | "Duta Senyum Nasional"; aura ramahnya membuat pembeli bahagia dan sering memberi tip koin ekstra. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
+| **Tejo** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | Kasir legendaris era toserba 90-an; sanggup menghitung kembalian secepat kilat bahkan sambil merem. | Kumis tipis retro nostalgia, celemek emas koki kepala, pena terselip di telinga. |
+| **Luna** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | Bintang idola lokal yang magang santai di toko roti; kehadirannya membuat kasir selalu ramai gembira. | Rambut ombre pastel manis, bando telinga kelinci empuk, celemek emas bertabur pin bintang. |
 
 ---
 
@@ -296,7 +296,7 @@ Pelanggan memiliki kepribadian, preferensi, dan pola kedatangan yang berbeda, ya
   * **Driver Ojek Online (The Delivery Runner)**: Mitra kurir pengantaran makanan bersepeda motor dengan seragam hijau toska pastel (`#4EBA6F`), helm bundar menggemaskan, dan ransel termal kubus di punggung. Driver ojol tidak berkeliling memilih roti di rak etalase; mereka langsung menuju kasir atau **Meja Khusus Ojol** untuk mengambil paket pesanan aplikasi yang sudah dikemas rapi (*paper bag*). Memiliki batas toleransi waktu penjemputan (*Pickup Window*). Jika pesanan sudah siap saat driver tiba (*Instant Handover*), pemain memperoleh rating bintang 5 di aplikasi dan potensi tip koin ekstra.
 * **Kategori Premium & Spesial (Muncul di Tier Toko Tertinggi / Event Acak)**:  
   * **Sosialita / Crazy Rich (The Snob)**: Tidak memedulikan harga mahal, tetapi menuntut roti kualitas sempurna (Resep Tier 3 ke atas). Menolak membeli roti berkualitas rendah, mendekati dingin, atau yang hampir gosong.  
-  * **Si Galau (The Indecisive)**: Membutuhkan waktu proses di kasir 2x lebih lama dari pelanggan biasa karena kebingungan memilih menu. Menuntut pemain atau Asisten Kasir bekerja ekstra agar pelanggan di belakangnya tidak marah karena antrean macet.  
+  * **Si Galau (The Indecisive)**: Bingung memilih menu, berjalan pelan, tetapi relatif sabar menunggu (Seksi 58, 59). Sejak semua transaksi kasir berlangsung 3 detik (Seksi 21.4, keputusan maintainer 2026-09-30) ia tidak lagi memperlambat kasir.  
   * **Food Vlogger / Kritikus (The VIP Critic)**: Pelanggan langka dengan kamera kecil. Jika pelayanannya cepat dan rotinya berkualitas prima, rating toko akan melonjak drastis keesokan harinya. Namun jika ia kecewa, reputasi toko bisa anjlok tajam.
 
 ---
@@ -762,7 +762,7 @@ Catatan placement:
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).  
   * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal).  
   * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid, lengkap dengan indikator skill dan kecepatan proses.  
-  * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya.
+  * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya. Tombol aksinya (Rotate, Put Away, Cancel) melayang tepat di atas perabot terpilih, tanpa panel samping (Seksi 72.2).
   * Pemilih Petak Rak: Muncul setelah karakter tiba di rak sambil membawa loyang. Kisi tombol besar sebanyak petak rak yang sesungguhnya (jumlahnya menurut tier rak, Seksi 85) menyalin susunan petak itu (kiri ke kanan), lengkap dengan isi tiap petak. Satu loyang boleh disebar ke beberapa petak—layarnya tidak menutup sampai loyangnya habis.    
 * **UX Feedback & In-Game Indicators**:  
   * Balon Pikiran Pelanggan (Thought Bubbles) untuk menunjukkan keluhan seperti antrean lama (ikon jam pasir) atau harga mahal (ikon uang terbang).
@@ -833,7 +833,7 @@ Tingkatan kampanye terbuka secara bertahap seiring perkembangan Tier Lokasi Toko
 ### **8.3 Peringatan Strategis (Risk & Reward)**
 
 Kampanye pemasaran adalah pedang bermata dua:
-* **Risiko Antrean Penuh**: Jika pemain menyalakan kampanye iklan tingkat tinggi (Tier 3-5) namun kapasitas produksi dapur minim atau kasir masih lambat, seluruh **slot antrean** dapat terisi. Antrean tidak boleh meluber atau membuat NPC menumpuk; arrival baru ditahan sampai ada slot kosong. Pelanggan yang sudah berada di antrean tetap kehilangan kesabaran dan dapat kabur, sehingga reputasi toko tetap bisa **turun drastis** bila throughput layanan terlalu rendah.
+* **Risiko Antrean Penuh**: Jika pemain menyalakan kampanye iklan tingkat tinggi (Tier 3-5) namun kapasitas produksi dapur minim atau belum ada Asisten Kasir (pemain harus berjaga sendiri di meja), seluruh **slot antrean** dapat terisi. Antrean tidak boleh meluber atau membuat NPC menumpuk; arrival baru ditahan sampai ada slot kosong. Pelanggan yang sudah berada di antrean tetap kehilangan kesabaran dan dapat kabur, sehingga reputasi toko tetap bisa **turun drastis** bila throughput layanan terlalu rendah.
 * **Kesiapan Stok Roti**: Pemain harus memastikan kapasitas rak display dan bahan baku di gudang mencukupi sebelum mengaktifkan iklan, agar pelanggan tidak kecewa mendapati etalase dalam kondisi kosong melompong.
 
 # **9\. Sistem Rating & Reputasi**
@@ -980,7 +980,7 @@ Di pojok kanan bawah nota, muncul **amplop kecil atau sticky note kuning** dari 
 | Banyak roti sisa tidak laku | *"Coba kurangi produksi besok, Nak. Bikin sesuai perkiraan pembeli saja."* |
 | Order RotiFood banyak batal | *"Stok harus selalu siap untuk ojol juga loh. Mereka tidak sabaran!"* |
 | Saldo di bawah 500 KR | *"Wah, hampir tipis nih. Fokus bikin Roti Goreng Polos dulu ya, modalnya paling kecil tapi untungnya paling besar dibanding modalnya!"* |
-| Rating toko turun | *"Kecepatan kasir sangat pengaruh ke rating. Coba upgrade kasir jika bisa."* |
+| Rating toko turun | *"Pelayanan cepat sangat pengaruh ke rating. Rekrut kasir supaya antrean tetap jalan selagi kamu memanggang."* |
 | Cuaca hujan besok (prakiraan) | *"Besok kelihatannya hujan. Persiapkan stok roti lebih banyak untuk ojol ya!"* |
 | Hari pertama, saldo awal | *"Selamat memulai, Nak! Roti Goreng Polos dan Roti Tawar itu modal paling hemat."* |
 | Profit sangat tinggi | *"Wah, hebat sekali! Sudah siap upgrade toko ke level berikutnya belum?"* |
@@ -1110,6 +1110,12 @@ Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembent
 
 * **Orientasi**: Landscape (16:9 resolusi referensi 1280x720 / 1920x1080).
 * **Mode Stretch Godot**: `canvas_items` dengan konfigurasi aspect `expand` agar tata letak UI menyesuaikan berbagai rasio layar ponsel (18:9, 19.5:9, 20:9) maupun jendela browser tanpa distorsi atau gambar gepeng.
+* **Browser HP — CANONICAL** (keputusan maintainer 2026-09-30): halaman web tidak bisa memaksa HP berputar, dan dalam posisi tegak seluruh tata letak 1280 px mengecil sampai sulit dibaca. Karena itu, di browser HP (Android, iPhone, iPad):
+  - Selama HP **tegak**, layar **"Rotate your phone"** (`ui_rotate_title`, `ui_rotate_body`, Seksi 127.16) menutup seluruh game, menahan semua ketukan, dan mem-pause simulasi (alasan pause `orientation`). Layar itu hilang sendiri begitu HP dimiringkan.
+  - Ketukan **"Tap to Start"** (dihitung saat jari **dilepas**, karena browser hanya mengizinkan layar penuh dari gestur yang selesai) memasukkan game ke **layar penuh** dan mengunci orientasi ke **landscape** bila browser mendukung (Chrome Android). Safari iPhone tidak mendukung keduanya, jadi di sana pemain memutar HP sendiri.
+  - Di browser yang bisa mengunci orientasi, layar "Rotate your phone" menampilkan `ui_rotate_tap`: mengetuknya langsung masuk layar penuh landscape, untuk pemain yang mematikan putar otomatis.
+  - Keluar dari layar penuh tidak menghentikan permainan. Settings > Display menampilkan tombol **"Play in full screen"** (`ui_settings_fullscreen_enter`) sebagai pengganti sakelar fullscreen desktop.
+  - Browser desktop dan aplikasi Android tidak terpengaruh; aplikasi Android sudah terkunci landscape dan layar penuh (Seksi 128.2).
 
 ## **12.6 Sistem Penyimpanan Data (Save System)**
 
@@ -1285,6 +1291,16 @@ Pada 18:00:
 - Gaji dan utility charge diterapkan tepat satu kali.
 - Statistik hari di-commit ke history.
 - Check bailout dilakukan setelah settlement.
+
+## **15.4 Skip to Open — CANONICAL**
+
+Keputusan maintainer 2026-09-30. Selama **persiapan (05:00–08:00)** panel jam HUD menampilkan tombol **Skip to Open**, untuk saat roti sudah matang semua dan bahan habis sehingga pemain tinggal menunggu jam buka.
+
+- Ketuk tombol → dialog konfirmasi (`ui_skip_open_confirm`, Seksi 127.15) → lompatan berjalan.
+- Lompatan **bukan** pembekuan: simulasi maju tick demi tick seperti biasa, hanya jauh lebih cepat. Mixer dan oven tetap bekerja, Asisten Dapur tetap memanggang, roti di rak dan Meja Tunggu tetap menua, dan kurir tetap tiba, persis seperti bila pemain menunggu. Hasilnya identik dengan menunggu, jadi determinisme tidak berubah (Seksi 81.7).
+- Dunia tetap tergambar seperti time-lapse di balik lapisan yang menahan semua ketukan dan menampilkan jam yang berlari serta bar progres. Modal yang muncul di tengah jalan (tutorial, jeda karena fokus hilang) menahan lompatan sampai ditutup.
+- Lompatan berhenti tepat ketika toko buka pukul 08:00, atau **lebih awal** begitu ada loyang matang di oven yang harus diangkat pemain (tidak dilindungi auto-retrieve, Seksi 18.8), supaya roti tidak gosong tanpa bisa dicegah. Toast `ui_skip_open_stopped` menjelaskannya.
+- Tombol tidak tampil di luar persiapan dan selama hard-block Hari 1 sebelum Gudang dibuka (Seksi 88.1). Bila sudah ada loyang yang menunggu diangkat, tombol tampil redup dan mengetuknya menampilkan `ui_skip_open_oven`.
 
 ---
 
@@ -1967,7 +1983,7 @@ Saat patience <= 0:
 
 ### Si Galau
 
-- Service duration multiplier 2x kecuali cashier Tier 4 special handling.
+- Tidak ada pengali waktu layan: transaksinya 3 detik seperti pembeli lain (Seksi 21.4, keputusan maintainer 2026-09-30).
 
 ### Food Vlogger
 
@@ -2063,16 +2079,15 @@ customer reaches front
  -> player walks to cashier anchor
  -> popup order shown
  -> player confirms OK
- -> serving (cashier service speed)
- -> packing animation (always the last 3 s)
+ -> packing animation (the whole 3 s transaction, starts at once)
  -> order ready, payment
  -> customer leaves carrying the paper bag
 ```
 
 **CANONICAL — Packing Phase:**
 
-- `transaction_seconds = max(service_seconds × archetype_service_multiplier, packing_seconds)`, dengan `packing_seconds = 3.0` (TUNABLE, `balance.json` `cashier.packing_seconds`). `service_seconds` = kecepatan layan kasir (Seksi 3.1) atau waktu manual pemain (Seksi 3.0.C).
-- `packing_seconds` terakhir setiap transaksi adalah fase membungkus. Selama fase itu pembeli sudah menyerahkan rotinya (tangannya kosong). SFX `cashier_pack` berbunyi tepat saat fase ini dimulai.
+- `transaction_seconds = packing_seconds = 3.0` (TUNABLE, `balance.json` `cashier.packing_seconds`) untuk pemain, setiap tier Asisten Kasir, dan setiap tipe pembeli (keputusan maintainer 2026-09-30). Sebelumnya transaksi memakai kecepatan layan kasir dan membungkus hanya di 3 detik terakhir, sehingga pemain melihat jeda diam sebelum packing.
+- Seluruh transaksi adalah fase membungkus: dimulai begitu pesanan dikonfirmasi (manual) atau begitu pembeli tiba di titik layanan (Asisten Kasir), tanpa jeda. Selama fase itu pembeli sudah menyerahkan rotinya (tangannya kosong). SFX `cashier_pack` berbunyi tepat saat fase ini dimulai.
 - **Koreografi membungkus** (presentasi saja; kasir dan kantong membaca progres fase yang sama, jadi selalu sinkron di 1×/2×/3×). Babak dihitung dari jumlah roti yang digambar (maksimal 3):
   1. **Buka kantong** (14% pertama): kantong kertas yang masih terlipat di meja, di samping mesin kasir, disentak terbuka dengan squash & stretch. Kedua tangan kasir menyentak ke atas. Roti pembeli menunggu di samping kantong.
   2. **Masukkan roti**: tiap roti paling lama 20% fase. Tangan kiri kasir (sisi kantong) meraih roti, sehingga roti bergoyang sesaat, lalu mengangkatnya. Roti melompat melengkung ke mulut kantong sambil berputar, sementara tangan kanan menahan kantong dan badan condong serta menoleh ke arah roti. Kantong memantul tiap roti masuk (SFX `customer_pick_bread`).
@@ -2080,7 +2095,7 @@ customer reaches front
   4. **Sodorkan** (12%): kedua lengan kasir lurus ke depan dan kantong bergeser ke arah pembeli. Pembeli mengulurkan kedua tangan untuk menerimanya.
   5. **Tunggu bayar** (sisa fase): tangan kasir santai di tepi meja. Kalau rotinya sedikit, babak 3–4 maju lebih awal dan sisa waktunya dipakai menunggu.
 - Sebelum fase membungkus pembeli menenteng roti lepas yang ia ambil dari rak (langkah 3 Seksi 2). Setelah membayar ia pulang menenteng kantong kertas.
-- Fase membungkus adalah bagian dari waktu transaksi, bukan tambahan: pemain (10,5 s) dan Kasir Tier 1–3 tidak berubah; Kasir Tier 4 (2,2 s) dan Tier 5 (1,2 s) menjadi 3,0 s.
+- Karena waktu transaksi sama untuk semua, tier Asisten Kasir tidak lagi berbeda kecepatan (Seksi 3.1).
 - Durasi ini berjalan dalam simulation time seperti semua durasi lain (pada 2×/3× ikut lebih cepat) agar determinisme lintas kecepatan tetap terjaga (Seksi 71, 81.7).
 
 Jika player pergi saat transaction progress:
@@ -2095,7 +2110,7 @@ Jika player pergi saat transaction progress:
 - Tidak membutuhkan tap player.
 - Service dimulai otomatis saat customer berada di depan lane.
 - Popup order tidak menghalangi gameplay; detail transaksi dapat tampil sebagai compact bubble.
-- Fase membungkus 3 detik terakhir berlaku sama persis seperti alur manual (Seksi 21.4).
+- Transaksi 3 detik yang seluruhnya fase membungkus berlaku sama persis seperti alur manual (Seksi 21.4).
 
 ## **21.6 Payment Commit Point**
 
@@ -2841,18 +2856,18 @@ Hindari kombinasi warna yang mengurangi keterbacaan role khusus seperti driver o
 
 ## **31.6 Idle Gestures (Pemain & Staf)**
 
-Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak menganggur murni visual:
+Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak menganggur murni visual (irama diperbarui keputusan maintainer 2026-09-30):
 
 | Lama menganggur (detik nyata) | Gerak |
 | :--- | :--- |
-| **15 detik** | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±2,4 detik) dengan wajah lega, lalu kain disimpan lagi. |
-| **25 detik** | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
+| **Setiap 15 detik** (15, 30, 45, …) | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±2,4 detik) dengan wajah lega, lalu kain disimpan lagi. Berulang selama belum tertidur. |
+| **Staf: 25 detik. Pemain: 85 detik**, tepat saat gelembung pikiran keempat (Seksi 31.7) hilang, di fase mana pun | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
 
 - **Tidak melakukan apa pun** = tidak berjalan, tidak berinteraksi dengan perabot, tidak membawa barang, tidak punya perintah dalam antrean, dan (untuk kasir atau pemain yang berjaga di meja) tidak sedang melayani transaksi. Berjaga di meja kasir tanpa pembeli termasuk menganggur. Asisten Dapur tanpa tugas termasuk menganggur.
 - Timer memakai **detik nyata** (tidak ikut 2×/3×), berhenti saat game di-pause, dan kembali ke nol begitu ada aktivitas; pose dan ekspresi langsung kembali normal.
 - Pelanggan, driver, dan kurir tidak memakai gerak menganggur.
-- **Pengecualian tertidur untuk pemain — CANONICAL:** karakter pemain tidak pernah tertidur saat gelembung pikiran (Seksi 31.7) sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur `presentation.doze_after_last_thought_seconds` (5 detik, TUNABLE) sesudah pikiran terakhir muncul, yaitu pada detik ke-45 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 25 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
-- Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation`.
+- **Tidur pemain — CANONICAL:** ambang tidur pemain = saat gelembung pikiran terakhir hilang, yaitu `thought_after_seconds` terakhir + `thought_show_seconds` (80 + 5 = 85 detik), dan berlaku juga di persiapan walau tidak ada gelembung. Ia tidak pernah tertidur saat gelembung pikiran sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur pada detik ke-85 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 85 detik. Selama tidurnya ditahan, lap wajah tetap berulang tiap 15 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
+- Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation` (`idle_wipe_every_seconds`, `staff_doze_after_seconds`, `wipe_gesture_seconds`, `thought_after_seconds`, `thought_show_seconds`).
 
 ## **31.7 Player Thought Bubbles (Toko Sepi)**
 
@@ -2860,12 +2875,12 @@ Selama **toko buka (08:00–18:00)** dan **sama sekali tidak ada pelanggan**, ba
 
 | Lama toko sepi (detik nyata) | String ID (Seksi 127.12) |
 | :--- | :--- |
-| 10 detik | `thought_quiet_1` |
-| 20 detik | `thought_quiet_2` |
-| 30 detik | `thought_quiet_3` |
-| 40 detik | `thought_quiet_4` |
+| 20 detik | `thought_quiet_1` |
+| 40 detik | `thought_quiet_2` |
+| 60 detik | `thought_quiet_3` |
+| 80 detik | `thought_quiet_4` |
 
-- Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal; sesudahnya karakter yang menganggur boleh tertidur (Seksi 31.6), jadi gelembung dan tidur tidak pernah tampil bersamaan.
+- Satu pikiran tiap 20 detik (keputusan maintainer 2026-09-30). Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal; begitu gelembung keempat hilang (detik 85) karakter yang menganggur tertidur (Seksi 31.6), jadi gelembung dan tidur tidak pernah tampil bersamaan.
 - Begitu ada satu pelanggan (pembeli masuk atau pesanan RotiFood aktif), gelembung **langsung hilang** dan hitungan kembali ke nol.
 - Timer memakai detik nyata, berhenti saat pause, dan tidak berjalan sebelum toko buka atau setelah toko tutup.
 - Gelembung digambar di ruang layar (panel krem bersudut membulat, teks Inggris dari katalog string, tiga lingkaran kecil menunjuk ke kepala), tidak menangkap ketukan, dan disembunyikan selama Decoration Mode atau bila pemain berada di lantai lain.
@@ -2950,6 +2965,16 @@ Audio engine hanya aktif setelah user gesture pertama.
 ## **33.5 Asset Constraint Clarification**
 
 **Canonical:** seluruh audio yang dikirim bersama game harus original dan memiliki provenance proyek. Dilarang mengambil/download third-party audio pack, lagu berhak cipta, atau audio dari internet. Jalur default adalah audio/music procedural atau programmatically generated dengan script/parameter generator yang disimpan di repository. Rincian final terdapat pada Seksi 111.
+
+## **33.6 Procedural Music Build Budget — CANONICAL**
+
+Keputusan maintainer 2026-09-30. Satu bed musik berisi puluhan nada dan butuh hampir satu detik untuk dirakit di PC, beberapa detik di browser HP. Membangunnya sekaligus membekukan layar (setelah "Tap to Start", setelah loading, dan tepat pukul 08:00 atau 18:00), jadi:
+
+- Bed musik dirakit **sedikit demi sedikit di sela frame** dengan anggaran waktu per frame; hasilnya identik dengan perakitan sekaligus.
+- Saat suasana musik berganti ke bed yang belum jadi, **bed lama terus berputar** sampai bed baru selesai, lalu berpindah dengan crossfade. Lapisan ramai (33.2) menunggu dengan cara yang sama. Tidak ada frame yang menunggu musik.
+- Bed yang akan dibutuhkan dirakit di latar lebih dulu: musik menu selama layar "Tap to Start", bed pagi di Main Menu, lalu bed siang, lapisan ramai, sore, dan (bila hujan) hujan setelah hari dimulai.
+- Layar loading gameplay (Seksi 89.5) menyiapkan bed suasana saat itu serta ambience cuaca dan loop mixer/oven sebagai tahap tersendiri, dengan bar yang terus bergerak.
+- Bed yang identik berbagi satu stream (`bailout_cue` = `music_after_hours`). Bunyi pendek (SFX, ambience) tetap dibangun saat pertama dipakai (Seksi 91).
 
 ---
 
@@ -4492,6 +4517,16 @@ Furniture dapat dipindah/rotate selama:
 
 Jika furniture sedang digunakan, tampilkan alasan `IN_USE` dan placement tidak dimulai. Tidak ada kebutuhan menunggu toko tutup.
 
+## **72.2 Decoration Mode Layout — CANONICAL**
+
+Keputusan maintainer 2026-09-30: **tidak ada panel samping**, supaya dunia terlihat penuh.
+
+- **Bilah atas** tipis: judul, satu baris petunjuk atau status (sah / alasan ditolak), tombol lantai L1/L2 di lokasi bertingkat, dan tombol **Done**.
+- **Tab bawah**: Equipment (dengan jumlah alat yang belum dipasang), Your Decorations, dan Decor Shop. Mengetuk tab membuka baki kartu barang yang bisa digeser mendatar; mengetuk tab yang sama menutupnya. Keterangan arsiran ubin (harus kosong, area salah) ada di kiri tab.
+- **Toolbar aksi melayang tepat di atas perabot terpilih**, dengan ekor yang menunjuk ke perabot itu, dan ikut pindah bersamanya: nama perabot, **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang dan Meja Tunggu (Seksi 5.1.3) atau barang yang belum dipasang; Rotate hanya untuk alat. Barang yang belum punya tempat di lantai yang sedang dilihat (alat belum dipasang, dekorasi dinding/meja) memakai toolbar yang sama, berlabuh di atas tab.
+- Perabot terpilih terangkat sedikit dan mengambang pelan. Penanda "!" dan bar progres disembunyikan selama mode ini.
+- Ketuk ubin kosong untuk memindahkan perabot terpilih ke sana; perabot tetap terpilih sesudahnya. Ketuk perabot lain untuk berganti pilihan, ketuk perabot terpilih itu sendiri atau tekan Back untuk selesai. **Rotate** memutar perabot yang sudah terpasang di tempatnya (titik tengahnya tetap) bila posisinya sah; bila tidak, pratinjau merah beserta alasannya tampil dan putaran itu dipakai saat ubin tujuan diketuk.
+
 ## **72.1 Decoration Catalog — CANONICAL**
 
 Dekorasi murni kosmetik. Ia tidak mengubah demand, rating, kecepatan, footprint alat, atau interaction (Seksi 92.1). Dekorasi dibeli lewat tab **Decor Shop** di Decoration Mode, atau didapat dari achievement. Seperti equipment (Seksi 5.1.2), Decor Shop hanya aktif after-hours; menata ulang dekorasi yang sudah dimiliki boleh kapan saja.
@@ -4610,7 +4645,7 @@ Rewards kosmetik tidak memengaruhi throughput/economy. ID reward canonical per a
 - Mute when app unfocused toggle.
 
 ## **75.2 Display**
-- Fullscreen/windowed (desktop).
+- Fullscreen/windowed (desktop). Browser HP: tombol "Play in full screen" (Seksi 12.5).
 - Resolution scale 70/85/100% (desktop/web where supported).
 - UI scale 80–150%.
 - Brightness 80–120%.
@@ -4897,7 +4932,7 @@ estimated_wait(lane) =
   + walking_time_to_lane_tail
 ```
 
-`expected_service_time` memakai waktu transaksi efektif Seksi 21.4, termasuk batas minimum fase membungkus 3 detik.
+`expected_service_time` = waktu transaksi Seksi 21.4 (3 detik untuk siapa pun), jadi estimasi hanya bergantung pada jumlah pembeli yang antre dan jarak jalan.
 
 Tie-breaker berurutan:
 
@@ -5179,6 +5214,19 @@ Setelah memilih profile:
 10. Fade loading overlay only after first stable frame.
 
 Loading overlay shows English stage text such as `"Preparing the bakery..."`; progress is coarse stage progress, not fake byte percentage.
+
+**Tahap loading — CANONICAL** (keputusan maintainer 2026-09-30; teks di Seksi 127.16). Setiap tahap diberi satu frame agar teks dan bar terbaru tergambar sebelum pekerjaan beratnya berjalan, dan bar tidak pernah mundur:
+
+| New Game | Load / Continue | Isi tahap |
+| :--- | :--- | :--- |
+| `ui_loading` | `ui_loading_read` | Buat simulasi baru / baca dan validasi save |
+| `ui_loading_save` | `ui_loading` | Tulis save Hari 1 / pulihkan state simulasi |
+| `ui_loading_music` | `ui_loading_music` | Bed musik suasana saat ini (bertahap, Seksi 33.6), ambience cuaca, loop mixer/oven |
+| `ui_loading_world` | `ui_loading_world` | Bangun lantai, perabot, dan aktor |
+| `ui_loading_counter` | `ui_loading_counter` | HUD dan lapisan perintah |
+| `ui_loading_ovens` | `ui_loading_ovens` | Dunia digambar di balik overlay sampai dua frame berturut-turut stabil (shader dikompilasi di sini) |
+
+Simulasi baru berjalan setelah overlay mulai memudar, jadi jam tidak maju selama loading. Save yang gagal dibaca menutup overlay seketika lalu menampilkan layar galat.
 
 ### Failure Handling
 
@@ -5692,7 +5740,6 @@ role_id: StringName               cashier/baker
 tier: int 1..5
 daily_wage_kr: float > 0
 work_speed_multiplier: float > 0
-cashier_service_seconds: float >= 0
 auto_retrieve_probability: float 0..1
 visual_profile_id: StringName
 ```
@@ -6801,7 +6848,7 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `tip_leftover` | `Try baking a little less tomorrow. Bake for the customers you expect.` |
 | `tip_cancelled_orders` | `Keep stock ready for RotiFood drivers too. They don't like waiting!` |
 | `tip_low_cash` | `Money's getting tight. Focus on Plain Fried Bread for now—it costs the least and earns the most for what you spend!` |
-| `tip_rating_drop` | `Fast service matters a lot for your rating. Hire or upgrade a cashier if you can.` |
+| `tip_rating_drop` | `Fast service matters a lot for your rating. Hire a cashier so the queue keeps moving while you bake.` |
 | `tip_rain_tomorrow` | `Looks like rain tomorrow. Bake extra for the RotiFood rush!` |
 | `tip_first_day` | `Welcome, kid! Plain Fried Bread and Plain White Loaf are the cheapest to start with.` |
 | `tip_high_profit` | `Wonderful! Are you ready to upgrade your shop?` |
@@ -6891,6 +6938,41 @@ Kartu alat di atas tier lokasi (Seksi 5.1.2) dan slider harga Hari 1–3 (Seksi 
 | `ui_equipment_tier_locked` | `Needs a Tier {tier} store` |
 | `ui_recipe_price_locked` | `Prices can be changed from Day 4.` |
 
+## **127.15 Skip to Open & Decoration Mode Strings**
+
+Tombol Skip to Open (Seksi 15.4) dan tata letak Decoration Mode (Seksi 72.2). `{time}` = jam buka toko dalam format `HH:MM`.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_skip_open` | `Skip to Open` |
+| `ui_skip_open_tip` | `Jump ahead to {time}, when the shop opens.` |
+| `ui_skip_open_confirm` | `Skip ahead to {time}? Time passes as usual, only faster: mixers and ovens keep working, hired bakers keep baking and bread keeps ageing. The skip stops early if an oven needs you.` |
+| `ui_skip_open_busy` | `Skipping to {time}...` |
+| `ui_skip_open_oven` | `Take the bread out of the oven first.` |
+| `ui_skip_open_stopped` | `Skip stopped: an oven needs you.` |
+| `ui_decor_placed` | `Placed` |
+| `ui_decor_move_hint` | `Tap a free tile to move it, or tap it again when you are done.` |
+| `ui_decor_place_hint` | `Tap a free tile to place it.` |
+| `ui_decor_legend_clear_short` | `Keep clear` |
+| `ui_decor_legend_zone_short` | `Wrong area` |
+
+## **127.16 Loading, Rotate & Full-Screen Strings**
+
+Tahap layar loading (Seksi 89.5), layar "Rotate your phone" dan tombol layar penuh di browser HP (Seksi 12.5).
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_loading_read` | `Opening your save...` |
+| `ui_loading_save` | `Saving your new bakery...` |
+| `ui_loading_music` | `Tuning the radio...` |
+| `ui_loading_world` | `Setting up the shop...` |
+| `ui_loading_counter` | `Arranging the counter...` |
+| `ui_loading_ovens` | `Warming up the ovens...` |
+| `ui_rotate_title` | `Rotate your phone` |
+| `ui_rotate_body` | `Roti Lezat Tycoon is played in landscape. Turn your phone sideways to continue.` |
+| `ui_rotate_tap` | `Auto-rotate turned off? Tap anywhere to switch to landscape.` |
+| `ui_settings_fullscreen_enter` | `Play in full screen` |
+
 ---
 
 # **128. REPRODUCIBLE TOOLCHAIN MANIFEST**
@@ -6925,7 +7007,7 @@ Google Play target-policy dapat berubah setelah dokumen ini ditulis. Store submi
 
 - Compatibility renderer / WebGL 2 path.
 - Single-threaded Web export adalah canonical default untuk kompatibilitas itch.io; jangan mengharuskan cross-origin isolation.
-- Fullscreen optional; landscape-responsive canvas mandatory.
+- Fullscreen optional di browser desktop; browser HP masuk layar penuh landscape dari ketukan "Tap to Start" dan menampilkan layar "Rotate your phone" selama HP tegak (Seksi 12.5). Landscape-responsive canvas mandatory.
 - Browser audio baru dimulai setelah user gesture pada initial start screen.
 - Gameplay tidak membutuhkan Service Worker, PWA, backend, atau WebSocket.
 

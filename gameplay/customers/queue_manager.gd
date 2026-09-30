@@ -100,18 +100,18 @@ func physical_capacity_open() -> int:
 	return n
 
 
-## Estimasi total waktu tunggu (GDD 84.4) untuk satu arketipe.
-func estimated_wait(l: QueueLane, archetype: StringName, walk_seconds: float) -> float:
+## Estimasi total waktu tunggu (GDD 84.4): sisa transaksi berjalan, satu
+## transaksi untuk tiap pembeli yang sudah antre dan untuk dirinya, plus jalan.
+## Semua transaksi sama lamanya (GDD 21.4), jadi tipe pembeli tidak berpengaruh.
+func estimated_wait(l: QueueLane, walk_seconds: float) -> float:
 	var t: float = sim.cashier.remaining_time(l)
-	for a: StringName in l.reservations:
-		t += sim.cashier.expected_service_seconds(l, sim.customers.archetype_of(a))
-	t += sim.cashier.expected_service_seconds(l, archetype)
+	t += float(l.reservations.size() + 1) * CashierManager.transaction_seconds()
 	return t + walk_seconds
 
 
 ## Pilih lane dengan estimasi tunggu terendah di antara lane terbuka yang masih
 ## punya slot; tie-breaker: antrean lebih pendek, jarak lebih dekat, lane_id kecil.
-func choose_physical_lane(archetype: StringName, from_cell: Vector2i, speed_mps: float) -> QueueLane:
+func choose_physical_lane(from_cell: Vector2i, speed_mps: float) -> QueueLane:
 	var best: QueueLane = null
 	var best_key: Array = []
 	for l: QueueLane in open_physical_lanes():
@@ -120,7 +120,7 @@ func choose_physical_lane(archetype: StringName, from_cell: Vector2i, speed_mps:
 		var tail: Vector2i = l.slots[mini(l.reservations.size(), l.slots.size() - 1)]
 		var dist_m: float = GridMath.tiles_to_meters(float(GridMath.manhattan(from_cell, tail)))
 		var walk: float = dist_m / maxf(speed_mps, 0.1)
-		var key: Array = [estimated_wait(l, archetype, walk), l.reservations.size(), dist_m, String(l.id)]
+		var key: Array = [estimated_wait(l, walk), l.reservations.size(), dist_m, String(l.id)]
 		if best == null or _key_less(key, best_key):
 			best = l
 			best_key = key

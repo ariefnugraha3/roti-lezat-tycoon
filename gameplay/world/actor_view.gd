@@ -5,9 +5,11 @@ extends Node3D
 ## pelanggan/driver/kurir berasal dari pool dan wajib bersih lewat
 ## `reset_for_pool()` sebelum dipakai ulang (GDD 91.2, 115.2).
 ##
-## Pemain & staf juga punya gerak menganggur murni visual (GDD 31.6): setelah
-## `idle_wipe_after_seconds` detik NYATA tanpa aktivitas mereka mengelap wajah
-## dengan kain lap, setelah `idle_doze_after_seconds` mulai terkantuk-kantuk.
+## Pemain & staf juga punya gerak menganggur murni visual (GDD 31.6): setiap
+## `idle_wipe_every_seconds` detik NYATA tanpa aktivitas mereka mengelap wajah
+## dengan kain lap, sampai ambang tidurnya tercapai lalu terkantuk-kantuk. Staf
+## tertidur setelah `staff_doze_after_seconds`; pemain baru saat gelembung pikiran
+## terakhir hilang (`DataRegistry.player_doze_after_seconds`, diatur WorldView).
 ## Timer tidak berjalan saat game di-pause dan tidak pernah memengaruhi simulasi.
 
 const PATIENCE_Y: float = 1.08
@@ -48,6 +50,8 @@ var _pack_n: int = 3
 var _receive_k: float = 0.0
 ## Tidur ditahan sementara (pemain: rangkaian pikiran toko sepi belum selesai, GDD 31.6).
 var _doze_blocked: bool = false
+## Ambang tidur aktor ini (detik nyata); < 0 = ambang staf.
+var _doze_after: float = -1.0
 var _idle_real: float = 0.0
 var _gesture: int = GESTURE_NONE
 var _cloth: Node3D = null
@@ -146,8 +150,18 @@ func set_action(action: StringName) -> void:
 
 
 ## Tahan tidur walau sudah lama diam; yang sedang tidur langsung terbangun.
+## Selama ditahan, lap wajah tetap berulang sesuai jadwalnya.
 func set_doze_blocked(on: bool) -> void:
 	_doze_blocked = on
+
+
+## Ambang tidur khusus aktor ini (pemain, GDD 31.6); < 0 memakai ambang staf.
+func set_doze_after(seconds: float) -> void:
+	_doze_after = seconds
+
+
+func doze_after() -> float:
+	return _doze_after if _doze_after >= 0.0 else DataRegistry.balf("presentation.staff_doze_after_seconds")
 
 
 ## Pembeli mengulurkan tangan menerima kantong (0..1). Saat kembali ke 0, lengan
@@ -187,12 +201,14 @@ func idle_seconds() -> float:
 	return _idle_real
 
 
-## Gerak menganggur untuk lama menganggur `idle_seconds` (detik nyata, GDD 31.6).
-static func gesture_for(idle_seconds_value: float) -> int:
-	var wipe_at: float = DataRegistry.balf("presentation.idle_wipe_after_seconds")
-	if idle_seconds_value >= DataRegistry.balf("presentation.idle_doze_after_seconds"):
+## Gerak menganggur untuk lama menganggur `idle_seconds` (detik nyata, GDD 31.6):
+## tidur sejak `doze_at`, sebelumnya mengelap wajah di tiap kelipatan
+## `idle_wipe_every_seconds` selama `wipe_gesture_seconds`.
+static func gesture_for(idle_seconds_value: float, doze_at: float) -> int:
+	if idle_seconds_value >= doze_at:
 		return GESTURE_DOZE
-	if idle_seconds_value >= wipe_at and idle_seconds_value < wipe_at + DataRegistry.balf("presentation.wipe_gesture_seconds"):
+	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
+	if idle_seconds_value >= every and fposmod(idle_seconds_value, every) < DataRegistry.balf("presentation.wipe_gesture_seconds"):
 		return GESTURE_WIPE
 	return GESTURE_NONE
 
@@ -204,15 +220,12 @@ func _update_idle(a: SimActor, delta: float) -> void:
 		_idle_real = 0.0
 	elif not PauseManager.is_paused():
 		_idle_real += delta
-	var g: int = gesture_for(_idle_real)
-	if g == GESTURE_DOZE and _doze_blocked:
-		g = GESTURE_NONE
-	_set_gesture(g)
+	_set_gesture(gesture_for(_idle_real, INF if _doze_blocked else doze_after()))
 
 
 func _wipe_progress() -> float:
-	var wipe_at: float = DataRegistry.balf("presentation.idle_wipe_after_seconds")
-	return clampf((_idle_real - wipe_at) / DataRegistry.balf("presentation.wipe_gesture_seconds"), 0.0, 1.0)
+	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
+	return clampf(fposmod(_idle_real, every) / DataRegistry.balf("presentation.wipe_gesture_seconds"), 0.0, 1.0)
 
 
 func _set_gesture(g: int) -> void:

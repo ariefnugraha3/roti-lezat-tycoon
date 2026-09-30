@@ -7,8 +7,23 @@ extends Node
 ## muncul tanpa membangun dunia apa pun (GDD 89.1). Simulasi dan dunia baru
 ## dibuat saat profil dimuat, dan dihancurkan saat kembali ke menu supaya state
 ## antar-profil tidak bocor (GDD 35.2).
+##
+## Masuk gameplay berjalan bertahap di balik LoadingScreen (GDD 89.5, 114): tiap
+## tahap berat diberi satu frame supaya teks dan bar kemajuannya tergambar, lalu
+## overlay baru memudar setelah frame dunia yang stabil. Di browser HP,
+## OrientationGuard menahan permainan selama HP tegak, dan ketukan "Tap to Start"
+## memasukkan game ke layar penuh landscape (keputusan maintainer 2026-09-30).
 
 const BUSY_CUSTOMERS: int = 4
+## "Skip to Open" (GDD 15.4): waktu nyata per frame untuk tick lompatan, supaya
+## dunia tetap tergambar seperti time-lapse dan tab web tidak membeku.
+const SKIP_FRAME_BUDGET_USEC: int = 12000
+const SKIP_TICKS_PER_CHUNK: int = 20
+## Anggaran perakitan musik per frame selama layar loading (mikrodetik).
+const LOADING_AUDIO_BUDGET_USEC: int = 30000
+## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
+const STABLE_FRAME_MS: float = 80.0
+const MAX_SETTLE_FRAMES: int = 12
 
 var sim: SimulationRoot = null
 var world: WorldView = null
@@ -17,9 +32,11 @@ var modals: ModalHost = null
 var commands: CommandLayer = null
 var playing: bool = false
 var _splash: Control = null
-var _loading: Control = null
+var _loader: LoadingScreen = null
+var _orientation: OrientationGuard = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
+var _skip_overlay: SkipOverlay = null
 
 
 func _ready() -> void:
@@ -35,6 +52,9 @@ func _ready() -> void:
 	ScreenRegistry.register_all(modals)
 	PauseManager.lifecycle_paused.connect(_on_lifecycle_paused)
 	EventBus.economy_overflowed.connect(func() -> void: modals.open(&"overflow"))
+	if WebPlatform.is_mobile_web():
+		_orientation = OrientationGuard.new()
+		add_child(_orientation)
 	if not DataRegistry.is_valid():
 		# Katalog rusak: berhenti dengan layar galat berbahasa Inggris (GDD 114, 117).
 		GameLogger.error("BOOT", "catalog validation failed: %s" % str(DataRegistry.errors.slice(0, 5)))
@@ -79,14 +99,23 @@ func _show_splash() -> void:
 	pulse.tween_property(tap, "modulate:a", 0.45, 0.9)
 	pulse.tween_property(tap, "modulate:a", 1.0, 0.9)
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
+	# Musik menu dirakit di latar selagi pemain membaca layar ini.
+	AudioManager.prewarm_music([&"menu_music"])
 
 
+## Ketukan dihitung saat jari/klik DILEPAS: browser baru mengizinkan layar penuh
+## dari gestur yang selesai (touchend/mouseup), bukan saat jari baru menempel.
 func _on_splash_input(event: InputEvent, layer: CanvasLayer) -> void:
-	var pressed: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).pressed) \
-		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
-		or (event is InputEventKey and (event as InputEventKey).pressed)
-	if not pressed:
+	if _splash == null:
 		return
+	var tapped: bool = (event is InputEventMouseButton and not (event as InputEventMouseButton).pressed \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) \
+		or (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed) \
+		or (event is InputEventKey and (event as InputEventKey).pressed)
+	if not tapped:
+		return
+	if WebPlatform.is_mobile_web():
+		WebPlatform.enter_fullscreen_landscape()
 	AudioManager.unlock()
 	layer.queue_free()
 	_splash = null
@@ -97,6 +126,9 @@ func show_main_menu() -> void:
 	modals.close_all()
 	EventBus.music_state_changed.emit(&"MENU")
 	modals.open(&"main_menu")
+	# Bed pagi ikut dirakit di latar: saat pemain selesai mengisi nama toko,
+	# layar loading tidak perlu menunggunya lagi.
+	AudioManager.prewarm_music([&"menu_music", &"shop_music_morning"])
 
 
 ## Boot headless (test/validator): lewati splash.
@@ -111,24 +143,25 @@ func skip_splash_for_tests() -> void:
 # ===========================================================================
 
 func start_new_game(profile_id: StringName, gender: String, bakery_name: String) -> void:
-	_show_loading(Tx.t("ui_loading"))
-	await get_tree().process_frame
+	await _begin_loading("ui_loading", 0.05)
 	_teardown()
 	sim = SimulationRoot.new()
 	add_child(sim)
 	var seed_value: int = absi(hash("%s|%s|%d" % [profile_id, bakery_name, Time.get_ticks_usec()])) + 1
 	sim.start_new_game(profile_id, bakery_name, gender, seed_value)
+	await _loading_stage("ui_loading_save", 0.20)
 	SaveManager.write_profile(profile_id, sim.capture_save())
 	await _enter_gameplay(profile_id)
 
 
 func load_profile(profile_id: StringName) -> void:
+	await _begin_loading("ui_loading_read", 0.05)
 	var r: Dictionary = SaveManager.read_profile(profile_id)
 	if not bool(r.get("ok", false)):
+		_end_loading(true)
 		modals.open(&"error", {"text": Tx.t("ui_save_error"), "profile_id": profile_id, "offer_new": true})
 		return
-	_show_loading(Tx.t("ui_loading_world"))
-	await get_tree().process_frame
+	await _loading_stage("ui_loading", 0.20)
 	_teardown()
 	sim = SimulationRoot.new()
 	add_child(sim)
@@ -140,11 +173,18 @@ func load_profile(profile_id: StringName) -> void:
 		SaveManager.request_autosave("backup_recovered", true)
 
 
+## Tahap akhir loading (GDD 89.5, 114): musik & ambience hari ini, dunia, HUD,
+## lalu beberapa frame dunia di balik overlay sampai stabil. Simulasi baru jalan
+## (`playing`) setelah overlay mulai memudar, jadi jam tidak maju selama loading.
 func _enter_gameplay(profile_id: StringName) -> void:
 	modals.close_all()
+	await _loading_stage("ui_loading_music", 0.30)
+	await _warm_audio(0.30, 0.55)
+	await _loading_stage("ui_loading_world", 0.55)
 	world = WorldView.new()
 	add_child(world)
 	world.setup(sim)
+	await _loading_stage("ui_loading_counter", 0.72)
 	commands = CommandLayer.new()
 	commands.world = world
 	add_child(commands)
@@ -163,10 +203,13 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	PauseManager.clear_all()
 	PauseManager.lifecycle_enabled = true
 	_connect_sim_requests()
+	await _loading_stage("ui_loading_ovens", 0.85)
+	await _settle_frames(0.85, 1.0)
 	playing = true
-	_hide_loading()
+	_end_loading(false)
 	EventBus.profile_loaded.emit(profile_id)
 	_update_music()
+	_prewarm_day_music()
 	# Modal yang harus muncul lagi setelah load.
 	if sim.time.phase == TimeManager.SUMMARY or sim.time.phase == TimeManager.CLOSING:
 		modals.open(&"daily_summary", {"report": sim.reports.last_report})
@@ -205,6 +248,9 @@ func _disconnect_bus() -> void:
 
 func _teardown() -> void:
 	playing = false
+	if _skip_overlay != null and is_instance_valid(_skip_overlay):
+		_skip_overlay.queue_free()
+	_skip_overlay = null
 	_disconnect_bus()
 	PauseManager.lifecycle_enabled = false
 	SaveManager.simulation = null
@@ -239,7 +285,10 @@ func _process(delta: float) -> void:
 	if not playing or sim == null:
 		return
 	var was_paused: bool = PauseManager.is_paused()
-	sim.advance(delta)
+	if _skip_overlay != null:
+		_run_skip_to_open()
+	else:
+		sim.advance(delta)
 	if not was_paused:
 		sim.statistics.add_play_time(delta)
 	_music_timer -= delta
@@ -248,7 +297,7 @@ func _process(delta: float) -> void:
 		_update_music()
 	if world != null and hud != null:
 		var top: UIScreen = modals.top()
-		commands.enabled = top == null or top.world_input or not modals.has_blocking()
+		commands.enabled = _skip_overlay == null and (top == null or top.world_input or not modals.has_blocking())
 		# Loop mixer/oven mengikuti state (GDD 93).
 		var mixing: bool = false
 		var baking: bool = false
@@ -265,6 +314,11 @@ func _process(delta: float) -> void:
 func _update_music() -> void:
 	if sim == null:
 		return
+	EventBus.music_state_changed.emit(_music_state())
+
+
+## Suasana musik untuk keadaan toko saat ini (GDD 33.1).
+func _music_state() -> StringName:
 	var state: StringName = &"STORE_OPEN_CALM"
 	match sim.time.phase:
 		TimeManager.PREPARATION:
@@ -278,7 +332,70 @@ func _update_music() -> void:
 			state = &"DAILY_SUMMARY"
 	if modals.is_open(&"bailout"):
 		state = &"BAILOUT_CUTSCENE"
-	EventBus.music_state_changed.emit(state)
+	return state
+
+
+## Bed yang akan dibutuhkan hari ini dirakit di latar, jauh sebelum 08:00/18:00.
+func _prewarm_day_music() -> void:
+	var ids: Array = [&"shop_music_after_hours"]
+	if sim.weather.is_rain():
+		ids.push_front(&"shop_music_rain")
+	else:
+		ids.push_front(&"shop_music_busy_layer")
+		ids.push_front(&"shop_music_day")
+	AudioManager.prewarm_music(ids)
+
+
+# ===========================================================================
+# SKIP TO OPEN (GDD 15.4)
+# ===========================================================================
+
+func is_skipping_to_open() -> bool:
+	return _skip_overlay != null
+
+
+## Tombol HUD "Skip to Open": minta konfirmasi, atau jelaskan kenapa belum bisa.
+func request_skip_to_open() -> void:
+	if sim == null or _skip_overlay != null:
+		return
+	match sim.skip_to_open_block():
+		&"":
+			modals.confirm(Tx.t("ui_skip_open_confirm", {"time": Tx.clock(sim.time.open_time)}), begin_skip_to_open)
+		&"oven":
+			EventBus.notify.emit(1, "ui_skip_open_oven", {}, &"fire")
+		_:
+			pass
+
+
+## Mulai lompatan. Simulasi berjalan tick demi tick seperti biasa, hanya jauh
+## lebih cepat, sampai 08:00 atau sampai ada oven yang butuh pemain.
+func begin_skip_to_open() -> void:
+	if sim == null or _skip_overlay != null or sim.skip_to_open_block() != &"":
+		return
+	_skip_overlay = SkipOverlay.new()
+	add_child(_skip_overlay)
+	_skip_overlay.begin(sim.time.time_seconds, sim.time.open_time)
+	EventBus.sfx.emit(&"ui_confirm", &"")
+
+
+func _run_skip_to_open() -> void:
+	# Modal yang muncul di tengah lompatan (tutorial, lifecycle) menahannya dulu.
+	if PauseManager.is_paused():
+		return
+	var t0: int = Time.get_ticks_usec()
+	var result: StringName = &""
+	while result == &"" and Time.get_ticks_usec() - t0 < SKIP_FRAME_BUDGET_USEC:
+		result = sim.skip_to_open_step(SKIP_TICKS_PER_CHUNK)
+	_skip_overlay.show_time(sim.time.time_seconds)
+	if result != &"":
+		_end_skip_to_open(result)
+
+
+func _end_skip_to_open(result: StringName) -> void:
+	_skip_overlay.finish()
+	_skip_overlay = null
+	if result == &"oven":
+		EventBus.notify.emit(1, "ui_skip_open_stopped", {}, &"fire")
 
 
 # ===========================================================================
@@ -305,6 +422,8 @@ func _on_world_tap(pos: Vector2) -> void:
 
 
 func _on_back() -> void:
+	if _loader != null:
+		return
 	if modals.back():
 		return
 	if hud != null and hud.decoration_active:
@@ -373,25 +492,72 @@ func _show_tutorial_prompt() -> void:
 	world.highlight(StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
 
 
-func _show_loading(text: String) -> void:
-	_hide_loading()
-	var layer := CanvasLayer.new()
-	layer.layer = 60
-	add_child(layer)
-	_loading = Control.new()
-	_loading.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(_loading)
-	var bg := ColorRect.new()
-	bg.color = Palette.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_loading.add_child(bg)
-	var l: Label = ProceduralUIFactory.title(text, 28)
-	l.set_anchors_preset(Control.PRESET_CENTER)
-	l.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_loading.add_child(l)
+func _begin_loading(stage_key: String, progress_value: float) -> void:
+	_end_loading(true)
+	_loader = LoadingScreen.new()
+	add_child(_loader)
+	await _loading_stage(stage_key, progress_value)
 
 
-func _hide_loading() -> void:
-	if _loading != null and is_instance_valid(_loading):
-		_loading.get_parent().queue_free()
-	_loading = null
+## Tampilkan tahap berikutnya dan beri satu frame agar teks & bar tergambar
+## sebelum pekerjaan berat tahap itu berjalan (GDD 114).
+func _loading_stage(stage_key: String, progress_value: float) -> void:
+	if _loader != null:
+		_loader.set_stage(Tx.t(stage_key), progress_value)
+	await get_tree().process_frame
+
+
+func _end_loading(immediate: bool) -> void:
+	if _loader != null and is_instance_valid(_loader):
+		if immediate:
+			_loader.queue_free()
+		else:
+			_loader.finish()
+	_loader = null
+
+
+func loading_screen() -> LoadingScreen:
+	return _loader
+
+
+## GDD 114 tahap 7: musik suasana sekarang dirakit bertahap dengan bar yang terus
+## bergerak (biasanya sudah jadi di Main Menu), lalu ambience cuaca hari ini dan
+## loop mixer/oven. Dilewati sebelum audio dibuka (headless), karena belum ada
+## yang diputar.
+func _warm_audio(p_from: float, p_to: float) -> void:
+	if not AudioManager.unlocked:
+		return
+	var p_mid: float = lerpf(p_from, p_to, 0.8)
+	var music: StringName = AudioManager.MUSIC_FOR_STATE.get(_music_state(), &"")
+	if music != &"":
+		AudioManager.request_stream(music, true)
+		while not AudioManager.is_stream_ready(music):
+			AudioManager.step_jobs(LOADING_AUDIO_BUDGET_USEC)
+			if _loader != null:
+				_loader.set_progress(lerpf(p_from, p_mid, AudioManager.stream_progress(music)))
+			await get_tree().process_frame
+	var others: Array[StringName] = WorldView.ambience_for(sim.weather.is_rain())
+	others.append_array([&"mixer_loop", &"oven_loop"])
+	for i in others.size():
+		AudioManager.stream_for(others[i])
+		if _loader != null:
+			_loader.set_progress(lerpf(p_mid, p_to, float(i + 1) / float(others.size())))
+		await get_tree().process_frame
+
+
+## GDD 89.5 no. 10: overlay baru memudar setelah frame dunia yang stabil. Frame
+## pertama biasanya lama karena shader dikompilasi saat dunia pertama digambar.
+func _settle_frames(p_from: float, p_to: float) -> void:
+	var stable: int = 0
+	var last: int = Time.get_ticks_usec()
+	for i in MAX_SETTLE_FRAMES:
+		await get_tree().process_frame
+		var now: int = Time.get_ticks_usec()
+		stable = stable + 1 if float(now - last) / 1000.0 < STABLE_FRAME_MS else 0
+		last = now
+		if _loader != null:
+			_loader.set_progress(lerpf(p_from, p_to, float(i + 1) / float(MAX_SETTLE_FRAMES)))
+		if stable >= 2:
+			break
+	if _loader != null:
+		_loader.set_progress(p_to)

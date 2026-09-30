@@ -21,6 +21,9 @@ const THOUGHT_ANCHOR_GAP: float = 0.08
 const PACK_BREAD_MAX: int = 3
 ## Geser kantong sepanjang meja agar tidak tertutup mesin kasir (m).
 const PACK_BAG_SIDE: float = 0.24
+## Decoration Mode: perabot terpilih terangkat sedikit dan mengambang pelan (m).
+const LIFT_M: float = 0.06
+const LIFT_BOB_M: float = 0.015
 
 var sim: SimulationRoot = null
 var camera_rig: CameraRig = null
@@ -56,6 +59,8 @@ var _thought_layer: CanvasLayer = null
 var _thought_bubble: ThoughtBubble = null
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
+## Perabot yang sedang diangkat di Decoration Mode (-1 = tidak ada).
+var _lift_iid: int = -1
 
 
 func setup(s: SimulationRoot) -> void:
@@ -116,6 +121,11 @@ func rebuild_furniture() -> void:
 	for n: Variant in furniture.values():
 		(n as Node3D).queue_free()
 	furniture.clear()
+	# Penanda menempel di node lantai, bukan di perabot: tanpa dibebaskan di sini
+	# penanda lama tertinggal membeku (bar progres yang tidak pernah hilang).
+	for m: Variant in markers.values():
+		if is_instance_valid(m):
+			(m as Node3D).queue_free()
 	markers.clear()
 	_bread_sig.clear()
 	_table_sig = ""
@@ -234,6 +244,7 @@ func _process(delta: float) -> void:
 		_update_bread()
 		_update_table()
 	_animate_stations(delta)
+	_animate_lift()
 
 
 func _v3(p: Vector2) -> Vector3:
@@ -250,6 +261,7 @@ func _sync_actors(delta: float) -> void:
 		# Aksi & status sibuk diatur sebelum sync supaya animasinya frame ini juga.
 		pv.set_idle_enabled(true)
 		pv.set_busy(_player_busy())
+		pv.set_doze_after(DataRegistry.player_doze_after_seconds())
 		pv.set_doze_blocked(_player_doze_blocked())
 		pv.set_action(&"pack" if packers.has(player.id) else &"")
 		_apply_pack(pv, packers.get(player.id))
@@ -520,17 +532,15 @@ func _shop_quiet() -> bool:
 
 
 ## Pemain tidak tertidur saat gelembung pikiran tampil, dan selama toko sepi baru
-## boleh tertidur `presentation.doze_after_last_thought_seconds` sesudah pikiran
-## terakhir muncul (GDD 31.6, 31.7). Yang sudah tertidur sejak persiapan terbangun
-## begitu toko buka dan sepi, lalu rangkaian pikirannya berjalan lebih dulu.
+## boleh tertidur saat gelembung pikiran terakhir hilang (GDD 31.6, 31.7). Yang
+## sudah tertidur sejak persiapan terbangun begitu toko buka dan sepi, lalu
+## rangkaian pikirannya berjalan lebih dulu.
 func _player_doze_blocked() -> bool:
 	if _thought_bubble != null and _thought_bubble.is_showing():
 		return true
 	if not _shop_quiet():
 		return false
-	var after: Array = DataRegistry.bal("presentation.thought_after_seconds")
-	var doze_at: float = float(after[after.size() - 1]) + DataRegistry.balf("presentation.doze_after_last_thought_seconds")
-	return _quiet_real < doze_at
+	return _quiet_real < DataRegistry.player_doze_after_seconds()
 
 
 func thought_bubble() -> ThoughtBubble:
@@ -538,6 +548,11 @@ func thought_bubble() -> ThoughtBubble:
 
 
 func _update_markers() -> void:
+	# Decoration Mode: penanda "!" dan bar progres hanya menutupi perabot yang ditata.
+	if decoration_mode:
+		for m0: Variant in markers.values():
+			(m0 as StationMarker).hide_marker()
+		return
 	var data: Dictionary = sim.player.station_markers()
 	var hc: bool = SettingsManager.get_bool("high_contrast_markers")
 	# Maks. alert dunia yang tampil (GDD 129): alert (terbakar lebih dulu)
@@ -710,7 +725,13 @@ func _apply_weather() -> void:
 		_rain = null
 	if sim.weather.is_rain():
 		_rain = FX.rain_overlay(_rain_layer)
-	AudioManager.set_ambience([&"rain_loop", &"shop_ambience_room"] if sim.weather.is_rain() else [&"sunny_ambience", &"shop_ambience_room"])
+	AudioManager.set_ambience(ambience_for(sim.weather.is_rain()))
+
+
+## Lapisan ambience untuk cuaca hari ini (juga disiapkan di layar loading).
+static func ambience_for(rain: bool) -> Array[StringName]:
+	var ids: Array[StringName] = [&"rain_loop" if rain else &"sunny_ambience", &"shop_ambience_room"]
+	return ids
 
 
 func _apply_brightness() -> void:
@@ -795,6 +816,42 @@ func cell_at_screen(screen_pos: Vector2) -> Vector2i:
 	if is_inf(g.x):
 		return Vector2i(-1, -1)
 	return GridMath.world_to_cell(Vector2(g.x, g.z))
+
+
+## Titik tengah puncak perabot di dunia, atau Vector3.INF bila tidak digambar.
+## Decoration Mode menaruh toolbar aksinya tepat di atas titik ini.
+func top_of_iid(iid: int) -> Vector3:
+	var ad: Variant = _aabbs.get(iid)
+	if not (ad is Dictionary):
+		return Vector3.INF
+	var b: AABB = (ad as Dictionary)["aabb"]
+	var c: Vector3 = b.get_center()
+	return Vector3(c.x, b.end.y + (LIFT_M if iid == _lift_iid else 0.0), c.z)
+
+
+## Decoration Mode (GDD 7 "terangkat"): perabot `iid` diangkat sedikit dan
+## mengambang pelan sampai dilepas (-1). Perabot lama diturunkan lagi.
+func set_lift(iid: int) -> void:
+	if iid == _lift_iid:
+		return
+	var old: Variant = furniture.get(_lift_iid)
+	if old is Node3D and is_instance_valid(old):
+		(old as Node3D).position.y = 0.0
+	_lift_iid = iid
+
+
+func lifted_iid() -> int:
+	return _lift_iid
+
+
+func _animate_lift() -> void:
+	if _lift_iid < 0:
+		return
+	var n: Variant = furniture.get(_lift_iid)
+	if not (n is Node3D) or not is_instance_valid(n):
+		return
+	var bob: float = 0.0 if SettingsManager.reduced_motion() else LIFT_BOB_M * sin(_t * 5.0)
+	(n as Node3D).position.y = LIFT_M + bob
 
 
 func screen_of_iid(iid: int) -> Vector2:

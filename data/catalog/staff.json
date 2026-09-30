@@ -9,7 +9,6 @@
    "tier": 1,
    "daily_wage_kr": 150,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 7.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -33,7 +32,6 @@
    "tier": 1,
    "daily_wage_kr": 150,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 7.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -57,7 +55,6 @@
    "tier": 1,
    "daily_wage_kr": 150,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 7.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -79,7 +76,6 @@
    "tier": 2,
    "daily_wage_kr": 350,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 5.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -101,7 +97,6 @@
    "tier": 2,
    "daily_wage_kr": 350,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 5.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -125,7 +120,6 @@
    "tier": 2,
    "daily_wage_kr": 350,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 5.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {},
@@ -149,7 +143,6 @@
    "tier": 3,
    "daily_wage_kr": 800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 3.5,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -176,7 +169,6 @@
    "tier": 3,
    "daily_wage_kr": 800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 3.5,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -202,7 +194,6 @@
    "tier": 3,
    "daily_wage_kr": 800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 3.5,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -228,12 +219,9 @@
    "tier": 4,
    "daily_wage_kr": 1800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 2.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {
-    "indecisive_service_multiplier": 1.0
-   },
+   "special": {},
    "visual": {
     "accessory": [
      "kacamata_emas"
@@ -254,12 +242,9 @@
    "tier": 4,
    "daily_wage_kr": 1800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 2.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {
-    "indecisive_service_multiplier": 1.0
-   },
+   "special": {},
    "visual": {
     "accessory": [],
     "apron": "#22355b",
@@ -278,12 +263,9 @@
    "tier": 4,
    "daily_wage_kr": 1800,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 2.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
-   "special": {
-    "indecisive_service_multiplier": 1.0
-   },
+   "special": {},
    "visual": {
     "accessory": [
      "dasi_kupu"
@@ -304,7 +286,6 @@
    "tier": 5,
    "daily_wage_kr": 4000,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 1.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -330,7 +311,6 @@
    "tier": 5,
    "daily_wage_kr": 4000,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 1.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -357,7 +337,6 @@
    "tier": 5,
    "daily_wage_kr": 4000,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 1.2,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.2,
    "special": {
@@ -383,7 +362,6 @@
    "tier": 1,
    "daily_wage_kr": 180,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.25,
    "special": {},
@@ -405,7 +383,6 @@
    "tier": 1,
    "daily_wage_kr": 180,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.25,
    "special": {},
@@ -427,7 +404,6 @@
    "tier": 1,
    "daily_wage_kr": 180,
    "work_speed_multiplier": 1.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.0,
    "movement_speed_mps": 1.25,
    "special": {},
@@ -449,7 +425,6 @@
    "tier": 2,
    "daily_wage_kr": 400,
    "work_speed_multiplier": 1.25,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.25,
    "movement_speed_mps": 1.35,
    "special": {},
@@ -473,7 +448,6 @@
    "tier": 2,
    "daily_wage_kr": 400,
    "work_speed_multiplier": 1.25,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.25,
    "movement_speed_mps": 1.35,
    "special": {},
@@ -497,7 +471,6 @@
    "tier": 2,
    "daily_wage_kr": 400,
    "work_speed_multiplier": 1.25,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.25,
    "movement_speed_mps": 1.35,
    "special": {},
@@ -521,7 +494,6 @@
    "tier": 3,
    "daily_wage_kr": 950,
    "work_speed_multiplier": 1.6,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.6,
    "movement_speed_mps": 1.45,
    "special": {},
@@ -545,7 +517,6 @@
    "tier": 3,
    "daily_wage_kr": 950,
    "work_speed_multiplier": 1.6,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.6,
    "movement_speed_mps": 1.45,
    "special": {},
@@ -569,7 +540,6 @@
    "tier": 3,
    "daily_wage_kr": 950,
    "work_speed_multiplier": 1.6,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.6,
    "movement_speed_mps": 1.45,
    "special": {},
@@ -593,7 +563,6 @@
    "tier": 4,
    "daily_wage_kr": 2200,
    "work_speed_multiplier": 2.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.9,
    "movement_speed_mps": 1.55,
    "special": {},
@@ -617,7 +586,6 @@
    "tier": 4,
    "daily_wage_kr": 2200,
    "work_speed_multiplier": 2.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.9,
    "movement_speed_mps": 1.55,
    "special": {},
@@ -641,7 +609,6 @@
    "tier": 4,
    "daily_wage_kr": 2200,
    "work_speed_multiplier": 2.0,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 0.9,
    "movement_speed_mps": 1.55,
    "special": {},
@@ -663,7 +630,6 @@
    "tier": 5,
    "daily_wage_kr": 5000,
    "work_speed_multiplier": 2.8,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 1.0,
    "movement_speed_mps": 1.7,
    "special": {},
@@ -687,7 +653,6 @@
    "tier": 5,
    "daily_wage_kr": 5000,
    "work_speed_multiplier": 2.8,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 1.0,
    "movement_speed_mps": 1.7,
    "special": {},
@@ -711,7 +676,6 @@
    "tier": 5,
    "daily_wage_kr": 5000,
    "work_speed_multiplier": 2.8,
-   "cashier_service_seconds": 0.0,
    "auto_retrieve_probability": 1.0,
    "movement_speed_mps": 1.7,
    "special": {},
@@ -729,6 +693,5 @@
    "visual_profile_id": "staff_baker_alistair"
   }
  ],
- "manual_cashier_penalty": 1.5,
  "player_movement_speed_mps": 1.5
 }

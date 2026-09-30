@@ -29,7 +29,11 @@ func _render() -> void:
 					"sfx_volume": "ui_settings_sfx", "ui_volume": "ui_settings_ui", "ambient_volume": "ui_settings_ambient"}[k], 0, 100, 5)
 			_toggle("mute_when_unfocused", "ui_settings_mute_unfocused")
 		1:
-			if not OS.has_feature("mobile"):
+			if WebPlatform.is_mobile_web():
+				# Browser HP: layar penuh + landscape lagi setelah pemain keluar darinya.
+				var fs: Button = btn(_body, Tx.t("ui_settings_fullscreen_enter"), "secondary", func() -> void: WebPlatform.enter_fullscreen_landscape())
+				fs.custom_minimum_size = Vector2(280, 56)
+			elif not OS.has_feature("mobile"):
 				_toggle("fullscreen", "ui_settings_fullscreen")
 			_choice("resolution_scale", "ui_settings_resolution_scale", [70, 85, 100], ["70%", "85%", "100%"])
 			_slider("ui_scale", "ui_settings_ui_scale", 80, 150, 5)

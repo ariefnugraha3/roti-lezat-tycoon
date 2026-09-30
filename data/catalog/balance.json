@@ -149,12 +149,11 @@
  },
  "presentation": {
   "_gdd": "31.6, 31.7",
-  "idle_wipe_after_seconds": 15.0,
-  "idle_doze_after_seconds": 25.0,
+  "idle_wipe_every_seconds": 15.0,
+  "staff_doze_after_seconds": 25.0,
   "wipe_gesture_seconds": 2.4,
-  "thought_after_seconds": [10.0, 20.0, 30.0, 40.0],
-  "thought_show_seconds": 5.0,
-  "doze_after_last_thought_seconds": 5.0
+  "thought_after_seconds": [20.0, 40.0, 60.0, 80.0],
+  "thought_show_seconds": 5.0
  },
  "supply": {
   "_gdd": "5.2.3, 129",

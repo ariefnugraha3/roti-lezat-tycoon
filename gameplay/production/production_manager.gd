@@ -447,6 +447,16 @@ func has_active_jobs() -> bool:
 	return active_job_count() > 0
 
 
+## Ada loyang matang di oven yang menunggu diangkat pemain dan bisa gosong
+## (GDD 62): tidak dilindungi auto-retrieve baker (GDD 18.8). Loyang yang sudah
+## gosong tidak dihitung, karena tidak ada lagi yang bisa diselamatkan.
+func oven_needs_player() -> bool:
+	for j: ProductionJob in sorted_jobs():
+		if j.oven_id >= 0 and not j.protected and (j.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP or j.stage == ProductionJob.OVERBAKING):
+			return true
+	return false
+
+
 ## Taruh mangkuk adonan atau loyang yang sedang dibawa ke meja.
 func put_on_table(job_id: int) -> bool:
 	var j: ProductionJob = get_job(job_id)

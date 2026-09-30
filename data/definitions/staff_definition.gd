@@ -9,11 +9,10 @@ var role_id: StringName
 var tier: int = 1
 var daily_wage_kr: float = 0.0
 var work_speed_multiplier: float = 1.0
-var cashier_service_seconds: float = 0.0
 var auto_retrieve_probability: float = 0.0
 var movement_speed_mps: float = 1.2
 ## Kemampuan khusus kasir (GDD 3.1): queue_patience_drain_multiplier,
-## indecisive_service_multiplier, physical_tip_chance.
+## physical_tip_chance. Lama transaksi sama untuk semua kasir (GDD 21.4).
 var special: Dictionary = {}
 ## Parameter CharacterFactory (warna sebagai "#rrggbb").
 var visual: Dictionary = {}
@@ -28,7 +27,6 @@ static func from_dict(d: Dictionary) -> StaffDefinition:
 	s.tier = int(d.get("tier", 0))
 	s.daily_wage_kr = float(d.get("daily_wage_kr", 0.0))
 	s.work_speed_multiplier = float(d.get("work_speed_multiplier", 1.0))
-	s.cashier_service_seconds = float(d.get("cashier_service_seconds", 0.0))
 	s.auto_retrieve_probability = float(d.get("auto_retrieve_probability", 0.0))
 	s.movement_speed_mps = float(d.get("movement_speed_mps", 1.2))
 	s.special = d.get("special", {})

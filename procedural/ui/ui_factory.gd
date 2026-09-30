@@ -574,7 +574,8 @@ static func polaroid(staff_id: String) -> Control:
 	if def.is_baker():
 		speed_text = Tx.t("ui_staff_speed", {"speed": "%.2f" % def.work_speed_multiplier})
 	else:
-		speed_text = Tx.t("ui_staff_service", {"seconds": "%.1f" % def.cashier_service_seconds})
+		# Semua transaksi sama lamanya, siapa pun kasirnya (GDD 21.4).
+		speed_text = Tx.t("ui_staff_service", {"seconds": "%.1f" % DataRegistry.packing_seconds()})
 	body.add_child(_stat_row("bolt", Palette.WARMER_LAMP, speed_text))
 
 	if def.is_baker():

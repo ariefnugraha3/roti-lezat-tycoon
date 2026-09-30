@@ -143,7 +143,13 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
 
 - `GameRoot` (`scenes/game_root.gd`) is the shell: splash, main menu, new game or
   load, building and tearing down `SimulationRoot` + `WorldView` + `HUD`, routing
-  world taps, the music state, and lifecycle handling.
+  world taps, the music state, and lifecycle handling. New game and load run in
+  stages behind `ui/components/loading_screen.gd` (GDD 89.5): each heavy stage gets
+  a frame so the bar is drawn, and `playing` turns true only when the overlay fades.
+- Phone browsers (GDD 12.5): `core/web_platform.gd` is the only code that calls
+  JavaScript (`JavaScriptBridge`): phone detection, portrait check, fullscreen plus
+  landscape lock. `ui/components/orientation_guard.gd` covers the game and pauses it
+  while the phone is upright; the Tap to Start tap (on release) requests fullscreen.
 - `WorldView` (`gameplay/world/world_view.gd`) mirrors the simulation. It builds
   rooms and equipment with the factories, pools actor views, shows station markers,
   bread and ghosts, and does picking. `CameraRig` frames floors that fit the viewport
@@ -172,10 +178,19 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   customer's `receive` pose, so hands and bag share the `pack_phases` beats. It also tells each player/staff
   `ActorView` whether it is busy, and drives the player's `ThoughtBubble`
   (`ui/components/thought_bubble.gd`, screen space) from the real-time "open shop, no
-  customers" timer. `ActorView` owns the idle timer (face wipe, then dozing with
-  floating "Z"); both timers use real seconds and stop while the game is paused.
+  customers" timer. `ActorView` owns the idle timer (a face wipe every 15 s, then dozing
+  with floating "Z": staff at 25 s, the player at `DataRegistry.player_doze_after_seconds`,
+  when the last thought ends); both timers use real seconds and stop while the game is
+  paused. In Decoration Mode `WorldView` hides station markers, lifts the selected
+  furniture (`set_lift`) and gives `top_of_iid` to the screen's floating action toolbar.
+- Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
+  `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
+  `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.
 - Audio: `AudioGenerator.build(generator_id)` renders each event in
-  `audio_events.json`. `AudioManager` plays it.
+  `audio_events.json`. `AudioManager` plays it. Music beds come from
+  `audio/music_build.gd`, which renders a bed a slice at a time; `AudioManager` runs
+  those jobs within a per-frame budget (`request_stream`, `prewarm_music`) and keeps
+  the old bed playing until the new one is ready (GDD 33.6).
 
 ## 6. Data catalogs (GDD 101, 134)
 

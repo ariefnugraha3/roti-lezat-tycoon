@@ -89,6 +89,15 @@ func set_free_pan(on: bool, inset_left_px: float = 0.0) -> void:
 		pan_offset = -right.normalized() * (inset_left_px * 0.5 * m_per_px)
 
 
+## Pan bebas (Decoration Mode): arahkan tampilan ke titik dunia `p`.
+func focus_free_pan(p: Vector3) -> void:
+	if not free_pan:
+		return
+	var off := Vector3(p.x - floor_size_m.x * 0.5, 0.0, p.z - floor_size_m.y * 0.5)
+	pan_offset = off.limit_length(maxf(floor_size_m.x, floor_size_m.y))
+	_pan_idle = 0.0
+
+
 func snap_to(target: Vector3) -> void:
 	_focus = target
 	pan_offset = Vector3.ZERO

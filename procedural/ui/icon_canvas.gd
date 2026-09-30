@@ -20,14 +20,14 @@ extends Control
 ## [/codeblock]
 
 
-## Seluruh nama ikon yang dikenali (38 nama, kontrak ARCHITECTURE.md seksi 8).
+## Seluruh nama ikon yang dikenali (40 nama).
 const NAMES: Array[String] = [
 	"coin", "star", "clock", "bolt", "bread", "bag", "cart", "people", "heart",
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
-	"gear", "sound", "mute",
+	"gear", "sound", "mute", "skip", "rotate",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -44,7 +44,7 @@ const MIN_SIZE: float = 4.0
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
-	"gear", "sound", "mute"
+	"gear", "sound", "mute", "skip", "rotate"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -136,6 +136,8 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"gear": _i_gear(c, s, col)
 		"sound": _i_sound(c, s, col)
 		"mute": _i_mute(c, s, col)
+		"skip": _i_skip(c, s, col)
+		"rotate": _i_rotate(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -663,6 +665,25 @@ func _i_mute(c: Vector2, s: float, col: Color) -> void:
 	_speaker(c, s, col)
 	_bar(c, s, 0.10, -0.18, 0.42, 0.18, 0.08, col)
 	_bar(c, s, 0.42, -0.18, 0.10, 0.18, 0.08, col)
+
+
+## Lompat — dua segitiga main dan satu batang (tombol "Skip to Open", GDD 15.4).
+func _i_skip(c: Vector2, s: float, col: Color) -> void:
+	_blob(c, s, [Vector2(-0.42, -0.30), Vector2(-0.04, 0.0), Vector2(-0.42, 0.30)], col)
+	_blob(c, s, [Vector2(-0.06, -0.30), Vector2(0.32, 0.0), Vector2(-0.06, 0.30)], col)
+	_round_rect(c, s, 0.30, -0.30, 0.11, 0.60, 0.05, col)
+
+
+## Putar — busur tiga perempat lingkaran berujung panah (putar perabot, GDD 72).
+func _i_rotate(c: Vector2, s: float, col: Color) -> void:
+	var r: float = 0.28
+	var a_end: float = -PI * 0.10
+	_arcline(c, s, 0.0, 0.0, r, PI * 0.45, TAU + a_end, 0.10, col)
+	# Kepala panah di ujung busur, searah jarum jam (sumbu y layar ke bawah).
+	var tip: Vector2 = Vector2(cos(a_end), sin(a_end)) * r
+	var along: Vector2 = Vector2(-sin(a_end), cos(a_end))
+	var out: Vector2 = Vector2(cos(a_end), sin(a_end))
+	_blob(c, s, [tip + along * 0.20, tip + out * 0.17 - along * 0.04, tip - out * 0.17 - along * 0.04], col)
 
 
 ## Cadangan bila nama ikon tidak dikenal: cincin + titik tanya sederhana.

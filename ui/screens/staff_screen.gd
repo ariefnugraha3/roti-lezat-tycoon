@@ -64,8 +64,6 @@ func _staff_card(id: StringName) -> Control:
 	if def.is_cashier():
 		if def.special.has("queue_patience_drain_multiplier"):
 			sp = "staff_special_queue"
-		elif def.special.has("indecisive_service_multiplier"):
-			sp = "staff_special_indecisive"
 		elif def.special.has("physical_tip_chance"):
 			sp = "staff_special_tip"
 	if sp != "":

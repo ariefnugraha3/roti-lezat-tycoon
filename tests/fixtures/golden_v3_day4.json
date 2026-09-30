@@ -38,7 +38,7 @@
 		"speed": 1,
 		"time_seconds": 36000.0
 	},
-	"created_at": "2026-09-29T03:41:14Z",
+	"created_at": "2026-09-29T22:25:54Z",
 	"customers": {
 		"abandoned_today": 3,
 		"customers": [],
@@ -348,7 +348,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 31084.5,
+				"game_time": 30861.0,
 				"metadata": {
 					"customer": "c1",
 					"units": 2
@@ -360,7 +360,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 33786.0,
+				"game_time": 33562.5,
 				"metadata": {
 					"customer": "c2",
 					"units": 2
@@ -372,7 +372,7 @@
 				"amount": 540.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 36502.5,
+				"game_time": 36279.0,
 				"metadata": {
 					"customer": "c3",
 					"units": 6
@@ -406,7 +406,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 40081.5,
+				"game_time": 39858.0,
 				"metadata": {
 					"customer": "c4",
 					"units": 2
@@ -418,7 +418,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 44028.0,
+				"game_time": 43489.5,
 				"metadata": {
 					"customer": "c5",
 					"units": 2
@@ -430,7 +430,7 @@
 				"amount": 720.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 49107.0,
+				"game_time": 48883.5,
 				"metadata": {
 					"customer": "c6",
 					"units": 8
@@ -453,7 +453,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 54486.0,
+				"game_time": 54262.5,
 				"metadata": {
 					"customer": "c7",
 					"units": 2
@@ -465,7 +465,7 @@
 				"amount": 180.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 59880.0,
+				"game_time": 59656.5,
 				"metadata": {
 					"customer": "c8",
 					"units": 2
@@ -486,7 +486,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 30457.5,
+				"game_time": 30234.0,
 				"metadata": {
 					"customer": "c9",
 					"units": 2
@@ -498,7 +498,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 32881.5,
+				"game_time": 32658.0,
 				"metadata": {
 					"customer": "c10",
 					"units": 2
@@ -510,7 +510,7 @@
 				"amount": 455.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 35305.5,
+				"game_time": 35082.0,
 				"metadata": {
 					"customer": "c11",
 					"units": 7
@@ -544,7 +544,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 38284.5,
+				"game_time": 38061.0,
 				"metadata": {
 					"customer": "c12",
 					"units": 2
@@ -556,7 +556,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 42231.0,
+				"game_time": 41692.5,
 				"metadata": {
 					"customer": "c13",
 					"units": 2
@@ -568,7 +568,7 @@
 				"amount": 585.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 45502.5,
+				"game_time": 45279.0,
 				"metadata": {
 					"customer": "c14",
 					"units": 9
@@ -602,7 +602,7 @@
 				"amount": 130.0,
 				"category": "SALE_PHYSICAL",
 				"day": 2,
-				"game_time": 50881.5,
+				"game_time": 50658.0,
 				"metadata": {
 					"customer": "c15",
 					"units": 2
@@ -623,7 +623,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 30180.0,
+				"game_time": 29956.5,
 				"metadata": {
 					"customer": "c18",
 					"units": 2
@@ -635,7 +635,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 32259.0,
+				"game_time": 32035.5,
 				"metadata": {
 					"customer": "c19",
 					"units": 2
@@ -647,7 +647,7 @@
 				"amount": 1200.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 34705.5,
+				"game_time": 34482.0,
 				"metadata": {
 					"customer": "c20",
 					"units": 8
@@ -681,7 +681,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 37684.5,
+				"game_time": 37461.0,
 				"metadata": {
 					"customer": "c21",
 					"units": 2
@@ -693,7 +693,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 41031.0,
+				"game_time": 40492.5,
 				"metadata": {
 					"customer": "c22",
 					"units": 2
@@ -705,7 +705,7 @@
 				"amount": 1500.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 43702.5,
+				"game_time": 43479.0,
 				"metadata": {
 					"customer": "c23",
 					"units": 10
@@ -739,7 +739,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 47881.5,
+				"game_time": 47658.0,
 				"metadata": {
 					"customer": "c24",
 					"units": 2
@@ -751,7 +751,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 52060.5,
+				"game_time": 51837.0,
 				"metadata": {
 					"customer": "c25",
 					"units": 2
@@ -785,7 +785,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 56284.5,
+				"game_time": 56061.0,
 				"metadata": {
 					"customer": "c26",
 					"units": 2
@@ -797,7 +797,7 @@
 				"amount": 300.0,
 				"category": "SALE_PHYSICAL",
 				"day": 3,
-				"game_time": 60231.0,
+				"game_time": 59692.5,
 				"metadata": {
 					"customer": "c27",
 					"units": 2

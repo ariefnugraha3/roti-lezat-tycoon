@@ -330,10 +330,12 @@ static func _add_bell(buf: PackedFloat32Array, start_sec: float, dur: float, fre
 
 
 ## Derau putih sepanjang dur yang disaring menjadi pita hp..lp lalu diberi amplop.
+## `rng` = generator derau milik pemanggil (MusicBuild); bawaannya derau bersama.
 static func _noise_buffer(dur: float, amp: float, env: Dictionary, hp: float,
-		lp: float) -> PackedFloat32Array:
+		lp: float, rng: RandomNumberGenerator = null) -> PackedFloat32Array:
 	var buf: PackedFloat32Array = _new_buffer(dur)
-	var rng: RandomNumberGenerator = _noise_rng()
+	if rng == null:
+		rng = _noise_rng()
 	var n: int = buf.size()
 	for i in n:
 		buf[i] = rng.randf_range(-1.0, 1.0)
@@ -495,143 +497,14 @@ static func sad_soft() -> AudioStreamWAV:
 # API publik: bed musik bossa nova lo-fi (GDD 4.1)
 # ---------------------------------------------------------------------------
 
-## Satu nada Rhodes: tumpukan sinus yang sedikit detune dengan serangan empuk.
-## bass = true memakai peluruhan lebih lambat dan tanpa partial "tine".
-static func _rhodes_note(freq: float, dur: float, amp: float, bass: bool) -> PackedFloat32Array:
-	var out: PackedFloat32Array = _new_buffer(dur)
-	var n: int = out.size()
-	if n <= 0 or amp <= 0.0:
-		return out
-	var tbl: PackedFloat32Array = _sine_table()
-	var inv: float = 1.0 / float(SAMPLE_RATE)
-	var attack: float = 0.045 if bass else 0.060
-	var decay_rate: float = 1.30 if bass else 1.90
-	var tine_amp: float = 0.0 if bass else 0.20
-	var phase_a: float = 0.0
-	var phase_b: float = 0.0
-	var phase_c: float = 0.0
-	var step_a: float = freq * inv
-	var step_b: float = freq * 1.0032 * inv
-	var step_c: float = freq * 2.0 * inv
-	var env: float = 1.0
-	var env_mul: float = exp(-decay_rate * inv)
-	var tine: float = 1.0
-	var tine_mul: float = exp(-5.2 * inv)
-	var fade_len: float = 0.09
-	var fade_start: float = maxf(0.0, dur - fade_len)
-	for i in n:
-		var t: float = float(i) * inv
-		var a: float = env * amp
-		if t < attack:
-			a *= t / attack
-		if t > fade_start:
-			a *= maxf(0.0, 1.0 - (t - fade_start) / fade_len)
-		var v: float = tbl[int(phase_a * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		v += 0.62 * tbl[int(phase_b * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		if tine_amp > 0.0:
-			v += tine_amp * tine * tbl[int(phase_c * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		out[i] = v * a
-		phase_a += step_a
-		phase_b += step_b
-		phase_c += step_c
-		env *= env_mul
-		tine *= tine_mul
-	return out
-
-
-## Satu petikan gitar nilon: serangan sangat singkat, peluruhan cepat, dan hanya
-## beberapa harmonik (1x, 2x, 3x) agar terdengar lembut dan berkarakter kayu.
-static func _nylon_note(freq: float, dur: float, amp: float) -> PackedFloat32Array:
-	var out: PackedFloat32Array = _new_buffer(dur)
-	var n: int = out.size()
-	if n <= 0 or amp <= 0.0:
-		return out
-	var tbl: PackedFloat32Array = _sine_table()
-	var inv: float = 1.0 / float(SAMPLE_RATE)
-	var attack: float = 0.004
-	var phase_a: float = 0.0
-	var phase_b: float = 0.0
-	var phase_c: float = 0.0
-	var step_a: float = freq * inv
-	var step_b: float = freq * 2.0 * inv
-	var step_c: float = freq * 3.0 * inv
-	var env_a: float = 1.0
-	var env_b: float = 1.0
-	var env_c: float = 1.0
-	var mul_a: float = exp(-4.6 * inv)
-	var mul_b: float = exp(-7.4 * inv)
-	var mul_c: float = exp(-10.5 * inv)
-	var fade_len: float = 0.06
-	var fade_start: float = maxf(0.0, dur - fade_len)
-	for i in n:
-		var t: float = float(i) * inv
-		var g: float = amp
-		if t < attack:
-			g *= t / attack
-		if t > fade_start:
-			g *= maxf(0.0, 1.0 - (t - fade_start) / fade_len)
-		var v: float = env_a * tbl[int(phase_a * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		v += 0.40 * env_b * tbl[int(phase_b * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		v += 0.18 * env_c * tbl[int(phase_c * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
-		out[i] = v * g
-		phase_a += step_a
-		phase_b += step_b
-		phase_c += step_c
-		env_a *= mul_a
-		env_b *= mul_b
-		env_c *= mul_c
-	return out
-
-
-## Bed musik bossa nova lo-fi yang siap diulang tanpa sambungan.
-##
-## Progresi ii-V-I-VI (2 ketuk per akor, total 8 ketuk) dimainkan oleh dua suara:
-## Rhodes (sinus bertumpuk sedikit detune) dan petikan gitar nilon. Ekor setiap
-## nada dibungkus kembali ke awal buffer sehingga loop terdengar mulus.
-##
-## Bed terpanjang ("rain", 64 BPM) hanya 7.5 detik, jadi bundel web tetap kecil.
-## AudioBus membangkitkannya secara lazy pada start_music() pertama, bukan di
-## _ready(), supaya waktu mulai game tidak tertahan.
+## Bed musik yang siap diulang tanpa sambungan. Resep dan renderingnya ada di
+## MusicBuild, yang juga bisa membangunnya sedikit demi sedikit di sela frame
+## (AudioManager, layar loading); jalur ini menyelesaikannya sekaligus.
 static func music_bed(mood: String) -> AudioStreamWAV:
 	var key: String = mood if MUSIC_MOODS.has(mood) else "cozy"
-	var cfg: Dictionary = MUSIC_MOODS[key]
-	var beat: float = 60.0 / float(cfg["bpm"])
-	var chord_beats: float = 2.0
-	var total_sec: float = chord_beats * float(PROGRESSION.size()) * beat
-	var buf: PackedFloat32Array = _new_buffer(total_sec)
-	var root_hz: float = MUSIC_ROOT_HZ * pow(2.0, float(cfg["root"]) / 12.0)
-	var rhodes_amp: float = float(cfg["rhodes"])
-	var guitar_amp: float = float(cfg["guitar"])
-	var pluck: Array = cfg["pluck"]
-	var hold: float = chord_beats * beat + beat * 1.1
-
-	for ci in PROGRESSION.size():
-		var chord: Dictionary = PROGRESSION[ci]
-		var ivals: Array = chord["ivals"]
-		var chord_root: float = root_hz * pow(2.0, float(chord["deg"]) / 12.0)
-		var t0: float = float(ci) * chord_beats * beat
-
-		# Rhodes: akar di bass ditambah tiga nada akor satu oktaf di atasnya.
-		# Onset tiap suara digeser sedikit agar terdengar seperti jari manusia.
-		buf = _add_wrapped(buf, _rhodes_note(chord_root, hold, rhodes_amp * 0.85, true), t0)
-		for vi in range(1, ivals.size()):
-			var f: float = chord_root * 2.0 * pow(2.0, float(ivals[vi]) / 12.0)
-			buf = _add_wrapped(buf, _rhodes_note(f, hold, rhodes_amp * 0.42, false),
-					t0 + 0.012 * float(vi))
-
-		# Gitar nilon: pola petikan sinkopasi khas bossa nova.
-		for pi in pluck.size():
-			var ival: int = int(ivals[1 + (pi % 3)])
-			var gf: float = chord_root * 2.0 * pow(2.0, float(ival) / 12.0)
-			if pi % 2 == 1:
-				gf *= 2.0
-			buf = _add_wrapped(buf, _nylon_note(gf, beat * 1.15, guitar_amp * 0.50),
-					t0 + float(pluck[pi]) * beat)
-
-	# Lowpass lembut memberi karakter lo-fi kaset era 2000-an (GDD 4.1).
-	buf = _lowpass(buf, float(cfg["tone"]))
-	buf = _normalize(buf, 0.58)
-	return _to_stream(buf, true)
+	var b := MusicBuild.new()
+	b.setup_bed(key)
+	return b.finish_now()
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +533,10 @@ static func has_recipe(generator_id: String) -> bool:
 ## hasilnya identik berapa pun urutan pembangkitannya (reproducible provenance).
 static func build(generator_id: String) -> AudioStreamWAV:
 	_noise_rng().seed = NOISE_SEED + generator_id.hash()
+	# Musik (bed & lapisan busy) dirakit MusicBuild; lihat music_build.gd.
+	var music: MusicBuild = MusicBuild.for_generator(generator_id)
+	if music != null:
+		return music.finish_now()
 	match generator_id:
 		"tap_soft":
 			return wooden_tap()
@@ -733,26 +610,12 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _flourish()
 		"upgrade_sting":
 			return _upgrade_sting()
-		"bailout_cue":
-			return music_bed("summary")
 		"rain_loop":
 			return _rain_loop()
 		"sunny_ambience":
 			return _sunny_ambience()
 		"room_tone":
 			return _room_tone()
-		"music_menu":
-			return music_bed("menu")
-		"music_morning":
-			return music_bed("morning")
-		"music_day":
-			return music_bed("cozy")
-		"music_busy_layer":
-			return _busy_layer()
-		"music_rain":
-			return music_bed("rain")
-		"music_after_hours":
-			return music_bed("summary")
 	# Resep tak dikenal: bunyi kosong pendek, tidak pernah null (GDD 132).
 	return _to_stream(_new_buffer(0.05), false)
 
@@ -1074,28 +937,3 @@ static func _room_tone() -> AudioStreamWAV:
 				{"attack": 0.0005, "decay": 0.005, "sustain": 0.0, "release": 0.003}, 1800.0, 6000.0)
 		buf = _add_wrapped(buf, tick, float(k))
 	return _to_stream(_normalize(buf, 0.3), true)
-
-
-## Lapisan "busy" di atas music_day: tempo dan panjang loop SAMA dengan mood
-## "cozy" supaya keduanya tetap sejajar ketuk (GDD 33.2: tanpa menaikkan tempo).
-static func _busy_layer() -> AudioStreamWAV:
-	var cfg: Dictionary = MUSIC_MOODS["cozy"]
-	var beat: float = 60.0 / float(cfg["bpm"])
-	var total_sec: float = 2.0 * float(PROGRESSION.size()) * beat
-	var buf: PackedFloat32Array = _new_buffer(total_sec)
-	var root_hz: float = MUSIC_ROOT_HZ * pow(2.0, float(cfg["root"]) / 12.0)
-	for ci in PROGRESSION.size():
-		var chord: Dictionary = PROGRESSION[ci]
-		var ivals: Array = chord["ivals"]
-		var chord_root: float = root_hz * pow(2.0, float(chord["deg"]) / 12.0)
-		var t0: float = float(ci) * 2.0 * beat
-		for step in 4:
-			var ival: int = int(ivals[(step + 1) % ivals.size()])
-			var gf: float = chord_root * 4.0 * pow(2.0, float(ival) / 12.0)
-			buf = _add_wrapped(buf, _nylon_note(gf, beat * 0.6, 0.35), t0 + float(step) * beat * 0.5 + beat * 0.25)
-		for h in 4:
-			var shaker: PackedFloat32Array = _noise_buffer(0.05, 0.25,
-					{"attack": 0.005, "decay": 0.02, "sustain": 0.2, "release": 0.02}, 4000.0, 9000.0)
-			buf = _add_wrapped(buf, shaker, t0 + float(h) * beat * 0.5)
-	buf = _lowpass(buf, float(cfg["tone"]))
-	return _to_stream(_normalize(buf, 0.45), true)

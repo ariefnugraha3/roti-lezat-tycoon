@@ -11,8 +11,9 @@ and the tests that verify it (GDD 121 item 16).
 - **Not verified**: needs target hardware, an actual export, or a manual check that
   has not been done yet.
 - **Open**: the GDD leaves a question that needs a maintainer decision.
+- **Missing**: the GDD asks for it, but the code does not do it yet.
 
-Last full run (2026-09-29): 69 non-long tests passed, 0 failed (`--skip-long`). Soak results are
+Last full run (2026-09-30): 77 non-long tests passed, 0 failed (`--skip-long`). Soak results are
 listed under GDD 94.
 
 ## Core loop and time
@@ -24,6 +25,7 @@ listed under GDD 94.
 | 71.1, 81.8 | Smart Speed Safety drops to 1× on oven ready | `time_manager.gd` `smart_slowdown`, `production_manager.gd` | ACC_81_SPEED | Tested |
 | 102 | Deterministic tick priority | `simulation_root.gd` `step` | TEST_TIME_002, TEST_SAVE_001 (golden determinism) | Tested |
 | 102, 116 | Text IDs (customers, staff, recipes, weighted-pick keys) iterate in alphabetical order through `core/ids.gd`, because `Array.sort()` orders StringName by internal address and would differ between sessions | `core/ids.gd`, `rng_manager.gd`, `customer_manager.gd`, `staff_manager.gd`, `rotifood_manager.gd` | ACC_116_ID_ORDER | Tested |
+| 15.4 | Skip to Open during preparation: confirm, then the normal ticks run fast (a time budget per frame) behind an overlay until 08:00, ending in exactly the state waiting would reach; stops early when an oven holds a tray the player must take out; hidden outside preparation and during the Day 1 storage lesson (maintainer decision 2026-09-30) | `simulation_root.gd` `skip_to_open_block`/`skip_to_open_step`, `production_manager.gd` `oven_needs_player`, `scenes/game_root.gd`, `ui/components/skip_overlay.gd`, `ui/hud/hud.gd` | ACC_15_SKIP_TO_OPEN (same fingerprint as waiting, oven stop, phase and tutorial rules), TEST_UI_SKIP_OPEN (button, confirm, overlay, control handed back) | Tested |
 | 104 | 18:00 shutdown matrix | `simulation_root.gd` `close_day`, manager `shutdown()` | TEST_MARKET_001 (late order), TEST_FRESHNESS_001, LONGRUN day checks | Tested |
 | 3.0, 49 | No game over; Pak Lurah bailout, Solo Mode | `gameplay/meta/bailout_manager.gd`, `ui/screens/bailout_screen.gd` | LONGRUN (bailout count) | Implemented |
 
@@ -52,9 +54,9 @@ listed under GDD 94.
 | 84.2–84.3 | Target display, revalidation, deterministic substitution score | `customers/customer_manager.gd` | TEST_CUSTOMER_001 | Tested |
 | 84.1 | Quantity distributions | `customer_manager.gd` `_pick_quantity` | TEST_CUSTOMER_002 | Tested |
 | 58 | Patience values, drain and modifiers | `customer.gd`, `customer_manager.gd` | ACC_55_PATIENCE | Tested |
-| 84.4 | Estimated-wait lane choice, tie-breaks, no lane hopping | `queue_manager.gd` | TEST_CASHIER_001 | Tested |
+| 84.4 | Estimated-wait lane choice, tie-breaks, no lane hopping; with every checkout at 3 s the estimate depends only on the queue length and the walk | `queue_manager.gd` | TEST_CASHIER_001 | Tested |
 | 103.1 | Cashier transaction order | `customers/cashier_manager.gd` | TEST_ECONOMY_001 (ledger), smoke | Tested |
-| 2, 21.4–21.6 | Every transaction lasts at least 3 s and ends with a 3 s packing phase, with coins only after packing. The customer holds loose bread before and leaves with the bag after. The packing choreography: the bag snaps open, each bread hops from beside the bag into it, the ribbon ties with a sparkle, the bag is offered while the customer reaches out, then the cashier waits for payment. Beats follow `pack_phases`, cashier hands stay in sync, and `cashier_pack` plays once | `cashier_manager.gd` `packing_progress`, `world/pack_bag_rig.gd`, `world/world_view.gd` `_update_packing`, `world/actor_view.gd`, `procedural/animation/anim_system.gd` `pack`/`receive`/`pack_phases` | ACC_21_PACKING, ACC_21_PACK_CHOREOGRAPHY, TEST_CASHIER_001 | Tested (timing, order and beats); the look is checked with `tools/world_snapshot.tscn` (`pack_sequence.png`) |
+| 2, 21.4–21.6 | Every transaction, by the player or any cashier tier and for every customer type, lasts exactly 3 s and is packing from its first moment (maintainer decision 2026-09-30; before, packing was only the last 3 s of a 10.5 s manual checkout), with coins only after packing. The customer holds loose bread before and leaves with the bag after. The packing choreography: the bag snaps open, each bread hops from beside the bag into it, the ribbon ties with a sparkle, the bag is offered while the customer reaches out, then the cashier waits for payment. Beats follow `pack_phases`, cashier hands stay in sync, and `cashier_pack` plays once | `cashier_manager.gd` `packing_progress`, `world/pack_bag_rig.gd`, `world/world_view.gd` `_update_packing`, `world/actor_view.gd`, `procedural/animation/anim_system.gd` `pack`/`receive`/`pack_phases` | ACC_21_PACKING, ACC_21_PACK_CHOREOGRAPHY, TEST_CASHIER_001 | Tested (timing, order and beats); the look is checked with `tools/world_snapshot.tscn` (`pack_sequence.png`) |
 | 22, 103.2 | RotiFood without reservation, atomic pack, single commit | `delivery/rotifood_manager.gd` | TEST_ROTIFOOD_001, TEST_SAVE_002 | Tested |
 | 22.9 | RotiFood picks menu recipes weighted by price acceptance (`rotifood.price_sensitivity`), so overpriced bread is rarely ordered (maintainer decision 2026-09-29) | `delivery/rotifood_manager.gd` `menu_weight` | ACC_22_ROTIFOOD_WEIGHTS | Tested |
 | 55.3 | Dedicated RotiFood queue at Tier 3+ | `queue_manager.gd` | ACC_55_OJOL_QUEUE | Tested |
@@ -72,6 +74,7 @@ listed under GDD 94.
 | 5.1.2 | The Market sells equipment only up to the store tier (buy and Replace); locked cards say which store tier they need; owned equipment is unaffected (maintainer decision 2026-09-29) | `production/equipment_manager.gd` `tier_allowed`, `ui/screens/market_screen.gd` | ACC_5_TIER_GATE | Tested |
 | 5.2, 24A, 55.5–55.9, 70 | Daytime courier +3 h, FIFO staging, capacity incl. in-transit, after-hours instant | `supply/supply_order_manager.gd` | TEST_MARKET_001/002, ACC_55_COURIERS, ACC_55_CAPACITY | Tested |
 | 3.1–3.5, 87 | Hiring after hours, caps per tier, wage liability fixed at 05:00 | `staff/staff_manager.gd` | TEST_STAFF_001 | Tested |
+| 3.1, 20 | Cashier tiers no longer differ in speed (every checkout 3 s). Tier 3 keeps its calmer queue and Tier 5 its tips; Tier 2 and Tier 4 have no advantage over Tier 1, and the Indecisive Shopper no longer slows the cashier. See open decision 5 | `data/catalog/staff.json`, `customers.json` | none | Open |
 | 23 | Baker AI priorities, auto-retrieve | `staff_manager.gd`, `production_manager.gd` | LONGRUN (managed bot hires bakers) | Implemented |
 | 23.3 | Bakers only start a batch whose mixing and baking (their speed, the free mixer, the slowest usable oven) finish by `staff_ai.baker_finish_by_seconds`, trying smaller batches first, so the kitchen is empty at closing and a location upgrade is not blocked (maintainer decision 2026-09-29) | `staff_manager.gd` `finishes_before_cutoff`, `_plan_new_job` | ACC_23_BAKER_CUTOFF | Tested |
 | 18.8, 87.2 | Auto-retrieve protects a tray only for a baker still on shift; claims drop at 18:00 and the same baker reclaims the tray the next day; a fired or benched baker's protected trays revert to a failed roll and their unfinished jobs pass to the player; the 18:00 or leave-of-duty handoff parks trays that no shelf takes, and dough with no free mixer, on the Holding Table. Before this, a tray protected for a fired baker locked its oven and every location upgrade for good | `production_manager.gd` `_on_bake_complete`, `staff_manager.gd` `_drop_carried`/`_hand_over_jobs`/`_choose_task` | ACC_18_RETRIEVE_ABSENT_BAKER, ACC_18_RETRIEVE_NEXT_DAY, ACC_87_STAFF_HANDOFF | Tested |
@@ -88,6 +91,8 @@ listed under GDD 94.
 | 57, appendix | Tier layouts and dimensions | `data/catalog/locations.json`, `world/floor_grid.gd` | ACC_SPATIAL, ACC_LAYOUT_SOLVER | Tested |
 | 56.1, 81.1, 81.4 | Placement validation, protected paths, access tile | `world/world_manager.gd` | ACC_81_PLACEMENT, ACC_SPATIAL | Tested |
 | 72, 81.14 | Decoration Mode pauses; IN_USE cannot move | `ui/screens/decoration_screen.gd`, `equipment_manager.gd` | ACC_81_IN_USE, UI smoke | Tested |
+| 72.2 | Decoration Mode without a side panel: a top bar (hint, floors, Done), bottom tabs that open an item tray, and an action toolbar (Rotate, Put Away, Cancel) floating right above the selected furniture with a tail pointing at it; Rotate turns placed furniture in place; tapping another piece switches, tapping the selected one or Back finishes; the selected piece is lifted and station markers hide (maintainer decision 2026-09-30) | `ui/screens/decoration_screen.gd`, `world/world_view.gd` `set_lift`/`top_of_iid`, `world/camera_rig.gd` `focus_free_pan` | TEST_UI_SMOKE_001 (toolbar above the selection, fixture without Put Away, switch and finish taps, rotate in place, Back), ACC_7_MARKER_REBUILD | Tested; the look was checked from 1280×720 screenshots |
+| 72.1 | Placed decorations (wall, floor_prop, floor_overlay, counter_prop) are bought, stored, placed and validated, but not drawn in the world; only skins (storefront, sign, RotiFood counter, oven decal) and outfits show | `gameplay/world/decoration_manager.gd`, `procedural/meshes/room_factory.gd` | none | Missing (found 2026-09-30) |
 | 17.4 | Red preview with reason; keep-clear tiles striped in Decoration Mode and a "would block the walkway" warning on rejected placement | `world_manager.gd` `keep_clear_cells`, `world_view.gd` `show_tile_overlay`, `decoration_screen.gd` | ACC_DECOR_KEEP_CLEAR (marks match validation on every tile of every tier), UI smoke | Tested |
 | 68, 30.3 | Instant portal, off-floor simulation, customers never upstairs | `world_manager.gd` `find_route`, `actors/sim_actor.gd` | TEST_MULTIFLOOR_001 | Tested |
 | 30 | Camera: floor framing, follows player on large floors, 0.20 s crossfade, off-floor alerts | `world/camera_rig.gd`, `world/world_view.gd`, `meta/alert_manager.gd` | TEST_CAMERA_001 | Tested |
@@ -110,6 +115,7 @@ listed under GDD 94.
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
 | 28 | Screen inventory | `ui/screen_registry.gd`, `ui/screens/*` | TEST_UI_SMOKE_001 | Tested (opens without errors) |
+| 89.5, 114 | Staged loading for New Game and Load/Continue: English stage text and a forward-only bar (sim, save, today's music and ambience, world, HUD, then world frames until two in a row are stable); each heavy stage gets a frame so the bar is drawn; the clock does not move until the overlay fades; a failed save read closes the overlay and shows the error screen (maintainer decision 2026-09-30) | `scenes/game_root.gd` `_begin_loading`/`_loading_stage`/`_warm_audio`/`_settle_frames`, `ui/components/loading_screen.gd` | TEST_UI_LOADING_STAGES | Tested; the look was checked from 1280×720 screenshots |
 | 43, 127 | English text from the catalog, key completeness | `core/tx.gd`, `data/catalog/strings_en.json`, `tools/string_lint.gd` | TEST_UI_001 | Tested |
 | 7, 29, 100 | One tap/click per action, command layer | `core/command_layer.gd`, `core/input_actions.gd` | UI smoke (world tap) | Implemented |
 | 12.4, 110 | 48 px targets, safe area, resolution matrix | `procedural/ui/ui_factory.gd`, `ui/hud/hud.gd` | 1280×720 manual check | Not verified (other resolutions and devices) |
@@ -117,6 +123,7 @@ listed under GDD 94.
 | 44, 75 | Settings and accessibility | `autoload/settings_manager.gd`, `ui/screens/settings_screen.gd` | UI smoke (screen opens) | Implemented |
 | 27, 88 | Tutorial Day 1–3 | `gameplay/meta/tutorial_manager.gd`, `ui/screens/tutorial_modal.gd` | UI smoke | Implemented |
 | 131 | Notification orchestration (visible toast cap, coalescing) | `ui/hud/hud.gd` | none | Implemented |
+| 7, 18.6 | Station "!" markers and progress bars are rebuilt with the furniture. They hang on the floor node, and until 2026-09-30 a layout rebuild (an achievement skin mid-day, Decoration Mode, a purchase) left the old ones behind, so a progress bar stayed frozen over the station | `world/world_view.gd` `rebuild_furniture`/`_update_markers` | ACC_7_MARKER_REBUILD | Tested |
 | 46 | Daily Summary snapshot | `gameplay/meta/day_report_manager.gd`, `ui/screens/daily_summary_screen.gd` | UI smoke, TEST_ECONOMY_001 | Implemented |
 
 ## Presentation, assets, audio
@@ -125,10 +132,11 @@ listed under GDD 94.
 |---|---|---|---|---|
 | 4, 12.2, 111 | 100% procedural assets, no external files | `procedural/`, `audio/`, `tools/generate_icon.gd` | release_validator (asset scan) | Tested |
 | 31, 130.2, 12.2 | Character rig (31.1 hierarchy, arms ride on `Body`), golden proportions (0.90 m, head 42%, torso 30%, legs 28%, eye line ~45%), hair and hat brims never cover eyes or brows, five expressions, carry pose, 500–2000 triangles and at most 14 draw calls per character | `procedural/meshes/character_factory.gd`, `procedural/meshes/mesh_builder.gd`, `procedural/animation/anim_system.gd` `set_carry_pose` | ACC_31_CHARACTER_RIG, ACC_130_PROPORTIONS, ACC_31_HAIR_CLEAR, ACC_31_DETERMINISM, ACC_31_EXPRESSIONS; `tools/character_lineup.tscn` screenshots | Tested (geometry and rig); the look itself is reviewed from lineup screenshots |
-| 31.6 | Idle player/staff: face wipe with a cloth after 15 real seconds, dozing with floating "Z" after 25; real-time, paused with the game, reset by any activity, never for customers | `world/actor_view.gd`, `anim_system.gd` `wipe_face`/`doze`, `character_factory.gd` `wipe_cloth`/`sleep_z` | ACC_31_IDLE_GESTURES | Tested |
-| 31.7, 127.12 | Player thought bubbles at 10/20/30/40 real seconds while the open shop has no customers and no active RotiFood order; hidden at once when someone arrives; the player only falls asleep 5 s after the last thought (45 s of quiet) and never under a bubble | `world/world_view.gd` `_update_thoughts`, `ui/components/thought_bubble.gd` | ACC_31_THOUGHTS, ACC_31_DOZE_AFTER_THOUGHTS | Tested |
+| 31.6 | Idle player/staff: a face wipe with a cloth every 15 real seconds until they doze with floating "Z" letters (staff at 25 s, the player at 85 s in any phase); real-time, paused with the game, reset by any activity, never for customers; while the player's sleep is held back the wipes keep coming (maintainer decision 2026-09-30) | `world/actor_view.gd`, `anim_system.gd` `wipe_face`/`doze`, `character_factory.gd` `wipe_cloth`/`sleep_z`, `data_registry.gd` `player_doze_after_seconds` | ACC_31_IDLE_GESTURES | Tested |
+| 31.7, 127.12 | Player thought bubbles every 20 real seconds (20/40/60/80) while the open shop has no customers and no active RotiFood order; hidden at once when someone arrives; the player falls asleep exactly when the fourth bubble ends (85 s of quiet) and never under a bubble | `world/world_view.gd` `_update_thoughts`, `ui/components/thought_bubble.gd` | ACC_31_THOUGHTS, ACC_31_DOZE_AFTER_THOUGHTS | Tested |
 | 32, 130 | Furniture visuals, rest of the golden visual spec | `procedural/meshes/*` | Manual screenshots at Tier 1/3/5 | Not verified against every GDD 130 detail |
 | 33, 76, 93 | Generated audio events, mixing priorities | `audio/audio_generator.gd`, `autoload/audio_manager.gd` | none | Implemented (not listened to by a person) |
+| 33.6 | Music beds are assembled a slice per frame (identical to building at once; within a sample of the old generator); a music change keeps the old bed playing until the new one is ready; beds are prewarmed ahead (menu on Tap to Start, morning in the Main Menu, the day's beds after loading) (maintainer decision 2026-09-30). Before, a bed built in one go froze the screen after Tap to Start, after loading and at 08:00/18:00 | `audio/music_build.gd`, `autoload/audio_manager.gd` `request_stream`/`step_jobs`/`prewarm_music`, `scenes/game_root.gd` | ACC_33_MUSIC_BUILD, ACC_33_MUSIC_NO_STALL; in the Web build (headless Chrome) the longest frame after Tap to Start fell from 1,630 ms to 109 ms | Tested |
 | 33, 35.2 | Music/SFX/UI/Ambient buses sit after Master in order and send to it. They are created with `set_bus_count`, because on Web (Sample playback, Godot 4.7.2) `AudioServer.add_bus()` inserts the JavaScript bus in front of Master; `set_bus_send` then loops Master back into the other buses, and Web Audio silences the loop, so the whole game was mute in browsers (found 2026-09-29) | `autoload/audio_manager.gd` `_ensure_buses` | ACC_33_AUDIO_BUSES (order, sends, no `add_bus` calls); a headless Chrome check confirmed menu music reaches the audio output after "Tap to Start" | Tested |
 | 91, 115 | Procedural caches, pooling, release on exit | `procedural/procedural_caches.gd`, `world/world_view.gd` | release_validator (no leaks at exit) | Tested |
 
@@ -137,7 +145,8 @@ listed under GDD 94.
 | GDD | Rule | Code | Tests | Status |
 |---|---|---|---|---|
 | 96, 128.1 | Godot 4.7-stable, GDScript, Compatibility renderer, no addons | `project.godot` | release_validator | Tested |
-| 108, 128 | Web, Android APK and AAB presets, no secrets, landscape, package ID | `export_presets.cfg` | release_validator (preset checks) | Tested (presets). Web export completes (2026-09-29, private playtest build approved by the maintainer; about 40 MB, 10.5 MB zipped); **not yet verified in a real browser or on phones**. GitHub Pages deployment: `.github/workflows/deploy-web.yml` (manual trigger), **not yet run**. Android: **Not verified** (no Android SDK on this machine; still on hold) |
+| 108, 128 | Web, Android APK and AAB presets, no secrets, landscape, package ID | `export_presets.cfg` | release_validator (preset checks) | Tested (presets). Web export completes (2026-09-29, private playtest build approved by the maintainer; about 40 MB, 10.5 MB zipped); verified in desktop Chrome (headless) and by the maintainer on an Android phone browser, where the portrait view led to the 2026-09-30 phone rules (12.5). GitHub Pages deployment: `.github/workflows/deploy-web.yml` (manual trigger), run by the maintainer since 2026-09-29. Android: **Not verified** (no Android SDK on this machine; still on hold) |
+| 12.5, 128.3 | Phone browsers: a "Rotate your phone" screen covers the game and pauses it while the phone is upright; Tap to Start (on finger lift) enters fullscreen and locks landscape where the browser allows; Settings offers "Play in full screen"; desktop browsers and the Android app are unchanged (maintainer decision 2026-09-30) | `core/web_platform.gd`, `ui/components/orientation_guard.gd`, `scenes/game_root.gd` `_on_splash_input`, `ui/screens/settings_screen.gd`, `autoload/settings_manager.gd` | ACC_12_ORIENTATION_GUARD, TEST_UI_SPLASH_TAP; headless Chrome with Android emulation showed the rotate screen upright, the splash sideways, and a fullscreen canvas in `landscape-primary` after the tap | Tested; not yet tried on a real phone or on iPhone Safari |
 | 12.7, 112 | Fully offline, no network | whole codebase | release_validator (network scan) | Tested |
 | 109, 37 | Performance budgets on entry-level Android and web | — | none | Not verified (needs devices) |
 | 129 | Runtime hard limits | `balance.json` `limits` read by `audio_manager.gd` (SFX and music voices), `hud.gd` (toasts, coalescing), `world_view.gd` (world alerts, pooled bodies), `fx.gd` (transient effects), `decoration_manager.gd`, analytics; visible actors via `queue.max_visible_customer_actors`; ledger hot entries | ACC_129_LIMITS (effect cap), ACC_129_FX_TEARDOWN (effects freed before their auto-free timer) | Implemented; effect limits tested |
@@ -188,4 +197,17 @@ listed under GDD 94.
    spend only with a cushion) finished in 20–26 days (mean 23.3 over six seeds), and the
    optimal bot in 18–19 days. At 2× plus about a minute of menus per day, with a human
    assumed about 15% slower than the bot, that is about 6 hours. The maintainer's own
-   playtest is the real check.
+   playtest is the real check. Re-run on 2026-09-30 after every checkout became 3 s:
+   the typical bot finished in 20–25 days (mean 22.8 over the same six seeds) and the
+   optimal bot in 18 days, so the target still holds.
+5. **Cashier tiers after the 3 s checkout (2026-09-30).** The maintainer made every
+   checkout 3 s for the player and every cashier tier (GDD 21.4). Cashier speed was the
+   main difference between tiers, so now Tier 2 (350 KR/day) and Tier 4 (1,800 KR/day)
+   have no advantage over Tier 1 (150 KR/day): Tier 4's old perk (serving the
+   Indecisive Shopper twice as fast) no longer does anything. Tier 3 keeps its calmer
+   queue (×0.85 patience drain) and Tier 5 its 5% tip chance. The Indecisive Shopper
+   also lost the trait that set him apart. Waiting for the maintainer to decide whether
+   the tiers need new perks, lower wages, or should stay as they are.
+6. **Placed decorations are not drawn (found 2026-09-30).** Wall, floor, rug and counter
+   decorations (GDD 72.1) can be bought and placed, and placement is validated, but no
+   mesh is built for them, so they are invisible in the shop. Skins and outfits do show.
