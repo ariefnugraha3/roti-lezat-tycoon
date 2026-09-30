@@ -76,27 +76,29 @@ func _show_splash() -> void:
 	_splash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_splash.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(_splash)
-	var bg := ColorRect.new()
-	bg.color = Palette.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_splash.add_child(bg)
+	ProceduralUIFactory.apply_theme(_splash)
+	_splash.add_child(ProceduralUIFactory.backdrop())
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_splash.add_child(center)
 	var box := VBoxContainer.new()
-	box.set_anchors_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 18)
-	_splash.add_child(box)
-	var t: Label = ProceduralUIFactory.title(Tx.t("game_title"), 46)
-	box.add_child(t)
-	var c := CenterContainer.new()
-	c.add_child(ProceduralUIFactory.icon("bread", 96, Palette.GOLDEN_CRUST))
-	box.add_child(c)
-	var tap: Label = ProceduralUIFactory.label(Tx.t("ui_tap_to_start"), 24, Palette.TEXT_MUTED)
-	tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(tap)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 30)
+	center.add_child(box)
+	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 124)
+	box.add_child(lockup)
+	ProceduralAnimationSystem.idle_wobble(lockup.get_meta("bread"))
+	# "Tap to Start" dalam pil krem berbibir yang berdenyut pelan.
+	var tap_row := CenterContainer.new()
+	tap_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(tap_row)
+	var tap: PanelContainer = ProceduralUIFactory.chip("play", Palette.HONEY, Tx.t("ui_tap_to_start"), 24, 30)
+	tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tap_row.add_child(tap)
 	var pulse := tap.create_tween().set_loops()
-	pulse.tween_property(tap, "modulate:a", 0.45, 0.9)
+	pulse.tween_property(tap, "modulate:a", 0.55, 0.9)
 	pulse.tween_property(tap, "modulate:a", 1.0, 0.9)
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
 	# Musik menu dirakit di latar selagi pemain membaca layar ini.

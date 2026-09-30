@@ -13,16 +13,14 @@ var _cap: Label = null
 
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_market"), Vector2(1180, 660))
-	var tabs: HBoxContainer = hbox(body, 8)
-	for i in 3:
-		var idx: int = i
-		btn(tabs, Tx.t(["ui_market_tab_ingredients", "ui_market_tab_equipment", "ui_market_tab_upgrade"][i]), "secondary", func() -> void:
+	_tab = int(params.get("tab", 0))
+	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_market_tab_ingredients"), Tx.t("ui_market_tab_equipment"),
+		Tx.t("ui_market_tab_upgrade")], _tab, func(idx: int) -> void:
 			_tab = idx
-			_render())
+			_render()))
 	_body = VBoxContainer.new()
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(_body)
-	_tab = int(params.get("tab", 0))
 	_render()
 
 

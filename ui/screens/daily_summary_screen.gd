@@ -38,7 +38,7 @@ func build() -> void:
 	mood_box.add_theme_stylebox_override("panel", ProceduralUIFactory.panel(MOOD_COLORS.get(mood, Palette.MOOD_BG_NEUTRAL), 40, false))
 	mood_box.custom_minimum_size = Vector2(84, 84)
 	var mc := CenterContainer.new()
-	mc.add_child(ProceduralUIFactory.icon(str(MOOD_ICONS.get(mood, "bubble")), 60, Palette.UI_WOOD))
+	mc.add_child(ProceduralUIFactory.icon(str(MOOD_ICONS.get(mood, "bubble")), 60, Palette.GOLD_STAR if mood in ["mood_great", "mood_good"] else Palette.CUSTARD))
 	mood_box.add_child(mc)
 	head.add_child(mood_box)
 	var hv := VBoxContainer.new()
@@ -100,9 +100,15 @@ func build() -> void:
 	var note := PanelContainer.new()
 	note.add_theme_stylebox_override("panel", ProceduralUIFactory.panel(Palette.BUTTER_YELLOW, 14, true))
 	sc.add_child(note)
+	var nrow := HBoxContainer.new()
+	nrow.add_theme_constant_override("separation", 12)
+	note.add_child(nrow)
+	nrow.add_child(ProceduralUIFactory.badge("note", Palette.FLOUR_WHITE, Palette.UI_WOOD, 44))
 	var nv := VBoxContainer.new()
-	note.add_child(nv)
-	lbl(nv, Tx.t("npc_pak_lurah"), 16, Palette.UI_WOOD)
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(nv)
+	var who: Label = lbl(nv, Tx.t("npc_pak_lurah"), 17, Palette.UI_WOOD_DEEP)
+	who.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	lbl(nv, Tx.t(str(r.get("tip_from_pak_lurah", "tip_default"))), 16, Palette.TEXT, true)
 	if bool(r.get("wage_warning", false)):
 		lbl(sc, Tx.t("ui_staff_wage_warning"), 15, Palette.DANGER, true)
@@ -131,12 +137,22 @@ func build() -> void:
 	EventBus.sfx.emit(&"cashier_pack", &"")
 
 
+## Satu baris nota: keterangan di kiri, jumlah tebal di kanan. Jumlah bertanda
+## "+" hijau matcha dan "-" merah stroberi (angka + tanda + warna, GDD 130.4).
 func _line(parent: Control, left: String, right: String, bold: bool = false) -> void:
 	var row: HBoxContainer = hbox(parent, 8)
-	var l: Label = lbl(row, left, 18 if bold else 16, Palette.UI_WOOD if bold else Palette.TEXT)
+	var l: Label = lbl(row, left, 18 if bold else 16, Palette.UI_WOOD_DEEP if bold else Palette.TEXT)
+	if bold:
+		l.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if right != "":
-		lbl(row, right, 18 if bold else 16, Palette.UI_WOOD if bold else Palette.TEXT)
+		var ink: Color = Palette.UI_WOOD_DEEP if bold else Palette.TEXT
+		if right.begins_with("+"):
+			ink = Palette.MATCHA_DEEP
+		elif right.begins_with("-") or right.begins_with("−"):
+			ink = Palette.STRAWBERRY_DEEP
+		var r: Label = lbl(row, right, 18 if bold else 16, ink)
+		r.add_theme_font_override("font", ProceduralUIFactory.display_font())
 
 
 func _continue() -> void:

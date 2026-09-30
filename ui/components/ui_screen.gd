@@ -64,10 +64,7 @@ func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_
 	var p: Control = ProceduralUIFactory.popup(title_text, sz)
 	add_child(p)
 	if closable:
-		var head: HBoxContainer = p.get_meta("head")
-		var x: Button = ProceduralUIFactory.icon_button("cross", Tx.t("ui_close"), "ghost")
-		x.pressed.connect(on_back)
-		head.add_child(x)
+		ProceduralUIFactory.add_popup_close(p, Tx.t("ui_close"), on_back)
 	return p.get_meta("body")
 
 

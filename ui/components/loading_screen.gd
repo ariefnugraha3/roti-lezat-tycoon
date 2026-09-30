@@ -31,11 +31,7 @@ func _init() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_root)
 	ProceduralUIFactory.apply_theme(_root)
-	var bg := ColorRect.new()
-	bg.color = Palette.BG
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(bg)
+	_root.add_child(ProceduralUIFactory.backdrop())
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -49,7 +45,7 @@ func _init() -> void:
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.custom_minimum_size = Vector2(0, 104)
 	v.add_child(art)
-	_icon = ProceduralUIFactory.icon("bread", 84, Palette.GOLDEN_CRUST)
+	_icon = ProceduralUIFactory.icon("bread", 96, Palette.GOLDEN_CRUST)
 	art.add_child(_icon)
 	_stage = ProceduralUIFactory.title("", 28)
 	v.add_child(_stage)
@@ -58,7 +54,7 @@ func _init() -> void:
 	_bar.show_percentage = false
 	_bar.min_value = 0.0
 	_bar.max_value = 1.0
-	_bar.custom_minimum_size = Vector2(BAR_WIDTH, 22)
+	_bar.custom_minimum_size = Vector2(BAR_WIDTH, 28)
 	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(_bar)
 
