@@ -8,6 +8,9 @@ var tier: int = 1
 var upgrade_cost_kr: float = 0.0
 ## category -> jumlah slot (mixer, oven, display, cashier).
 var slots: Dictionary = {}
+## Jenis penempatan dekorasi -> jumlah slot yang boleh dipakai (GDD 72.3):
+## wall, counter_prop, floor_prop, floor_overlay.
+var decor_slots: Dictionary = {}
 var staff_capacity_by_role: Dictionary = {}
 var queue_capacity_physical: int = 0
 var queue_capacity_rotifood: int = 0
@@ -31,6 +34,9 @@ static func from_dict(d: Dictionary) -> LocationDefinition:
 	var sl: Dictionary = d.get("slots", {})
 	for k: Variant in sl.keys():
 		l.slots[StringName(str(k))] = int(sl[k])
+	var ds: Dictionary = d.get("decor_slots", {})
+	for k3: Variant in ds.keys():
+		l.decor_slots[StringName(str(k3))] = int(ds[k3])
 	var sc: Dictionary = d.get("staff_capacity_by_role", {})
 	for k2: Variant in sc.keys():
 		l.staff_capacity_by_role[StringName(str(k2))] = int(sc[k2])
@@ -58,6 +64,11 @@ func floor_def(floor_id: StringName) -> FloorDefinition:
 
 func slot_count(category: StringName) -> int:
 	return int(slots.get(category, 0))
+
+
+## Slot dekorasi yang boleh dipakai untuk satu jenis penempatan (GDD 72.3).
+func decor_slot_count(placement_type: StringName) -> int:
+	return int(decor_slots.get(placement_type, 0))
 
 
 func staff_capacity(role: StringName) -> int:

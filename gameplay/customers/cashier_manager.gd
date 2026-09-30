@@ -189,14 +189,16 @@ func _complete(c: Customer, lane: QueueLane, by_staff: bool) -> void:
 		sim.pricing.note_sold_at(st3.recipe_id, p3)
 	sim.statistics.note_physical_sale(units, subtotal + tip)
 	sim.demand.note_units_delivered(units)
-	# 8. Reputasi (GDD 25.2).
+	# 8. Reputasi (GDD 25.2). Kasir Tier 4 melayani dengan ramah: kenaikan rating
+	# dari penjualannya dikali `sale_rating_multiplier` (GDD 3.1); penalti tidak.
 	var ts: float = sim.customers.tier_scale()
+	var gain: float = ts * (staff_def.special_value("sale_rating_multiplier", 1.0) if staff_def != null else 1.0)
 	if bad_quality:
 		sim.reputation.physical_event(&"bad_quality_sale", ts)
 	else:
-		sim.reputation.physical_event(&"successful_sale", ts)
+		sim.reputation.physical_event(&"successful_sale", gain)
 	if c.queue_wait <= c.patience_max * DataRegistry.balf("rating.fast_service_max_wait_ratio"):
-		sim.reputation.physical_event(&"fast_service", ts)
+		sim.reputation.physical_event(&"fast_service", gain)
 	if c.is_critic:
 		var vr: Dictionary = DataRegistry.vip_rules()
 		if c.queue_wait > c.patience_max * float(vr["failure_wait_ratio"]) or any_stale or min_bake < float(vr["failure_bake_quality"]):

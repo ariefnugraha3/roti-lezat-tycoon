@@ -52,6 +52,22 @@ func _render() -> void:
 		row.add_child(_staff_card(id))
 
 
+## Kemampuan khusus kasir (GDD 3.1) sebagai kalimat, angkanya dari data staf.
+static func perk_lines(def: StaffDefinition) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if not def.is_cashier():
+		return out
+	if def.special.has("queue_patience_drain_multiplier"):
+		var calm: int = int(round((1.0 - def.special_value("queue_patience_drain_multiplier", 1.0)) * 100.0))
+		out.append(Tx.t("staff_special_queue", {"percent": calm}))
+	if def.special.has("sale_rating_multiplier"):
+		var more: int = int(round((def.special_value("sale_rating_multiplier", 1.0) - 1.0) * 100.0))
+		out.append(Tx.t("staff_special_rating", {"percent": more}))
+	if def.special.has("physical_tip_chance"):
+		out.append(Tx.t("staff_special_tip", {"percent": int(round(def.special_value("physical_tip_chance", 0.0) * 100.0))}))
+	return out
+
+
 func _staff_card(id: StringName) -> Control:
 	var def: StaffDefinition = DataRegistry.staff(id)
 	var holder := VBoxContainer.new()
@@ -60,14 +76,8 @@ func _staff_card(id: StringName) -> Control:
 	holder.add_child(ProceduralUIFactory.polaroid(String(id)))
 	var bio: Label = lbl(holder, Tx.t(String(id)), 13, Palette.TEXT_MUTED, true)
 	bio.custom_minimum_size = Vector2(220, 0)
-	var sp: String = ""
-	if def.is_cashier():
-		if def.special.has("queue_patience_drain_multiplier"):
-			sp = "staff_special_queue"
-		elif def.special.has("physical_tip_chance"):
-			sp = "staff_special_tip"
-	if sp != "":
-		lbl(holder, Tx.t(sp), 13, Palette.GOLDEN_CRUST, true)
+	for line: String in perk_lines(def):
+		lbl(holder, line, 13, Palette.GOLDEN_CRUST, true)
 	if not sim.staff.is_employed(id):
 		var full: bool = sim.staff.employed_ids(def.role_id).size() >= sim.staff.capacity(def.role_id)
 		var hire: Button = btn(holder, Tx.t("ui_staff_hire"), "primary", func() -> void:

@@ -415,7 +415,7 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 		var d: EquipmentInstance = equipment.get_inst(int(iid))
 		if d != null and display.used(d.iid) > 0 and not d.placed:
 			return false
-	decoration.revalidate_after_migration()
+	decoration.enforce_rules()
 	player.place_at_start()
 	demand.pending.clear()
 	return world.layout_valid()
@@ -498,6 +498,8 @@ func load_from_save(d: Dictionary) -> void:
 			display.ensure_display(e.iid, e.tier())
 	decoration.restore(d.get("decorations", {}))
 	world.rebuild_occupancy()
+	# Dekorasi dari save lama yang melanggar aturan slot kembali ke inventaris (GDD 72.3).
+	decoration.enforce_rules()
 	_ensure_table()
 	production.restore(d.get("production_jobs", {}))
 	queue.restore(d.get("queues", {}))

@@ -24,6 +24,11 @@ const PACK_BAG_SIDE: float = 0.24
 ## Decoration Mode: perabot terpilih terangkat sedikit dan mengambang pelan (m).
 const LIFT_M: float = 0.06
 const LIFT_BOB_M: float = 0.015
+## Decoration Mode: jarak layar maksimum ketukan ke penanda slot (px).
+const PICK_SLOT_PX: float = 56.0
+## Ayunan bandul jam dinding dekorasi: kecepatan sudut (rad/s) dan simpangan (rad).
+const SWING_SPEED: float = 3.2
+const SWING_ANGLE: float = 0.2
 
 var sim: SimulationRoot = null
 var camera_rig: CameraRig = null
@@ -61,6 +66,17 @@ var _thought_bubble: ThoughtBubble = null
 var _quiet_real: float = 0.0
 ## Perabot yang sedang diangkat di Decoration Mode (-1 = tidak ada).
 var _lift_iid: int = -1
+## Dekorasi terpasang (GDD 72.1, 72.3): uid -> {node, floor, type, aabb, base}.
+var _decor: Dictionary = {}
+## Bandul jam dinding dekorasi yang diayun (GDD 12.3 animasi trigonometri).
+var _swing: Array[Node3D] = []
+## Bandul jam dinding bawaan ruangan (RoomFactory), diayun dengan cara yang sama.
+var _room_swing: Array[Node3D] = []
+## Dekorasi yang sedang diangkat di Decoration Mode (-1 = tidak ada).
+var _lift_uid: int = -1
+## Penanda slot dinding/meja Decoration Mode: [{index, node, aabb, pos}].
+var _slot_markers: Node3D = null
+var _slot_marker_list: Array[Dictionary] = []
 
 
 func setup(s: SimulationRoot) -> void:
@@ -80,6 +96,9 @@ func setup(s: SimulationRoot) -> void:
 	_tile_overlay = Node3D.new()
 	_tile_overlay.name = "TileOverlay"
 	add_child(_tile_overlay)
+	_slot_markers = Node3D.new()
+	_slot_markers.name = "SlotMarkers"
+	add_child(_slot_markers)
 	_thought_layer = CanvasLayer.new()
 	_thought_layer.name = "ThoughtLayer"
 	_thought_layer.layer = 3
@@ -106,10 +125,14 @@ func rebuild_all() -> void:
 	_pack_bags.clear()
 	_counter_aabbs.clear()
 	var skins: Dictionary = sim.decoration.equipped.duplicate()
+	_room_swing.clear()
 	for fd: FloorDefinition in sim.world.location.floors:
 		var node: Node3D = RoomFactory.build_floor(sim.world.location, fd, sim.bakery_name, skins)
 		add_child(node)
 		floors[fd.id] = node
+		var pend: Node3D = node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
+		if pend != null:
+			_room_swing.append(pend)
 	rebuild_furniture()
 	_apply_weather()
 	_apply_brightness()
@@ -144,6 +167,39 @@ func rebuild_furniture() -> void:
 			markers[e.iid] = m
 		_aabbs[e.iid] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
 	_update_counter_aabbs()
+	_rebuild_decor()
+
+
+## Model dekorasi terpasang (GDD 72.1, 72.3). Posisi dinding/meja dari
+## DecorSlots, lantai dari ubinnya, karpet dari jejaknya.
+func _rebuild_decor() -> void:
+	for d: Variant in _decor.values():
+		var old: Variant = (d as Dictionary)["node"]
+		if is_instance_valid(old):
+			(old as Node).queue_free()
+	_decor.clear()
+	_swing.clear()
+	var loc: LocationDefinition = sim.world.location
+	for o: Dictionary in sim.decoration.owned:
+		if not bool(o["placed"]):
+			continue
+		var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
+		if def == null or not def.is_placeable():
+			continue
+		var fid: StringName = StringName(str(o["floor_id"]))
+		var parent: Node3D = floors.get(fid)
+		var xf: Variant = DecorSlots.transform_of(loc, def, o)
+		if parent == null or xf == null:
+			continue
+		var node: Node3D = DecorFactory.build_cached(def.id)
+		node.name = "Decor_%d" % int(o["uid"])
+		parent.add_child(node)
+		node.transform = xf
+		var sw: Node3D = node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
+		if sw != null:
+			_swing.append(sw)
+		_decor[int(o["uid"])] = {"node": node, "floor": fid, "type": def.placement_type,
+			"aabb": node.transform * EquipmentFactory._mesh_bounds(node), "base": node.position}
 
 
 func _build_furniture(e: EquipmentInstance) -> Node3D:
@@ -245,6 +301,7 @@ func _process(delta: float) -> void:
 		_update_table()
 	_animate_stations(delta)
 	_animate_lift()
+	_animate_swing()
 
 
 func _v3(p: Vector2) -> Vector3:
@@ -490,7 +547,15 @@ func _build_pack_bag(lane: QueueLane) -> PackBagRig:
 	var cp: Vector2 = GridMath.cell_center(lane.cashier_point)
 	var to_customer: Vector2 = (sp - cp).normalized()
 	var along := Vector2(to_customer.y, -to_customer.x)
-	var pos: Vector2 = (sp + cp) * 0.5 + along * PACK_BAG_SIDE + to_customer * 0.04
+	# Mesin kasir ada di tengah MEJA; pada meja dua ubin (Tier 3-5) titik itu
+	# bergeser setengah ubin dari garis lane, dan kantong dulu menembus mesinnya.
+	var anchor: Vector2 = (sp + cp) * 0.5
+	var f: FloorDefinition = sim.world.location.floor_def(lane.floor_id)
+	if f != null:
+		var fr: Dictionary = DecorSlots.counter_frame(f, f.counter(lane.counter_id))
+		if not fr.is_empty():
+			anchor = fr["center"]
+	var pos: Vector2 = anchor + along * PACK_BAG_SIDE + to_customer * 0.04
 	rig.position = Vector3(pos.x, EquipmentFactory.COUNTER_HEIGHT, pos.y)
 	var profile: String = ""
 	var c: Customer = sim.customers.customer(lane.service_occupant)
@@ -704,6 +769,8 @@ func _on_camera_floor_changed(_floor_id: StringName) -> void:
 func _apply_floor_visibility() -> void:
 	for fid: Variant in floors.keys():
 		(floors[fid] as Node3D).visible = StringName(str(fid)) == camera_rig.active_floor
+	if _slot_markers != null:
+		_slot_markers.visible = camera_rig.active_floor == sim.world.location.store_floor()
 
 
 func _on_storage_door(iid: int, open: bool) -> void:
@@ -780,6 +847,18 @@ func pick(screen_pos: Vector2) -> Dictionary:
 			if d2 < best_d:
 				best_d = d2
 				best = _counter_pick(cd, floor_id)
+	# Decoration Mode: dekorasi berdiri (dinding, meja, lantai) juga tombolnya sendiri.
+	if decoration_mode:
+		for uid: Variant in _decor.keys():
+			var dd: Dictionary = _decor[uid]
+			if StringName(str(dd["floor"])) != floor_id or dd["type"] == &"floor_overlay":
+				continue
+			var hit3: Variant = (dd["aabb"] as AABB).grow(0.03).intersects_ray(from, dir)
+			if hit3 != null:
+				var d3: float = from.distance_to(hit3)
+				if d3 < best_d:
+					best_d = d3
+					best = {"kind": &"decor", "uid": int(uid), "floor": floor_id}
 	if not best.is_empty():
 		return best
 	var g: Vector3 = camera_rig.screen_to_ground(screen_pos)
@@ -788,6 +867,10 @@ func pick(screen_pos: Vector2) -> Dictionary:
 	var cell: Vector2i = GridMath.world_to_cell(Vector2(g.x, g.z))
 	var fg: FloorGrid = sim.world.grid(floor_id)
 	if fg != null and fg.in_bounds(cell):
+		# Karpet: ubin di bawah jari (bersama "cell", karena ubinnya tetap sasaran).
+		var rug: int = rug_at(floor_id, cell) if decoration_mode else -1
+		if rug >= 0:
+			return {"kind": &"decor", "uid": rug, "floor": floor_id, "cell": cell}
 		if fg.access_at.has(cell):
 			return {"kind": &"equipment", "iid": int(fg.access_at[cell]), "floor": floor_id, "cell": cell}
 		for lane: QueueLane in sim.queue.lanes:
@@ -845,13 +928,126 @@ func lifted_iid() -> int:
 
 
 func _animate_lift() -> void:
+	var bob: float = 0.0 if SettingsManager.reduced_motion() else LIFT_BOB_M * sin(_t * 5.0)
+	if _lift_uid >= 0:
+		var dd: Variant = _decor.get(_lift_uid)
+		if dd is Dictionary and is_instance_valid((dd as Dictionary)["node"]) and (dd as Dictionary)["type"] != &"floor_overlay":
+			((dd as Dictionary)["node"] as Node3D).position = Vector3((dd as Dictionary)["base"]) + Vector3(0.0, LIFT_M + bob, 0.0)
 	if _lift_iid < 0:
 		return
 	var n: Variant = furniture.get(_lift_iid)
 	if not (n is Node3D) or not is_instance_valid(n):
 		return
-	var bob: float = 0.0 if SettingsManager.reduced_motion() else LIFT_BOB_M * sin(_t * 5.0)
 	(n as Node3D).position.y = LIFT_M + bob
+
+
+## Karpet terpasang yang jejaknya menutupi `cell`, atau -1.
+func rug_at(floor_id: StringName, cell: Vector2i) -> int:
+	for uid: Variant in _decor.keys():
+		var dd: Dictionary = _decor[uid]
+		if dd["type"] != &"floor_overlay" or StringName(str(dd["floor"])) != floor_id:
+			continue
+		if sim.decoration.overlay_cells(sim.decoration.item(int(uid))).has(cell):
+			return int(uid)
+	return -1
+
+
+## Titik tengah puncak dekorasi terpasang, atau Vector3.INF bila tidak digambar.
+func top_of_decor(uid: int) -> Vector3:
+	var dd: Variant = _decor.get(uid)
+	if not (dd is Dictionary):
+		return Vector3.INF
+	var b: AABB = (dd as Dictionary)["aabb"]
+	var c: Vector3 = b.get_center()
+	return Vector3(c.x, b.end.y + (LIFT_M if uid == _lift_uid else 0.0), c.z)
+
+
+func decor_node(uid: int) -> Node3D:
+	var dd: Variant = _decor.get(uid)
+	return (dd as Dictionary)["node"] as Node3D if dd is Dictionary else null
+
+
+## Decoration Mode: dekorasi `uid` terangkat dan mengambang pelan seperti
+## perabot terpilih (karpet tetap di lantai); -1 menurunkannya lagi.
+func set_decor_lift(uid: int) -> void:
+	if uid == _lift_uid:
+		return
+	var old: Variant = _decor.get(_lift_uid)
+	if old is Dictionary and is_instance_valid((old as Dictionary)["node"]):
+		((old as Dictionary)["node"] as Node3D).position = (old as Dictionary)["base"]
+	_lift_uid = uid
+
+
+func _animate_swing() -> void:
+	var a: float = 0.0 if SettingsManager.reduced_motion() else sin(_t * SWING_SPEED) * SWING_ANGLE
+	for p: Node3D in _swing + _room_swing:
+		if is_instance_valid(p):
+			p.rotation.z = a
+
+
+## Decoration Mode (GDD 72.3): tandai slot dinding/meja `indexes`; `current`
+## (slot barang terpilih) disorot emas. Penanda berdenyut pelan kecuali Reduced
+## Motion.
+func show_slot_markers(placement_type: StringName, indexes: Array[int], current: int) -> void:
+	clear_slot_markers()
+	var list: Array[Dictionary] = DecorSlots.slots(sim.world.location, placement_type)
+	for i: int in indexes:
+		if i < 0 or i >= list.size():
+			continue
+		var sd: Dictionary = list[i]
+		var mi: MeshInstance3D = DecorFactory.slot_marker(placement_type, i == current)
+		mi.name = "Slot%d" % i
+		_slot_markers.add_child(mi)
+		mi.transform = Transform3D(Basis(Vector3.UP, float(sd["yaw"])), sd["pos"])
+		_slot_marker_list.append({"index": i, "node": mi, "aabb": mi.transform * mi.get_aabb(), "pos": sd["pos"]})
+		if not SettingsManager.reduced_motion():
+			var tw := mi.create_tween().set_loops()
+			tw.tween_property(mi, "scale", Vector3(1.08, 1.08, 1.08), 0.55)
+			tw.tween_property(mi, "scale", Vector3.ONE, 0.55)
+	_apply_floor_visibility()
+
+
+func clear_slot_markers() -> void:
+	for c: Node in _slot_markers.get_children():
+		c.queue_free()
+	_slot_marker_list.clear()
+
+
+func slot_marker_count() -> int:
+	return _slot_marker_list.size()
+
+
+## Slot yang ditandai di bawah titik layar: kotak penanda yang ditembus sinar
+## lebih dulu, lalu penanda terdekat dalam PICK_SLOT_PX. -1 bila tidak ada.
+func slot_at_screen(screen_pos: Vector2) -> int:
+	if _slot_marker_list.is_empty() or not _slot_markers.visible:
+		return -1
+	var from: Vector3 = camera_rig.camera.project_ray_origin(screen_pos)
+	var dir: Vector3 = camera_rig.camera.project_ray_normal(screen_pos)
+	var best: int = -1
+	var best_d: float = INF
+	for m: Dictionary in _slot_marker_list:
+		var hit: Variant = (m["aabb"] as AABB).grow(0.05).intersects_ray(from, dir)
+		if hit != null and from.distance_to(hit) < best_d:
+			best_d = from.distance_to(hit)
+			best = int(m["index"])
+	if best >= 0:
+		return best
+	var best_px: float = PICK_SLOT_PX
+	for m2: Dictionary in _slot_marker_list:
+		var px: float = camera_rig.world_to_screen(m2["pos"]).distance_to(screen_pos)
+		if px <= best_px:
+			best_px = px
+			best = int(m2["index"])
+	return best
+
+
+## Titik layar pusat penanda slot `index` (untuk tes dan tutorial), atau (-1, -1).
+func slot_screen_pos(index: int) -> Vector2:
+	for m: Dictionary in _slot_marker_list:
+		if int(m["index"]) == index:
+			return camera_rig.world_to_screen(m["pos"])
+	return Vector2(-1, -1)
 
 
 func screen_of_iid(iid: int) -> Vector2:

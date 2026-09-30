@@ -13,7 +13,7 @@ and the tests that verify it (GDD 121 item 16).
 - **Open**: the GDD leaves a question that needs a maintainer decision.
 - **Missing**: the GDD asks for it, but the code does not do it yet.
 
-Last full run (2026-09-30): 77 non-long tests passed, 0 failed (`--skip-long`). Soak results are
+Last full run (2026-09-30): 85 non-long tests passed, 0 failed (`--skip-long`). Soak results are
 listed under GDD 94.
 
 ## Core loop and time
@@ -74,7 +74,7 @@ listed under GDD 94.
 | 5.1.2 | The Market sells equipment only up to the store tier (buy and Replace); locked cards say which store tier they need; owned equipment is unaffected (maintainer decision 2026-09-29) | `production/equipment_manager.gd` `tier_allowed`, `ui/screens/market_screen.gd` | ACC_5_TIER_GATE | Tested |
 | 5.2, 24A, 55.5–55.9, 70 | Daytime courier +3 h, FIFO staging, capacity incl. in-transit, after-hours instant | `supply/supply_order_manager.gd` | TEST_MARKET_001/002, ACC_55_COURIERS, ACC_55_CAPACITY | Tested |
 | 3.1–3.5, 87 | Hiring after hours, caps per tier, wage liability fixed at 05:00 | `staff/staff_manager.gd` | TEST_STAFF_001 | Tested |
-| 3.1, 20 | Cashier tiers no longer differ in speed (every checkout 3 s). Tier 3 keeps its calmer queue and Tier 5 its tips; Tier 2 and Tier 4 have no advantage over Tier 1, and the Indecisive Shopper no longer slows the cashier. See open decision 5 | `data/catalog/staff.json`, `customers.json` | none | Open |
+| 3.1, 20 | Cashier tiers no longer differ in speed (every checkout 3 s). Perks instead (maintainer decision 2026-09-30, "patient + friendly"): Tier 2 calms its queue by 8% (×0.92 patience drain), Tier 3 keeps ×0.85, Tier 4 calms by 15% (×0.85) and each of its sales lifts the Store Rating 1.5× (`successful_sale` and `fast_service`, not penalties), Tier 5 keeps its 5% tip chance. The Staff card spells every perk out. Unknown perk keys and out-of-range values fail the boot validation | `data/catalog/staff.json` `special`, `customer_manager.gd` `_drain`, `cashier_manager.gd` `_complete`, `ui/screens/staff_screen.gd` `perk_lines`, `data_registry.gd` | ACC_3_CASHIER_PERKS (drain ratios, rating ratio from twin sims, card lines) | Tested |
 | 23 | Baker AI priorities, auto-retrieve | `staff_manager.gd`, `production_manager.gd` | LONGRUN (managed bot hires bakers) | Implemented |
 | 23.3 | Bakers only start a batch whose mixing and baking (their speed, the free mixer, the slowest usable oven) finish by `staff_ai.baker_finish_by_seconds`, trying smaller batches first, so the kitchen is empty at closing and a location upgrade is not blocked (maintainer decision 2026-09-29) | `staff_manager.gd` `finishes_before_cutoff`, `_plan_new_job` | ACC_23_BAKER_CUTOFF | Tested |
 | 18.8, 87.2 | Auto-retrieve protects a tray only for a baker still on shift; claims drop at 18:00 and the same baker reclaims the tray the next day; a fired or benched baker's protected trays revert to a failed roll and their unfinished jobs pass to the player; the 18:00 or leave-of-duty handoff parks trays that no shelf takes, and dough with no free mixer, on the Holding Table. Before this, a tray protected for a fired baker locked its oven and every location upgrade for good | `production_manager.gd` `_on_bake_complete`, `staff_manager.gd` `_drop_carried`/`_hand_over_jobs`/`_choose_task` | ACC_18_RETRIEVE_ABSENT_BAKER, ACC_18_RETRIEVE_NEXT_DAY, ACC_87_STAFF_HANDOFF | Tested |
@@ -92,7 +92,10 @@ listed under GDD 94.
 | 56.1, 81.1, 81.4 | Placement validation, protected paths, access tile | `world/world_manager.gd` | ACC_81_PLACEMENT, ACC_SPATIAL | Tested |
 | 72, 81.14 | Decoration Mode pauses; IN_USE cannot move | `ui/screens/decoration_screen.gd`, `equipment_manager.gd` | ACC_81_IN_USE, UI smoke | Tested |
 | 72.2 | Decoration Mode without a side panel: a top bar (hint, floors, Done), bottom tabs that open an item tray, and an action toolbar (Rotate, Put Away, Cancel) floating right above the selected furniture with a tail pointing at it; Rotate turns placed furniture in place; tapping another piece switches, tapping the selected one or Back finishes; the selected piece is lifted and station markers hide (maintainer decision 2026-09-30) | `ui/screens/decoration_screen.gd`, `world/world_view.gd` `set_lift`/`top_of_iid`, `world/camera_rig.gd` `focus_free_pan` | TEST_UI_SMOKE_001 (toolbar above the selection, fixture without Put Away, switch and finish taps, rotate in place, Back), ACC_7_MARKER_REBUILD | Tested; the look was checked from 1280×720 screenshots |
-| 72.1 | Placed decorations (wall, floor_prop, floor_overlay, counter_prop) are bought, stored, placed and validated, but not drawn in the world; only skins (storefront, sign, RotiFood counter, oven decal) and outfits show | `gameplay/world/decoration_manager.gd`, `procedural/meshes/room_factory.gd` | none | Missing (found 2026-09-30) |
+| 72.1, 72.3 | Every placeable decoration (23 items, 22 visual profiles) has its own procedural model inside the triangle budget (no text; the pendulum clock swings, the lamp bulb glows, the coin jar glass is see-through, tier plaques carry 2/3/4 stars) and is drawn where it is placed (maintainer decision 2026-09-30) | `procedural/meshes/decor_factory.gd`, `world/world_view.gd` `_rebuild_decor`/`_animate_swing` | TEST_VIS_DECOR_MODELS, TEST_VIS_DECOR_WORLD | Tested; the look was checked from 1600×900 screenshots at Tier 1, 3 and 5 |
+| 72.3 | Decoration slots per store tier (wall/counter/floor/rug: 2/1/1/1, 3/1/2/1, 4/2/3/1, 6/2/4/2, 8/3/6/2), all on the shop floor; wall spots between the windows of the two full walls (store side first), one counter spot per register counter at the end away from the paper bag and the tablet; rugs cover `overlay_size_tiles`, rotate, may lie on walkways, never block and never overlap; loading and moving shop put back decorations that break the rules, oldest first (maintainer decision 2026-09-30) | `world/decor_slots.gd`, `world/decoration_manager.gd` `cap`/`check_place`/`validate_overlay`/`rotate_overlay`/`enforce_rules`, `data/catalog/locations.json` `decor_slots`, `data_registry.gd` | ACC_72_DECOR_SLOTS, ACC_72_DECOR_CAPS, ACC_72_DECOR_RUGS, ACC_72_DECOR_ENFORCE | Tested |
+| 72.2, 72.3 | Decoration Mode for decorations: selecting one moves the view to the shop floor and lights free wall/counter slot markers (its own spot in gold); a tap on a marker hangs or moves it; rugs preview their footprint and Rotate; a full type shows "No free spot left" with the shop's cap; placed decorations are tapped to select and lift like furniture; the tray starts with the slot usage ("Wall 1/2") | `ui/screens/decoration_screen.gd`, `world/world_view.gd` `show_slot_markers`/`slot_at_screen`/`pick`/`set_decor_lift` | TEST_UI_DECOR_SLOTS, TEST_VIS_DECOR_WORLD | Tested |
+| 4.1, 21.4 | Right-wall windows face the room (their glass and curtains used to face into the wall) and the room's wall clock faces the room with a swinging pendulum (it used to show its back); the paper bag stands beside the register in the middle of the counter (on two-tile counters it used to sit inside the register) | `procedural/meshes/room_factory.gd`, `world/world_view.gd` `_build_pack_bag` | TEST_VIS_DECOR_WORLD | Tested; checked in screenshots |
 | 17.4 | Red preview with reason; keep-clear tiles striped in Decoration Mode and a "would block the walkway" warning on rejected placement | `world_manager.gd` `keep_clear_cells`, `world_view.gd` `show_tile_overlay`, `decoration_screen.gd` | ACC_DECOR_KEEP_CLEAR (marks match validation on every tile of every tier), UI smoke | Tested |
 | 68, 30.3 | Instant portal, off-floor simulation, customers never upstairs | `world_manager.gd` `find_route`, `actors/sim_actor.gd` | TEST_MULTIFLOOR_001 | Tested |
 | 30 | Camera: floor framing, follows player on large floors, 0.20 s crossfade, off-floor alerts | `world/camera_rig.gd`, `world/world_view.gd`, `meta/alert_manager.gd` | TEST_CAMERA_001 | Tested |
@@ -199,15 +202,16 @@ listed under GDD 94.
    assumed about 15% slower than the bot, that is about 6 hours. The maintainer's own
    playtest is the real check. Re-run on 2026-09-30 after every checkout became 3 s:
    the typical bot finished in 20–25 days (mean 22.8 over the same six seeds) and the
-   optimal bot in 18 days, so the target still holds.
-5. **Cashier tiers after the 3 s checkout (2026-09-30).** The maintainer made every
-   checkout 3 s for the player and every cashier tier (GDD 21.4). Cashier speed was the
-   main difference between tiers, so now Tier 2 (350 KR/day) and Tier 4 (1,800 KR/day)
-   have no advantage over Tier 1 (150 KR/day): Tier 4's old perk (serving the
-   Indecisive Shopper twice as fast) no longer does anything. Tier 3 keeps its calmer
-   queue (×0.85 patience drain) and Tier 5 its 5% tip chance. The Indecisive Shopper
-   also lost the trait that set him apart. Waiting for the maintainer to decide whether
-   the tiers need new perks, lower wages, or should stay as they are.
-6. **Placed decorations are not drawn (found 2026-09-30).** Wall, floor, rug and counter
-   decorations (GDD 72.1) can be bought and placed, and placement is validated, but no
-   mesh is built for them, so they are invisible in the shop. Skins and outfits do show.
+   optimal bot in 18 days, so the target still holds. Re-run again after the Tier 2/4
+   cashier perks (the bots hire both tiers): typical 20–27 days (mean 23.5), optimal 17.
+   The shifts are within seed-to-seed noise; the target still holds.
+5. **Cashier tiers after the 3 s checkout (resolved 2026-09-30).** Every checkout became
+   3 s, so cashier speed no longer set the tiers apart and Tier 2 and Tier 4 had no
+   advantage over Tier 1. The maintainer chose "patient + friendly" (GDD 3.1): Tier 2
+   calms its queue by 8%, Tier 4 by 15% and lifts the rating 1.5× per sale; wages and the
+   other tiers are unchanged (ACC_3_CASHIER_PERKS). Hendra's bio no longer mentions the
+   removed Indecisive Shopper perk.
+6. **Placed decorations were not drawn (resolved 2026-09-30).** The maintainer asked for
+   a model for every decoration and slot rules capped by store tier (GDD 72.3). All 23
+   placeable decorations now have models and are drawn; the caps, slots, rugs and
+   old-save clean-up are tested (ACC_72_DECOR_*, TEST_VIS_DECOR_*, TEST_UI_DECOR_SLOTS).

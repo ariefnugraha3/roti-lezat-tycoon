@@ -16,10 +16,32 @@ const WALL_THICK: float = 0.10
 const LOW_WALL: float = 0.16
 const PARTITION_H: float = 0.62
 const WALL_HEIGHTS: Array[float] = [1.80, 2.00, 2.05, 2.30, 2.50]
+## Lebar bingkai jendela dan tinggi pusatnya (fraksi tinggi dinding). Slot hiasan
+## dinding (DecorSlots) memakai angka yang sama supaya tidak menutupi jendela.
+const WINDOW_WIDTH: float = 0.78
+const WINDOW_HEIGHT_RATIO: float = 0.55
 
 
 static func wall_height(loc_tier: int) -> float:
 	return WALL_HEIGHTS[clampi(loc_tier, 1, 5) - 1]
+
+
+## Posisi X pusat jendela di dinding belakang selebar `w` meter.
+static func back_window_xs(w: float) -> Array[float]:
+	var out: Array[float] = []
+	var n: int = maxi(1, int(w / 2.0))
+	for i in n:
+		out.append(w * (float(i) + 0.5) / float(n))
+	return out
+
+
+## Posisi Z pusat jendela di dinding kanan sepanjang `d` meter.
+static func side_window_zs(d: float) -> Array[float]:
+	var out: Array[float] = []
+	var n: int = maxi(1, int(d / 3.0))
+	for j in n:
+		out.append(d * (float(j) + 0.5) / float(n))
+	return out
 
 
 ## Membangun seluruh cangkang satu lantai. Anak penting:
@@ -105,17 +127,16 @@ static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h
 			_low_wall(root, "WallFrontR", Vector3((door_x1 + w) * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w - door_x1, LOW_WALL, WALL_THICK))
 	_low_wall(root, "WallLeft", Vector3(-WALL_THICK * 0.5, 0.0, d * 0.5), Vector3(WALL_THICK, LOW_WALL, d))
 	# Jendela bertirai gingham dan jam dinding (GDD 4.1 Cozy).
-	var windows: int = maxi(1, int(w / 2.0))
-	for i in windows:
-		var x: float = w * (float(i) + 0.5) / float(windows)
-		_window(root, Vector3(x, h * 0.55, d - 0.01), 0.0)
-	var side_windows: int = maxi(1, int(d / 3.0))
-	for j in side_windows:
-		var z: float = d * (float(j) + 0.5) / float(side_windows)
-		_window(root, Vector3(w - 0.01, h * 0.55, z), -90.0)
+	for x: float in back_window_xs(w):
+		_window(root, Vector3(x, h * WINDOW_HEIGHT_RATIO, d - 0.01), 0.0)
+	# Muka jendela (-Z lokal) menghadap ke dalam ruangan: yaw +90 di dinding kanan.
+	for z: float in side_window_zs(d):
+		_window(root, Vector3(w - 0.01, h * WINDOW_HEIGHT_RATIO, z), 90.0)
+	# Model jam menghadap +Z lokal; diputar 180 supaya mukanya menghadap ruangan.
 	var clock := EquipmentFactory._wall_clock(root, Vector3(w * 0.5, h * 0.86, d - 0.02))
 	if clock != null:
 		clock.name = "WallClock"
+		clock.rotation_degrees = Vector3(0.0, 180.0, 0.0)
 	if tier >= 4:
 		# Flagship & Landmark: pilar penanda di sudut.
 		for p: Vector2 in [Vector2(0.0, d), Vector2(w, d)]:
@@ -137,7 +158,7 @@ static func _window(root: Node3D, pos: Vector3, yaw: float) -> void:
 	root.add_child(win)
 	win.position = pos
 	win.rotation_degrees = Vector3(0.0, yaw, 0.0)
-	var frame := ProceduralMeshFactory.box(Vector3(0.78, 0.62, 0.04), Palette.CARAMEL)
+	var frame := ProceduralMeshFactory.box(Vector3(WINDOW_WIDTH, 0.62, 0.04), Palette.CARAMEL)
 	win.add_child(frame)
 	var glass := ProceduralMeshFactory.box(Vector3(0.66, 0.50, 0.02), Palette.GOLDEN_HOUR)
 	var gm: StandardMaterial3D = ProceduralMeshFactory.material_of(glass)
