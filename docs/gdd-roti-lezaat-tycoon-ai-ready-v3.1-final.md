@@ -380,6 +380,7 @@ Identitas visual dan atmosfer game dibangun di atas tiga pilar emosional yang sa
 * **UI Komponen Ramah & Membal**:
   * Seluruh tombol dan panel menggunakan `StyleBoxFlat` dengan sudut membulat tebal (*pill / soft rounded corners* min. 16-24 px) yang memberikan kesan bantalan empuk (*cushiony feel*).
   * Tekstur menu mengadopsi nuansa kertas roti berserat (*parchment paper*) dan papan menu kapur kafe tempo dulu menggunakan noise/gradient generator bawaan Godot.
+  * Anatomi tombol, huruf, popup, tab, dan widget lainnya ditetapkan oleh UI kit "bantal empuk" (Seksi 130.6).
 * **Ikon & Vektor Prosedural**: Ikon in-game (koin emas berkilau, jam dinding kayu, rating bintang mentega, balon pesanan berbentuk awan empuk) digambar langsung dengan fungsi CanvasItem `_draw()`.
 * **Efek Visual Partikel (Visual Juice)**: Partikel uap hangat roti, serpihan gula halus berkilauan saat pesanan sukses, koin emas melompat gembira (+KR), serta asap gosong menggunakan `CPUParticles3D` dan `CPUParticles2D` murni dari script.
 
@@ -7023,6 +7024,14 @@ Slot dekorasi Decoration Mode (Seksi 72.2–72.3) dan kalimat kemampuan kasir di
 | `staff_special_rating` | `Friendly service: every sale in this lane lifts your rating {percent}% more.` |
 | `staff_special_tip` | `A sweet smile: {percent}% chance of an extra tip.` |
 
+## **127.18 UI Polish Strings**
+
+Keadaan kosong UI kit (Seksi 130.6).
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_staff_empty` | `No one works here yet. Hire from Applicants after closing.` |
+
 ---
 
 # **128. REPRODUCIBLE TOOLCHAIN MANIFEST**
@@ -7161,6 +7170,47 @@ Implementation must capture/render at least these screenshots for visual QA:
 8. New Game profile/naming screen.
 
 A visual change that breaks readability in any golden scene blocks release.
+
+## **130.6 UI Kit "Bantal Empuk" — CANONICAL**
+
+Keputusan maintainer 2026-09-30 ("percantik UI: setiap tombol, ikon, dan teks"). UI kit ini menjabarkan Seksi 4.3, 7, dan 130.4. Semuanya tetap `StyleBoxFlat` bersudut 16–24 px, gambar `_draw()`, dan tekstur yang dibangkitkan dari kode (`ProceduralUIFactory`, `IconCanvas`). Tidak ada berkas gambar atau font.
+
+- **Tombol bantal.**
+  - Muka warna dengan garis tepi 2 px dan **bibir bawah 6 px** berwarna tua.
+  - Saat ditekan, muka turun 4 px dan bibirnya menipis, jadi tombol terasa benar-benar tertekan. Isinya (ikon, teks) ikut turun.
+  - Bayangan jatuh lembut. Tombol berwarna mendapat kilap putih yang memudar di bagian atas mukanya.
+  - Jenis: `primary` madu (#F6A533), `secondary` krem, `success` matcha (#7FC773), `danger` stroberi (#EF6E75), `ghost` (hanya garis tepi), dan `tab`.
+  - Tombol nonaktif memucat ke arah krem, bukan sekadar transparan.
+  - Pantulan squash & stretch (Seksi 7) tetap berlaku.
+- **Huruf.**
+  - Judul, tombol, angka HUD, dan semua teks 20 px ke atas memakai font bawaan yang dipertebal lewat `FontVariation.variation_embolden` 0,62, sebagai padanan "chunky cozy" (Seksi 7). Seksi 111.2 tetap berlaku: tanpa berkas font.
+  - Teks di tombol berwarna bergaris tepi senada bibirnya.
+  - Logo dan pita judul memakai huruf timbul: garis tepi tebal plus bayangan ekstrusi berwarna sama.
+- **Popup.**
+  - Kartu krem dengan serat kertas halus (noise bawaan Godot, tanpa sambungan) dan bibir tebal.
+  - **Pita judul madu** menumpang di tepi atas kartu. Tombol tutup bundar stroberi ada di sudut kanan atas.
+  - Kartu tidak memotong bayangannya sendiri. Isi yang kelebaran dipotong di wadah dalamnya.
+- **Widget.**
+  - **Tab bersegmen**: jalur krem cekung dengan tab aktif timbul madu. Tab aktif selalu terlihat, di semua layar bertab.
+  - **Sakelar** nyala (matcha) dan mati (krem) dengan kenop bundar.
+  - **Slider** berkenop bantal. Kenopnya tidak keluar dari jalur, jadi tidak menutupi angka di sebelahnya.
+  - Bar dan kolom isian cekung dengan kilap tipis.
+- **Komponen informasi.**
+  - **Chip nilai HUD**: pil krem berbibir dengan ikon di kiri dan angka tebal, untuk KR, rating toko, rating RotiFood, dan utilitas.
+  - **Lencana fase hari**: kuning mentega untuk persiapan, mint saat toko buka, dan stroberi saat tutup. Selalu ikon atau teks ditambah warna (Seksi 130.4).
+  - **Ubin Quick Menu**: pil krem dengan lencana ikon berwarna dan label tebal.
+  - **Toast**: pil krem dengan lencana ikon. Prioritas 0 berlencana stroberi dan bertepi merah; prioritas 1 berlencana madu.
+  - **Keadaan kosong** berilustrasi: ikon besar pudar di atas teks, misalnya tim kosong (`ui_staff_empty`) dan tanpa pesanan RotiFood.
+- **Ikon.**
+  - Setiap ikon mulai 18 px mendapat garis tepi cokelat hangat di sekeliling siluetnya dan bayangan lembut di bawahnya (gaya stiker).
+  - Detail tinta dan sorot tidak diberi garis tepi.
+  - Bintang, hati, roti, dan piala mendapat kilau kecil.
+- **Layar pembuka** (splash, menu utama, loading).
+  - Latar gradasi krem mentega dengan sinar matahari sore yang berputar pelan.
+  - Roti, koin, bintang, dan hati samar melayang. Taplak gingham berenda ada di tepi bawah.
+  - Logo: roti besar yang bergoyang pelan, "Roti Lezat" berhuruf timbul, dan pita madu "TYCOON" (kata terakhir judul).
+  - Tombol menu utama berikon. Reduced Motion menghentikan goyangan, ayunan, dan putaran sinar.
+- **Daily Summary.** Jumlah "+" berwarna hijau matcha dan "-" merah stroberi, dengan huruf tebal. Catatan Pak Lurah memakai lencana ikon.
 
 ---
 

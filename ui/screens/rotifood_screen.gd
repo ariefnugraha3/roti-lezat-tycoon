@@ -34,7 +34,7 @@ func _render() -> void:
 	clear(_detail)
 	var orders: Array[DeliveryOrder] = sim.rotifood.active_orders()
 	if orders.is_empty():
-		lbl(_list, Tx.t("ui_hud_rotifood_none"), 16, Palette.TEXT_MUTED)
+		_list.add_child(ProceduralUIFactory.empty_state("scooter", Tx.t("ui_hud_rotifood_none")))
 		return
 	for o: DeliveryOrder in orders:
 		var b: Button = ProceduralUIFactory.button("#%d · %d" % [o.order_id, o.total_units()], "primary" if o.order_id == _selected else "secondary")

@@ -24,13 +24,9 @@ var _reaction_icon: IconCanvas = null
 
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_recipe_book"), Vector2(1180, 660))
-	var tabs: HBoxContainer = hbox(body, 8)
-	btn(tabs, Tx.t("ui_recipe_tab_recipes"), "primary", func() -> void:
-		_tab = 0
-		_render_detail())
-	btn(tabs, Tx.t("ui_recipe_tab_analytics"), "secondary", func() -> void:
-		_tab = 1
-		_render_detail())
+	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_recipe_tab_recipes"), Tx.t("ui_recipe_tab_analytics")], _tab, func(idx: int) -> void:
+		_tab = idx
+		_render_detail()))
 	var split: HBoxContainer = hbox(body, 14)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var left := VBoxContainer.new()

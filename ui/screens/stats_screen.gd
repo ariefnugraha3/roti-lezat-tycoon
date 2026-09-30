@@ -23,12 +23,9 @@ var _body: VBoxContainer = null
 
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_statistics"), Vector2(960, 620))
-	var tabs: HBoxContainer = hbox(body, 8)
-	for i in 3:
-		var idx: int = i
-		btn(tabs, Tx.t(["ui_statistics", "ui_records", "ui_achievements"][i]), "secondary", func() -> void:
-			_tab = idx
-			_render())
+	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_statistics"), Tx.t("ui_records"), Tx.t("ui_achievements")], _tab, func(idx: int) -> void:
+		_tab = idx
+		_render()))
 	_body = scroll_box(body)
 	_render()
 

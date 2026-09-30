@@ -9,13 +9,12 @@ var _body: VBoxContainer = null
 
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_main_settings"), Vector2(920, 620))
-	var tabs: HBoxContainer = hbox(body, 8)
-	for i in 4:
-		var key: String = ["ui_settings_audio", "ui_settings_display", "ui_settings_gameplay", "ui_settings_accessibility"][i]
-		var idx: int = i
-		btn(tabs, Tx.t(key), "secondary", func() -> void:
-			_tab = idx
-			_render())
+	var labels: Array = []
+	for key: String in ["ui_settings_audio", "ui_settings_display", "ui_settings_gameplay", "ui_settings_accessibility"]:
+		labels.append(Tx.t(key))
+	body.add_child(ProceduralUIFactory.tab_bar(labels, _tab, func(idx: int) -> void:
+		_tab = idx
+		_render()))
 	_body = scroll_box(body)
 	_render()
 
@@ -71,6 +70,7 @@ func _row(label_key: String) -> HBoxContainer:
 func _slider(key: String, label_key: String, lo: int, hi: int, step: int) -> void:
 	var row: HBoxContainer = _row(label_key)
 	var sl := HSlider.new()
+	sl.focus_mode = Control.FOCUS_NONE
 	sl.min_value = lo
 	sl.max_value = hi
 	sl.step = step
@@ -87,9 +87,7 @@ func _slider(key: String, label_key: String, lo: int, hi: int, step: int) -> voi
 
 func _toggle(key: String, label_key: String) -> void:
 	var row: HBoxContainer = _row(label_key)
-	var cb := CheckButton.new()
-	cb.button_pressed = SettingsManager.get_bool(key)
-	cb.custom_minimum_size = Vector2(64, 48)
+	var cb: CheckButton = ProceduralUIFactory.toggle(SettingsManager.get_bool(key))
 	cb.toggled.connect(func(on: bool) -> void: SettingsManager.set_value(key, on))
 	row.add_child(cb)
 

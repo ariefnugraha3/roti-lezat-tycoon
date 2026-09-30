@@ -35,6 +35,13 @@ const CORNER_STEPS: int = 4
 
 ## Ukuran ikon terkecil yang masih masuk akal digambar (piksel).
 const MIN_SIZE: float = 4.0
+## Di bawah ukuran ini ikon digambar tanpa garis tepi & bayangan agar tetap bersih.
+const OUTLINE_MIN_SIZE: float = 18.0
+
+## Lintasan gambar: siluet biasa, garis tepi di belakangnya, bayangan di bawahnya.
+const PASS_FILL: int = 0
+const PASS_OUTLINE: int = 1
+const PASS_SHADOW: int = 2
 
 
 ## Nama ikon yang digambar. Lihat [constant NAMES] untuk daftar lengkapnya.
@@ -64,6 +71,26 @@ const MIN_SIZE: float = 4.0
 		custom_minimum_size = Vector2(icon_size, icon_size)
 		queue_redraw()
 
+## Gaya stiker (pemolesan UI 2026-09-30): garis tepi hangat gelap di sekeliling
+## siluet + bayangan lembut di bawahnya. Otomatis mati di bawah OUTLINE_MIN_SIZE.
+@export var outlined: bool = true:
+	set(value):
+		outlined = value
+		queue_redraw()
+
+## Warna garis tepi; alfa 0 = diturunkan dari warna ikon.
+@export var outline_color: Color = Color(0.0, 0.0, 0.0, 0.0):
+	set(value):
+		outline_color = value
+		queue_redraw()
+
+var _pass: int = PASS_FILL
+var _pass_col: Color = Color.BLACK
+var _base: Color = Color.WHITE
+var _ow: float = 0.0
+## Warna turunan yang tetap dihitung sebagai siluet (lihat [method _shade]).
+var _sil_extra: Array[Color] = []
+
 
 func _init() -> void:
 	custom_minimum_size = Vector2(icon_size, icon_size)
@@ -77,7 +104,59 @@ func _draw() -> void:
 	var c: Vector2 = size * 0.5
 	if size.x <= 0.0 or size.y <= 0.0:
 		c = Vector2(s, s) * 0.5
+	_base = icon_color
+	_sil_extra.clear()
+	if outlined and s >= OUTLINE_MIN_SIZE and icon_color.a > 0.05:
+		_ow = clampf(s * 0.075, 1.5, 4.0)
+		_pass = PASS_SHADOW
+		_pass_col = Color(0.20, 0.10, 0.04, 0.24 * icon_color.a)
+		_paint(icon_name, c + Vector2(0.0, maxf(1.5, s * 0.06)), s, icon_color)
+		_pass = PASS_OUTLINE
+		_pass_col = _outline_col()
+		_paint(icon_name, c, s, icon_color)
+	_pass = PASS_FILL
 	_paint(icon_name, c, s, icon_color)
+
+
+## Warna garis tepi: tinta hangat gelap yang diturunkan dari warna ikon (ikon
+## putih di tombol berwarna pun mendapat tepi cokelat tua, kesan stiker).
+func _outline_col() -> Color:
+	if outline_color.a > 0.0:
+		return outline_color
+	var lum: float = icon_color.get_luminance()
+	var ink: Color = icon_color.darkened(0.62) if lum < 0.80 else Palette.UI_WOOD_DEEP
+	return Color(ink.lerp(Palette.UI_WOOD_DEEP, 0.35), 0.92 * icon_color.a)
+
+
+## Primitif ini bagian siluet (warna dasar atau turunan terdaftar)? Hanya siluet
+## yang mendapat garis tepi & bayangan; detail tinta/sorot tidak.
+func _silhouette(col: Color) -> bool:
+	if col.a < _base.a * 0.95:
+		return false
+	if _same_rgb(col, _base):
+		return true
+	for e: Color in _sil_extra:
+		if _same_rgb(col, e):
+			return true
+	return false
+
+
+static func _same_rgb(a: Color, b: Color) -> bool:
+	return absf(a.r - b.r) < 0.004 and absf(a.g - b.g) < 0.004 and absf(a.b - b.b) < 0.004
+
+
+## Warna siluet turunan (lebih gelap [param amount]) yang tetap diberi garis tepi.
+func _shade(col: Color, amount: float) -> Color:
+	var out: Color = col.darkened(amount)
+	_sil_extra.append(out)
+	return out
+
+
+## Kilau putih kecil (hanya lintasan siluet, dan tidak di ikon putih).
+func _glint(c: Vector2, s: float, x: float, y: float, r: float) -> void:
+	if _pass != PASS_FILL or _base.get_luminance() > 0.85:
+		return
+	draw_circle(c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a))
 
 
 ## Setel nama + warna + ukuran sekaligus (satu kali `queue_redraw`).
@@ -157,7 +236,10 @@ func _lit(col: Color) -> Color:
 
 ## Lingkaran penuh berpusat di (x, y).
 func _dot(c: Vector2, s: float, x: float, y: float, r: float, col: Color) -> void:
-	draw_circle(c + Vector2(x, y) * s, r * s, col)
+	if _pass == PASS_FILL:
+		draw_circle(c + Vector2(x, y) * s, r * s, col)
+	elif _silhouette(col):
+		draw_circle(c + Vector2(x, y) * s, r * s + _ow, _pass_col)
 
 
 ## Garis tebal berujung bulat (kesan empuk khas GDD 4.1).
@@ -165,17 +247,37 @@ func _bar(c: Vector2, s: float, ax: float, ay: float, bx: float, by: float,
 		w: float, col: Color) -> void:
 	var pa: Vector2 = c + Vector2(ax, ay) * s
 	var pb: Vector2 = c + Vector2(bx, by) * s
-	draw_line(pa, pb, col, w * s, true)
-	var cap: float = w * s * 0.5
-	draw_circle(pa, cap, col)
-	draw_circle(pb, cap, col)
+	var grow: float = 0.0
+	var tint: Color = col
+	if _pass != PASS_FILL:
+		if not _silhouette(col):
+			return
+		grow = _ow
+		tint = _pass_col
+	draw_line(pa, pb, tint, w * s + grow * 2.0, true)
+	var cap: float = w * s * 0.5 + grow
+	draw_circle(pa, cap, tint)
+	draw_circle(pb, cap, tint)
 
 
 ## Busur dengan jumlah ruas otomatis mengikuti panjang sudutnya.
 func _arcline(c: Vector2, s: float, x: float, y: float, r: float,
 		a0: float, a1: float, w: float, col: Color) -> void:
 	var steps: int = maxi(8, int(absf(a1 - a0) / 0.30))
-	draw_arc(c + Vector2(x, y) * s, r * s, a0, a1, steps, col, w * s, true)
+	var grow: float = 0.0
+	var tint: Color = col
+	if _pass != PASS_FILL:
+		if not _silhouette(col):
+			return
+		grow = _ow
+		tint = _pass_col
+	var ctr: Vector2 = c + Vector2(x, y) * s
+	draw_arc(ctr, r * s, a0, a1, steps, tint, w * s + grow * 2.0, true)
+	# Ujung busur membulat (kesan empuk), kecuali lingkaran penuh.
+	if absf(a1 - a0) < TAU - 0.01:
+		var cap: float = w * s * 0.5 + grow
+		draw_circle(ctr + Vector2(cos(a0), sin(a0)) * r * s, cap, tint)
+		draw_circle(ctr + Vector2(cos(a1), sin(a1)) * r * s, cap, tint)
 
 
 ## Poligon terisi dari daftar Vector2 satuan.
@@ -187,7 +289,14 @@ func _blob(c: Vector2, s: float, pts: Array, col: Color) -> void:
 	for i in pts.size():
 		var v: Vector2 = pts[i]
 		out[i] = c + v * s
-	draw_colored_polygon(out, col)
+	if _pass == PASS_FILL:
+		draw_colored_polygon(out, col)
+		return
+	if not _silhouette(col):
+		return
+	for poly: PackedVector2Array in Geometry2D.offset_polygon(out, _ow, Geometry2D.JOIN_ROUND):
+		if poly.size() >= 3:
+			draw_colored_polygon(poly, _pass_col)
 
 
 ## Titik-titik persegi panjang bersudut membulat (satuan), urut searah jarum jam.
@@ -279,6 +388,7 @@ func _i_coin(c: Vector2, s: float, col: Color) -> void:
 ## Bintang rating mentega (GDD 9.1 & 9.2).
 func _i_star(c: Vector2, s: float, col: Color) -> void:
 	_blob(c, s, _star_pts(0.47, 0.22, 5), col)
+	_glint(c, s, -0.10, -0.12, 0.07)
 
 
 ## Jam dinding kayu berdetik tenang (GDD 4.1).
@@ -307,6 +417,7 @@ func _i_bread(c: Vector2, s: float, col: Color) -> void:
 	_round_rect(c, s, -0.42, -0.08, 0.84, 0.40, 0.15, col)
 	_arcline(c, s, -0.13, -0.12, 0.10, PI * 1.15, PI * 1.85, 0.05, ink)
 	_arcline(c, s, 0.13, -0.12, 0.10, PI * 1.15, PI * 1.85, 0.05, ink)
+	_glint(c, s, -0.26, -0.14, 0.06)
 
 
 ## Kantong kertas roti — tombol belanja / bawa pulang.
@@ -331,7 +442,7 @@ func _i_cart(c: Vector2, s: float, col: Color) -> void:
 
 ## Dua pelanggan — jumlah pengunjung harian.
 func _i_people(c: Vector2, s: float, col: Color) -> void:
-	var back: Color = Color(col, col.a * 0.55)
+	var back: Color = _shade(col, 0.22)
 	_dot(c, s, 0.19, -0.24, 0.14, back)
 	_round_rect(c, s, -0.02, -0.08, 0.44, 0.36, 0.16, back)
 	_dot(c, s, -0.13, -0.19, 0.18, col)
@@ -345,6 +456,7 @@ func _i_heart(c: Vector2, s: float, col: Color) -> void:
 	_blob(c, s, [
 		Vector2(-0.395, -0.06), Vector2(0.395, -0.06), Vector2(0.0, 0.46),
 	], col)
+	_glint(c, s, -0.22, -0.18, 0.07)
 
 
 ## Wajah marah — pelanggan kabur karena antre terlalu lama (GDD 9.1).
@@ -519,6 +631,7 @@ func _i_trophy(c: Vector2, s: float, col: Color) -> void:
 	], col)
 	_round_rect(c, s, -0.07, 0.14, 0.14, 0.16, 0.04, col)
 	_round_rect(c, s, -0.25, 0.28, 0.50, 0.14, 0.06, col)
+	_glint(c, s, -0.14, -0.28, 0.06)
 
 
 ## Sticky note kuning catatan Pak Lurah (GDD 11.4).

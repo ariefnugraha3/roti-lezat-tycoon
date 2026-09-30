@@ -109,6 +109,29 @@ const DANGER: Color = Color(0.894118, 0.388235, 0.415686)  # #E4636A
 const SHADOW: Color = Color(0.000000, 0.000000, 0.000000, 0.150000)
 
 # ---------------------------------------------------------------------------
+# UI kit "bantal empuk" (pemolesan UI 2026-09-30): muka tombol & garis bibirnya
+# ---------------------------------------------------------------------------
+
+## Cokelat kayu tua: garis tepi tombol, bibir panel, dan outline teks judul.
+const UI_WOOD_DEEP: Color = Color(0.400000, 0.235294, 0.129412)  # #663C21
+## Krem mentega yang lebih pekat: jalur tab, slider, dan bidang cekung.
+const UI_CREAM_DEEP: Color = Color(0.952941, 0.890196, 0.764706)  # #F3E3C3
+## Madu keemasan: muka tombol utama.
+const HONEY: Color = Color(0.964706, 0.647059, 0.200000)  # #F6A533
+## Madu gelap: tepi & bibir tombol utama, outline teks di atasnya.
+const HONEY_DEEP: Color = Color(0.721569, 0.388235, 0.113725)  # #B8631D
+## Matcha pastel: muka tombol konfirmasi / berhasil.
+const MATCHA: Color = Color(0.498039, 0.780392, 0.450980)  # #7FC773
+## Matcha gelap: tepi & bibir tombol matcha.
+const MATCHA_DEEP: Color = Color(0.282353, 0.525490, 0.270588)  # #488645
+## Stroberi: muka tombol bahaya.
+const STRAWBERRY: Color = Color(0.937255, 0.431373, 0.458824)  # #EF6E75
+## Stroberi gelap: tepi & bibir tombol bahaya.
+const STRAWBERRY_DEEP: Color = Color(0.674510, 0.227451, 0.282353)  # #AC3A48
+## Cokelat susu: bibir tombol & panel krem.
+const CREAM_LIP: Color = Color(0.815686, 0.682353, 0.525490)  # #D0AE86
+
+# ---------------------------------------------------------------------------
 # GDD 4.1 (Cozy) -- Interior bernostalgia awal 2000-an
 # ---------------------------------------------------------------------------
 

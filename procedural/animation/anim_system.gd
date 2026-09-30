@@ -565,6 +565,24 @@ static func squash_pop(node: Node, scale_to := 1.05, dur := 0.18) -> Tween:
 ## Umpan balik sentuh tombol UI (GDD 7): 0.92x -> 1.05x -> 1.0x.
 ## `pivot_offset` dipusatkan lebih dulu agar tombol mengempis dari tengah,
 ## bukan dari sudut kiri atas.
+## Goyang pelan tanpa henti untuk ikon hiasan (logo roti di splash & menu):
+## miring kiri-kanan dengan easing sinus. Reduced Motion = diam.
+static func idle_wobble(node: Control, angle := 0.06, period := 2.6) -> void:
+	if node == null or not is_instance_valid(node) or SettingsManager.reduced_motion():
+		return
+	if not node.is_inside_tree():
+		node.tree_entered.connect(func() -> void: idle_wobble(node, angle, period), CONNECT_ONE_SHOT)
+		return
+	node.pivot_offset = node.size * 0.5 if node.size != Vector2.ZERO else node.custom_minimum_size * 0.5
+	var tw: Tween = _fresh_tween(node, META_TWEEN_POP)
+	if tw == null:
+		return
+	tw.set_loops()
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(node, "rotation", angle, period * 0.5)
+	tw.tween_property(node, "rotation", -angle, period * 0.5)
+
+
 static func press_bounce(node: Control) -> Tween:
 	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
 		return null

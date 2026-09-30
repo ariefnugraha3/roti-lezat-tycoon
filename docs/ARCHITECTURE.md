@@ -166,6 +166,14 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
 - UI: `ModalHost` keeps a stack of `UIScreen`s registered in `ScreenRegistry`. A
   blocking screen pushes a pause reason and cleans up in `on_closed()`. Every visible
   text goes through `Tx.t(key, params)` → `strings_en.json` (GDD 43, 127).
+- UI kit (GDD 130.6): `ProceduralUIFactory` owns every style. `cushion()` builds the
+  button StyleBoxFlat for a state, `apply_kind()` restyles an existing button (tabs,
+  speed buttons), and `button()` adds the `ButtonGloss` overlay and moves custom
+  content down with the face while pressed. Screens build popups only through
+  `UIScreen.make_popup` → `popup()` (ribbon title, round close button), tabs through
+  `tab_bar()`, switches through `toggle()`, and HUD values through `chip()`. `IconCanvas`
+  draws each icon three times (shadow, outline, fill); only primitives in the icon's
+  base colour, or colours registered with `_shade()`, get the outline.
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
   `CharacterFactory`, `RoomFactory`, `DecorFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas` (UI). Their shared

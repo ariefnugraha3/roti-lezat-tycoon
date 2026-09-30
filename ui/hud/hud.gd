@@ -19,6 +19,7 @@ var _stars: Label = null
 var _clock: Label = null
 var _day: Label = null
 var _phase: Label = null
+var _phase_pill: PanelContainer = null
 var _weather_icon: IconCanvas = null
 var _holiday: Label = null
 var _utility: Label = null
@@ -32,7 +33,12 @@ var _stock_box: VBoxContainer = null
 var _orders_box: VBoxContainer = null
 var _quick: HBoxContainer = null
 var _clock_panel: Control = null
-const QUICK_BUTTON_SIZE := Vector2(112, 84)
+const QUICK_BUTTON_SIZE := Vector2(112, 88)
+## Warna lencana ikon Quick Menu (muka, ikon).
+const QUICK_BADGES: Dictionary = {
+	"cart": [Palette.HONEY, Palette.FLOUR_WHITE], "people": [Palette.MATCHA, Palette.FLOUR_WHITE],
+	"megaphone": [Palette.STRAWBERRY, Palette.FLOUR_WHITE], "frame": [Palette.PASTEL_PERIWINKLE, Palette.UI_WOOD_DEEP],
+}
 var _market_btn: Button = null
 var _alerts_box: VBoxContainer = null
 var _floor_box: HBoxContainer = null
@@ -108,17 +114,26 @@ func _panel(parent: Control, preset: int) -> VBoxContainer:
 
 
 func _build_top_left(frame: Control) -> void:
-	var v: VBoxContainer = _panel(frame, Control.PRESET_TOP_LEFT)
-	var r1: HBoxContainer = ProceduralUIFactory.icon_value("coin", "", 26, 24, Palette.GOLD_STAR)
-	_kr = r1.get_meta("value")
-	v.add_child(r1)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 6)
+	frame.add_child(v)
+	var kr: PanelContainer = ProceduralUIFactory.chip("coin", Palette.GOLD_STAR, "", 24, 34)
+	kr.name = "CashChip"
+	kr.tooltip_text = Tx.t("ui_summary_balance")
+	_kr = kr.get_meta("value")
+	v.add_child(kr)
 	var r2 := HBoxContainer.new()
-	r2.add_theme_constant_override("separation", 12)
+	r2.add_theme_constant_override("separation", 6)
+	r2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(r2)
-	var rs: HBoxContainer = ProceduralUIFactory.icon_value("star", "", 20, 18, Palette.GOLD_STAR)
+	var rs: PanelContainer = ProceduralUIFactory.chip("star", Palette.GOLD_STAR, "", 18, 26)
+	rs.tooltip_text = Tx.t("ui_summary_store_rating")
 	_rating = rs.get_meta("value")
 	r2.add_child(rs)
-	var rf: HBoxContainer = ProceduralUIFactory.icon_value("scooter", "", 20, 18, Palette.OJOL_GREEN)
+	var rf: PanelContainer = ProceduralUIFactory.chip("scooter", Palette.OJOL_GREEN, "", 18, 26)
+	rf.tooltip_text = Tx.t("ui_summary_rotifood_rating")
 	_stars = rf.get_meta("value")
 	r2.add_child(rf)
 	_solo = ProceduralUIFactory.label(Tx.t("ui_hud_solo"), 14, Palette.DANGER)
@@ -141,15 +156,22 @@ func _build_top_center(frame: Control) -> void:
 	row.add_theme_constant_override("separation", 10)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(row)
-	_weather_icon = ProceduralUIFactory.icon("sun", 26, Palette.GOLD_STAR)
+	_weather_icon = ProceduralUIFactory.icon("sun", 30, Palette.GOLD_STAR)
 	row.add_child(_weather_icon)
-	_day = ProceduralUIFactory.label("", 18, Palette.UI_WOOD)
+	_day = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
+	_day.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	row.add_child(_day)
-	var ck: HBoxContainer = ProceduralUIFactory.icon_value("clock", "", 22, 22)
+	var ck: HBoxContainer = ProceduralUIFactory.icon_value("clock", "", 24, 24, Palette.UI_WOOD)
 	_clock = ck.get_meta("value")
+	_clock.add_theme_color_override("font_color", Palette.UI_WOOD_DEEP)
 	row.add_child(ck)
-	_phase = ProceduralUIFactory.label("", 14, Palette.TEXT_MUTED)
-	row.add_child(_phase)
+	# Fase hari dalam lencana berwarna: ikon + teks + warna, bukan warna saja (GDD 130.4).
+	_phase_pill = PanelContainer.new()
+	_phase_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_phase_pill)
+	_phase = ProceduralUIFactory.label("", 14, Palette.UI_WOOD_DEEP)
+	_phase.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	_phase_pill.add_child(_phase)
 	var speed := HBoxContainer.new()
 	speed.alignment = BoxContainer.ALIGNMENT_CENTER
 	speed.add_theme_constant_override("separation", 6)
@@ -159,7 +181,7 @@ func _build_top_center(frame: Control) -> void:
 	speed.add_child(_pause_btn)
 	for s in [1, 2, 3]:
 		var b: Button = ProceduralUIFactory.button("%d×" % s, "secondary")
-		b.custom_minimum_size = Vector2(56, 48)
+		b.custom_minimum_size = Vector2(60, 48)
 		b.pressed.connect(func() -> void: sim.time.set_speed(s))
 		speed.add_child(b)
 		_speed_buttons.append(b)
@@ -176,39 +198,39 @@ func _build_top_center(frame: Control) -> void:
 ## "Skip to Open" (GDD 15.4): hanya selama persiapan. Ikon + teks di dalam satu
 ## tombol pil; seluruh tombol tetap bidang sentuhnya.
 func _build_skip_button() -> Button:
-	var b: Button = ProceduralUIFactory.button("", "primary")
+	var b: Button = ProceduralUIFactory.icon_text_button("skip", Tx.t("ui_skip_open"), "primary", 24, 17)
 	b.name = "SkipToOpen"
 	b.tooltip_text = Tx.t("ui_skip_open_tip", {"time": Tx.clock(sim.time.open_time)})
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	row.add_child(ProceduralUIFactory.icon("skip", 22, Palette.FLOUR_WHITE))
-	var l: Label = ProceduralUIFactory.label(Tx.t("ui_skip_open"), 16, Palette.FLOUR_WHITE)
-	row.add_child(l)
-	b.add_child(row)
-	b.custom_minimum_size = Vector2(maxf(190.0, l.get_combined_minimum_size().x + 60.0), 48)
+	b.custom_minimum_size = Vector2(maxf(210.0, b.custom_minimum_size.x), 52)
 	b.pressed.connect(func() -> void: game.request_skip_to_open())
 	b.visible = false
 	return b
 
 
 func _build_top_right(frame: Control) -> void:
-	var v: VBoxContainer = _panel(frame, Control.PRESET_TOP_RIGHT)
-	var pc: Control = v.get_parent()
-	pc.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	v.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_END
+	v.add_theme_constant_override("separation", 6)
+	frame.add_child(v)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(row)
-	var u: HBoxContainer = ProceduralUIFactory.icon_value("bolt", "", 20, 16, Palette.WARMER_LAMP)
+	var u: PanelContainer = ProceduralUIFactory.chip("bolt", Palette.WARMER_LAMP, "", 18, 26)
 	u.tooltip_text = Tx.t("ui_hud_utility")
+	u.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_utility = u.get_meta("value")
 	row.add_child(u)
-	var menu: Button = ProceduralUIFactory.icon_button("gear", Tx.t("ui_main_settings"), "secondary")
+	var menu: Button = ProceduralUIFactory.icon_button("gear", Tx.t("ui_main_settings"), "secondary", 30)
+	menu.custom_minimum_size = Vector2(56, 56)
 	menu.pressed.connect(func() -> void: game.modals.open(&"pause"))
 	row.add_child(menu)
-	_campaign = ProceduralUIFactory.label("", 14, Palette.TEXT_MUTED)
+	_campaign = ProceduralUIFactory.label("", 14, Palette.UI_WOOD)
+	_campaign.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	v.add_child(_campaign)
 
 
@@ -217,23 +239,32 @@ func _build_right_panel(frame: Control) -> void:
 	var pc: Control = v.get_parent()
 	pc.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	pc.grow_vertical = Control.GROW_DIRECTION_BOTH
-	pc.custom_minimum_size = Vector2(230, 0)
-	v.add_child(ProceduralUIFactory.label(Tx.t("ui_hud_stock"), 16, Palette.UI_WOOD))
+	pc.custom_minimum_size = Vector2(236, 0)
+	v.add_child(_section_head("bread", Palette.GOLDEN_CRUST, Tx.t("ui_hud_stock"), Palette.UI_WOOD_DEEP))
 	_stock_box = VBoxContainer.new()
 	_stock_box.add_theme_constant_override("separation", 2)
 	v.add_child(_stock_box)
 	v.add_child(ProceduralUIFactory.dashed_separator())
-	var head := HBoxContainer.new()
+	var head: HBoxContainer = _section_head("scooter", Palette.OJOL_GREEN, Tx.t("ui_rotifood"), Palette.OJOL_GREEN.darkened(0.25))
 	v.add_child(head)
-	var rl: Label = ProceduralUIFactory.label(Tx.t("ui_rotifood"), 16, Palette.OJOL_GREEN)
-	rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(rl)
 	var open_rf: Button = ProceduralUIFactory.icon_button("bag", Tx.t("ui_rotifood"), "secondary", 22, Palette.OJOL_GREEN)
 	open_rf.pressed.connect(func() -> void: game.modals.open(&"rotifood"))
 	head.add_child(open_rf)
 	_orders_box = VBoxContainer.new()
 	_orders_box.add_theme_constant_override("separation", 4)
 	v.add_child(_orders_box)
+
+
+## Judul bagian panel kanan: ikon bergaris tepi + judul tebal.
+func _section_head(icon_name: String, tint: Color, text: String, ink: Color) -> HBoxContainer:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	head.add_child(ProceduralUIFactory.icon(icon_name, 24, tint))
+	var l: Label = ProceduralUIFactory.label(text, 17, ink)
+	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(l)
+	return head
 
 
 func _build_quick_menu(frame: Control) -> void:
@@ -255,26 +286,34 @@ func _build_quick_menu(frame: Control) -> void:
 	_quick_button("frame", "ui_decoration", func() -> void: game.modals.open(&"decoration"))
 
 
+## Ubin Quick Menu: pil krem berbibir dengan lencana ikon berwarna dan label
+## tebal di bawahnya (seperti ikon aplikasi).
 func _quick_button(icon_name: String, key: String, cb: Callable) -> Button:
-	var b: Button = ProceduralUIFactory.button("", "primary")
+	var b: Button = ProceduralUIFactory.button("", "secondary")
 	# Lebar cukup untuk label katalog GDD 127 dalam dua baris; tetap >= 48 px (GDD 12.4).
 	b.custom_minimum_size = Vector2(QUICK_BUTTON_SIZE.x, QUICK_BUTTON_SIZE.y)
 	b.tooltip_text = Tx.t(key)
 	var v := VBoxContainer.new()
+	v.name = "Tile"
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.offset_left = 4.0
 	v.offset_right = -4.0
+	v.offset_top = 4.0
+	v.offset_bottom = -float(ProceduralUIFactory.LIP) - 2.0
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 2)
+	v.add_theme_constant_override("separation", 3)
 	var ic := CenterContainer.new()
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ic.add_child(ProceduralUIFactory.icon(icon_name, 28, Palette.FLOUR_WHITE))
+	var colors: Array = QUICK_BADGES.get(icon_name, [Palette.HONEY, Palette.FLOUR_WHITE])
+	ic.add_child(ProceduralUIFactory.badge(icon_name, colors[0], colors[1], 40))
 	v.add_child(ic)
-	var l: Label = ProceduralUIFactory.label(Tx.t(key), 12, Palette.FLOUR_WHITE)
+	var l: Label = ProceduralUIFactory.label(Tx.t(key), 13, Palette.UI_WOOD_DEEP)
+	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(QUICK_BUTTON_SIZE.x - 8.0, 0.0)
+	l.add_theme_constant_override("line_spacing", 0)
+	l.custom_minimum_size = Vector2(QUICK_BUTTON_SIZE.x - 10.0, 0.0)
 	l.name = "Caption"
 	v.add_child(l)
 	b.add_child(v)
@@ -307,12 +346,13 @@ func _build_hint(frame: Control) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	_hint.add_child(row)
-	row.add_child(ProceduralUIFactory.icon("chef", 26, Palette.UI_WOOD))
-	_hint_label = ProceduralUIFactory.label("", 18, Palette.TEXT)
+	row.add_child(ProceduralUIFactory.badge("chef", Palette.FLOUR_WHITE, Palette.UI_WOOD, 44))
+	_hint_label = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
+	_hint_label.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(420, 0)
 	row.add_child(_hint_label)
-	var ok: Button = ProceduralUIFactory.button(Tx.t("ui_tutorial_got_it"), "secondary")
+	var ok: Button = ProceduralUIFactory.button(Tx.t("ui_tutorial_got_it"), "primary")
 	ok.pressed.connect(func() -> void:
 		sim.tutorial.dismiss())
 	row.add_child(ok)
@@ -382,14 +422,26 @@ func _refresh_all() -> void:
 	_solo.visible = sim.bailout.solo_mode
 	_day.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.t("ui_weekday_%d" % sim.time.weekday())]
 	_clock.text = Tx.clock(sim.time.time_seconds)
+	var pill: Color = Palette.BUTTER_YELLOW
 	match sim.time.phase:
 		TimeManager.PREPARATION:
 			_phase.text = Tx.t("ui_phase_preparation")
 		TimeManager.OPEN:
 			_phase.text = Tx.t("ui_phase_open")
+			pill = Palette.PASTEL_MINT
 		_:
 			_phase.text = Tx.t("ui_phase_closed")
-	_weather_icon.configure("rain" if sim.weather.is_rain() else "sun", 26, Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() else Palette.GOLD_STAR)
+			pill = Palette.PASTEL_STRAWBERRY
+	if not _phase_pill.has_meta("face") or _phase_pill.get_meta("face") != pill:
+		_phase_pill.set_meta("face", pill)
+		var sb: StyleBoxFlat = ProceduralUIFactory.panel(pill, 14, false)
+		sb.content_margin_left = 10.0
+		sb.content_margin_right = 10.0
+		sb.content_margin_top = 2.0
+		sb.content_margin_bottom = 5.0
+		sb.border_width_bottom = 3
+		_phase_pill.add_theme_stylebox_override("panel", sb)
+	_weather_icon.configure("rain" if sim.weather.is_rain() else "sun", 30, Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() else Palette.GOLD_STAR)
 	var until: int = sim.weather.days_until_holiday()
 	if until == 0:
 		_holiday.text = Tx.t("ui_hud_holiday_today")
@@ -424,7 +476,9 @@ func _refresh_speed() -> void:
 		return
 	for i in _speed_buttons.size():
 		var active: bool = sim.time.speed == i + 1 and not PauseManager.has(PauseManager.USER)
-		_speed_buttons[i].modulate = Color(1, 1, 1, 1.0 if active else 0.55)
+		var want: String = "primary" if active else "secondary"
+		if str(_speed_buttons[i].get_meta("kind", "")) != want:
+			ProceduralUIFactory.apply_kind(_speed_buttons[i], want)
 
 
 func _refresh_stock() -> void:
@@ -443,7 +497,18 @@ func _refresh_stock() -> void:
 		n.clip_text = true
 		n.custom_minimum_size = Vector2(150, 0)
 		row.add_child(n)
-		row.add_child(ProceduralUIFactory.label(str(stock[rid]), 14, Palette.UI_WOOD))
+		var count := PanelContainer.new()
+		var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.UI_CREAM_DEEP, 10, false)
+		sb.content_margin_left = 8.0
+		sb.content_margin_right = 8.0
+		sb.content_margin_top = 0.0
+		sb.content_margin_bottom = 2.0
+		sb.border_width_bottom = 2
+		count.add_theme_stylebox_override("panel", sb)
+		var cl: Label = ProceduralUIFactory.label(str(stock[rid]), 14, Palette.UI_WOOD_DEEP)
+		cl.add_theme_font_override("font", ProceduralUIFactory.display_font())
+		count.add_child(cl)
+		row.add_child(count)
 
 
 func _refresh_orders() -> void:
@@ -525,24 +590,8 @@ func _on_notify(priority: int, key: String, params: Dictionary, icon: StringName
 			return
 		_toasts.remove_child(drop)
 		drop.queue_free()
-	var pc := PanelContainer.new()
+	var pc: PanelContainer = ProceduralUIFactory.toast_card(text, String(icon), priority)
 	pc.set_meta("priority", priority)
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.PANEL if priority > 1 else Palette.BUTTER_YELLOW, 20, true)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	if priority == 0:
-		sb.border_color = Palette.DANGER
-		sb.set_border_width_all(3)
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	pc.add_child(row)
-	if String(icon) != "" and IconCanvas.has_icon(String(icon)):
-		row.add_child(ProceduralUIFactory.icon(String(icon), 22, Palette.DANGER if priority == 0 else Palette.GOLDEN_CRUST))
-	row.add_child(ProceduralUIFactory.label(text, 16))
 	pc.set_meta("text", text)
 	_toasts.add_child(pc)
 	_start_toast_fade(pc, priority)

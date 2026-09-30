@@ -9,13 +9,9 @@ var _body: VBoxContainer = null
 
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_staff"), Vector2(1200, 660))
-	var head: HBoxContainer = hbox(body, 8)
-	btn(head, Tx.t("ui_staff_team"), "secondary", func() -> void:
-		_tab = 0
-		_render())
-	btn(head, Tx.t("ui_staff_applicants"), "secondary", func() -> void:
-		_tab = 1
-		_render())
+	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_staff_team"), Tx.t("ui_staff_applicants")], _tab, func(idx: int) -> void:
+		_tab = idx
+		_render()))
 	_body = VBoxContainer.new()
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(_body)
@@ -34,7 +30,9 @@ func _render() -> void:
 		lbl(_body, Tx.t("ui_staff_hire_after_hours"), 15, Palette.TEXT_MUTED)
 	var sc := ScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Gulir dua arah: kartu yang lebih tinggi dari popup digulir, bukan
+	# mendorong popup keluar layar.
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_body.add_child(sc)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
@@ -47,7 +45,7 @@ func _render() -> void:
 			if not sim.staff.is_employed(s.id):
 				ids.append(s.id)
 	if ids.is_empty():
-		lbl(row, Tx.t("ui_record_none"), 18, Palette.TEXT_MUTED)
+		row.add_child(ProceduralUIFactory.empty_state("people", Tx.t("ui_staff_empty") if _tab == 0 else Tx.t("ui_record_none")))
 	for id: StringName in ids:
 		row.add_child(_staff_card(id))
 

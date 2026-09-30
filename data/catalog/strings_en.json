@@ -507,6 +507,7 @@
   "ui_record_highest_queue": "Highest Concurrent Queue Occupancy",
   "ui_record_fastest_tier": "Reached {location} on day",
   "ui_record_none": "—",
+  "ui_staff_empty": "No one works here yet. Hire from Applicants after closing.",
 
   "ach_first_sale": "First Crumb",
   "ach_100_breads": "Hundred Buns",

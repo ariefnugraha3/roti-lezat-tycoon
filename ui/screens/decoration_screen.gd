@@ -282,21 +282,7 @@ func _build_warning(frame: Control) -> void:
 
 ## Tombol pil berisi ikon + teks; seluruh tombol tetap bidang sentuhnya.
 static func _icon_text_button(icon_name: String, text: String, kind: String, cb: Callable) -> Button:
-	var b: Button = ProceduralUIFactory.button("", kind)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6)
-	var ic: IconCanvas = ProceduralUIFactory.icon(icon_name, 22, Palette.FLOUR_WHITE if kind == "primary" else Palette.UI_WOOD)
-	row.add_child(ic)
-	var l: Label = ProceduralUIFactory.label(text, 16, Palette.FLOUR_WHITE if kind == "primary" else Palette.TEXT)
-	row.add_child(l)
-	b.add_child(row)
-	b.set_meta("icon", ic)
-	b.set_meta("caption", l)
-	b.custom_minimum_size = Vector2(l.get_combined_minimum_size().x + 58.0, 48.0)
-	b.tooltip_text = text
+	var b: Button = ProceduralUIFactory.icon_text_button(icon_name, text, kind, 22, 16)
 	b.pressed.connect(cb)
 	return b
 
