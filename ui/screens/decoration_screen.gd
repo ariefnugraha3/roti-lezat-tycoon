@@ -381,7 +381,8 @@ func _render_tray() -> void:
 			for o: Dictionary in sim.decoration.owned:
 				var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
 				var name_text: String = Tx.t(String(def.localization_key))
-				var type_text: String = Tx.t("decor_type_" + String(def.placement_type))
+				# Badge achievement dipasang di dinding, tetapi tetap disebut Badge.
+				var type_text: String = Tx.t("decor_type_badge" if def.is_badge() else "decor_type_" + String(def.placement_type))
 				if def.is_placeable():
 					var sub2: String = "%s · %s" % [type_text, Tx.t("ui_decor_placed") if bool(o["placed"]) else Tx.t("ui_decor_unplaced")]
 					_tray_row.add_child(_card(name_text, sub2, int(o["uid"]) == _sel_decor, false, _pick_decor_card.bind(int(o["uid"]))))
@@ -455,7 +456,10 @@ func _card(title_text: String, sub: String, selected: bool, disabled: bool, cb: 
 	v.add_child(t)
 	var s: Label = ProceduralUIFactory.label(sub, 14, Color(ink, 0.8) if selected else Palette.TEXT_MUTED)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	s.clip_text = true
+	# Dua baris, bukan dipotong: "Badge · Waiting to be placed" dulu terpotong di
+	# kedua ujungnya.
+	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	s.max_lines_visible = 2
 	s.custom_minimum_size = Vector2(CARD_SIZE.x - 20.0, 0)
 	v.add_child(s)
 	b.pressed.connect(cb)

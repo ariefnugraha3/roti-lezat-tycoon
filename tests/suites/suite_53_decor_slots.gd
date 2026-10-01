@@ -14,6 +14,7 @@ func tests() -> Array:
 		{"id": "TEST_VIS_DECOR_MODELS", "name": "72.1 every placeable decoration has its own procedural model inside the triangle budget and its slot", "fn": _models},
 		{"id": "TEST_VIS_DECOR_WORLD", "name": "72.3 placed decorations are drawn, pickable in Decoration Mode, and slot markers answer taps; wall windows and clock face the room", "fn": _world},
 		{"id": "TEST_UI_DECOR_SLOTS", "name": "72.2-72.3 Decoration Mode lights free slots, a tap tries the decoration there and Place hangs it, full types explain the cap, rugs rotate before Place", "fn": _ui},
+		{"id": "ACC_72_BADGES", "name": "72.1 achievement badges hang on a wall spot like wall decorations (sharing the wall cap) and show as medals on the profile card", "fn": _badges},
 		{"id": "ACC_3_CASHIER_PERKS", "name": "3.1 Tier 2 cashiers calm the queue by 8%, Tier 4 by 15% and lift the rating 1.5x per sale", "fn": _cashier_perks},
 	]
 
@@ -325,7 +326,7 @@ func _models() -> void:
 				var fp: Vector2 = Vector2(def.overlay_size_tiles) * T
 				check(absf(b.size.x - fp.x) <= 0.07 and absf(b.size.z - fp.y) <= 0.07 and b.size.y <= 0.012, "%s covers its footprint flat (%s)" % [def.id, b.size])
 		n.free()
-	eq(seen, 23, "all 23 placeable decorations were checked")
+	eq(seen, 25, "all 25 placeable decorations (including the two achievement badges) were checked")
 	var clock: Node3D = DecorFactory.build(&"decor_wall_clock_pendulum")
 	check(clock.find_child(DecorFactory.SWING_NODE, true, false) != null, "the pendulum clock has a pendulum to swing")
 	clock.free()
@@ -563,6 +564,65 @@ func _ui() -> void:
 	for pid2: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid2)
 	SaveManager.dir = "user://saves"
+
+
+# ===========================================================================
+# BADGE ACHIEVEMENT (keputusan maintainer 2026-10-01)
+# ===========================================================================
+
+func _badges() -> void:
+	# Katalog: setiap badge adalah dekorasi dinding hadiah achievement berikon.
+	var badges: Array[StringName] = []
+	for x: Variant in DataRegistry.decorations():
+		var d: MiscDefinitions.DecorationDefinition = x
+		if d.is_badge():
+			badges.append(d.id)
+			eq(d.placement_type, &"wall", "%s hangs on a wall spot" % d.id)
+			eq(d.source, &"achievement", "%s comes from an achievement" % d.id)
+			check(IconCanvas.NAMES.has(String(d.badge_icon)), "%s has a profile medal icon" % d.id)
+			check(DecorFactory.has_model(d.visual_profile_id), "%s has its own model" % d.id)
+	check(badges.has(&"badge_first_crumb") and badges.has(&"badge_first_savings"), "both achievement badges are badges")
+	var rewards: int = 0
+	for y: Variant in DataRegistry.achievements():
+		var ach: MiscDefinitions.AchievementDefinition = y
+		if badges.has(ach.reward_id):
+			rewards += 1
+	eq(rewards, badges.size(), "every badge is an achievement reward")
+	# Didapat dari achievement: masuk inventaris, belum terpasang, tidak "dipakai".
+	var s: SimulationRoot = new_sim(7202)
+	var dm: DecorationManager = s.decoration
+	dm.grant(&"badge_first_crumb")
+	var o: Dictionary = {}
+	for it: Dictionary in dm.owned:
+		if StringName(str(it["deco_id"])) == &"badge_first_crumb":
+			o = it
+	check(not o.is_empty() and not bool(o["placed"]), "the badge waits in the inventory")
+	check(not dm.equipped.has("badge"), "badges are not equipped any more, they are placed")
+	check(not dm.type_full(int(o["uid"])), "a free wall spot is available at Tier 1")
+	var sf: StringName = dm.store_floor()
+	eq(dm.place(int(o["uid"]), sf, Vector2i(-1, -1), 0), &"", "the badge hangs on wall spot 0")
+	eq(dm.placed_of_type(&"wall"), 1, "it uses one of the shop's wall spots")
+	var curtains: Dictionary = dm._add(&"decor_gingham_curtains")
+	eq(dm.place(int(curtains["uid"]), sf, Vector2i(-1, -1), 0), &"overlap", "it shares the wall spots with other wall decorations")
+	# Save lama yang masih mencatat badge sebagai "dipakai".
+	var saved: Dictionary = dm.capture()
+	saved["equipped"] = {"badge": "badge_first_crumb"}
+	dm.restore(saved)
+	check(not dm.equipped.has("badge"), "an old save's equipped badge entry is dropped")
+	# Kartu profil: medali untuk setiap badge yang sudah didapat.
+	SaveManager.dir = "user://test_saves_badges"
+	SaveManager.write_profile(&"profile_1", s.capture_save())
+	var h: Dictionary = SaveManager.read_header(&"profile_1")
+	eq(h.get("badges", []), ["badge_first_crumb"] as Array[String], "the profile header lists the earned badge")
+	var row: Control = ProfileScreen.badge_row(h["badges"])
+	check(row != null and row.get_child_count() == 1, "the profile card shows one medal")
+	if row != null:
+		check(row.get_child(0).tooltip_text == Tx.t("badge_first_crumb"), "the medal is named by its tooltip")
+		row.free()
+	check(ProfileScreen.badge_row([]) == null, "no medal row without badges")
+	SaveManager.delete_profile(&"profile_1")
+	SaveManager.dir = "user://saves"
+	free_sim(s)
 
 
 # ===========================================================================

@@ -37,7 +37,22 @@ func _open(game: GameRoot) -> DecorationScreen:
 	# Satu frame agar GameRoot menyalakan CommandLayer untuk layar dunia ini.
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
+	await _settle_camera(game)
 	return deco
+
+
+## Kamera Decoration Mode meluncur pelan ke tengah ruangan selama beberapa frame.
+## Gestur yang dihitung dari posisi layar baru tepat setelah kamera diam; kalau
+## tidak, lantai di bawah jari ikut bergeser di tengah drag.
+func _settle_camera(game: GameRoot) -> void:
+	var cam: Camera3D = game.world.camera_rig.camera
+	var last: Vector3 = cam.global_position
+	for i in 240:
+		await runner.get_tree().process_frame
+		var now: Vector3 = cam.global_position
+		if now.distance_to(last) < 0.0005:
+			return
+		last = now
 
 
 func _finish(game: GameRoot) -> void:

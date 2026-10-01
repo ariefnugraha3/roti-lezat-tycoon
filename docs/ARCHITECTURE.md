@@ -211,6 +211,16 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   the screen calls `place`. `hold_top` anchors the floating action toolbar and
   `hold_hit` tells `CommandLayer` (through the screen's `press_override`) whether a
   drag should move the held item instead of the camera.
+- Shader compilation (GDD 89.5): WebGL compiles a shader the first time a material
+  combination is drawn. `ShaderWarmup` (`gameplay/world/shader_warmup.gd`) draws one
+  sample of every late-appearing visual below the floor during the `ui_loading_ovens`
+  stage and after a location upgrade. `MaterialKeep` (`procedural/material_keep.gd`)
+  keeps one material per feature combination alive for the whole process, because
+  BaseMaterial3D frees a shader when its last material goes and would compile it again.
+  Placement ghosts and tile overlays share one unshaded material
+  (`ProceduralMeshFactory.overlay_material`/`tint_material`). Thin glass is unshaded
+  and bread uses Lambert, so the whole game needs at most 12 shader combinations.
+  None of them is lit and transparent, the slowest kind to compile in a browser.
   It draws placed decorations with `DecorFactory` (one cached prototype per item,
   placed copies share meshes), swings the pendulums, makes decorations pickable, and
   shows the wall/counter slot markers the screen taps (`show_slot_markers`,

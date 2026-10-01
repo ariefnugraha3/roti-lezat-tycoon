@@ -35,6 +35,8 @@ const LCD: Color = Color(0.62, 0.72, 0.56)
 
 ## Bintang di plakat kenaikan tier (GDD 72.1: ach_tier2..4).
 const PLAQUE_STARS: Dictionary = {&"decor_plaque_tier2": 2, &"decor_plaque_tier3": 3, &"decor_plaque_tier4": 4}
+## Badge achievement (GDD 72.1): warna pita rosette, juga warna medali di kartu profil.
+const BADGE_RIBBONS: Dictionary = {&"badge_crumb": Palette.STRAWBERRY, &"badge_savings": Palette.PASTEL_PERIWINKLE}
 
 static var _proto: Dictionary = {}
 static var _glass_mat: StandardMaterial3D = null
@@ -63,7 +65,8 @@ static func has_model(profile: StringName) -> bool:
 	return profile in [&"gingham_curtains", &"wall_clock", &"chalk_board", &"flower_box", &"photo_wall",
 		&"hanging_lamp", &"plaque_bronze", &"plaque_silver", &"plaque_gold", &"photo_frame", &"plaque_infinity",
 		&"cassette_radio", &"coin_jar", &"trophy_small", &"calculator", &"brass_bell",
-		&"potted_plant", &"basket_stack", &"trophy_large", &"umbrella_stand", &"terracotta_rug", &"floor_mat"]
+		&"potted_plant", &"basket_stack", &"trophy_large", &"umbrella_stand", &"terracotta_rug", &"floor_mat",
+		&"badge_crumb", &"badge_savings"]
 
 
 ## Model utuh satu dekorasi. Dekorasi tak dikenal menghasilkan node kosong.
@@ -117,10 +120,19 @@ static func build(deco_id: StringName) -> Node3D:
 			_terracotta_rug(k, Vector2(def.overlay_size_tiles) * GridMath.WORLD_METERS_PER_TILE)
 		&"floor_mat":
 			_floor_mat(k, Vector2(def.overlay_size_tiles) * GridMath.WORLD_METERS_PER_TILE)
+		&"badge_crumb":
+			_badge_rosette(k, &"crumb", badge_ribbon(def.visual_profile_id), BRONZE)
+		&"badge_savings":
+			_badge_rosette(k, &"savings", badge_ribbon(def.visual_profile_id), GOLD)
 	var root: Node3D = k.done()
 	root.set_meta("deco_id", deco_id)
 	root.set_meta("placement_type", def.placement_type)
 	return root
+
+
+## Warna pita badge (dipakai juga oleh medali kartu profil).
+static func badge_ribbon(profile: StringName) -> Color:
+	return BADGE_RIBBONS.get(profile, Palette.HONEY)
 
 
 ## Material penanda slot Decoration Mode: tanpa bayangan, warna verteks, tembus.
@@ -420,6 +432,40 @@ static func _plaque_hundred(k: Kit) -> void:
 	_seg(k.s, _v(-0.052, -0.023, -0.041), _v(-0.066, -0.033, -0.041), Vector2(0.01, 0.006), ink)
 	for u: float in [-0.012, 0.036]:
 		k.s.torus(_xf(_v(u, -0.047, -0.041), Vector3(90.0, 0.0, 0.0), Vector3(1.0, 1.0, 1.4)), 0.016, 0.005, ink, 14, 5)
+
+
+## Badge achievement (GDD 72.1): rosette pita berlipit dengan medali di tengah,
+## dua ekor pita bertakik, di atas papan walnut bundar. Lambang medali: roti
+## (`crumb`) atau koin berbintang (`savings`).
+static func _badge_rosette(k: Kit, emblem: StringName, ribbon: Color, metal: Color) -> void:
+	k.m.cylinder(_xf(Vector3(0.0, 0.0, -0.006), Vector3(90.0, 0.0, 0.0)), 0.012, 0.125, 0.125, WALNUT, 24)
+	k.m.torus(_xf(Vector3(0.0, 0.0, -0.012), Vector3(90.0, 0.0, 0.0)), 0.122, 0.006, WALNUT.lightened(0.12), 24, 4)
+	# Ekor pita: poligon bertakik, menjuntai ke bawah dari balik rosette.
+	var tail := PackedVector2Array([Vector2(-0.024, 0.07), Vector2(0.024, 0.07), Vector2(0.024, -0.07), Vector2(0.0, -0.046), Vector2(-0.024, -0.07)])
+	for s: float in [-1.0, 1.0]:
+		k.m.polygon(_xf(Vector3(s * 0.034, -0.13, -0.014), Vector3(0.0, 0.0, s * 12.0)), tail, ribbon.darkened(0.08 if s < 0.0 else 0.0), Vector3.FORWARD)
+	# Lipit rosette: kelopak elipsoid berselang-seling terang-gelap.
+	var petals: int = 14
+	for i in petals:
+		var a: float = TAU * float(i) / float(petals)
+		var c := Vector3(cos(a) * 0.082, sin(a) * 0.082, -0.017)
+		var col: Color = ribbon if i % 2 == 0 else ribbon.lightened(0.18)
+		k.m.ellipsoid(_xf(c, Vector3(0.0, 0.0, rad_to_deg(a))), Vector3(0.034, 0.02, 0.008), col, 8, 4)
+	# Medali.
+	k.s.cylinder(_xf(Vector3(0.0, 0.0, -0.024), Vector3(90.0, 0.0, 0.0)), 0.014, 0.062, 0.062, metal, 24)
+	k.s.torus(_xf(Vector3(0.0, 0.0, -0.031), Vector3(90.0, 0.0, 0.0)), 0.058, 0.005, metal.darkened(0.22), 20, 5)
+	match emblem:
+		&"crumb":
+			# Roti bulat lonjong bergaris tiga, dengan dua remah di sampingnya.
+			k.m.ellipsoid(_xf(Vector3(0.0, 0.004, -0.034)), Vector3(0.034, 0.02, 0.011), Palette.GOLDEN_CRUST, 12, 6)
+			for j in 3:
+				k.m.box(_xf(Vector3(-0.014 + 0.014 * float(j), 0.008, -0.0445), Vector3(0.0, 0.0, 25.0)), Vector3(0.004, 0.014, 0.002), Palette.FLOUR_WHITE)
+			for p: Vector3 in [Vector3(0.026, -0.026, -0.033), Vector3(-0.03, -0.022, -0.033)]:
+				k.m.ellipsoid(_xf(p), Vector3(0.006, 0.005, 0.004), Palette.GOLDEN_CRUST.darkened(0.1), 6, 3)
+		_:
+			# Koin dengan bintang timbul.
+			k.s.cylinder(_xf(Vector3(0.0, 0.0, -0.034), Vector3(90.0, 0.0, 0.0)), 0.006, 0.036, 0.036, GOLD.lightened(0.12), 20)
+			k.m.polygon(_xf(Vector3(0.0, 0.0, -0.0375)), _star_pts(0.022, 0.009, 5), Palette.BUTTER_YELLOW, Vector3.FORWARD)
 
 
 ## Plakat bintang kenaikan tier: papan melengkung, pelat perak (atau emas dengan
@@ -906,15 +952,18 @@ static func _heart_pts(s: float) -> PackedVector2Array:
 	return pts
 
 
+## Kaca toples: tanpa cahaya, kombinasi fitur yang sama dengan penanda slot.
+## Kaca bercahaya-tembus akan menjadi shader tersendiri yang paling mahal
+## dikompilasi di browser (GDD 89.5).
 static func _glass_material() -> StandardMaterial3D:
 	if _glass_mat == null:
 		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.vertex_color_use_as_albedo = true
 		m.vertex_color_is_srgb = true
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.roughness = 0.12
-		m.metallic_specular = 0.9
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.disable_receive_shadows = true
 		_glass_mat = m
 	return _glass_mat
 

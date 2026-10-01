@@ -37,6 +37,9 @@ var _orientation: OrientationGuard = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
 var _skip_overlay: SkipOverlay = null
+## Pemanasan shader saat loading dan setelah upgrade lokasi (ShaderWarmup).
+## Mati di headless (tanpa GPU tidak ada yang dikompilasi); tes boleh menyalakannya.
+var shader_warmup: bool = DisplayServer.get_name() != "headless"
 
 
 func _ready() -> void:
@@ -102,8 +105,10 @@ func _show_splash() -> void:
 	pulse.tween_property(tap, "modulate:a", 0.55, 0.9)
 	pulse.tween_property(tap, "modulate:a", 1.0, 0.9)
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
-	# Musik menu dirakit di latar selagi pemain membaca layar ini.
+	# Musik menu dirakit di latar selagi pemain membaca layar ini, lalu bunyi
+	# pendek (GDD 33.6), supaya tidak ada yang perlu dirakit saat bermain.
 	AudioManager.prewarm_music([&"menu_music"])
+	AudioManager.prewarm_short_sounds()
 
 
 ## Ketukan dihitung saat jari/klik DILEPAS: browser baru mengizinkan layar penuh
@@ -130,8 +135,9 @@ func show_main_menu() -> void:
 	EventBus.music_state_changed.emit(&"MENU")
 	modals.open(&"main_menu")
 	# Bed pagi ikut dirakit di latar: saat pemain selesai mengisi nama toko,
-	# layar loading tidak perlu menunggunya lagi.
+	# layar loading tidak perlu menunggunya lagi. Begitu juga bunyi pendek.
 	AudioManager.prewarm_music([&"menu_music", &"shop_music_morning"])
+	AudioManager.prewarm_short_sounds()
 
 
 ## Boot headless (test/validator): lewati splash.
@@ -181,10 +187,14 @@ func load_profile(profile_id: StringName) -> void:
 ## (`playing`) setelah overlay mulai memudar, jadi jam tidak maju selama loading.
 func _enter_gameplay(profile_id: StringName) -> void:
 	modals.close_all()
+	# Sisa bunyi pendek dirakit di layar loading; selama gameplay tidak ada
+	# perakitan bunyi di latar yang bisa menahan frame.
+	AudioManager.stop_short_sound_prewarm()
 	await _loading_stage("ui_loading_music", 0.30)
 	await _warm_audio(0.30, 0.55)
 	await _loading_stage("ui_loading_world", 0.55)
 	world = WorldView.new()
+	world.shader_warmup = shader_warmup
 	add_child(world)
 	world.setup(sim)
 	await _loading_stage("ui_loading_counter", 0.72)
@@ -207,7 +217,13 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	PauseManager.lifecycle_enabled = true
 	_connect_sim_requests()
 	await _loading_stage("ui_loading_ovens", 0.85)
+	# Shader setiap visual yang muncul belakangan dikompilasi sekarang, di balik
+	# layar loading, bukan di tengah permainan (GDD 89.5, 109; ShaderWarmup).
+	var warm: ShaderWarmup = ShaderWarmup.start(world) if shader_warmup else null
 	await _settle_frames(0.85, 1.0)
+	if warm != null:
+		warm.finish()
+	MaterialKeep.scan(world)
 	playing = true
 	_end_loading(false)
 	EventBus.profile_loaded.emit(profile_id)
@@ -560,6 +576,12 @@ func _warm_audio(p_from: float, p_to: float) -> void:
 			await get_tree().process_frame
 	var others: Array[StringName] = WorldView.ambience_for(sim.weather.is_rain())
 	others.append_array([&"mixer_loop", &"oven_loop"])
+	# Bunyi pendek lain juga dirakit sekarang. Dulu bunyi disintesis saat pertama
+	# dibunyikan, dan di browser itu menahan frame 20-170 ms per bunyi tepat saat
+	# pemain mengetuk perabot (GDD 33.6).
+	for id: StringName in AudioManager.short_sound_ids():
+		if not others.has(id) and not AudioManager.is_stream_ready(id):
+			others.append(id)
 	for i in others.size():
 		AudioManager.stream_for(others[i])
 		if _loader != null:

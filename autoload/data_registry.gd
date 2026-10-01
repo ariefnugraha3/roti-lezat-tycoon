@@ -927,6 +927,8 @@ func _validate_meta() -> void:
 		if dd.placement_type != &"floor_prop" and dd.footprint_tiles != Vector2i.ZERO:
 			_err("decoration %s footprint only allowed for floor_prop" % dd.id)
 		# Karpet menempati jejak overlay_size_tiles (GDD 72.3).
+		if dd.is_badge() and (dd.placement_type != &"wall" or dd.source != &"achievement" or not IconCanvas.NAMES.has(String(dd.badge_icon))):
+			_err("decoration %s badge must be an achievement wall decoration with a known icon" % dd.id)
 		if dd.placement_type == &"floor_overlay" and (dd.overlay_size_tiles.x <= 0 or dd.overlay_size_tiles.y <= 0):
 			_err("decoration %s floor_overlay needs overlay_size_tiles" % dd.id)
 		if dd.placement_type != &"floor_overlay" and dd.overlay_size_tiles != Vector2i.ZERO:

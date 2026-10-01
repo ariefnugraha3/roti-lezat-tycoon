@@ -38,7 +38,7 @@
 		"speed": 1,
 		"time_seconds": 36000.0
 	},
-	"created_at": "2026-10-01T01:49:53Z",
+	"created_at": "2026-10-01T11:38:43Z",
 	"customers": {
 		"abandoned_today": 3,
 		"customers": [],
@@ -52,7 +52,6 @@
 	"day": 4,
 	"decorations": {
 		"equipped": {
-			"badge": "badge_first_savings",
 			"oven": "skin_oven_decal_golden"
 		},
 		"next_uid": 6,

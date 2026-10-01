@@ -27,6 +27,7 @@ const LIFT_BOB_M: float = 0.015
 ## Karpet yang dipegang tetap rata di lantai, cukup terangkat agar tidak berkedip
 ## di atas lantai atau karpet lain (m).
 const RUG_LIFT_M: float = 0.012
+
 ## Decoration Mode: jarak layar maksimum ketukan ke penanda slot (px).
 const PICK_SLOT_PX: float = 56.0
 ## Ayunan bandul jam dinding dekorasi: kecepatan sudut (rad/s) dan simpangan (rad).
@@ -59,6 +60,8 @@ var _env: WorldEnvironment = null
 var _t: float = 0.0
 var _smoke: Dictionary = {}
 var decoration_mode: bool = false
+## Panaskan shader alat tier baru setelah upgrade lokasi (diset GameRoot).
+var shader_warmup: bool = false
 ## Decoration Mode boleh melihat lantai lain selama simulasi di-pause.
 var view_floor_override: StringName = &""
 ## lane_id -> kantong kertas yang sedang diisi di meja kasir (GDD 21.4).
@@ -118,7 +121,7 @@ func setup(s: SimulationRoot) -> void:
 	_thought_bubble = ThoughtBubble.new()
 	_thought_layer.add_child(_thought_bubble)
 	sim.world.layout_changed.connect(rebuild_furniture)
-	EventBus.location_changed.connect(func(_id: StringName) -> void: rebuild_all())
+	EventBus.location_changed.connect(func(_id: StringName) -> void: _on_location_changed())
 	EventBus.storage_door.connect(_on_storage_door)
 	EventBus.weather_changed.connect(func(_a: StringName, _b: StringName) -> void: _apply_weather())
 	EventBus.sale_completed.connect(_on_sale)
@@ -127,6 +130,18 @@ func setup(s: SimulationRoot) -> void:
 	camera_rig.active_floor = sim.player.actor.floor_id
 	camera_rig.snap_to(_v3(sim.player.actor.pos))
 	_apply_floor_visibility()
+
+
+## Upgrade lokasi: ruangan baru dibangun, lalu shader alat tier baru dipanaskan
+## di bawah lantai (tak terlihat) supaya tidak macet saat alat itu dibeli nanti.
+func _on_location_changed() -> void:
+	rebuild_all()
+	if shader_warmup:
+		var w: ShaderWarmup = ShaderWarmup.start(self)
+		for i in 2:
+			await get_tree().process_frame
+		if is_instance_valid(w):
+			w.finish()
 
 
 func rebuild_all() -> void:
@@ -150,6 +165,7 @@ func rebuild_all() -> void:
 	_apply_brightness()
 	_update_counter_aabbs()
 	_apply_floor_visibility()
+	MaterialKeep.scan(self)
 
 
 func rebuild_furniture() -> void:
@@ -378,9 +394,11 @@ func _sync_actors(delta: float) -> void:
 			continue
 		_apply_customer_carry(v, c)
 		v.set_receive(_receive_amount(c))
-		# Pengunjung lihat-lihat tidak pernah menunggu, jadi tanpa patience bar (GDD 20.12).
-		var show_bar: bool = not c.window_shopper and c.state != Customer.CELEBRATING and c.state != Customer.LEAVING \
-			and c.state != Customer.LEAVE_NO_STOCK
+		# Bar kesabaran hanya selama pembeli mengantre di kasir, satu-satunya saat
+		# kesabarannya berkurang (keputusan maintainer 2026-10-01, GDD 20.8). Saat
+		# masuk dan memilih roti, bar penuh yang diam hanya membingungkan.
+		# Pengunjung lihat-lihat tidak pernah mengantre (GDD 20.12).
+		var show_bar: bool = not c.window_shopper and c.drains_patience()
 		v.set_patience(c.patience_ratio(), show_bar, large)
 		v.set_look_around(c.window_shopper and c.state == Customer.BROWSING and not a2.moving)
 		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
@@ -1361,20 +1379,33 @@ func show_ghost(cells: Array[Vector2i], floor_id: StringName, valid: bool) -> vo
 	if parent == null:
 		return
 	for c: Vector2i in cells:
-		var q := ProceduralMeshFactory.box(Vector3(0.46, 0.02, 0.46), Palette.FLOUR_WHITE if valid else Palette.DANGER)
-		var mat: StandardMaterial3D = ProceduralMeshFactory.material_of(q).duplicate()
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.albedo_color = Color(mat.albedo_color, 0.55)
-		q.material_override = mat
-		_ghosts.add_child(q)
-		q.global_position = GridMath.cell_center3(c, 0.03)
-		if not valid:
-			# Tanda silang: status tidak bergantung warna saja (GDD 44.2).
-			for s: float in [45.0, -45.0]:
-				var bar := ProceduralMeshFactory.box(Vector3(0.40, 0.03, 0.06), Palette.DANGER)
-				_ghosts.add_child(bar)
-				bar.global_position = GridMath.cell_center3(c, 0.05)
-				bar.rotation_degrees = Vector3(0.0, s, 0.0)
+		var g: Node3D = ghost_tile(valid)
+		_ghosts.add_child(g)
+		g.global_position = GridMath.cell_center3(c, 0.03)
+
+
+## Satu ubin jejak penempatan: putih tembus bila sah, merah bersilang bila tidak
+## (tanda silang: status tidak bergantung warna saja, GDD 44.2). Mesh dan
+## materialnya dipakai bersama, dan shadernya sama dengan arsiran ubin, jadi
+## memindah pratinjau tidak pernah memicu kompilasi shader baru (MaterialKeep).
+static func ghost_tile(valid: bool) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Ghost"
+	var q := MeshInstance3D.new()
+	q.mesh = ProceduralMeshFactory.shared_box(Vector3(0.46, 0.02, 0.46))
+	q.material_override = ProceduralMeshFactory.tint_material(Color(Palette.FLOUR_WHITE if valid else Palette.DANGER, 0.55))
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(q)
+	if not valid:
+		for s: float in [45.0, -45.0]:
+			var x := MeshInstance3D.new()
+			x.mesh = ProceduralMeshFactory.shared_box(Vector3(0.40, 0.03, 0.06))
+			x.material_override = ProceduralMeshFactory.tint_material(Palette.DANGER)
+			x.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			x.position = Vector3(0.0, 0.02, 0.0)
+			x.rotation_degrees = Vector3(0.0, s, 0.0)
+			root.add_child(x)
+	return root
 
 
 ## Decoration Mode: tandai ubin yang harus tetap kosong (arsiran merah) dan,

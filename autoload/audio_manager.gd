@@ -67,6 +67,9 @@ var _urgent: Dictionary = {}
 var _music_playing: StringName = &""
 ## Musik/lapisan ramai menunggu bed-nya selesai dirakit.
 var _pending_music: bool = false
+## Bunyi pendek yang dirakit di latar selama layar menu, satu per frame setelah
+## musik yang ditunggu siap (GDD 33.6). Kosong selama gameplay.
+var _sfx_backlog: Array[StringName] = []
 var _pending_busy: bool = false
 
 
@@ -162,6 +165,36 @@ func stream_for(event_id: StringName) -> AudioStream:
 			return null
 		_streams[key] = s
 	return _streams[key]
+
+
+## Semua event bunyi yang bukan bed musik, satu per resep generator (bunyi yang
+## berbagi resep cukup dirakit sekali). Urut sesuai katalog.
+func short_sound_ids() -> Array[StringName]:
+	var out: Array[StringName] = []
+	var seen: Dictionary = {}
+	for x: Variant in DataRegistry.audio_events():
+		var def: MiscDefinitions.AudioEventDefinition = x
+		var key: String = MusicBuild.cache_key(String(def.generator))
+		if MusicBuild.mood_of(String(def.generator)) != "" or seen.has(key):
+			continue
+		seen[key] = true
+		out.append(def.id)
+	return out
+
+
+## Rakit semua bunyi pendek di latar selama layar menu, satu per frame, supaya
+## layar loading tidak perlu menunggunya lagi. Dimatikan saat gameplay dimulai.
+func prewarm_short_sounds() -> void:
+	_sfx_backlog.clear()
+	if not background_prewarm:
+		return
+	for id: StringName in short_sound_ids():
+		if not is_stream_ready(id):
+			_sfx_backlog.append(id)
+
+
+func stop_short_sound_prewarm() -> void:
+	_sfx_backlog.clear()
 
 
 func is_stream_ready(event_id: StringName) -> bool:
@@ -444,6 +477,8 @@ func set_ambience(event_ids: Array) -> void:
 func _process(delta: float) -> void:
 	if not _job_order.is_empty() and (background_prewarm or not _urgent.is_empty()):
 		step_jobs(JOB_URGENT_BUDGET_USEC if not _urgent.is_empty() else JOB_BUDGET_USEC)
+	elif not _sfx_backlog.is_empty():
+		stream_for(_sfx_backlog.pop_front())
 	var idx: int = AudioServer.get_bus_index("Music")
 	if idx < 0:
 		return

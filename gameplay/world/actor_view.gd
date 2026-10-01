@@ -479,11 +479,23 @@ class PatienceBar extends Node3D:
 
 	func _ready() -> void:
 		var bg := _quad(Vector2(W + 0.03, H + 0.03), Palette.DARK_CHOCOLATE)
+		bg.name = "Back"
 		add_child(bg)
 		_fill = _quad(Vector2(W, H), Palette.SUCCESS)
+		_fill.name = "Fill"
 		_fill.position = Vector3(0.0, 0.0, 0.004)
 		_mat = _fill.material_override as StandardMaterial3D
+		# Kedua lapis tembus tanpa uji kedalaman, jadi urutan gambarnya ditentukan
+		# pengurutan objek tembus. Kamera ortografis mengurutkan menurut sudut
+		# kotak pembatas yang terdekat; latar yang sedikit lebih besar selalu
+		# terhitung "lebih dekat", digambar terakhir, dan menutupi isinya (bug
+		# 2026-10-01: bar tampak cokelat diam). Prioritas render memaksa isinya
+		# selalu di atas latar.
+		_mat.render_priority = 1
 		add_child(_fill)
+
+	func fill_ratio() -> float:
+		return _fill.scale.x if _fill != null else -1.0
 
 	func set_ratio(r: float, large: bool) -> void:
 		_ratio = clampf(r, 0.0, 1.0)

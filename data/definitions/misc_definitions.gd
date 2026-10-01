@@ -55,6 +55,9 @@ class DecorationDefinition:
 	var overlay_size_tiles: Vector2i = Vector2i.ZERO
 	var skin_target: StringName
 	var visual_profile_id: StringName
+	## Badge achievement (GDD 72.1, keputusan maintainer 2026-10-01): dekorasi
+	## dinding yang juga tampil sebagai medali di kartu profil dengan ikon ini.
+	var badge_icon: StringName
 
 	static func from_dict(d: Dictionary) -> DecorationDefinition:
 		var x := DecorationDefinition.new()
@@ -71,7 +74,11 @@ class DecorationDefinition:
 			x.overlay_size_tiles = Vector2i(int(ov[0]), int(ov[1]))
 		x.skin_target = StringName(str(d.get("skin_target", "")))
 		x.visual_profile_id = StringName(str(d.get("visual_profile_id", "")))
+		x.badge_icon = StringName(str(d.get("badge_icon", "")))
 		return x
+
+	func is_badge() -> bool:
+		return badge_icon != &""
 
 	func uses_floor_cell() -> bool:
 		return placement_type == &"floor_prop"

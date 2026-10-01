@@ -89,7 +89,7 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 1. **Pembeli masuk** lewat pintu depan dan berjalan ke rak display.
 2. **Memilih roti di rak** — dan ia **mengambil rotinya sendiri saat itu juga**. Stok etalase berkurang sejak detik itu, bukan nanti di kasir.
 3. **Membawa belanjaannya ke meja kasir** dan berdiri di antrean; roti yang ditentengnya terlihat di tangannya.
-4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Di atas kepala setiap pelanggan juga selalu terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual.
+4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Selama ia mengantre di kasir, di atas kepalanya juga terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual (keputusan maintainer 2026-10-01: bar hanya muncul di antrean kasir, Seksi 20.8).
 5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
 6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
 7. **Tekan OK** → karakter langsung membungkus, tanpa jeda. Setiap transaksi berlangsung **tepat 3 detik simulasi** (1,5 detik nyata sejak skala waktu 2026-10-01) dan **seluruhnya animasi membungkus** (keputusan maintainer 2026-09-30): pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
@@ -771,7 +771,7 @@ Catatan placement:
   * Pemilih Petak Rak: Muncul setelah karakter tiba di rak sambil membawa loyang. Kisi tombol besar sebanyak petak rak yang sesungguhnya (jumlahnya menurut tier rak, Seksi 85) menyalin susunan petak itu (kiri ke kanan), lengkap dengan isi tiap petak. Satu loyang boleh disebar ke beberapa petak—layarnya tidak menutup sampai loyangnya habis.    
 * **UX Feedback & In-Game Indicators**:  
   * Balon Pikiran Pelanggan (Thought Bubbles) untuk menunjukkan keluhan seperti antrean lama (ikon jam pasir) atau harga mahal (ikon uang terbang).
-  * **Patience Bar di Atas Kepala:** Setiap pelanggan fisik memiliki bar horizontal kecil yang selalu mengikuti posisi kepalanya. Bar menunjukkan `current_patience / max_patience`, berkurang secara halus ketika customer berada pada state yang mengonsumsi kesabaran. Driver Ojol yang sedang menunggu handover juga menggunakan indikator kesabaran/waiting yang konsisten bila mekanik patience berlaku padanya. Tidak menampilkan angka detik; pemain membaca kondisi dari panjang bar dan perubahan visual.  
+  * **Patience Bar di Atas Kepala:** Pembeli yang sedang mengantre di kasir memiliki bar horizontal kecil yang mengikuti posisi kepalanya. Bar menunjukkan `current_patience / max_patience` dan berkurang secara halus selama ia menunggu. Saat pembeli masuk, memilih roti, dan pulang, bar tidak tampil (keputusan maintainer 2026-10-01, Seksi 20.8). Driver Ojol yang sedang menunggu handover juga menggunakan indikator kesabaran/waiting yang konsisten bila mekanik patience berlaku padanya. Tidak menampilkan angka detik; pemain membaca kondisi dari panjang bar dan perubahan visual.  
   * Indikator Oven berupa progress bar melingkar yang berubah dari hijau, kuning, hingga merah berkedip sebagai tanda roti matang/gosong.
   * **Gelembung Tanda Seru "!"** mengambang di atas perabot yang menunggu diketuk, berdenyut pelan agar tertangkap sudut mata tanpa menjerit.
   * **Bar Progres Perabot** mengambang di atas alat yang sedang bekerja, tumbuh dari kiri ke kanan dan berubah dari hijau ke keemasan. **Tanpa angka dan tanpa hitung mundur**: pemain hanya perlu tahu "masih jalan" atau "sudah penuh", dan angka detik hanya akan menarik matanya dari dapur ke teks.  
@@ -2029,7 +2029,7 @@ Patience berkurang terutama saat:
 
 Patience tidak berkurang ketika customer sedang berjalan normal ke rak atau pintu, kecuali event khusus.
 
-Setiap customer instance wajib memiliki indikator world-space di atas kepala:
+Pembeli memiliki indikator world-space di atas kepala **hanya selama ia mengantre di kasir**: menunggu di antrean, menjadi orang terdepan, atau sedang dilayani (state `QUEUING`, `FRONT_OF_QUEUE`, `BEING_SERVED`, yaitu state yang mengurangi patience). Keputusan maintainer 2026-10-01: sebelumnya bar sudah tampil sejak pembeli masuk dan tampak penuh dan diam selama ia memilih roti. Pengemudi RotiFood memakai bar yang sama selama patience-nya berkurang (masuk ke antrean, mengantre, di titik layanan). Rasionya:
 
 ```text
 ratio = clamp(current_patience / max_patience, 0.0, 1.0)
@@ -2041,7 +2041,8 @@ UI behavior:
 - Tidak menampilkan countdown numerik.
 - Update visual boleh di-throttle (mis. 5–10 Hz) untuk efisiensi, tetapi nilai gameplay tetap dihitung dari simulation clock.
 - Ketika ratio turun, bar harus memberi perubahan visual yang mudah dibaca tanpa membutuhkan teks.
-- Bar disembunyikan ketika customer sudah `PAID/EXITING` dan dilepas saat actor despawn.
+- Bar disembunyikan begitu pembeli keluar dari antrean kasir (membayar, menyerah, atau pulang) dan dilepas saat actor despawn.
+- Isi bar selalu tergambar di atas latarnya. Kedua lapis tembus pandang tanpa uji kedalaman, jadi isi bar diberi prioritas render lebih tinggi. Tanpa itu, pengurutan objek tembus kamera ortografis menggambar latar yang sedikit lebih besar paling akhir. Akibatnya isi bar tertutup dan bar tampak cokelat diam (bug yang diperbaiki 2026-10-01).
 - Pending arrival yang belum masuk toko tidak memiliki Patience Bar aktif.
 
 ## **20.9 Abandonment**
@@ -3098,7 +3099,8 @@ Keputusan maintainer 2026-09-30. Satu bed musik berisi puluhan nada dan butuh ha
 - Saat suasana musik berganti ke bed yang belum jadi, **bed lama terus berputar** sampai bed baru selesai, lalu berpindah dengan crossfade. Lapisan ramai (33.2) menunggu dengan cara yang sama. Tidak ada frame yang menunggu musik.
 - Bed yang akan dibutuhkan dirakit di latar lebih dulu: musik menu selama layar "Tap to Start", bed pagi di Main Menu, lalu bed siang, lapisan ramai, sore, dan (bila hujan) hujan setelah hari dimulai.
 - Layar loading gameplay (Seksi 89.5) menyiapkan bed suasana saat itu serta ambience cuaca dan loop mixer/oven sebagai tahap tersendiri, dengan bar yang terus bergerak.
-- Bed yang identik berbagi satu stream (`bailout_cue` = `music_after_hours`). Bunyi pendek (SFX, ambience) tetap dibangun saat pertama dipakai (Seksi 91).
+- Bed yang identik berbagi satu stream (`bailout_cue` = `music_after_hours`).
+- **Bunyi pendek** (SFX dan ambience) tidak pernah dibangun saat pertama dibunyikan di tengah gameplay (perbaikan 2026-10-01). Dulu di browser satu bunyi menahan frame 20–170 ms, tepat saat pemain mengetuk perabot. Layar "Tap to Start" dan Main Menu merakitnya di latar, satu per frame setelah bed musik yang ditunggu siap, setiap resep generator sekali. Tahap loading musik merakit sisanya. Perakitan di latar berhenti begitu gameplay dimulai.
 
 ---
 
@@ -4678,7 +4680,7 @@ Dekorasi murni kosmetik. Ia tidak mengubah demand, rating, kecepatan, footprint 
 - `counter_prop`: slot di atas meja kasir (Seksi 72.3); tidak memakai cell.
 - `skin`: mengganti tampilan alat, meja, papan nama, atau UI; tidak memakai cell.
 - `outfit`: kosmetik karakter pemain atau staf.
-- `badge`: tanda di kartu profil.
+- **Badge achievement** (keputusan maintainer 2026-10-01): badge (`badge_first_crumb`, `badge_first_savings`) adalah dekorasi `wall`. Ia dipasang di slot dinding toko seperti dekorasi dinding lain dan memakai jatah slot dinding (Seksi 72.3). Modelnya rosette pita dengan medali: roti untuk First Crumb, koin berbintang untuk First Savings. Setiap badge yang sudah didapat juga tampil sebagai medali kecil berwarna pitanya di kartu profil (layar pilih profil), dengan nama badge sebagai tooltip. Di baki Decoration Mode ia tetap berlabel "Badge". Sebelumnya badge hanya "dipakai" tanpa tampil di mana pun, sehingga mengetuk kartunya tidak menghasilkan apa-apa. Save lama: badge yang sudah dimiliki langsung bisa dipasang, dan catatan "dipakai"-nya dibuang.
 
 Maksimal **24** dekorasi terpasang per floor (Seksi 129). Nama English: Seksi 127.11.
 
@@ -5392,12 +5394,19 @@ Loading overlay shows English stage text such as `"Preparing the bakery..."`; pr
 | :--- | :--- | :--- |
 | `ui_loading` | `ui_loading_read` | Buat simulasi baru / baca dan validasi save |
 | `ui_loading_save` | `ui_loading` | Tulis save Hari 1 / pulihkan state simulasi |
-| `ui_loading_music` | `ui_loading_music` | Bed musik suasana saat ini (bertahap, Seksi 33.6), ambience cuaca, loop mixer/oven |
+| `ui_loading_music` | `ui_loading_music` | Bed musik suasana saat ini (bertahap, Seksi 33.6), ambience cuaca, loop mixer/oven, lalu semua bunyi pendek lain (satu per frame) |
 | `ui_loading_world` | `ui_loading_world` | Bangun lantai, perabot, dan aktor |
 | `ui_loading_counter` | `ui_loading_counter` | HUD dan lapisan perintah |
-| `ui_loading_ovens` | `ui_loading_ovens` | Dunia digambar di balik overlay sampai dua frame berturut-turut stabil (shader dikompilasi di sini) |
+| `ui_loading_ovens` | `ui_loading_ovens` | Dunia dan sampel pemanasan shader digambar di balik overlay sampai dua frame berturut-turut stabil (shader dikompilasi di sini) |
 
 Simulasi baru berjalan setelah overlay mulai memudar, jadi jam tidak maju selama loading. Save yang gagal dibaca menutup overlay seketika lalu menampilkan layar galat.
+
+**Tidak ada kompilasi shader di tengah permainan — CANONICAL** (perbaikan 2026-10-01, setelah laporan macet di browser). WebGL mengompilasi shader saat sebuah kombinasi material pertama kali digambar. Satu kompilasi makan sekitar 0,2 detik bila cache GPU browser sudah hangat, dan beberapa detik pada kunjungan pertama. Pengukuran di Edge sebelum perbaikan: mengangkat perabot pertama di Decoration Mode menahan layar 5,5 detik, lalu 0,2 detik setiap kali perabot diangkat atau digeser; penanda "!" pertama dan mixer yang mulai bekerja masing-masing sekitar 0,5 detik. Aturannya:
+
+- **Pemanasan shader** di tahap `ui_loading_ovens`: satu contoh setiap visual yang muncul belakangan digambar sekali. Daftarnya: alat semua kategori sampai tier lokasi, semua dekorasi, penanda slot, bar progres dan tanda seru (juga yang berapi), setiap tipe pelanggan, pengemudi RotiFood, kurir, karyawan, pemain, bar kesabaran, balon, barang bawaan, partikel, jejak penempatan, arsiran ubin, dan kantong di meja kasir. Contoh diletakkan sedikit di bawah lantai di titik fokus kamera: tetap digambar, tetapi tertutup lantai. Upgrade lokasi memanaskan ulang dengan cara yang sama untuk alat tier baru.
+- **Shader tidak boleh dibuang.** BaseMaterial3D membuang shader sebuah kombinasi fitur begitu material terakhir dengan kombinasi itu dibebaskan, lalu mengompilasinya lagi saat kombinasi itu muncul kembali. Satu material penjaga per kombinasi disimpan seumur proses (`MaterialKeep`), diisi dari sampel pemanasan dan dari dunia setiap kali dibangun ulang.
+- **Visual sementara memakai material bersama.** Jejak penempatan dan arsiran ubin memakai satu shader tanpa cahaya yang sama, bukan material baru setiap kali tampil. Jejak dulu memakai material bercahaya tembus yang hanya dipakai di situ.
+- **Sedikit kombinasi shader, tanpa kaca bercahaya.** Material bercahaya yang tembus pandang adalah shader paling lama dikompilasi di browser. Karena itu kaca tipis (etalase Tier 2+, pintu kaca gudang, toples koin) dibuat tanpa cahaya, dengan shader yang sama dengan arsiran ubin atau penanda slot. Kaca yang "menyala" cukup diberi rona warna. Roti memakai diffuse Lambert seperti perabot, jadi berbagi shader perabot. Seluruh game, termasuk semua tier alat dan semua ruangan, memakai paling banyak 12 kombinasi: empat bercahaya dan opak (perabot, perabot berpendar, permukaan dua sisi, karakter dan dekorasi) serta delapan tanpa cahaya. Semuanya sudah ada di Tier 1, jadi upgrade lokasi tidak membawa shader baru.
 
 ### Failure Handling
 

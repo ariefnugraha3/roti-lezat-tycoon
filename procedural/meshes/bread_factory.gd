@@ -746,6 +746,9 @@ static func _material(color: Color, rough: float) -> StandardMaterial3D:
 	mat.albedo_color = color
 	mat.roughness = r
 	mat.metallic = 0.0
+	# Lambert seperti ProceduralMeshFactory.material(): roti berbagi shader
+	# dengan perabot, jadi tidak ada shader tambahan yang harus dikompilasi.
+	mat.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
 	_material_cache[key] = mat
 	return mat
 

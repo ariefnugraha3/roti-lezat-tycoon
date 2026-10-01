@@ -13,7 +13,7 @@ extends SimManager
 ## {uid, deco_id, placed, floor_id, cell:[x,z], slot, rot}
 var owned: Array[Dictionary] = []
 var next_uid: int = 1
-## skin_target / "outfit" / "badge" -> deco_id yang sedang dipakai.
+## skin_target / "outfit" -> deco_id yang sedang dipakai.
 var equipped: Dictionary = {}
 
 
@@ -48,13 +48,14 @@ func _add(deco_id: StringName) -> Dictionary:
 	return o
 
 
-## Hadiah achievement (GDD 72.1): skin/outfit/badge langsung dipakai.
+## Hadiah achievement (GDD 72.1): skin/outfit langsung dipakai. Badge adalah
+## dekorasi dinding: masuk inventaris, dipasang lewat Decoration Mode.
 func grant(deco_id: StringName) -> void:
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
 	if def == null or owns(deco_id):
 		return
 	_add(deco_id)
-	if def.placement_type == &"outfit" or def.placement_type == &"badge" or def.placement_type == &"skin":
+	if def.placement_type == &"outfit" or def.placement_type == &"skin":
 		equip(deco_id)
 
 
@@ -328,3 +329,5 @@ func restore(d: Dictionary) -> void:
 		owned.append(od)
 	next_uid = int(d.get("next_uid", 1))
 	equipped = (d.get("equipped", {}) as Dictionary).duplicate()
+	# Save sebelum 2026-10-01 masih mencatat badge sebagai barang "dipakai".
+	equipped.erase("badge")

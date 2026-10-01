@@ -1736,6 +1736,11 @@ static func _set_glow(mi: MeshInstance3D, color: Color, energy: float) -> void:
 	var mat := ProceduralMeshFactory.material_of(mi)
 	if mat == null:
 		return
+	# Kaca tanpa cahaya (ProceduralMeshFactory.material): nyalanya cukup rona
+	# warna. Emisi di sini akan menambah satu shader baru yang harus dikompilasi.
+	if mat.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+		mat.albedo_color = Color(mat.albedo_color.lerp(color, clampf(energy * 0.5, 0.0, 1.0)), mat.albedo_color.a)
+		return
 	mat.emission_enabled = true
 	mat.emission = color
 	mat.emission_energy_multiplier = energy

@@ -45,6 +45,9 @@ func _card(n: int, h: Dictionary) -> Control:
 		var loc: String = str(h.get("location_id", ""))
 		lbl(body, Tx.t(loc) if DataRegistry.has_text(loc) else loc, 16, Palette.TEXT_MUTED, true)
 		lbl(body, Tx.kr(float(h.get("balance_kr", 0.0))), 18, Palette.GOLDEN_CRUST)
+		var medals: Control = badge_row(h.get("badges", []))
+		if medals != null:
+			body.add_child(medals)
 		lbl(body, Tx.t("ui_profile_last_played", {"when": str(h.get("last_played_at", "")).replace("T", " ").replace("Z", "")}), 14, Palette.TEXT_MUTED, true)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -84,3 +87,23 @@ func _do_delete(pid: StringName) -> void:
 func _start_new(pid: StringName) -> void:
 	close()
 	host.open(&"new_game", {"profile_id": pid})
+
+
+## Medali badge achievement di kartu profil (GDD 72.1): satu lingkaran berwarna
+## pita badge itu dengan ikonnya; namanya muncul sebagai tooltip.
+static func badge_row(ids: Array) -> Control:
+	if ids.is_empty():
+		return null
+	var row := HBoxContainer.new()
+	row.name = "Badges"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	for id: Variant in ids:
+		var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(id)))
+		if def == null or not def.is_badge():
+			continue
+		var medal: PanelContainer = ProceduralUIFactory.badge(String(def.badge_icon), DecorFactory.badge_ribbon(def.visual_profile_id), Palette.FLOUR_WHITE, 40)
+		medal.tooltip_text = Tx.t(String(def.localization_key))
+		medal.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(medal)
+	return row if row.get_child_count() > 0 else null

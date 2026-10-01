@@ -5,6 +5,8 @@ extends RefCounted
 
 
 static func clear_all() -> void:
+	MaterialKeep.clear()
+	ProceduralMeshFactory.clear_caches()
 	BreadFactory.clear_caches()
 	FX.clear_caches()
 	ProceduralUIFactory.clear_caches()

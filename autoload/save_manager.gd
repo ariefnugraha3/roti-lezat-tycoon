@@ -77,6 +77,15 @@ func read_header(profile_id: StringName) -> Dictionary:
 		header["last_played_at"] = str(d.get("last_played_at", ""))
 		header["last_played_unix"] = float(d.get("last_played_unix", 0.0))
 		header["used_backup"] = bool(r.get("used_backup", false))
+		# Badge achievement yang sudah didapat, untuk medali di kartu profil (GDD 72.1).
+		var badges: Array[String] = []
+		for o: Variant in ((d.get("decorations", {}) as Dictionary).get("owned", []) as Array):
+			if not (o is Dictionary):
+				continue
+			var dd: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str((o as Dictionary).get("deco_id", ""))))
+			if dd != null and dd.is_badge() and not badges.has(String(dd.id)):
+				badges.append(String(dd.id))
+		header["badges"] = badges
 	elif FileAccess.file_exists(main_path(profile_id)) or FileAccess.file_exists(backup_path(profile_id)):
 		header["exists"] = true
 		header["corrupt"] = true

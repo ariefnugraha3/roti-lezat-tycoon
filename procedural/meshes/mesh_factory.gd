@@ -66,6 +66,30 @@ const DEFAULT_SPECULAR: float = 0.5
 ## Pasangan tanda +/- untuk iterasi sisi, rusuk, dan sudut pada rounded_slab().
 const SIGNS: Array[float] = [1.0, -1.0]
 
+## Material bantu Decoration Mode yang dipakai bersama (arsiran ubin, jejak
+## penempatan). Satu instans seumur proses: material baru per tampilan membuat
+## shader-nya dibuang dan dikompilasi ulang setiap kali (lihat MaterialKeep).
+static var _overlay_mat: StandardMaterial3D = null
+static var _tint_mats: Dictionary = {}
+static var _shared_boxes: Dictionary = {}
+
+
+static func clear_caches() -> void:
+	_overlay_mat = null
+	_tint_mats.clear()
+	_shared_boxes.clear()
+
+
+## BoxMesh polos (tanpa material) berukuran `size`, dibuat sekali lalu dipakai
+## bersama oleh visual yang sering datang dan pergi (jejak penempatan).
+static func shared_box(size: Vector3) -> BoxMesh:
+	var key: String = var_to_str(size)
+	if not _shared_boxes.has(key):
+		var m := BoxMesh.new()
+		m.size = size
+		_shared_boxes[key] = m
+	return _shared_boxes[key]
+
 
 # ---------------------------------------------------------------------------
 # Material
@@ -77,6 +101,13 @@ const SIGNS: Array[float] = [1.0, -1.0]
 ## `emis` hanya mengaktifkan emisi bila benar-benar memancarkan cahaya
 ## (dipakai untuk bara oven dan lampu penghangat etalase `#FFAA44`).
 static func material(color: Color, rough := 0.85, metal := 0.0, emis := Color.BLACK) -> StandardMaterial3D:
+	# Kaca tipis tembus pandang (etalase Tier 2+, pintu kaca gudang): tanpa
+	# cahaya, dengan shader yang sama persis dengan arsiran ubin. Material
+	# bercahaya yang tembus pandang adalah shader paling mahal dikompilasi di
+	# browser (beberapa detik pada kunjungan pertama, GDD 89.5), padahal pada
+	# panel kaca setipis ini bedanya hampir tak terlihat.
+	if color.a < 1.0:
+		return _flat_overlay(color)
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	m.albedo_color = color
@@ -96,15 +127,9 @@ static func material(color: Color, rough := 0.85, metal := 0.0, emis := Color.BL
 		m.emission = emis
 		m.emission_energy_multiplier = 1.0
 
-	# Transparansi hanya dinyalakan bila alpha memang < 1 (mis. kaca etalase Tier 2+).
-	if color.a < 1.0:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
-	else:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-		m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+	m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 
 	# --- Matikan semua fitur yang tidak dipakai (hemat uniform & cabang shader) ---
 	m.normal_enabled = false
@@ -433,16 +458,37 @@ static func tile_overlay(cells: Array[Vector2i], fill: Color, mark: Color, patte
 			var d: float = s * 0.12
 			var m: Vector2 = o + Vector2(s, s) * 0.5
 			_overlay_quad(st, m + Vector2(-d, -d), m + Vector2(d, -d), m + Vector2(d, d), m + Vector2(-d, d), y + 0.002, mark)
+	st.set_material(overlay_material())
+	var mi := _instance(st.commit() if not cells.is_empty() else ArrayMesh.new(), "TileOverlay")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## Material arsiran ubin: tanpa cahaya, tembus, warna dari verteks, dua sisi.
+static func overlay_material() -> StandardMaterial3D:
+	if _overlay_mat == null:
+		_overlay_mat = _flat_overlay(Color.WHITE)
+	return _overlay_mat
+
+
+## Warna tembus tanpa cahaya dengan shader yang sama persis dengan arsiran ubin,
+## untuk mesh tanpa warna verteks (jejak penempatan). Satu instans per warna.
+static func tint_material(color: Color) -> StandardMaterial3D:
+	var key: int = color.to_rgba32()
+	if not _tint_mats.has(key):
+		_tint_mats[key] = _flat_overlay(color)
+	return _tint_mats[key]
+
+
+static func _flat_overlay(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.vertex_color_use_as_albedo = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.disable_receive_shadows = true
-	st.set_material(mat)
-	var mi := _instance(st.commit() if not cells.is_empty() else ArrayMesh.new(), "TileOverlay")
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return mi
+	return mat
 
 
 static func _overlay_quad(st: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, d: Vector2, y: float, color: Color) -> void:
