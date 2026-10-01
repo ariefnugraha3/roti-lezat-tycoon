@@ -1,8 +1,10 @@
 class_name ModalHost
 extends CanvasLayer
-## Tumpukan modal (GDD 28.2): maksimal satu modal utama yang memblokir, dialog
-## konfirmasi boleh di atasnya, Back/Escape menutup lapisan teratas, dan input
-## dunia mati selama modal pemblokir terbuka. Setiap modal pemblokir mendorong
+## Tumpukan modal (GDD 28.2): maksimal satu modal utama yang memblokir, lapisan
+## sistem (konfirmasi, Game Paused, menu Pause, tutorial) boleh di atasnya tanpa
+## menutupnya, Back/Escape menutup lapisan teratas, dan input dunia mati selama
+## modal pemblokir terbuka. Daily Summary dan kunjungan Pak Lurah (`keep_open`)
+## tidak pernah tertutup oleh modal lain. Setiap modal pemblokir mendorong
 ## alasan pause-nya sendiri (GDD 15.2, 71).
 
 signal stack_changed()
@@ -39,8 +41,10 @@ func is_open(id: StringName) -> bool:
 	return false
 
 
-## Buka layar. Bila sudah ada modal utama dan yang baru juga modal utama,
-## yang lama ditutup lebih dulu (maks satu modal utama).
+## Buka layar. Modal utama baru menutup modal utama lain (maks satu modal
+## utama), kecuali yang `keep_open`. Lapisan `overlay` tidak menutup apa pun,
+## tidak pernah ikut tertutup, dan tetap di atas: layar biasa yang dibuka
+## belakangan diselipkan di bawahnya.
 func open(id: StringName, params: Dictionary = {}) -> UIScreen:
 	if not _factories.has(id):
 		GameLogger.error("UI", "unknown screen %s" % id)
@@ -51,12 +55,20 @@ func open(id: StringName, params: Dictionary = {}) -> UIScreen:
 	s.host = self
 	s.game = game
 	s.sim = game.sim if game != null else null
-	if id != &"confirm" and s.blocking:
+	if s.blocking and not s.overlay:
 		for old: UIScreen in _stack.duplicate():
-			if old.blocking and old.screen_id != &"confirm":
+			if old.blocking and not old.overlay and not old.keep_open:
 				close_screen(old)
-	_stack.append(s)
+	var at: int = _stack.size()
+	if not s.overlay:
+		for i in _stack.size():
+			if _stack[i].overlay:
+				at = i
+				break
+	_stack.insert(at, s)
 	add_child(s)
+	if at < _stack.size() - 1:
+		move_child(s, _stack[at + 1].get_index())
 	if s.blocking:
 		PauseManager.push(_reason(s))
 	EventBus.sfx.emit(&"ui_pause" if s.blocking else &"ui_tap_soft", &"")
@@ -79,6 +91,13 @@ func close_screen(s: UIScreen) -> void:
 func close_all() -> void:
 	for s: UIScreen in _stack.duplicate():
 		close_screen(s)
+
+
+## Tutup layar dengan id ini saja (mis. menu Pause), bukan seluruh tumpukan.
+func close_id(id: StringName) -> void:
+	for s: UIScreen in _stack.duplicate():
+		if s.screen_id == id:
+			close_screen(s)
 
 
 func _reason(s: UIScreen) -> StringName:

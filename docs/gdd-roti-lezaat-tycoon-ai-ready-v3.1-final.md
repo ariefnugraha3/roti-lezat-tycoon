@@ -2762,9 +2762,11 @@ Credits
 
 ## **28.2 Modal Stack Rules**
 
-- Maksimal satu blocking modal utama.
-- Confirmation dialog boleh berada di atas satu modal.
-- Back/Escape menutup layer paling atas.
+- Maksimal satu blocking modal utama. Membuka modal utama baru menutup modal utama lain, kecuali Daily Summary dan cutscene Pak Lurah, yang hanya tertutup oleh aksinya sendiri.
+- Lapisan sistem (confirmation dialog, "Game Paused" karena fokus hilang, menu Pause, tip tutorial modal, dan pemberitahuan overflow) selalu berada di atas modal lain tanpa menutupnya, dan tidak pernah ikut tertutup saat modal lain dibuka. Menu Pause menutup dirinya sebelum membuka Settings, Statistics, Help, atau Debug.
+- Back/Escape menutup layer paling atas. Daily Summary menolak Back, jadi Back membuka menu Pause di atasnya.
+- Selama fase Summary, Daily Summary selalu ada di layar. Bila tumpukan modal kosong padahal hari belum dilanjutkan, nota dibuka lagi.
+- Perbaikan 2026-10-01: sebelumnya "Game Paused" dan menu Pause menutup Daily Summary, sehingga setelah Resume tidak ada tombol untuk melanjutkan hari. Tip tutorial Hari 1 di atas Daily Summary juga tertutup dan macet.
 - Gameplay input ke world dinonaktifkan selama blocking modal.
 
 ## **28.3 HUD Information Priority**

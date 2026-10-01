@@ -5,6 +5,12 @@ extends UIScreen
 ## melewati tutorial tanpa mengubah demand terjadwal (GDD 27.6).
 
 
+## Tip tutorial tampil di atas layar yang sedang dijelaskannya, mis. Daily Summary.
+func _init() -> void:
+	super._init()
+	overlay = true
+
+
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_help"), Vector2(620, 340), false)
 	var row: HBoxContainer = hbox(body, 14)

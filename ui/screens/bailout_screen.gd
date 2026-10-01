@@ -13,6 +13,12 @@ var _chars: float = 0.0
 var _portrait: Control = null
 
 
+## Cutscene Pak Lurah hanya selesai lewat tombolnya sendiri.
+func _init() -> void:
+	super._init()
+	keep_open = true
+
+
 func build() -> void:
 	var shade := ColorRect.new()
 	shade.color = Color(Palette.DARK_CHOCOLATE, 0.35)

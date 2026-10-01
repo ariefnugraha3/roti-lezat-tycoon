@@ -50,6 +50,7 @@ func _ready() -> void:
 	modals.game = self
 	add_child(modals)
 	ScreenRegistry.register_all(modals)
+	modals.stack_changed.connect(_on_modal_stack_changed)
 	PauseManager.lifecycle_paused.connect(_on_lifecycle_paused)
 	EventBus.economy_overflowed.connect(func() -> void: modals.open(&"overflow"))
 	if WebPlatform.is_mobile_web():
@@ -440,9 +441,28 @@ func _on_pause_key() -> void:
 	if not playing:
 		return
 	if modals.is_open(&"pause"):
-		modals.close_all()
+		# Hanya menu Pause; modal di bawahnya (mis. Daily Summary) tetap terbuka.
+		modals.close_id(&"pause")
 	else:
 		modals.open(&"pause")
+
+
+## Pengaman (GDD 11.5-11.6): selama fase Summary nota harian selalu ada di
+## layar. Bila tumpukan modal kosong padahal hari belum dilanjutkan, nota dibuka
+## lagi supaya permainan tidak pernah macet tanpa tombol lanjut.
+func _on_modal_stack_changed() -> void:
+	if _summary_missing():
+		_reopen_summary.call_deferred()
+
+
+func _summary_missing() -> bool:
+	return playing and sim != null and sim.time.phase == TimeManager.SUMMARY \
+		and not modals.is_open(&"daily_summary") and not modals.has_blocking()
+
+
+func _reopen_summary() -> void:
+	if _summary_missing():
+		modals.open(&"daily_summary", {"report": sim.reports.last_report})
 
 
 func _exit_tree() -> void:

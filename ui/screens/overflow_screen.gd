@@ -4,6 +4,12 @@ extends UIScreen
 ## permainan tetap berjalan.
 
 
+## Pemberitahuan sekali lewat; tidak menutup modal lain.
+func _init() -> void:
+	super._init()
+	overlay = true
+
+
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_overflow_title"), Vector2(620, 360))
 	var c := CenterContainer.new()

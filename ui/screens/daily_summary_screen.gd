@@ -13,6 +13,12 @@ const MOOD_ICONS: Dictionary = {
 }
 
 
+## Nota harian hanya tertutup lewat tombolnya sendiri, supaya hari tidak pernah macet tanpa tombol lanjut.
+func _init() -> void:
+	super._init()
+	keep_open = true
+
+
 func build() -> void:
 	var r: Dictionary = params.get("report", {})
 	var shade := ColorRect.new()
@@ -115,15 +121,17 @@ func build() -> void:
 	# Tombol aksi (GDD 11.5).
 	var row: HBoxContainer = hbox(body, 12)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Market dan Staff membawa pemain ke after-hours: nota ditutup sendiri dulu
+	# (keep_open), lalu tombol lanjut ada di HUD (GDD 11.5-11.6).
 	btn(row, Tx.t("ui_summary_open_market"), "secondary", func() -> void:
 		sim.enter_after_hours()
 		if sim.supply.market_unlocked:
-			host.open(&"market")
+			_leave_to(&"market")
 		else:
 			EventBus.notify.emit(2, "ui_market_locked", {}, &"cart"))
 	btn(row, Tx.t("ui_summary_manage_staff"), "secondary", func() -> void:
 		sim.enter_after_hours()
-		host.open(&"staff"))
+		_leave_to(&"staff"))
 	var cont: Button = btn(row, Tx.t("ui_continue_next_day"), "primary", _continue)
 	cont.custom_minimum_size = Vector2(260, 60)
 	cont.disabled = not sim.reports.can_continue()
@@ -160,6 +168,14 @@ func _continue() -> void:
 		close()
 	else:
 		EventBus.sfx.emit(&"ui_error", &"")
+
+
+## Market/Staff: pindah ke after-hours, tutup nota, lalu buka layar itu.
+func _leave_to(id: StringName) -> void:
+	sim.enter_after_hours()
+	var h: ModalHost = host
+	close()
+	h.open(id)
 
 
 ## Back tidak menutup nota: pemain memilih aksi (GDD 11.5).

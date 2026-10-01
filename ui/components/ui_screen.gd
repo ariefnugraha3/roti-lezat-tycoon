@@ -13,6 +13,13 @@ var sim: SimulationRoot = null
 var game: GameRoot = null
 var params: Dictionary = {}
 var blocking: bool = true
+## Lapisan sistem (konfirmasi, Game Paused, menu Pause, tutorial, pemberitahuan):
+## selalu di atas modal lain, tidak menutup modal di bawahnya, dan tidak ikut
+## tertutup saat modal lain dibuka (GDD 28.2).
+var overlay: bool = false
+## Modal yang tidak boleh hilang diam-diam (Daily Summary, kunjungan Pak Lurah):
+## hanya tertutup oleh aksinya sendiri, tidak oleh modal lain yang dibuka.
+var keep_open: bool = false
 ## Decoration Mode: tap dunia tetap diteruskan walau simulasi di-pause.
 var world_input: bool = false
 var screen_id: StringName = &""

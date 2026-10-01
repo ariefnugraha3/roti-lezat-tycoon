@@ -4,6 +4,12 @@ extends UIScreen
 ## kemajuan offline; pemain harus menekan Resume secara eksplisit.
 
 
+## Muncul di atas modal yang sedang terbuka tanpa menutupnya; Resume kembali ke modal itu.
+func _init() -> void:
+	super._init()
+	overlay = true
+
+
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_pause_title"), Vector2(460, 300), false)
 	var c := CenterContainer.new()

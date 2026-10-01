@@ -9,6 +9,12 @@ var _hold_left: float = -1.0
 var _yes: Button = null
 
 
+## Dialog konfirmasi berada di atas modal apa pun (GDD 28.2).
+func _init() -> void:
+	super._init()
+	overlay = true
+
+
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_confirm"), Vector2(560, 300), false)
 	lbl(body, str(params.get("text", "")), 20, Palette.TEXT, true)
