@@ -50,7 +50,9 @@ func _smoke() -> void:
 		await runner.get_tree().process_frame
 		game.modals.close_all()
 		await runner.get_tree().process_frame
-	# Decoration Mode: klik perabot (pilih + ghost), lalu klik sel tujuan.
+	# Decoration Mode (GDD 72.2, keputusan maintainer 2026-10-01): seperti The
+	# Sims. Ketuk perabot untuk mengangkatnya; ketukan berikutnya hanya memindah
+	# posisi calonnya; tata letak baru berubah saat Place.
 	PauseManager.clear_all()
 	var deco: DecorationScreen = game.modals.open(&"decoration", {})
 	await runner.get_tree().process_frame
@@ -58,27 +60,31 @@ func _smoke() -> void:
 	check(rig.free_pan, "decoration mode enables free panning")
 	# Tanpa panel samping (keputusan maintainer 2026-09-30): tampilan tetap di tengah.
 	check(rig.pan_offset.length() < 0.001, "no side panel to dodge: the view starts centred")
-	check(deco.toolbar() != null and not deco.toolbar().visible, "no action toolbar before anything is selected")
+	check(deco.toolbar() != null and not deco.toolbar().visible, "no action toolbar before anything is picked up")
+	eq(deco._status.text, Tx.t("ui_decor_hint"), "the hint says how to pick furniture up")
 	var before_pan: Vector3 = rig.pan_offset
 	rig.pan_by_screen(Vector2(-120, 40))
 	check(rig.pan_offset.distance_to(before_pan) > 0.05, "dragging pans the view even on a small floor")
 	check(game.world._tile_overlay.get_child_count() > 0, "keep-clear tiles are marked in decoration mode")
 	var disp: EquipmentInstance = game.sim.equipment.placed_list(&"display")[0]
-	var dpos: Vector2 = game.world.screen_of_iid(disp.iid)
-	deco._on_world_tap(dpos)
-	eq(deco._sel_iid, disp.iid, "decoration mode selects the tapped furniture")
-	check(game.world._ghosts.get_child_count() > 0, "placement ghost shown for the selected furniture")
+	var disp_anchor: Vector2i = disp.anchor
+	var disp_box: AABB = game.world._aabbs[disp.iid]["aabb"]
+	deco._on_world_tap(game.world.screen_of_iid(disp.iid))
+	eq(deco._sel_iid, disp.iid, "tapping furniture picks it up")
+	check(game.world._ghosts.get_child_count() > 0, "its footprint is marked on the floor")
 	check(not deco._warn.visible, "no warning before a rejected placement")
-	eq(game.world.lifted_iid(), disp.iid, "the selected furniture is lifted")
+	eq(game.world.lifted_iid(), disp.iid, "the held furniture is lifted")
+	eq(deco._status.text, Tx.t("ui_decor_move_hint"), "the hint says to drag it or tap a tile, then Place")
 	await runner.get_tree().process_frame
 	var tb: DecorationScreen.ActionBar = deco.toolbar()
-	check(tb.visible, "the action toolbar appears for the selected furniture")
+	check(tb.visible, "the action toolbar appears for the held furniture")
 	var anchor: Vector2 = rig.world_to_screen(game.world.top_of_iid(disp.iid))
 	var tb_rect := Rect2(tb.position, tb.panel.size)
 	check(tb_rect.end.y <= anchor.y + 1.0 and anchor.x >= tb_rect.position.x and anchor.x <= tb_rect.end.x,
-		"the toolbar floats right above the selected furniture (%s over %s)" % [tb_rect, anchor])
-	check(deco._tb_rotate.visible and deco._tb_store.visible and deco._tb_cancel.visible, "Rotate, Put Away and Cancel sit on the toolbar")
-	# Menaruh rak di jalur terlindung: ditolak dengan peringatan "menghalangi jalan".
+		"the toolbar floats right above the held furniture (%s over %s)" % [tb_rect, anchor])
+	check(deco._tb_place.visible and deco._tb_rotate.visible and deco._tb_store.visible and deco._tb_cancel.visible,
+		"Place, Rotate, Put Away and Cancel sit on the toolbar")
+	# Ubin jalur: posisi calon merah beserta alasannya, dan Place menolak dengan banner.
 	var fg: FloorGrid = game.sim.world.grid(disp.floor_id)
 	var walkway: Vector2i = Vector2i(-1, -1)
 	for c: Vector2i in fg.def.protected_cells:
@@ -88,18 +94,38 @@ func _smoke() -> void:
 	check(walkway.x >= 0, "found a store walkway tile")
 	deco._on_world_tap(game.world.camera_rig.world_to_screen(GridMath.cell_center3(walkway)))
 	await runner.get_tree().process_frame
-	check(deco._warn.visible, "warning banner shown for a walkway tile")
-	eq(deco._warn_detail.text, Tx.t("ui_decor_warn_walkway"), "warning says it would block the walkway")
-	check(disp.placed and disp.anchor != walkway, "display not moved onto the walkway")
+	check(deco._cand_reason != &"", "a walkway tile is not a valid spot")
+	eq(deco._status.text, deco._reason_text(deco._cand_reason), "the hint names the reason")
+	eq(disp.anchor, disp_anchor, "nothing moves in the shop before Place")
+	deco._place()
+	check(deco._warn.visible, "Place on a walkway tile shows the warning banner")
+	eq(deco._warn_detail.text, Tx.t("ui_decor_warn_walkway"), "the banner says it would block the walkway")
+	eq(disp.anchor, disp_anchor, "the display was not put on the walkway")
+	eq(deco._sel_iid, disp.iid, "and it is still held, ready to try somewhere else")
+	# Ketuk perabot lain sambil memegang: TIDAK memilihnya (dulu berganti pilihan).
 	var storage0: EquipmentInstance = game.sim.equipment.storage_instance()
+	var spos: Vector2 = game.world.screen_of_iid(storage0.iid)
+	eq(game.world.pick(spos).get("iid", -1), storage0.iid, "that spot shows the storage")
+	deco._on_world_tap(spos)
+	eq(deco._sel_iid, disp.iid, "tapping other furniture while holding never picks it instead")
+	eq(Vector2i(game.world.held()["cell"]), deco._clamp_anchor(deco._anchor_for(game.world.cell_at_screen(spos))),
+		"the display moves to the floor tile under the finger, even one hidden behind other furniture")
+	# Ketuk perabot yang dipegang itu sendiri: tidak membatalkan (dulu meletakkannya).
+	deco._on_world_tap(game.world.screen_of_iid(disp.iid))
+	check(deco.has_selection() and deco._sel_iid == disp.iid, "tapping the held furniture itself never drops it")
+	# Cancel: semuanya kembali seperti semula.
+	deco._cancel()
+	check(not deco.has_selection(), "Cancel lets go of it")
+	eq(disp.anchor, disp_anchor, "the display stays where it was")
+	eq(game.world.lifted_iid(), -1, "nothing is lifted after Cancel")
+	check((game.world._aabbs[disp.iid]["aabb"] as AABB).is_equal_approx(disp_box), "its model is back on its own tiles")
+	# Gudang tidak bisa disimpan, jadi Put Away disembunyikan.
 	deco._on_world_tap(game.world.screen_of_iid(storage0.iid))
 	await runner.get_tree().process_frame
-	check(disp.placed, "furniture is still placed after an invalid target")
-	eq(deco._sel_iid, storage0.iid, "tapping another piece of furniture selects it instead")
+	eq(deco._sel_iid, storage0.iid, "with nothing held, tapping furniture picks it up")
 	check(not deco._tb_store.visible, "the storage cannot be put away, so the toolbar hides Put Away")
-	deco._on_world_tap(game.world.screen_of_iid(storage0.iid))
-	check(not deco.has_selection(), "tapping the selected furniture again puts it down")
-	eq(game.world.lifted_iid(), -1, "nothing is lifted without a selection")
+	check(deco.on_back() and not deco.has_selection() and game.modals.is_open(&"decoration"),
+		"Back first puts the held furniture back and keeps decoration mode open")
 	# Putar di tempat: alat pertama yang masih muat setelah diputar 90 derajat.
 	var turned: EquipmentInstance = null
 	var want_rot: int = 0
@@ -117,12 +143,14 @@ func _smoke() -> void:
 			break
 	check(turned != null, "some furniture can turn in place")
 	if turned != null:
-		deco._select_equipment(turned.iid)
+		var old_rot: int = turned.rotation
+		deco._hold_equipment(turned.iid)
 		deco._rotate()
-		eq(turned.rotation, want_rot, "Rotate turns the selected furniture right where it stands")
-		check(turned.placed and deco._sel_iid == turned.iid, "it stays placed and selected after turning")
-	check(deco.on_back() and deco.has_selection() == false and game.modals.is_open(&"decoration"),
-		"Back first drops the selection and keeps decoration mode open")
+		eq(int(game.world.held()["rot"]), want_rot, "Rotate turns the held furniture right where it stands")
+		eq(turned.rotation, old_rot, "the turn is only a preview until Place")
+		deco._place()
+		eq(turned.rotation, want_rot, "Place keeps the turn")
+		check(turned.placed and not deco.has_selection(), "Place puts it down and lets go")
 	game.modals.close_all()
 	await runner.get_tree().process_frame
 	check(not rig.free_pan and rig.pan_offset == Vector3.ZERO, "normal framing restored after decoration mode")

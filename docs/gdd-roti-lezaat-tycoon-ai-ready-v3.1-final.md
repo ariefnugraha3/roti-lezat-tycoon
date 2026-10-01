@@ -767,7 +767,7 @@ Catatan placement:
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).  
   * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal).  
   * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid, lengkap dengan indikator skill dan kecepatan proses.  
-  * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya. Tombol aksinya (Rotate, Put Away, Cancel) melayang tepat di atas perabot terpilih, tanpa panel samping (Seksi 72.2).
+  * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain seperti di The Sims; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya. Perabot baru benar-benar pindah saat **Place** diketuk. Tombol aksinya (Place, Rotate, Put Away, Cancel) melayang tepat di atas perabot yang dipegang, tanpa panel samping (Seksi 72.2).
   * Pemilih Petak Rak: Muncul setelah karakter tiba di rak sambil membawa loyang. Kisi tombol besar sebanyak petak rak yang sesungguhnya (jumlahnya menurut tier rak, Seksi 85) menyalin susunan petak itu (kiri ke kanan), lengkap dengan isi tiap petak. Satu loyang boleh disebar ke beberapa petak—layarnya tidak menutup sampai loyangnya habis.    
 * **UX Feedback & In-Game Indicators**:  
   * Balon Pikiran Pelanggan (Thought Bubbles) untuk menunjukkan keluhan seperti antrean lama (ikon jam pasir) atau harga mahal (ikon uang terbang).
@@ -1434,7 +1434,7 @@ Setelah drag preview berhenti:
 2. Jalankan connectivity check pada graph.
 3. Minimal satu path harus tersedia untuk setiap pasangan titik wajib.
 4. Jika gagal, preview merah dan tampilkan alasan.
-5. Furniture baru benar-benar di-commit saat drop valid.
+5. Furniture baru benar-benar di-commit saat drop valid, yaitu saat pemain mengetuk **Place** pada posisi yang sah (Seksi 72.2).
 
 ## **17.5 AStarGrid2D**
 
@@ -4651,10 +4651,21 @@ Keputusan maintainer 2026-09-30: **tidak ada panel samping**, supaya dunia terli
 
 - **Bilah atas** tipis: judul, satu baris petunjuk atau status (sah / alasan ditolak), tombol lantai L1/L2 di lokasi bertingkat, dan tombol **Done**.
 - **Tab bawah**: Equipment (dengan jumlah alat yang belum dipasang), Your Decorations, dan Decor Shop. Mengetuk tab membuka baki kartu barang yang bisa digeser mendatar; mengetuk tab yang sama menutupnya. Keterangan arsiran ubin (harus kosong, area salah) ada di kiri tab.
-- **Toolbar aksi melayang tepat di atas perabot terpilih**, dengan ekor yang menunjuk ke perabot itu, dan ikut pindah bersamanya: nama perabot, **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang dan Meja Tunggu (Seksi 5.1.3) atau barang yang belum dipasang; Rotate hanya untuk alat. Barang yang belum punya tempat di lantai yang sedang dilihat (alat belum dipasang, dekorasi dinding/meja) memakai toolbar yang sama, berlabuh di atas tab.
-- Perabot terpilih terangkat sedikit dan mengambang pelan. Penanda "!" dan bar progres disembunyikan selama mode ini.
-- Ketuk ubin kosong untuk memindahkan perabot terpilih ke sana; perabot tetap terpilih sesudahnya. Ketuk perabot lain untuk berganti pilihan, ketuk perabot terpilih itu sendiri atau tekan Back untuk selesai. **Rotate** memutar perabot yang sudah terpasang di tempatnya (titik tengahnya tetap) bila posisinya sah; bila tidak, pratinjau merah beserta alasannya tampil dan putaran itu dipakai saat ubin tujuan diketuk.
-- **Dekorasi** (keputusan maintainer 2026-09-30, aturan slot di Seksi 72.3): dekorasi yang terpasang digambar di dunia dan diketuk seperti perabot. Memilih dekorasi memindahkan tampilan ke lantai toko. Dekorasi **dinding** atau **meja kasir** menyalakan **penanda slot** di setiap slot bebas (bingkai krem bertanda tambah di dinding, cincin bertanda tambah di meja; slot yang sedang ditempati barang itu sendiri berwarna emas). Ketuk penanda untuk memasang atau memindahkannya; ketuk slotnya sendiri untuk selesai. Dekorasi **lantai** dan **karpet** mengikuti ubin yang diketuk; karpet menampilkan pratinjau seluruh jejaknya dan **Rotate** memutarnya 90°. Selama karpet atau dekorasi dinding/meja terpilih, ubin wajib kosong tidak diarsir (karpet tidak memblok apa pun, dinding/meja tidak memakai ubin). Jenis yang sudah penuh langsung menampilkan banner "No free spot left" dengan batas lokasi itu. Baki "Your Decorations" diawali ringkasan slot, misalnya `Wall 1/2`.
+- **Toolbar aksi melayang tepat di atas barang yang dipegang**, dengan ekor yang menunjuk ke barang itu, dan ikut pindah bersamanya: nama barang, **Place** (hijau, bertanda centang), **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang dan Meja Tunggu (Seksi 5.1.3) atau barang yang belum dipasang; Rotate hanya untuk alat dan karpet. Selama barang diseret, toolbar disembunyikan. Barang yang tidak digambar di lantai yang sedang dilihat memakai toolbar yang sama, berlabuh di atas tab.
+- Barang yang dipegang terangkat sedikit dan mengambang pelan (karpet tetap rata di lantai). Penanda "!" dan bar progres disembunyikan selama mode ini.
+
+**Memindah barang seperti The Sims (keputusan maintainer 2026-10-01).** Sebelumnya ketukan dipakai untuk dua hal sekaligus: memilih perabot dan memilih ubin tujuan. Akibatnya ubin yang tertutup model perabot sulit dituju. Mengetuk perabot lain di depan ubin itu malah memilihnya, dan mengetuk perabot terpilih (misalnya untuk menggesernya satu ubin) malah meletakkannya. Aturan sekarang:
+
+- **Angkat:** ketuk perabot atau dekorasi, atau tekan badannya lalu langsung seret. Perabot `IN_USE` tidak terangkat (alasan `IN_USE` tampil). Karpet hanya diangkat dengan ketukan, supaya drag di lantai tetap menggeser kamera.
+- **Pegang:** barang yang dipegang digambar di **posisi calonnya**. Tata letak simulasi, save, dan validasi pelanggan tidak berubah sampai Place. Petak jejaknya putih bila sah, merah bersilang bila tidak. Bilah atas menampilkan petunjuk, "Looks good here" setelah barang digeser ke tempat yang sah, atau alasan penolakan dalam warna merah.
+- **Geser:** seret badan atau petak jejak barang yang dipegang. Barang bergerak **per ubin, relatif terhadap titik yang dipegang**, jadi menggeser satu ubin cukup dengan menyeret sejauh satu ubin. Diseret ke tepi layar atau ke atas bilah UI, kamera ikut bergeser dan barang tetap di bawah jari. Drag yang dimulai di tempat lain menggeser kamera.
+- **Ketuk saat memegang:** ketukan selalu berarti **ubin lantai di bawah jari**. Sinar layar menembus model perabot sampai lantai, jadi ubin yang tertutup perabot lain atau oleh barang itu sendiri tetap bisa dituju. Barang pindah sehingga tengah jejaknya berada di ubin itu. Ketukan saat memegang **tidak pernah memilih perabot lain dan tidak pernah membatalkan**. Jejak dijepit di dalam lantai, sehingga barang yang ditarik keluar ruangan meluncur di sepanjang dinding.
+- **Place** menaruh barang bila posisinya sah, lalu melepasnya. Di posisi yang tidak sah tombolnya memudar, dan mengetuknya menampilkan banner alasan sementara barang tetap dipegang. **Cancel**, Back, Escape, atau klik kanan mengembalikan barang ke tempat semula (barang baru kembali ke inventaris). **Done** menaruh barang yang dipegang bila posisinya sah, lalu menutup mode. Barang di posisi tidak sah dikembalikan.
+- **Rotate** memutar barang yang dipegang 90° di tempatnya (titik tengahnya tetap). Bila posisi itu tidak muat, jangkar lama dan geseran kecil dicoba. Bila tetap tidak muat, pratinjau merah beserta alasannya tampil. Putaran baru tersimpan saat Place.
+- **Barang baru** dari baki atau dari Market muncul di tempat sah terdekat dari tengah layar (putaran saat ini lebih dulu), seperti barang baru di The Sims. Bila tidak ada tempat sah, ia muncul merah di tengah dan bisa digeser. Alat yang kategorinya sudah penuh tidak diangkat; banner menjelaskan alasannya.
+- Berpindah lantai lewat tombol L1/L2 tidak melepas barang. Ketukan di lantai lain memindahkan posisi calonnya ke lantai itu.
+
+- **Dekorasi** (keputusan maintainer 2026-09-30, aturan slot di Seksi 72.3): dekorasi yang terpasang digambar di dunia dan diangkat seperti perabot. Mengangkat dekorasi memindahkan tampilan ke lantai toko. Dekorasi **dinding** atau **meja kasir** menyalakan **penanda slot** di setiap slot bebas (bingkai krem bertanda tambah di dinding, cincin bertanda tambah di meja; slot calonnya berwarna emas). Barang baru langsung mencoba slot bebas pertama. Ketuk penanda lain (atau seret barang ke sana) untuk mencobanya di slot itu, lalu Place. Dekorasi **lantai** dan **karpet** dipindah seperti perabot; karpet menampilkan pratinjau seluruh jejaknya dan **Rotate** memutarnya 90°. Selama karpet atau dekorasi dinding/meja dipegang, ubin wajib kosong tidak diarsir (karpet tidak memblok apa pun, dinding/meja tidak memakai ubin). Jenis yang sudah penuh tidak diangkat dan langsung menampilkan banner "No free spot left" dengan batas lokasi itu. Baki "Your Decorations" diawali ringkasan slot, misalnya `Wall 1/2`.
 
 ## **72.1 Decoration Catalog — CANONICAL**
 
@@ -7112,8 +7123,10 @@ Tombol Skip to Open (Seksi 15.4) dan tata letak Decoration Mode (Seksi 72.2). `{
 | `ui_skip_open_oven` | `Take the bread out of the oven first.` |
 | `ui_skip_open_stopped` | `Skip stopped: an oven needs you.` |
 | `ui_decor_placed` | `Placed` |
-| `ui_decor_move_hint` | `Tap a free tile to move it, or tap it again when you are done.` |
-| `ui_decor_place_hint` | `Tap a free tile to place it.` |
+| `ui_decor_move_hint` | `Drag it, or tap any tile to move it there. Tap Place when it looks right.` |
+| `ui_decor_place_hint` | `Drag it where you want it, or tap a tile, then tap Place.` |
+| `ui_decor_hint` | `Tap or drag a piece of furniture to pick it up.` |
+| `ui_decor_valid` | `Looks good here. Tap Place to put it down.` |
 | `ui_decor_legend_clear_short` | `Keep clear` |
 | `ui_decor_legend_zone_short` | `Wrong area` |
 
@@ -7142,11 +7155,10 @@ Slot dekorasi Decoration Mode (Seksi 72.2–72.3) dan kalimat kemampuan kasir di
 | :--- | :--- |
 | `ui_decor_slots_full` | `{type} spots are full ({count}/{count}). Put one away, or upgrade the shop for more.` |
 | `ui_decor_full_title` | `No free spot left` |
-| `ui_decor_slot_hint_wall` | `Tap a glowing spot on the wall to hang it.` |
-| `ui_decor_slot_hint_counter` | `Tap a glowing spot on a counter to put it there.` |
-| `ui_decor_slot_move` | `Tap another glowing spot to move it, or tap it again when you are done.` |
+| `ui_decor_slot_hint_wall` | `Tap a glowing spot on the wall to try it there, then tap Place.` |
+| `ui_decor_slot_hint_counter` | `Tap a glowing spot on a counter to try it there, then tap Place.` |
 | `ui_decor_pick_slot` | `Tap one of the glowing spots.` |
-| `ui_decor_rug_hint` | `Tap a floor tile in the shop to lay the rug. Rotate turns it.` |
+| `ui_decor_rug_hint` | `Drag the rug, or tap a shop tile to move it there. Rotate turns it; tap Place when it looks right.` |
 | `ui_decor_slot_count` | `{type} {used}/{max}` |
 | `ui_decor_slot_usage_tip` | `Decorations in use at this shop. A bigger shop has more spots.` |
 | `staff_special_queue` | `Customers in this lane stay calmer (−{percent}% impatience).` |

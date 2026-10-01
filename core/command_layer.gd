@@ -5,6 +5,12 @@ extends Node
 ##
 ## Tap = dilepas dalam 12 px logis (× skala UI) dan 0,35 detik nyata; lebih dari
 ## itu adalah drag (pan kamera). Klik kanan = back, roda = zoom.
+##
+## Decoration Mode (GDD 72.2) boleh "menangkap" satu gestur: bila
+## `press_override(pos)` mengembalikan true saat tombol kiri/jari ditekan, drag
+## gestur itu diteruskan ke `drag_override(pos)` (barang ikut jari, kamera diam)
+## dan diakhiri `drop_override(pos)`, walau jari dilepas di atas UI. Gestur yang
+## ternyata tap tetap menjadi tap biasa.
 
 signal world_tapped(screen_pos: Vector2)
 signal back_requested()
@@ -16,12 +22,16 @@ var world: WorldView = null
 var enabled: bool = true
 ## Handler alternatif (mis. Decoration Mode) menerima tap dunia bila diset.
 var tap_override: Callable = Callable()
+var press_override: Callable = Callable()
 var drag_override: Callable = Callable()
+var drop_override: Callable = Callable()
 
 var _press_pos: Vector2 = Vector2.ZERO
 var _press_time: int = 0
 var _pressed: bool = false
 var _dragging: bool = false
+## Gestur ini dipegang press_override: drag-nya menggeser barang, bukan kamera.
+var _captured: bool = false
 var _last_pos: Vector2 = Vector2.ZERO
 var _touches: Dictionary = {}
 var _pinch_dist: float = 0.0
@@ -29,6 +39,49 @@ var _pinch_dist: float = 0.0
 
 func _threshold() -> float:
 	return DataRegistry.balf("input.tap_max_move_px") * float(SettingsManager.get_int("ui_scale")) / 100.0
+
+
+## true selama barang yang ditangkap sedang di-drag.
+func is_dragging_capture() -> bool:
+	return _captured and _dragging
+
+
+## Gestur yang ditangkap dibaca di sini, sebelum UI: barang tetap mengikuti jari
+## yang melintas di atas bilah UI, dan dilepas di mana pun jarinya diangkat.
+func _input(event: InputEvent) -> void:
+	if not _captured:
+		return
+	if not enabled:
+		_end_capture(_last_pos)
+		return
+	if event is InputEventMouseMotion:
+		var mm: InputEventMouseMotion = event
+		# Pelepasan yang tidak pernah sampai (mis. di luar jendela): akhiri di sini.
+		if not (mm.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			_end_capture(_last_pos)
+			return
+		if not _dragging and mm.position.distance_to(_press_pos) > _threshold():
+			_dragging = true
+		if _dragging and drag_override.is_valid():
+			drag_override.call(mm.position)
+		_last_pos = mm.position
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not event.is_pressed():
+		if _dragging:
+			_end_capture((event as InputEventMouseButton).position)
+			get_viewport().set_input_as_handled()
+		else:
+			# Tidak bergeser: biarkan _unhandled_input memprosesnya sebagai tap biasa.
+			_captured = false
+
+
+func _end_capture(pos: Vector2) -> void:
+	var was_drag: bool = _dragging
+	_captured = false
+	_pressed = false
+	_dragging = false
+	if was_drag and drop_override.is_valid():
+		drop_override.call(pos)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -90,6 +143,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_press_pos = mb.position
 			_last_pos = mb.position
 			_press_time = Time.get_ticks_msec()
+			_captured = mb.button_index == MOUSE_BUTTON_LEFT and press_override.is_valid() and bool(press_override.call(mb.position))
 		else:
 			var was_drag: bool = _dragging
 			_pressed = false
@@ -106,9 +160,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mm: InputEventMouseMotion = event
 		if not _dragging and mm.position.distance_to(_press_pos) > _threshold():
 			_dragging = true
-		if _dragging:
-			if drag_override.is_valid():
-				drag_override.call(mm.position)
-			elif _touches.size() < 2:
-				world.camera_rig.pan_by_screen(mm.position - _last_pos)
+		if _dragging and _touches.size() < 2:
+			world.camera_rig.pan_by_screen(mm.position - _last_pos)
 		_last_pos = mm.position

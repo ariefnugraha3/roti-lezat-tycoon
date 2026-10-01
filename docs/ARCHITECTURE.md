@@ -203,8 +203,13 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   customers" timer. `ActorView` owns the idle timer (a face wipe every 7.5 s, then dozing
   with floating "Z": staff at 12.5 s, the player at `DataRegistry.player_doze_after_seconds`,
   when the last thought ends); both timers use real seconds and stop while the game is
-  paused. In Decoration Mode `WorldView` hides station markers, lifts the selected
-  furniture (`set_lift`) and gives `top_of_iid` to the screen's floating action toolbar.
+  paused. In Decoration Mode `WorldView` hides station markers and draws the held
+  item at its candidate spot (`hold`/`release_hold`, GDD 72.2): the real model is
+  re-posed (or a temporary one is built for an item in storage), lifted, re-applied
+  after every rebuild, and put back on Cancel; the simulation layout changes only when
+  the screen calls `place`. `hold_top` anchors the floating action toolbar and
+  `hold_hit` tells `CommandLayer` (through the screen's `press_override`) whether a
+  drag should move the held item instead of the camera.
   It draws placed decorations with `DecorFactory` (one cached prototype per item,
   placed copies share meshes), swings the pendulums, makes decorations pickable, and
   shows the wall/counter slot markers the screen taps (`show_slot_markers`,

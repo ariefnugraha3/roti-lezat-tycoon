@@ -13,7 +13,7 @@ func tests() -> Array:
 		{"id": "ACC_72_DECOR_ENFORCE", "name": "72.3 loading or moving shop puts back decorations that break the slot rules; the older one keeps its place", "fn": _enforce},
 		{"id": "TEST_VIS_DECOR_MODELS", "name": "72.1 every placeable decoration has its own procedural model inside the triangle budget and its slot", "fn": _models},
 		{"id": "TEST_VIS_DECOR_WORLD", "name": "72.3 placed decorations are drawn, pickable in Decoration Mode, and slot markers answer taps; wall windows and clock face the room", "fn": _world},
-		{"id": "TEST_UI_DECOR_SLOTS", "name": "72.2-72.3 Decoration Mode lights free slots, a tap hangs the decoration, full types explain the cap, rugs rotate", "fn": _ui},
+		{"id": "TEST_UI_DECOR_SLOTS", "name": "72.2-72.3 Decoration Mode lights free slots, a tap tries the decoration there and Place hangs it, full types explain the cap, rugs rotate before Place", "fn": _ui},
 		{"id": "ACC_3_CASHIER_PERKS", "name": "3.1 Tier 2 cashiers calm the queue by 8%, Tier 4 by 15% and lift the rating 1.5x per sale", "fn": _cashier_perks},
 	]
 
@@ -488,55 +488,74 @@ func _ui() -> void:
 		for l: Node in usage.find_children("*", "Label", true, false):
 			lines.append((l as Label).text)
 		check(lines.has(Tx.t("ui_decor_slot_count", {"type": Tx.t("decor_type_wall"), "used": 0, "max": 2})), "the wall count reads 0/2 (%s)" % ", ".join(lines))
-	# Pilih dekorasi dinding: slot bebas menyala, lalu ketuk penandanya.
+	# Angkat dekorasi dinding: slot bebas menyala dan ia mencoba slot bebas pertama.
 	deco._pick_decor_card(int(a["uid"]))
 	await runner.get_tree().process_frame
 	eq(world.slot_marker_count(), 2, "both free wall spots light up")
-	eq(deco._status.text, Tx.t("ui_decor_slot_hint_wall"), "the hint says to tap a glowing spot")
+	eq(world.lifted_decor(), int(a["uid"]), "the decoration is held")
+	eq(int(world.held()["slot"]), 0, "a new decoration first tries the first free spot")
+	check(world.hold_node() != null and world.hold_node().visible, "and shows on the wall there")
+	eq(deco._status.text, Tx.t("ui_decor_slot_hint_wall"), "the hint says to tap a glowing spot, then Place")
 	check(not deco._tb_rotate.visible, "wall decorations do not rotate")
+	check(not deco._tb_store.visible, "nothing to put away before it hangs")
 	deco._on_world_tap(world.slot_screen_pos(1))
 	await runner.get_tree().process_frame
-	check(bool(a["placed"]) and int(a["slot"]) == 1, "the tap hangs the decoration on spot 1")
+	eq(int(world.held()["slot"]), 1, "tapping spot 1 tries the decoration there")
+	check(not bool(a["placed"]), "it is not hung before Place")
+	deco._on_world_tap(world.slot_screen_pos(1))
+	check(deco.has_selection(), "tapping its own spot again does not drop it")
+	deco._place()
+	await runner.get_tree().process_frame
+	check(bool(a["placed"]) and int(a["slot"]) == 1, "Place hangs the decoration on spot 1")
 	check(world.decor_node(int(a["uid"])) != null, "and it appears on the wall")
-	eq(deco._sel_decor, int(a["uid"]), "it stays selected to move again")
-	check(deco._tb_store.visible, "Put Away is offered once it hangs")
-	deco._on_world_tap(world.slot_screen_pos(1))
-	check(not deco.has_selection(), "tapping its own spot again puts it down")
-	deco._select_decor(int(b["uid"]))
+	check(not deco.has_selection(), "Place lets go of it")
+	deco._hold_decor(int(b["uid"]))
 	eq(world.slot_marker_count(), 1, "only the remaining spot lights up")
-	deco._on_world_tap(world.slot_screen_pos(0))
+	eq(int(world.held()["slot"]), 0, "the second decoration tries spot 0")
+	deco._place()
 	check(bool(b["placed"]) and int(b["slot"]) == 0, "the second decoration takes spot 0")
-	deco._deselect()
-	# Jenis penuh: peringatan menyebut batas toko.
-	deco._select_decor(int(c["uid"]))
+	# Jenis penuh: tidak diangkat; peringatan menyebut batas toko.
+	deco._hold_decor(int(c["uid"]))
 	await runner.get_tree().process_frame
+	check(not deco.has_selection(), "a decoration of a full type is not picked up")
 	eq(world.slot_marker_count(), 0, "no spot lights up when the wall is full")
 	check(deco._warn.visible, "the warning banner explains why")
 	eq(deco._warn_detail.text, Tx.t("ui_decor_slots_full", {"type": Tx.t("decor_type_wall"), "count": 2}), "it names the cap of this shop")
 	eq(deco._warn_title.text, Tx.t("ui_decor_full_title"), "with a 'no free spot' title")
 	check(not bool(c["placed"]), "nothing was hung")
-	deco._deselect()
-	# Mengetuk dekorasi di dunia memilihnya.
+	# Mengetuk dekorasi di dunia mengangkatnya; Put Away menyimpannya.
 	var ab: AABB = world._decor[int(a["uid"])]["aabb"]
 	deco._on_world_tap(world.camera_rig.world_to_screen(Vector3(ab.get_center().x, ab.end.y - 0.03, ab.get_center().z)))
-	eq(deco._sel_decor, int(a["uid"]), "tapping a hanging decoration selects it")
-	eq(world._lift_uid, int(a["uid"]), "the selected decoration lifts")
+	eq(deco._sel_decor, int(a["uid"]), "tapping a hanging decoration picks it up")
+	eq(world.lifted_decor(), int(a["uid"]), "the held decoration lifts")
+	check(deco._tb_store.visible, "Put Away is offered once it hangs")
 	deco._put_away()
 	check(not bool(a["placed"]) and not deco.has_selection(), "Put Away takes it down")
-	# Karpet: Rotate sebelum dipasang, lalu ketuk ubin toko.
-	deco._select_decor(int(rug["uid"]))
+	# Karpet: muncul di ubin toko yang sah, Rotate hanya pratinjau sampai Place.
+	deco._hold_decor(int(rug["uid"]))
 	check(deco._tb_rotate.visible, "rugs can be rotated")
 	eq(deco._status.text, Tx.t("ui_decor_rug_hint"), "the rug hint shows")
+	eq(deco._cand_reason, &"", "a new rug appears on a free shop tile")
 	deco._rotate()
-	eq(int(rug["rot"]), 1, "Rotate turns the rug before it is laid")
-	var anchor: Vector2i = _first_rug_anchor(game.sim, int(rug["uid"]))
+	eq(int(world.held()["rot"]), 1, "Rotate turns the held rug")
+	eq(int(rug["rot"]), 0, "the turn is only a preview until Place")
+	var anchor: Vector2i = Vector2i(-1, -1)
+	var fg: FloorGrid = game.sim.world.grid(dm.store_floor())
+	for z in fg.size.y:
+		for x in fg.size.x:
+			if anchor.x < 0 and dm.check_place(int(rug["uid"]), dm.store_floor(), Vector2i(x, z), -1, 1) == &"":
+				anchor = Vector2i(x, z)
+	check(anchor.x >= 0, "the turned rug fits somewhere in the shop")
 	deco._on_world_tap(world.camera_rig.world_to_screen(GridMath.cell_center3(anchor)))
 	await runner.get_tree().process_frame
-	check(bool(rug["placed"]), "tapping a shop tile lays the rug")
+	eq(Vector2i(world.held()["cell"]), anchor, "tapping a shop tile moves the rug there")
+	check(not bool(rug["placed"]), "and does not lay it yet")
+	deco._place()
+	check(bool(rug["placed"]) and int(rug["rot"]) == 1 and SimManager.arr_to_cell(rug["cell"]) == anchor, "Place lays the rug, turned")
 	game.modals.close_all()
 	await runner.get_tree().process_frame
 	eq(world.slot_marker_count(), 0, "markers are gone after Decoration Mode")
-	eq(world._lift_uid, -1, "nothing stays lifted")
+	eq(world.lifted_decor(), -1, "nothing stays lifted")
 	game.return_to_menu()
 	await runner.get_tree().process_frame
 	game.queue_free()

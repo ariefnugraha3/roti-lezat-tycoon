@@ -1,25 +1,32 @@
 class_name DecorationScreen
 extends UIScreen
 ## Decoration Mode (GDD 7, 17.3-17.4, 56.1, 60.1, 72, 72.1). Membukanya
-## mem-pause simulasi; ketukan dunia diteruskan ke sini. Ketuk perabot untuk
-## mengangkatnya, lalu ketuk ubin tujuan: petak jejak lantai disorot putih bila
-## sah atau merah bersilang beserta alasannya. Perabot IN_USE tidak dapat
-## dipindah. Decor Shop hanya aktif after-hours. Ubin yang harus tetap kosong
-## (jalur, antrean, titik layanan, akses perabot, leher botol) diarsir merah
-## selama mode ini, dan percobaan menaruh perabot di sana memunculkan banner
-## peringatan (GDD 17.4 "preview merah dan tampilkan alasan").
+## mem-pause simulasi; ketukan dan drag di dunia diteruskan ke sini.
+##
+## Memindah barang meniru The Sims (keputusan maintainer 2026-10-01, GDD 72.2):
+## ketuk atau seret perabot untuk MENGANGKATNYA. Barang yang dipegang digambar
+## di posisi calonnya; seret untuk menggesernya per ubin, atau ketuk ubin mana
+## pun untuk memindahkannya ke sana. Selama memegang, ketukan selalu berarti
+## ubin lantai di bawah jari (juga ubin yang tertutup model perabot): ketukan
+## tidak pernah memilih perabot lain dan tidak pernah membatalkan. Petak
+## jejaknya putih bila sah, merah bersilang beserta alasannya bila tidak. Tata
+## letak simulasi baru berubah saat Place diketuk; Cancel, Back, atau klik
+## kanan mengembalikan barang ke tempat semula. Perabot IN_USE tidak dapat
+## diangkat. Ubin yang harus tetap kosong (jalur, antrean, titik layanan, akses
+## perabot, leher botol) diarsir merah selama mode ini (GDD 17.4 "preview merah
+## dan tampilkan alasan"). Decor Shop hanya aktif after-hours.
 ##
 ## Tata letak (keputusan maintainer 2026-09-30): TANPA panel samping, supaya
 ## dunia terlihat penuh. Bilah atas tipis (judul, petunjuk, lantai, Done); tab di
 ## tepi bawah yang membuka baki barang (Equipment / Your Decorations / Decor
-## Shop); dan toolbar aksi (Rotate, Put Away, Cancel) yang melayang tepat di atas
-## perabot terpilih dan ikut pindah bersamanya. Barang yang belum punya tempat di
-## dunia (belum dipasang, dekorasi dinding/meja) memakai toolbar yang berlabuh di
-## atas tab.
+## Shop); dan toolbar aksi (Place, Rotate, Put Away, Cancel) yang melayang tepat
+## di atas barang yang dipegang dan ikut pindah bersamanya. Barang yang tidak
+## digambar di lantai yang sedang dilihat memakai toolbar yang berlabuh di atas
+## tab.
 ##
 ## Dekorasi (GDD 72.3): semuanya di lantai toko. Dekorasi dinding/meja yang
-## dipilih menyalakan penanda slot bebas; ketuk penanda untuk memasang atau
-## memindahkannya. Karpet mengikuti ubin yang diketuk dan bisa diputar. Batas
+## dipegang menyalakan penanda slot bebas; ketuk (atau seret ke) penanda untuk
+## mencobanya di sana. Karpet dipindah seperti perabot dan bisa diputar. Batas
 ## per jenis mengikuti tier toko; baki "Your Decorations" menunjukkan sisa slot.
 
 const REASON_KEYS: Dictionary = {
@@ -45,11 +52,39 @@ const DECOR_TYPES: Array[StringName] = [&"wall", &"counter_prop", &"floor_prop",
 ## Jarak ujung ekor toolbar di atas puncak perabot (meter) dan dari tepi layar (px).
 const TOOLBAR_LIFT_M: float = 0.18
 const EDGE_PX: float = 10.0
+## Barang diseret sampai sejauh ini dari tepi layar: kamera ikut bergeser (px,
+## px per detik).
+const EDGE_PAN_PX: float = 56.0
+const EDGE_PAN_SPEED: float = 520.0
+const NO_CELL: Vector2i = Vector2i(-1, -1)
 
+## Barang yang sedang dipegang (-1 = tidak ada).
 var _sel_iid: int = -1
 var _sel_decor: int = -1
+## Posisi calon barang yang dipegang (GDD 72.2): lantai + jangkar jejak untuk
+## alat dan dekorasi lantai/karpet, nomor slot untuk dekorasi dinding/meja.
+## Tata letak simulasi tidak berubah sampai Place.
 var _rot: int = 0
-var _last_cell: Vector2i = Vector2i(-1, -1)
+var _cand_floor: StringName = &""
+var _cand_cell: Vector2i = NO_CELL
+var _cand_slot: int = -1
+## "" = posisi calon sah; selain itu kode alasan penolakannya.
+var _cand_reason: StringName = &"invalid"
+## Posisi saat barang diangkat (untuk petunjuk "sudah digeser").
+var _start_floor: StringName = &""
+var _start_cell: Vector2i = NO_CELL
+var _start_slot: int = -1
+var _start_rot: int = 0
+## Gestur dunia: titik tekan, perabot di bawahnya (drag dari keadaan diam
+## langsung mengangkatnya), dan drag barang yang sedang berjalan.
+var _press_pos: Vector2 = Vector2.ZERO
+var _press_pick: Dictionary = {}
+var _drag_active: bool = false
+var _drag_cell0: Vector2i = NO_CELL
+var _drag_anchor0: Vector2i = NO_CELL
+var _drag_pos: Vector2 = Vector2.ZERO
+## Barang dari baki menunggu kamera tiba di lantainya untuk disorot.
+var _focus_pending: bool = false
 var _tab: int = -1
 var _status: Label = null
 var _top: PanelContainer = null
@@ -61,6 +96,7 @@ var _legend_zone: Control = null
 var _legend_clear: Control = null
 var _toolbar: ActionBar = null
 var _tb_name: Label = null
+var _tb_place: Button = null
 var _tb_rotate: Button = null
 var _tb_store: Button = null
 var _tb_cancel: Button = null
@@ -80,6 +116,9 @@ func _init() -> void:
 func build() -> void:
 	game.hud.set_decoration_active(true)
 	game.commands.tap_override = _on_world_tap
+	game.commands.press_override = _on_world_press
+	game.commands.drag_override = _on_world_drag
+	game.commands.drop_override = _on_world_drop
 	game.world.camera_rig.set_free_pan(true)
 	game.world.decoration_mode = true
 	var inset: Vector4 = ProceduralUIFactory.safe_area_margin()
@@ -101,7 +140,8 @@ func build() -> void:
 	sim.world.layout_changed.connect(_refresh_overlay)
 	var pre: int = int(params.get("select_iid", -1))
 	if pre >= 0:
-		_select_equipment(pre)
+		_hold_equipment(pre)
+		_focus_pending = has_selection()
 	_refresh_all()
 	_refresh_overlay()
 
@@ -138,7 +178,7 @@ func _build_top_bar(frame: Control) -> void:
 			var fb: Button = btn(row, Tx.t("ui_floor_label", {"n": String(f.id).replace("floor_", "")}), "secondary", func() -> void:
 				game.world.view_floor_override = fid)
 			fb.custom_minimum_size = Vector2(56, 48)
-	var done: Button = btn(row, Tx.t("ui_decor_done"), "primary", close)
+	var done: Button = btn(row, Tx.t("ui_decor_done"), "primary", _done)
 	done.custom_minimum_size = Vector2(120, 48)
 
 
@@ -221,7 +261,8 @@ func _legend_row(color: Color, key: String, tip_key: String) -> Control:
 	return h
 
 
-## Toolbar aksi yang melayang di atas perabot terpilih.
+## Toolbar aksi yang melayang di atas barang yang dipegang: Place, Rotate, Put
+## Away, Cancel.
 func _build_toolbar() -> void:
 	_toolbar = ActionBar.new()
 	add_child(_toolbar)
@@ -235,12 +276,14 @@ func _build_toolbar() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 8)
 	v.add_child(row)
+	_tb_place = _icon_text_button("check", Tx.t("ui_decor_place"), "success", _place)
+	row.add_child(_tb_place)
 	_tb_rotate = _icon_text_button("rotate", Tx.t("ui_decor_rotate"), "secondary", _rotate)
 	row.add_child(_tb_rotate)
 	_tb_store = _icon_text_button("box", Tx.t("ui_decor_store"), "secondary", _put_away)
 	row.add_child(_tb_store)
 	_tb_cancel = ProceduralUIFactory.icon_button("cross", Tx.t("ui_cancel"), "ghost")
-	_tb_cancel.pressed.connect(_deselect)
+	_tb_cancel.pressed.connect(_cancel)
 	row.add_child(_tb_cancel)
 	_toolbar.visible = false
 
@@ -419,21 +462,18 @@ func _card(title_text: String, sub: String, selected: bool, disabled: bool, cb: 
 	return b
 
 
-## Kartu alat: pilih, arahkan kamera ke alat yang sudah terpasang, lalu tutup
-## baki supaya dunia terlihat untuk memindahkannya.
+## Kartu barang: angkat barangnya, tutup baki supaya dunia terlihat, lalu
+## arahkan kamera ke sana bila ia di luar layar.
 func _pick_equipment_card(iid: int) -> void:
 	_tab = -1
-	_select_equipment(iid)
-	var e: EquipmentInstance = sim.equipment.get_inst(iid)
-	if _sel_iid == iid and e != null and e.placed:
-		var top: Vector3 = game.world.top_of_iid(iid)
-		if top != Vector3.INF:
-			game.world.camera_rig.focus_free_pan(top)
+	_hold_equipment(iid)
+	_focus_pending = has_selection()
 
 
 func _pick_decor_card(uid: int) -> void:
 	_tab = -1
-	_select_decor(uid)
+	_hold_decor(uid)
+	_focus_pending = has_selection()
 
 
 func _equip(deco_id: StringName) -> void:
@@ -452,106 +492,158 @@ func _buy(deco_id: StringName) -> void:
 	_refresh_all.call_deferred()
 
 
+
 # ===========================================================================
-# PILIHAN & TOOLBAR
+# MEMEGANG BARANG (GDD 72.2, seperti The Sims)
 # ===========================================================================
 
-func _select_equipment(iid: int) -> void:
+## Angkat alat `iid`. Alat yang sedang dipakai tidak bisa diangkat. Alat yang
+## belum terpasang muncul di tempat sah terdekat dari tengah layar, seperti
+## barang baru di The Sims; bila kategorinya sudah penuh, ia tetap disimpan.
+func _hold_equipment(iid: int) -> void:
 	var e: EquipmentInstance = sim.equipment.get_inst(iid)
 	if e == null:
 		return
 	if e.placed and sim.equipment.is_in_use(iid):
+		_refresh_all()
 		_set_status(&"in_use", false)
 		return
+	_drop_hold()
+	if not e.placed and not EquipmentManager.is_fixture(e.category()) \
+		and sim.equipment.placed_count(e.category()) >= sim.equipment.slot_limit(e.category()):
+		_refresh_all()
+		_set_status(&"slots_full", false)
+		_warn_rejected(&"slots_full")
+		return
 	_sel_iid = iid
-	_sel_decor = -1
 	_rot = e.rotation
-	_last_cell = Vector2i(-1, -1)
-	game.world.clear_ghost()
-	game.world.clear_slot_markers()
-	game.world.set_decor_lift(-1)
-	game.world.view_floor_override = e.floor_id if e.placed else sim.world.floors_for_category(e.category())[0]
-	game.world.set_lift(iid if e.placed else -1)
 	if e.placed:
-		_preview(e.anchor)
-	_refresh_overlay()
-	_refresh_all()
+		_cand_floor = e.floor_id
+		_cand_cell = e.anchor
+	else:
+		var allowed: Array[StringName] = sim.world.floors_for_category(e.category())
+		_cand_floor = game.world.camera_rig.active_floor if allowed.has(game.world.camera_rig.active_floor) else allowed[0]
+		_spawn()
+	_begin_hold()
 
 
-## Pilih dekorasi (GDD 72.3). Kamera pindah ke lantai toko. Dinding/meja:
-## penanda slot bebas menyala. Lantai/karpet terpasang: jejaknya disorot. Jenis
-## yang sudah penuh langsung memberi tahu pemain.
-func _select_decor(uid: int) -> void:
+## Angkat dekorasi `uid` (GDD 72.3). Dinding/meja: slot bebas menyala dan barang
+## yang belum terpasang mencoba slot bebas pertama. Lantai/karpet yang belum
+## terpasang muncul di ubin sah terdekat dari tengah layar. Jenis yang sudah
+## penuh tidak diangkat; banner menyebut batas lokasi ini.
+func _hold_decor(uid: int) -> void:
 	var o: Dictionary = sim.decoration.item(uid)
 	if o.is_empty():
 		return
-	_sel_decor = uid
-	_sel_iid = -1
-	_last_cell = Vector2i(-1, -1)
-	game.world.set_lift(-1)
-	game.world.clear_ghost()
-	game.world.clear_slot_markers()
-	var placed: bool = bool(o["placed"])
-	game.world.view_floor_override = sim.decoration.store_floor()
-	game.world.set_decor_lift(uid if placed else -1)
-	_refresh_overlay()
-	var t: StringName = sim.decoration.type_of(o)
+	_drop_hold()
 	if sim.decoration.type_full(uid):
-		_warn_rejected(&"slots_full")
+		_refresh_all()
+		_set_status(&"slots_full", false, uid)
+		_warn_rejected(&"slots_full", uid)
+		return
+	_sel_decor = uid
+	_rot = int(o.get("rot", 0))
+	_cand_floor = sim.decoration.store_floor()
+	var t: StringName = sim.decoration.type_of(o)
+	if bool(o["placed"]):
+		if _is_slot_type(t):
+			_cand_slot = int(o["slot"])
+		else:
+			_cand_cell = SimManager.arr_to_cell(o["cell"])
 	elif _is_slot_type(t):
-		_show_slots()
-	elif placed and t == &"floor_prop":
-		game.world.show_ghost([SimManager.arr_to_cell(o["cell"])], StringName(str(o["floor_id"])), true)
-	elif placed and t == &"floor_overlay":
-		game.world.show_ghost(sim.decoration.overlay_cells(o), StringName(str(o["floor_id"])), true)
+		var free: Array[int] = sim.decoration.free_slots(t, uid)
+		_cand_slot = free[0] if not free.is_empty() else -1
+	else:
+		_spawn()
+	_begin_hold()
+
+
+## Catat posisi awal pegangan, pindahkan tampilan ke lantainya, lalu gambar.
+func _begin_hold() -> void:
+	_start_floor = _cand_floor
+	_start_cell = _cand_cell
+	_start_slot = _cand_slot
+	_start_rot = _rot
+	game.world.view_floor_override = _cand_floor
+	_update_candidate()
+	_refresh_overlay()
 	_refresh_all()
 
 
-static func _is_slot_type(t: StringName) -> bool:
-	return t == &"wall" or t == &"counter_prop"
+## Lepaskan barang yang dipegang TANPA menaruhnya: modelnya kembali ke tempat
+## yang tersimpan (barang baru kembali ke inventaris).
+func _drop_hold() -> void:
+	_sel_iid = -1
+	_sel_decor = -1
+	_cand_floor = &""
+	_cand_cell = NO_CELL
+	_cand_slot = -1
+	_cand_reason = &"invalid"
+	_drag_active = false
+	_focus_pending = false
+	game.world.release_hold()
+	game.world.clear_ghost()
+	game.world.clear_slot_markers()
 
 
-func _sel_decor_type() -> StringName:
-	return sim.decoration.type_of(sim.decoration.item(_sel_decor)) if _sel_decor >= 0 else &""
-
-
-## Nyalakan penanda slot yang boleh dipakai dekorasi terpilih; slotnya sendiri emas.
-func _show_slots() -> void:
-	var o: Dictionary = sim.decoration.item(_sel_decor)
-	var t: StringName = sim.decoration.type_of(o)
-	var current: int = int(o["slot"]) if bool(o["placed"]) else -1
-	game.world.show_slot_markers(t, sim.decoration.free_slots(t, _sel_decor), current)
-
-
-## Pasang/pindahkan dekorasi dinding/meja terpilih ke `slot`. Mengetuk slotnya
-## sendiri = selesai, seperti mengetuk perabot terpilih.
-func _place_decor_slot(slot: int) -> void:
-	var o: Dictionary = sim.decoration.item(_sel_decor)
-	if bool(o["placed"]) and int(o["slot"]) == slot:
-		_deselect()
+## ✕ Cancel / Back / klik kanan: barang kembali ke tempat semula.
+func _cancel() -> void:
+	if not has_selection():
 		return
-	var r: StringName = sim.decoration.place(_sel_decor, sim.decoration.store_floor(), Vector2i(-1, -1), slot)
+	_drop_hold()
+	_refresh_overlay()
+	_refresh_all()
+
+
+## ✓ Place: taruh barang di posisi calonnya (GDD 17.4 "furniture baru
+## benar-benar di-commit saat drop valid"). Tidak sah: banner alasannya, barang
+## tetap dipegang supaya bisa digeser ke tempat yang muat.
+func _place() -> void:
+	if not has_selection():
+		return
+	if _cand_reason != &"":
+		_set_status(_cand_reason, false)
+		_warn_rejected(_cand_reason)
+		return
+	var r: StringName = &""
+	if not _unmoved():
+		if _sel_iid >= 0:
+			r = sim.equipment.place(_sel_iid, _cand_floor, _cand_cell, _rot)
+		else:
+			r = sim.decoration.place(_sel_decor, _cand_floor, _cand_cell, _cand_slot, _rot)
 	if r != &"":
 		_set_status(r, false)
 		_warn_rejected(r)
 		return
-	EventBus.sfx.emit(&"bread_place_display", sim.decoration.store_floor())
-	game.world.set_decor_lift(_sel_decor)
-	_show_slots()
-	_refresh_all()
-	_set_status(&"", true)
-
-
-func _deselect() -> void:
-	_sel_iid = -1
-	_sel_decor = -1
-	_last_cell = Vector2i(-1, -1)
-	game.world.set_lift(-1)
-	game.world.set_decor_lift(-1)
-	game.world.clear_ghost()
-	game.world.clear_slot_markers()
+	EventBus.sfx.emit(&"bread_place_display", _cand_floor)
+	_drop_hold()
 	_refresh_overlay()
 	_refresh_all()
+
+
+## Done: barang yang dipegang di tempat yang sah ikut ditaruh, lalu mode ditutup.
+func _done() -> void:
+	if has_selection() and _cand_reason == &"":
+		_place()
+	close()
+
+
+## true bila posisi calon sama dengan posisi tersimpan barang yang sudah terpasang.
+func _unmoved() -> bool:
+	if _sel_iid >= 0:
+		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
+		return e.placed and e.floor_id == _cand_floor and e.anchor == _cand_cell and e.rotation == _rot
+	var o: Dictionary = sim.decoration.item(_sel_decor)
+	if not bool(o.get("placed", false)) or StringName(str(o["floor_id"])) != _cand_floor:
+		return false
+	if _is_slot_type(_sel_decor_type()):
+		return int(o["slot"]) == _cand_slot
+	return SimManager.arr_to_cell(o["cell"]) == _cand_cell and int(o.get("rot", 0)) == _rot
+
+
+## true bila barang belum digeser atau diputar sejak diangkat.
+func _at_start() -> bool:
+	return _cand_floor == _start_floor and _cand_cell == _start_cell and _cand_slot == _start_slot and _rot == _start_rot
 
 
 func has_selection() -> bool:
@@ -562,10 +654,140 @@ func toolbar() -> ActionBar:
 	return _toolbar
 
 
-## Isi toolbar mengikuti barang terpilih: Rotate hanya untuk alat, Put Away hanya
-## untuk yang sudah terpasang dan boleh disimpan (Gudang & Meja Tunggu tidak).
+static func _is_slot_type(t: StringName) -> bool:
+	return t == &"wall" or t == &"counter_prop"
+
+
+func _sel_decor_type() -> StringName:
+	return sim.decoration.type_of(sim.decoration.item(_sel_decor)) if _sel_decor >= 0 else &""
+
+
+## true bila barang yang dipegang punya posisi calon (ubin atau slot).
+func _has_cand() -> bool:
+	if _is_slot_type(_sel_decor_type()):
+		return _cand_slot >= 0
+	return has_selection() and _cand_cell != NO_CELL
+
+
+## "" bila barang yang dipegang boleh ditaruh di posisi calonnya; selain itu
+## kode alasan (GDD 17.3-17.4, 72.3).
+func _check_candidate() -> StringName:
+	if not _has_cand():
+		return &"invalid"
+	if _sel_iid >= 0:
+		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
+		return sim.world.validate_placement(e, _cand_floor, _cand_cell, _rot)
+	return sim.decoration.check_place(_sel_decor, _cand_floor, _cand_cell, _cand_slot, _rot)
+
+
+## Gambar barang yang dipegang di posisi calonnya: model terangkat di sana,
+## petak jejak putih (sah) atau merah bersilang, penanda slot untuk dekorasi
+## dinding/meja, lalu toolbar dan petunjuk.
+func _update_candidate() -> void:
+	if not has_selection():
+		return
+	_cand_reason = _check_candidate()
+	var world: WorldView = game.world
+	world.hold({"kind": &"equipment" if _sel_iid >= 0 else &"decor", "id": _sel_iid if _sel_iid >= 0 else _sel_decor,
+		"floor": _cand_floor, "cell": _cand_cell, "rot": _rot, "slot": _cand_slot})
+	if _is_slot_type(_sel_decor_type()):
+		world.clear_ghost()
+		_show_slots()
+	elif _has_cand():
+		world.show_ghost(world.hold_cells(), _cand_floor, _cand_reason == &"")
+	else:
+		world.clear_ghost()
+	_update_toolbar_content()
+	_update_status()
+
+
+## Nyalakan penanda slot yang boleh dipakai dekorasi yang dipegang; slot
+## calonnya emas.
+func _show_slots() -> void:
+	var t: StringName = _sel_decor_type()
+	game.world.show_slot_markers(t, sim.decoration.free_slots(t, _sel_decor), _cand_slot)
+
+
+## Ukuran jejak barang yang dipegang (ubin) dengan putaran saat ini.
+func _footprint() -> Vector2i:
+	if _sel_iid >= 0:
+		return GridMath.rotated_footprint(sim.equipment.get_inst(_sel_iid).def().footprint_tiles, _rot)
+	if _sel_decor_type() == &"floor_overlay":
+		return DecorSlots.overlay_footprint(sim.decoration.def_of(sim.decoration.item(_sel_decor)), _rot)
+	return Vector2i.ONE
+
+
+## Jangkar yang menaruh tengah jejak barang di ubin `cell`.
+func _anchor_for(cell: Vector2i) -> Vector2i:
+	var fp: Vector2i = _footprint()
+	return cell - Vector2i((fp.x - 1) / 2, (fp.y - 1) / 2)
+
+
+## Jangkar yang menjaga seluruh jejak di dalam lantai: barang yang diseret
+## keluar ruangan meluncur di sepanjang dindingnya.
+func _clamp_anchor(a: Vector2i) -> Vector2i:
+	var fg: FloorGrid = sim.world.grid(_cand_floor)
+	if fg == null:
+		return a
+	var fp: Vector2i = _footprint()
+	return Vector2i(clampi(a.x, 0, maxi(0, fg.size.x - fp.x)), clampi(a.y, 0, maxi(0, fg.size.y - fp.y)))
+
+
+## Putaran yang dicoba untuk barang yang dipegang, putaran saat ini lebih dulu.
+func _rotations() -> Array[int]:
+	var out: Array[int] = [_rot]
+	if _sel_iid >= 0:
+		var allowed: Array[int] = sim.equipment.get_inst(_sel_iid).def().rotations_allowed
+		for i in range(1, 4):
+			var r: int = (_rot + i) % 4
+			if allowed.has(r * 90):
+				out.append(r)
+	elif _sel_decor_type() == &"floor_overlay":
+		out.append((_rot + 1) % 2)
+	return out
+
+
+## Tempat awal barang baru: jangkar sah terdekat dari tengah layar di lantai
+## calon (putaran saat ini lebih dulu, lalu putaran lain). Tanpa tempat sah,
+## barang muncul merah di tengah dan bisa digeser.
+func _spawn() -> void:
+	var fg: FloorGrid = sim.world.grid(_cand_floor)
+	if fg == null:
+		return
+	var origin: Vector2i = fg.size / 2
+	if _cand_floor == game.world.camera_rig.active_floor:
+		var view: Vector2 = get_viewport_rect().size
+		var c: Vector2i = game.world.cell_at_screen(view * 0.5)
+		if c != NO_CELL:
+			origin = Vector2i(clampi(c.x, 0, fg.size.x - 1), clampi(c.y, 0, fg.size.y - 1))
+	var cells: Array[Vector2i] = []
+	for z in fg.size.y:
+		for x in fg.size.x:
+			cells.append(Vector2i(x, z))
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var da: int = (a - origin).length_squared()
+		var db: int = (b - origin).length_squared()
+		if da != db:
+			return da < db
+		if a.y != b.y:
+			return a.y < b.y
+		return a.x < b.x)
+	var first: int = _rot
+	for r: int in _rotations():
+		_rot = r
+		for c2: Vector2i in cells:
+			_cand_cell = _clamp_anchor(_anchor_for(c2))
+			if _check_candidate() == &"":
+				return
+	_rot = first
+	_cand_cell = _clamp_anchor(_anchor_for(origin))
+
+
+## Toolbar mengikuti barang yang dipegang: Rotate untuk alat dan karpet, Put Away
+## hanya untuk yang sudah terpasang dan boleh disimpan (Gudang & Meja Tunggu
+## tidak).
 func _update_toolbar_content() -> void:
-	_toolbar.visible = has_selection()
+	_toolbar.visible = has_selection() and not _drag_active
 	if not has_selection():
 		return
 	if _sel_iid >= 0:
@@ -578,35 +800,28 @@ func _update_toolbar_content() -> void:
 		_tb_name.text = Tx.t(String(sim.decoration.def_of(o).localization_key))
 		_tb_rotate.visible = sim.decoration.type_of(o) == &"floor_overlay"
 		_tb_store.visible = bool(o.get("placed", false))
+	# Place selalu bisa diketuk: di tempat yang tidak sah ia memudar dan
+	# ketukannya menjelaskan alasannya, seperti jejak merah di lantai.
+	var ok: bool = _cand_reason == &""
+	_tb_place.modulate = Color(1.0, 1.0, 1.0, 1.0 if ok else 0.5)
+	_tb_place.tooltip_text = Tx.t("ui_decor_place") if ok else _reason_text(_cand_reason)
 	_toolbar.panel.reset_size()
 
 
-## Titik layar yang ditunjuk ekor toolbar, atau (-1, -1) bila barang terpilih
-## tidak punya tempat di lantai yang sedang dilihat (toolbar berlabuh di bawah).
+## Titik layar yang ditunjuk ekor toolbar, atau (-1, -1) bila barang yang
+## dipegang tidak digambar di lantai yang sedang dilihat (toolbar berlabuh di
+## bawah).
 func _toolbar_anchor() -> Vector2:
-	var world: WorldView = game.world
-	if _sel_iid >= 0:
-		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-		if e == null or not e.placed or e.floor_id != world.camera_rig.active_floor:
-			return Vector2(-1, -1)
-		var top: Vector3 = world.top_of_iid(_sel_iid)
-		if top == Vector3.INF:
-			return Vector2(-1, -1)
-		return world.camera_rig.world_to_screen(top + Vector3(0.0, TOOLBAR_LIFT_M, 0.0))
-	if _sel_decor >= 0:
-		var o: Dictionary = sim.decoration.item(_sel_decor)
-		if not bool(o["placed"]) or StringName(str(o["floor_id"])) != world.camera_rig.active_floor:
-			return Vector2(-1, -1)
-		var top2: Vector3 = world.top_of_decor(_sel_decor)
-		if top2 == Vector3.INF:
-			return Vector2(-1, -1)
-		return world.camera_rig.world_to_screen(top2 + Vector3(0.0, TOOLBAR_LIFT_M, 0.0))
-	return Vector2(-1, -1)
+	var top: Vector3 = game.world.hold_top()
+	if top == Vector3.INF:
+		return Vector2(-1, -1)
+	return game.world.camera_rig.world_to_screen(top + Vector3(0.0, TOOLBAR_LIFT_M, 0.0))
 
 
-## Letakkan toolbar tepat di atas barang terpilih, tetap di dalam layar di antara
-## bilah atas dan tab bawah.
+## Letakkan toolbar tepat di atas barang yang dipegang, tetap di dalam layar di
+## antara bilah atas dan tab bawah. Selama barang diseret toolbar disembunyikan.
 func _place_toolbar() -> void:
+	_toolbar.visible = has_selection() and not _drag_active
 	if not _toolbar.visible:
 		return
 	var view: Vector2 = get_viewport_rect().size
@@ -631,42 +846,41 @@ func _place_toolbar() -> void:
 	_toolbar.refresh_tail()
 
 
+## Petunjuk di bilah atas: cara mengangkat, cara memindah barang yang dipegang,
+## "sah, ketuk Place" setelah digeser, atau alasan penolakan (merah).
 func _update_status() -> void:
 	if _status.has_theme_color_override("font_color"):
 		_status.remove_theme_color_override("font_color")
 	if not has_selection():
 		_status.text = Tx.t("ui_decor_hint")
 		return
-	var placed: bool = false
-	if _sel_iid >= 0:
-		placed = sim.equipment.get_inst(_sel_iid).placed
+	if _cand_reason != &"" and _has_cand():
+		_set_status(_cand_reason, false)
+		return
+	var t: StringName = _sel_decor_type()
+	if not _at_start() and _has_cand():
+		_set_status(&"", true)
+	elif _is_slot_type(t):
+		_status.text = Tx.t("ui_decor_slot_hint_wall" if t == &"wall" else "ui_decor_slot_hint_counter")
+	elif t == &"floor_overlay":
+		_status.text = Tx.t("ui_decor_rug_hint")
 	else:
-		placed = bool(sim.decoration.item(_sel_decor).get("placed", false))
-		var t: StringName = _sel_decor_type()
-		if sim.decoration.type_full(_sel_decor):
-			_status.text = _reason_text(&"slots_full")
-			_status.add_theme_color_override("font_color", Palette.DANGER)
-			return
-		if _is_slot_type(t):
-			_status.text = Tx.t("ui_decor_slot_move") if placed else Tx.t("ui_decor_slot_hint_wall" if t == &"wall" else "ui_decor_slot_hint_counter")
-			return
-		if t == &"floor_overlay":
-			_status.text = Tx.t("ui_decor_rug_hint")
-			return
-	_status.text = Tx.t("ui_decor_move_hint") if placed else Tx.t("ui_decor_place_hint")
+		var placed: bool = sim.equipment.get_inst(_sel_iid).placed if _sel_iid >= 0 else bool(sim.decoration.item(_sel_decor).get("placed", false))
+		_status.text = Tx.t("ui_decor_move_hint") if placed else Tx.t("ui_decor_place_hint")
 
 
 # ===========================================================================
-# ARSIRAN, PRATINJAU & PERINGATAN
+# ARSIRAN & PERINGATAN
 # ===========================================================================
 
 ## Tampilkan peringatan untuk penempatan yang ditolak. Penolakan karena jalan
 ## memakai kalimat "menghalangi jalan"; alasan lain memakai teks alasannya.
-func _warn_rejected(reason: StringName) -> void:
+func _warn_rejected(reason: StringName, uid: int = -1) -> void:
 	if _warn == null:
 		return
-	_warn_title.text = Tx.t("ui_decor_full_title" if reason == &"slots_full" and _sel_decor >= 0 else "ui_decor_warn_title")
-	_warn_detail.text = _reason_text(reason) if not WARN_KEYS.has(reason) else Tx.t(str(WARN_KEYS[reason]))
+	var decor: bool = (uid if uid >= 0 else _sel_decor) >= 0
+	_warn_title.text = Tx.t("ui_decor_full_title" if reason == &"slots_full" and decor else "ui_decor_warn_title")
+	_warn_detail.text = _reason_text(reason, uid) if not WARN_KEYS.has(reason) else Tx.t(str(WARN_KEYS[reason]))
 	_warn.visible = true
 	_warn.modulate.a = 1.0
 	if _warn_tween != null and _warn_tween.is_valid():
@@ -679,16 +893,17 @@ func _warn_rejected(reason: StringName) -> void:
 
 
 ## Teks alasan penolakan. "Slot penuh" untuk dekorasi menyebut jenis dan batas
-## lokasi ini (GDD 72.3).
-func _reason_text(reason: StringName) -> String:
-	if reason == &"slots_full" and _sel_decor >= 0:
-		var t: StringName = _sel_decor_type()
+## lokasi ini (GDD 72.3); `uid` = dekorasi yang dimaksud (bawaan: yang dipegang).
+func _reason_text(reason: StringName, uid: int = -1) -> String:
+	var u: int = uid if uid >= 0 else _sel_decor
+	if reason == &"slots_full" and u >= 0:
+		var t: StringName = sim.decoration.type_of(sim.decoration.item(u))
 		return Tx.t("ui_decor_slots_full", {"type": Tx.t("decor_type_" + String(t)), "count": sim.decoration.cap(t)})
 	return Tx.t(str(REASON_KEYS.get(reason, "ui_decor_invalid_reserved")))
 
 
 ## Arsir ubin yang harus tetap kosong di lantai yang sedang dilihat; bila ada
-## perabot terpilih, tandai juga ubin di luar area perabot itu.
+## barang yang dipegang, tandai juga ubin di luar area barang itu.
 func _refresh_overlay() -> void:
 	if not is_instance_valid(game) or game.world == null:
 		return
@@ -712,8 +927,7 @@ func _refresh_overlay() -> void:
 		if e != null:
 			target_zone = &"store" if e.category() == &"display" else &"kitchen"
 	elif _sel_decor >= 0:
-		var dt: StringName = _sel_decor_type()
-		if dt == &"floor_prop" or dt == &"floor_overlay":
+		if dt0 == &"floor_prop" or dt0 == &"floor_overlay":
 			target_zone = &"store"
 	var wrong: Array[Vector2i] = []
 	if target_zone != &"":
@@ -731,233 +945,219 @@ func _refresh_overlay() -> void:
 	_legend_clear.get_parent().get_parent().visible = _legend_clear.visible or _legend_zone.visible
 
 
-func _process(_delta: float) -> void:
-	# Pindah lantai (tombol L1/L2 atau pemilihan perabot): perbarui arsiran.
+func _process(delta: float) -> void:
+	# Pindah lantai (tombol L1/L2 atau barang di lantai lain): perbarui arsiran.
 	if is_instance_valid(game) and game.world != null and game.world.camera_rig.active_floor != _overlay_floor:
 		_refresh_overlay()
+	if _drag_active:
+		_edge_pan(delta)
+	if _focus_pending:
+		_focus_hold()
 	_place_toolbar()
 
 
-func _anchor_for(cell: Vector2i) -> Vector2i:
-	var fp := Vector2i.ONE
-	if _sel_iid >= 0:
-		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-		fp = GridMath.rotated_footprint(e.def().footprint_tiles, _rot)
-	elif _sel_decor_type() == &"floor_overlay":
-		var o: Dictionary = sim.decoration.item(_sel_decor)
-		fp = DecorSlots.overlay_footprint(sim.decoration.def_of(o), int(o.get("rot", 0)))
-	return cell - Vector2i((fp.x - 1) / 2, (fp.y - 1) / 2)
+## Barang dari baki: arahkan kamera ke sana bila ia di luar area dunia yang
+## terlihat. Menunggu sampai kamera sudah berada di lantainya.
+func _focus_hold() -> void:
+	if not has_selection():
+		_focus_pending = false
+		return
+	var top: Vector3 = game.world.hold_top()
+	if top == Vector3.INF:
+		return
+	_focus_pending = false
+	var p: Vector2 = game.world.camera_rig.world_to_screen(top)
+	var view: Vector2 = get_viewport_rect().size
+	var y0: float = _top.get_global_rect().end.y + 40.0
+	var y1: float = _bottom.get_global_rect().position.y - 20.0
+	if p.x < 60.0 or p.x > view.x - 60.0 or p.y < y0 or p.y > y1:
+		game.world.camera_rig.focus_free_pan(top)
 
 
-func _preview(anchor: Vector2i) -> void:
-	_last_cell = anchor
-	var floor_id: StringName = game.world.camera_rig.active_floor
-	if _sel_iid >= 0:
-		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-		var reason: StringName = sim.world.validate_placement(e, floor_id, anchor, _rot)
-		game.world.show_ghost(GridMath.footprint_cells(anchor, e.def().footprint_tiles, _rot), floor_id, reason == &"")
-		_set_status(reason, reason == &"")
-	elif _sel_decor >= 0:
-		var t: StringName = _sel_decor_type()
-		if _is_slot_type(t):
-			return
-		var o: Dictionary = sim.decoration.item(_sel_decor)
-		var reason2: StringName = sim.decoration.check_place(_sel_decor, floor_id, anchor, -1, int(o.get("rot", 0)))
-		game.world.show_ghost(_decor_cells(anchor), floor_id, reason2 == &"")
-		_set_status(reason2, reason2 == &"")
-
-
-## Ubin yang akan ditempati dekorasi lantai/karpet terpilih berjangkar `anchor`.
-func _decor_cells(anchor: Vector2i) -> Array[Vector2i]:
-	var o: Dictionary = sim.decoration.item(_sel_decor)
-	if sim.decoration.type_of(o) == &"floor_overlay":
-		return DecorSlots.overlay_cells(sim.decoration.def_of(o), anchor, int(o.get("rot", 0)))
-	return [anchor]
-
-
-func _set_status(reason: StringName, ok: bool) -> void:
+func _set_status(reason: StringName, ok: bool, uid: int = -1) -> void:
 	if ok:
 		_status.text = Tx.t("ui_decor_valid")
 		_status.add_theme_color_override("font_color", Palette.SUCCESS)
 	else:
-		_status.text = _reason_text(reason)
+		_status.text = _reason_text(reason, uid)
 		_status.add_theme_color_override("font_color", Palette.DANGER)
 
 
 # ===========================================================================
-# KETUKAN DUNIA
+# KETUKAN & DRAG DUNIA
 # ===========================================================================
 
-## Tanpa pilihan: ketuk perabot untuk memilihnya. Dengan pilihan: ketuk ubin
-## kosong untuk memindahkannya ke sana, ketuk perabot lain untuk berganti
-## pilihan, atau ketuk perabot terpilih itu sendiri untuk selesai.
+## Ketukan dunia. Tanpa pegangan: ketuk perabot atau dekorasi untuk
+## mengangkatnya. Saat memegang, ketukan TIDAK PERNAH memilih perabot lain dan
+## tidak pernah membatalkan: barang pindah sehingga tengahnya berada di ubin
+## lantai di bawah jari, walau ubin itu tertutup model perabot (sinar layar
+## menembus sampai lantai). Dekorasi dinding/meja pindah ke penanda slot yang
+## diketuk.
 func _on_world_tap(pos: Vector2) -> void:
-	var cell: Vector2i = game.world.cell_at_screen(pos)
-	var floor_id: StringName = game.world.camera_rig.active_floor
-	# Dekorasi dinding/meja terpilih: penanda slot yang menyala didahulukan.
-	if _sel_decor >= 0 and _is_slot_type(_sel_decor_type()):
+	if not has_selection():
+		var p: Dictionary = game.world.pick(pos)
+		match p.get("kind", &""):
+			&"equipment":
+				_hold_equipment(int(p["iid"]))
+			&"decor":
+				_hold_decor(int(p["uid"]))
+		return
+	if _is_slot_type(_sel_decor_type()):
 		var slot: int = game.world.slot_at_screen(pos)
 		if slot >= 0:
-			_place_decor_slot(slot)
-			return
-	var p: Dictionary = game.world.pick(pos)
-	var kind: StringName = p.get("kind", &"")
-	if not has_selection():
-		if kind == &"equipment":
-			_select_equipment(int(p["iid"]))
-		elif kind == &"decor":
-			_select_decor(int(p["uid"]))
-		return
-	# Badan perabot yang terlihat (kotak 3D-nya, bukan ubin akses di depannya):
-	# perabot terpilih itu sendiri -> selesai, perabot lain -> ganti pilihan.
-	if kind == &"equipment" and not p.has("cell"):
-		if int(p["iid"]) == _sel_iid:
-			_deselect()
-		else:
-			_select_equipment(int(p["iid"]))
-		return
-	if kind == &"decor":
-		var duid: int = int(p["uid"])
-		if duid == _sel_decor:
-			_deselect()
-			return
-		# Karpet di bawah jari tetap sasaran bagi alat dan dekorasi lantai.
-		if not p.has("cell") or (_sel_iid < 0 and _sel_decor_type() != &"floor_prop"):
-			_select_decor(duid)
-			return
-	if _sel_decor >= 0 and _is_slot_type(_sel_decor_type()):
-		if sim.decoration.free_slots(_sel_decor_type(), _sel_decor).is_empty():
-			_set_status(&"slots_full", false)
-			_warn_rejected(&"slots_full")
-		else:
+			_cand_slot = slot
+			_update_candidate()
+		elif not game.world.hold_hit(pos):
 			_status.text = Tx.t("ui_decor_pick_slot")
 			_status.add_theme_color_override("font_color", Palette.WARNING)
 		return
-	if _sel_iid >= 0:
-		var anchor: Vector2i = _anchor_for(cell)
-		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-		var reason: StringName = sim.equipment.place(_sel_iid, floor_id, anchor, _rot)
-		if reason == &"":
-			EventBus.sfx.emit(&"bread_place_display", floor_id)
-			game.world.clear_ghost()
-			game.world.set_lift(_sel_iid)
-			_last_cell = Vector2i(-1, -1)
-			_refresh_overlay()
-			_refresh_all()
-			_set_status(&"", true)
-		else:
-			game.world.show_ghost(GridMath.footprint_cells(anchor, e.def().footprint_tiles, _rot), floor_id, false)
-			_set_status(reason, false)
-			_warn_rejected(reason)
-	elif _sel_decor >= 0:
-		var anchor2: Vector2i = _anchor_for(cell)
-		var r2: StringName = sim.decoration.place(_sel_decor, floor_id, anchor2, -1)
-		if r2 == &"":
-			EventBus.sfx.emit(&"bread_place_display", floor_id)
-			game.world.set_decor_lift(_sel_decor)
-			game.world.show_ghost(_decor_cells(anchor2), floor_id, true)
-			_refresh_overlay()
-			_refresh_all()
-			_set_status(&"", true)
-		else:
-			game.world.show_ghost(_decor_cells(anchor2), floor_id, false)
-			_set_status(r2, false)
-			_warn_rejected(r2)
+	var cell: Vector2i = game.world.cell_at_screen(pos)
+	if cell == NO_CELL:
+		return
+	_cand_floor = game.world.camera_rig.active_floor
+	_cand_cell = _clamp_anchor(_anchor_for(cell))
+	_update_candidate()
 
 
-func _input(event: InputEvent) -> void:
-	# Pratinjau hover (mouse); pada layar sentuh pratinjau muncul saat tap.
-	if event is InputEventMouseMotion and has_selection():
-		var mm: InputEventMouseMotion = event
-		# Di atas toolbar atau bilah UI: jangan memindahkan pratinjau.
-		if _over_ui(mm.position):
-			return
-		var cell: Vector2i = game.world.cell_at_screen(mm.position)
-		var anchor: Vector2i = _anchor_for(cell)
-		if anchor != _last_cell:
-			_preview(anchor)
-
-
-func _over_ui(p: Vector2) -> bool:
-	for c: Control in [_top, _bottom, _toolbar.panel]:
-		if c.is_visible_in_tree() and c.get_global_rect().has_point(p):
+## Tekan di dunia (CommandLayer.press_override): true bila drag gestur ini
+## menyeret barang, bukan kamera. Saat memegang: hanya barang itu sendiri
+## (badan modelnya atau ubin jejaknya). Tanpa pegangan: badan perabot atau
+## dekorasi berdiri yang boleh dipindah; drag-nya langsung mengangkat lalu
+## menyeretnya. Karpet hanya diangkat dengan ketukan, supaya drag di lantai
+## tetap menggeser kamera.
+func _on_world_press(pos: Vector2) -> bool:
+	_press_pos = pos
+	_press_pick = {}
+	if has_selection():
+		return game.world.hold_hit(pos)
+	var p: Dictionary = game.world.pick(pos)
+	match p.get("kind", &""):
+		&"equipment":
+			if p.has("cell") or sim.equipment.is_in_use(int(p["iid"])):
+				return false
+			_press_pick = p
+			return true
+		&"decor":
+			if p.has("cell"):
+				return false
+			_press_pick = p
 			return true
 	return false
 
 
-## Putar 90°. Alat yang sudah terpasang langsung diputar di tempat (titik
-## tengahnya tetap) bila posisinya sah; bila tidak, pratinjau merah beserta
-## alasannya tampil dan putaran itu dipakai saat ubin tujuan diketuk.
-func _rotate() -> void:
-	if _sel_decor >= 0:
-		_rotate_rug()
-		return
-	if _sel_iid < 0:
-		return
-	var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
-	var new_rot: int = (_rot + 1) % 4
-	if not e.placed:
-		_rot = new_rot
-		if _last_cell.x >= 0:
-			_preview(_last_cell)
-		return
-	var fp: Vector2i = e.def().footprint_tiles
-	var cur: Vector2i = GridMath.rotated_footprint(fp, e.rotation)
-	var center: Vector2i = e.anchor + Vector2i((cur.x - 1) / 2, (cur.y - 1) / 2)
-	var nxt: Vector2i = GridMath.rotated_footprint(fp, new_rot)
-	var keep_center: Vector2i = center - Vector2i((nxt.x - 1) / 2, (nxt.y - 1) / 2)
-	_rot = new_rot
-	for cand: Vector2i in [keep_center, e.anchor]:
-		if sim.world.validate_placement(e, e.floor_id, cand, new_rot) == &"":
-			sim.equipment.place(_sel_iid, e.floor_id, cand, new_rot)
-			EventBus.sfx.emit(&"bread_place_display", e.floor_id)
-			game.world.clear_ghost()
-			game.world.set_lift(_sel_iid)
-			_refresh_overlay()
-			_refresh_all()
-			_set_status(&"", true)
+## Drag barang: ia ikut jari per ubin, relatif terhadap titik yang dipegang,
+## jadi menggeser satu ubin cukup dengan menyeret sejauh satu ubin.
+func _on_world_drag(pos: Vector2) -> void:
+	if not _drag_active:
+		if not _press_pick.is_empty():
+			var p: Dictionary = _press_pick
+			_press_pick = {}
+			if p["kind"] == &"equipment":
+				_hold_equipment(int(p["iid"]))
+			else:
+				_hold_decor(int(p["uid"]))
+		if not has_selection():
 			return
-	var reason: StringName = sim.world.validate_placement(e, e.floor_id, keep_center, new_rot)
-	game.world.show_ghost(GridMath.footprint_cells(keep_center, fp, new_rot), e.floor_id, false)
-	_last_cell = keep_center
-	_set_status(reason, false)
-	_warn_rejected(reason)
+		_drag_active = true
+		_drag_cell0 = game.world.cell_at_screen(_press_pos)
+		_drag_anchor0 = _cand_cell
+	_drag_pos = pos
+	_drag_to(pos)
 
 
-## Karpet (GDD 72.1): terpasang = berputar di tempat bila muat; belum
-## terpasang = putaran dipakai saat ubin tujuan diketuk.
-func _rotate_rug() -> void:
-	var o: Dictionary = sim.decoration.item(_sel_decor)
-	if sim.decoration.type_of(o) != &"floor_overlay":
+func _on_world_drop(pos: Vector2) -> void:
+	if _drag_active and has_selection():
+		_drag_to(pos)
+		EventBus.sfx.emit(&"ui_tap_soft", &"")
+	_drag_active = false
+	_press_pick = {}
+
+
+func _drag_to(pos: Vector2) -> void:
+	if _is_slot_type(_sel_decor_type()):
+		var slot: int = game.world.slot_at_screen(pos)
+		if slot >= 0 and slot != _cand_slot:
+			_cand_slot = slot
+			_update_candidate()
 		return
-	var r: StringName = sim.decoration.rotate_overlay(_sel_decor)
-	if r != &"":
-		_set_status(r, false)
-		_warn_rejected(r)
+	var cell: Vector2i = game.world.cell_at_screen(pos)
+	if cell == NO_CELL or _drag_cell0 == NO_CELL:
 		return
-	if bool(o["placed"]):
-		EventBus.sfx.emit(&"bread_place_display", StringName(str(o["floor_id"])))
-		game.world.show_ghost(sim.decoration.overlay_cells(o), StringName(str(o["floor_id"])), true)
-		_set_status(&"", true)
-	elif _last_cell.x >= 0:
-		_preview(_last_cell)
+	var a: Vector2i = _clamp_anchor(_drag_anchor0 + cell - _drag_cell0)
+	if a != _cand_cell:
+		_cand_cell = a
+		_update_candidate()
 
 
+## Barang diseret ke tepi layar (atau ke atas bilah UI): kamera ikut bergeser
+## dan barang tetap di bawah jari.
+func _edge_pan(delta: float) -> void:
+	var view: Vector2 = get_viewport_rect().size
+	var p: Vector2 = _drag_pos
+	var push := Vector2.ZERO
+	if p.x < EDGE_PAN_PX:
+		push.x = 1.0
+	elif p.x > view.x - EDGE_PAN_PX:
+		push.x = -1.0
+	if p.y < _top.get_global_rect().end.y:
+		push.y = 1.0
+	elif p.y > _bottom.get_global_rect().position.y:
+		push.y = -1.0
+	if push == Vector2.ZERO:
+		return
+	game.world.camera_rig.pan_by_screen(push * EDGE_PAN_SPEED * delta)
+	_drag_to(p)
+
+
+## Putar 90° di tempat (titik tengahnya tetap), seperti The Sims. Bila tidak
+## muat, jangkar lama dan geseran kecil dicoba; tetap tidak muat = merah beserta
+## alasannya, dan barang bisa digeser ke tempat yang muat. Belum ditaruh sampai
+## Place.
+func _rotate() -> void:
+	if not _has_cand() or (_sel_decor >= 0 and _sel_decor_type() != &"floor_overlay"):
+		return
+	var rots: Array[int] = _rotations()
+	if rots.size() < 2:
+		return
+	var before: Vector2i = _footprint()
+	var old_anchor: Vector2i = _cand_cell
+	var center: Vector2i = old_anchor + Vector2i((before.x - 1) / 2, (before.y - 1) / 2)
+	_rot = rots[1]
+	var after: Vector2i = _footprint()
+	var keep: Vector2i = _clamp_anchor(center - Vector2i((after.x - 1) / 2, (after.y - 1) / 2))
+	var d: Vector2i = before - after
+	_cand_cell = keep
+	if _check_candidate() != &"":
+		for alt: Vector2i in [old_anchor, old_anchor + Vector2i(d.x, 0), old_anchor + Vector2i(0, d.y), old_anchor + d]:
+			_cand_cell = _clamp_anchor(alt)
+			if _check_candidate() == &"":
+				break
+			_cand_cell = keep
+	EventBus.sfx.emit(&"ui_tap_soft", &"")
+	_update_candidate()
+
+
+## Put Away: barang yang sudah terpasang kembali ke inventaris.
 func _put_away() -> void:
-	if _sel_iid >= 0:
-		var r: StringName = sim.equipment.put_away(_sel_iid)
+	var iid: int = _sel_iid
+	var uid: int = _sel_decor
+	_drop_hold()
+	if iid >= 0:
+		var r: StringName = sim.equipment.put_away(iid)
 		if r != &"":
 			_set_status(r, false)
-			return
-	elif _sel_decor >= 0:
-		sim.decoration.put_away(_sel_decor)
-	_deselect()
+			_warn_rejected(r)
+	elif uid >= 0:
+		sim.decoration.put_away(uid)
+	_refresh_overlay()
+	_refresh_all()
 
 
-## Back/Escape/klik kanan: lepaskan pilihan dulu, baru keluar dari mode ini.
+## Back/Escape/klik kanan: kembalikan barang yang dipegang dulu, baru keluar
+## dari mode ini.
 func on_back() -> bool:
 	if has_selection():
-		_deselect()
+		_cancel()
 		return true
 	close()
 	return true
@@ -966,15 +1166,17 @@ func on_back() -> bool:
 func on_closed() -> void:
 	if sim.world.layout_changed.is_connected(_refresh_overlay):
 		sim.world.layout_changed.disconnect(_refresh_overlay)
+	game.world.release_hold()
 	game.world.clear_tile_overlay()
 	game.world.camera_rig.set_free_pan(false)
 	game.world.clear_ghost()
 	game.world.clear_slot_markers()
-	game.world.set_lift(-1)
-	game.world.set_decor_lift(-1)
 	game.world.decoration_mode = false
 	game.world.view_floor_override = &""
 	game.commands.tap_override = Callable()
+	game.commands.press_override = Callable()
+	game.commands.drag_override = Callable()
+	game.commands.drop_override = Callable()
 	game.hud.set_decoration_active(false)
 
 

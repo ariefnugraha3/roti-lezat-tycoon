@@ -160,18 +160,23 @@ func type_full(uid: int) -> bool:
 
 
 ## Tempatkan floor_prop / floor_overlay pada sel (jangkar jejak), atau
-## wall/counter_prop pada slot. "" bila berhasil; selain itu kode alasan UI.
-func place(uid: int, floor_id: StringName, cell: Vector2i, slot: int) -> StringName:
+## wall/counter_prop pada slot. `rot` >= 0 menaruh karpet sekaligus dengan
+## putaran itu (Place di Decoration Mode, GDD 72.2); -1 = putaran tersimpan.
+## "" bila berhasil; selain itu kode alasan UI.
+func place(uid: int, floor_id: StringName, cell: Vector2i, slot: int, rot: int = -1) -> StringName:
 	var o: Dictionary = item(uid)
 	if o.is_empty():
 		return &"invalid"
-	var reason: StringName = check_place(uid, floor_id, cell, slot, int(o.get("rot", 0)))
+	var r: int = int(o.get("rot", 0)) if rot < 0 else posmod(rot, 2)
+	var reason: StringName = check_place(uid, floor_id, cell, slot, r)
 	if reason != &"":
 		return reason
 	o["placed"] = true
 	o["floor_id"] = String(floor_id)
 	o["cell"] = [cell.x, cell.y]
 	o["slot"] = slot
+	if type_of(o) == &"floor_overlay":
+		o["rot"] = r
 	sim.world.rebuild_occupancy()
 	return &""
 

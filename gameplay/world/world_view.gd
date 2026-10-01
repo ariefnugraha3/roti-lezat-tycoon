@@ -21,9 +21,12 @@ const THOUGHT_ANCHOR_GAP: float = 0.08
 const PACK_BREAD_MAX: int = 3
 ## Geser kantong sepanjang meja agar tidak tertutup mesin kasir (m).
 const PACK_BAG_SIDE: float = 0.24
-## Decoration Mode: perabot terpilih terangkat sedikit dan mengambang pelan (m).
+## Decoration Mode: barang yang dipegang terangkat sedikit dan mengambang pelan (m).
 const LIFT_M: float = 0.06
 const LIFT_BOB_M: float = 0.015
+## Karpet yang dipegang tetap rata di lantai, cukup terangkat agar tidak berkedip
+## di atas lantai atau karpet lain (m).
+const RUG_LIFT_M: float = 0.012
 ## Decoration Mode: jarak layar maksimum ketukan ke penanda slot (px).
 const PICK_SLOT_PX: float = 56.0
 ## Ayunan bandul jam dinding dekorasi: kecepatan sudut (rad/s) dan simpangan (rad).
@@ -66,16 +69,23 @@ var _thought_bubble: ThoughtBubble = null
 var _shopper_bubbles: Dictionary = {}
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
-## Perabot yang sedang diangkat di Decoration Mode (-1 = tidak ada).
-var _lift_iid: int = -1
+## Barang yang sedang dipegang di Decoration Mode (GDD 72.2): {kind
+## (&"equipment"/&"decor"), id, floor, cell, rot, slot}; kosong = tidak ada.
+## Modelnya digambar di posisi calon itu; tata letak simulasi tidak berubah.
+var _hold: Dictionary = {}
+## Node yang digambar untuk barang yang dipegang: model aslinya, atau model
+## sementara (`_hold_temp`) untuk barang yang belum terpasang.
+var _hold_node: Node3D = null
+var _hold_temp: bool = false
+## Posisi dasar (sebelum terangkat) dan kotak dunia model yang dipegang.
+var _hold_base: Vector3 = Vector3.ZERO
+var _hold_aabb: AABB = AABB()
 ## Dekorasi terpasang (GDD 72.1, 72.3): uid -> {node, floor, type, aabb, base}.
 var _decor: Dictionary = {}
 ## Bandul jam dinding dekorasi yang diayun (GDD 12.3 animasi trigonometri).
 var _swing: Array[Node3D] = []
 ## Bandul jam dinding bawaan ruangan (RoomFactory), diayun dengan cara yang sama.
 var _room_swing: Array[Node3D] = []
-## Dekorasi yang sedang diangkat di Decoration Mode (-1 = tidak ada).
-var _lift_uid: int = -1
 ## Penanda slot dinding/meja Decoration Mode: [{index, node, aabb, pos}].
 var _slot_markers: Node3D = null
 var _slot_marker_list: Array[Dictionary] = []
@@ -170,6 +180,7 @@ func rebuild_furniture() -> void:
 		_aabbs[e.iid] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
 	_update_counter_aabbs()
 	_rebuild_decor()
+	_apply_hold()
 
 
 ## Model dekorasi terpasang (GDD 72.1, 72.3). Posisi dinding/meja dari
@@ -206,6 +217,19 @@ func _rebuild_decor() -> void:
 
 func _build_furniture(e: EquipmentInstance) -> Node3D:
 	var def: EquipmentDefinition = e.def()
+	var node: Node3D = _equipment_model(e)
+	_pose_furniture(node, def, e.anchor, e.rotation)
+	if def.category_id == &"oven" and sim.decoration.equipped.has("oven"):
+		var decal := ProceduralMeshFactory.box(Vector3(0.18, 0.06, 0.01), Palette.GOLD_STAR)
+		node.add_child(decal)
+		decal.position = Vector3(0.0, def.height_m * 0.5 / node.scale.x, 0.26)
+	return node
+
+
+## Model alat menurut kategori dan tier-nya, belum diletakkan. Kotak mesh
+## aslinya disimpan sebagai meta "bounds" untuk _pose_furniture.
+func _equipment_model(e: EquipmentInstance) -> Node3D:
+	var def: EquipmentDefinition = e.def()
 	var node: Node3D
 	match def.category_id:
 		&"mixer":
@@ -220,11 +244,18 @@ func _build_furniture(e: EquipmentInstance) -> Node3D:
 			node = EquipmentFactory.build_storage(def.tier)
 	node.name = "Equip_%d" % e.iid
 	node.set_meta("iid", e.iid)
-	var fp: Vector2i = GridMath.rotated_footprint(def.footprint_tiles, e.rotation)
-	var center := Vector3((float(e.anchor.x) + float(fp.x) * 0.5) * GridMath.WORLD_METERS_PER_TILE, 0.0,
-		(float(e.anchor.y) + float(fp.y) * 0.5) * GridMath.WORLD_METERS_PER_TILE)
+	node.set_meta("bounds", EquipmentFactory._mesh_bounds(node))
+	return node
+
+
+## Skala, arah hadap, dan posisi model alat untuk jangkar & putaran ini (GDD 60).
+## Dipakai saat membangun dunia dan untuk barang yang dipegang di Decoration Mode.
+func _pose_furniture(node: Node3D, def: EquipmentDefinition, anchor: Vector2i, rot: int) -> void:
+	var fp: Vector2i = GridMath.rotated_footprint(def.footprint_tiles, rot)
+	var center := Vector3((float(anchor.x) + float(fp.x) * 0.5) * GridMath.WORLD_METERS_PER_TILE, 0.0,
+		(float(anchor.y) + float(fp.y) * 0.5) * GridMath.WORLD_METERS_PER_TILE)
 	# Skala seragam agar mesh muat di footprint logis (GDD 60: inset maks 0,05 m).
-	var b: AABB = EquipmentFactory._mesh_bounds(node)
+	var b: AABB = node.get_meta("bounds", EquipmentFactory._mesh_bounds(node))
 	var fp0: Vector2 = Vector2(def.footprint_tiles) * GridMath.WORLD_METERS_PER_TILE - Vector2(0.06, 0.06)
 	var k: float = 1.0
 	if b.size.x > 0.0 and b.size.z > 0.0:
@@ -232,20 +263,15 @@ func _build_furniture(e: EquipmentInstance) -> Node3D:
 		if b.size.y * k > def.height_m * 1.2:
 			k = def.height_m * 1.2 / b.size.y
 	node.scale = Vector3(k, k, k)
-	var d: Vector2i = GridMath.face_dir(e.rotation)
+	var d: Vector2i = GridMath.face_dir(rot)
 	if def.interaction_face == &"short_end":
-		var dd: Vector2i = GridMath.face_dir(e.rotation, &"short_end")
+		var dd: Vector2i = GridMath.face_dir(rot, &"short_end")
 		node.rotation.y = atan2(-float(dd.y), float(dd.x))
 	else:
 		node.rotation.y = atan2(float(d.x), float(d.y))
 	var bc: Vector3 = b.get_center() * k
 	var rotated_bc: Vector3 = Basis(Vector3.UP, node.rotation.y) * Vector3(bc.x, 0.0, bc.z)
 	node.position = center - rotated_bc
-	if def.category_id == &"oven" and sim.decoration.equipped.has("oven"):
-		var decal := ProceduralMeshFactory.box(Vector3(0.18, 0.06, 0.01), Palette.GOLD_STAR)
-		node.add_child(decal)
-		decal.position = Vector3(0.0, def.height_m * 0.5 / k, 0.26)
-	return node
 
 
 func _world_aabb(node: Node3D) -> AABB:
@@ -955,43 +981,242 @@ func cell_at_screen(screen_pos: Vector2) -> Vector2i:
 
 
 ## Titik tengah puncak perabot di dunia, atau Vector3.INF bila tidak digambar.
-## Decoration Mode menaruh toolbar aksinya tepat di atas titik ini.
 func top_of_iid(iid: int) -> Vector3:
+	if lifted_iid() == iid:
+		return hold_top()
 	var ad: Variant = _aabbs.get(iid)
 	if not (ad is Dictionary):
 		return Vector3.INF
 	var b: AABB = (ad as Dictionary)["aabb"]
 	var c: Vector3 = b.get_center()
-	return Vector3(c.x, b.end.y + (LIFT_M if iid == _lift_iid else 0.0), c.z)
+	return Vector3(c.x, b.end.y, c.z)
 
 
-## Decoration Mode (GDD 7 "terangkat"): perabot `iid` diangkat sedikit dan
-## mengambang pelan sampai dilepas (-1). Perabot lama diturunkan lagi.
-func set_lift(iid: int) -> void:
-	if iid == _lift_iid:
+# ===========================================================================
+# PEGANGAN DECORATION MODE (GDD 72.2)
+# ===========================================================================
+
+## Pegang barang (seperti The Sims): modelnya terangkat, mengambang pelan, dan
+## digambar di posisi calon `h` = {kind, id, floor, cell, rot, slot}. Simulasi
+## tidak berubah; release_hold() mengembalikan modelnya ke tempat tersimpan.
+## Barang yang belum terpasang memakai model sementara. Dekorasi dinding/meja
+## tanpa slot (`slot` < 0) dan alat/dekorasi lantai tanpa ubin (`cell.x` < 0)
+## belum digambar.
+func hold(h: Dictionary) -> void:
+	if not _hold.is_empty() and (_hold["kind"] != h["kind"] or int(_hold["id"]) != int(h["id"])):
+		release_hold()
+	_hold = h.duplicate()
+	_apply_hold()
+
+
+## Lepaskan pegangan tanpa menaruh: model sementara dibuang, model asli kembali
+## ke posisi yang tersimpan di simulasi.
+func release_hold() -> void:
+	if _hold.is_empty():
 		return
-	var old: Variant = furniture.get(_lift_iid)
-	if old is Node3D and is_instance_valid(old):
-		(old as Node3D).position.y = 0.0
-	_lift_iid = iid
+	var h: Dictionary = _hold
+	_hold = {}
+	var node: Node3D = _hold_node if is_instance_valid(_hold_node) else null
+	_hold_node = null
+	if node == null:
+		_hold_temp = false
+		return
+	if _hold_temp:
+		_hold_temp = false
+		node.queue_free()
+		return
+	node.visible = true
+	var id: int = int(h["id"])
+	if h["kind"] == &"equipment":
+		var e: EquipmentInstance = sim.equipment.get_inst(id)
+		var parent: Node3D = floors.get(e.floor_id) if e != null else null
+		if e == null or not e.placed or parent == null:
+			return
+		_reparent(node, parent)
+		_pose_furniture(node, e.def(), e.anchor, e.rotation)
+		_aabbs[id] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
+	else:
+		var o: Dictionary = sim.decoration.item(id)
+		var dd: Variant = _decor.get(id)
+		var xf: Variant = DecorSlots.transform_of(sim.world.location, sim.decoration.def_of(o), o) if not o.is_empty() else null
+		if not (dd is Dictionary) or xf == null:
+			return
+		node.transform = xf
+		(dd as Dictionary)["base"] = node.position
+		(dd as Dictionary)["aabb"] = node.transform * EquipmentFactory._mesh_bounds(node)
 
 
+## Pegangan yang sedang berlaku (salinan), atau {} bila tidak ada.
+func held() -> Dictionary:
+	return _hold.duplicate()
+
+
+## Alat yang sedang dipegang, atau -1.
 func lifted_iid() -> int:
-	return _lift_iid
+	return int(_hold["id"]) if not _hold.is_empty() and _hold["kind"] == &"equipment" else -1
+
+
+## Dekorasi yang sedang dipegang, atau -1.
+func lifted_decor() -> int:
+	return int(_hold["id"]) if not _hold.is_empty() and _hold["kind"] == &"decor" else -1
+
+
+## Node model barang yang dipegang (asli atau sementara), atau null.
+func hold_node() -> Node3D:
+	return _hold_node if is_instance_valid(_hold_node) else null
+
+
+## Pasang ulang pegangan pada model saat ini. Dipanggil juga sesudah setiap
+## pembangunan ulang dunia, yang mengganti node perabot & dekorasi.
+func _apply_hold() -> void:
+	if _hold.is_empty():
+		return
+	var parent: Node3D = floors.get(StringName(str(_hold["floor"])))
+	var node: Node3D = _hold_model()
+	if node == null:
+		return
+	if parent == null:
+		node.visible = false
+		return
+	_reparent(node, parent)
+	var id: int = int(_hold["id"])
+	var cell: Vector2i = _hold["cell"]
+	if _hold["kind"] == &"equipment":
+		var e: EquipmentInstance = sim.equipment.get_inst(id)
+		node.visible = cell.x >= 0
+		_pose_furniture(node, e.def(), cell, int(_hold["rot"]))
+		_hold_base = node.position
+		_hold_aabb = _world_aabb(node)
+		if not _hold_temp:
+			_aabbs[id] = {"floor": StringName(str(_hold["floor"])), "aabb": _hold_aabb}
+	else:
+		var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(sim.decoration.item(id))
+		var cand: Dictionary = {"slot": int(_hold["slot"]), "cell": [cell.x, cell.y], "rot": int(_hold["rot"])}
+		var xf: Variant = DecorSlots.transform_of(sim.world.location, def, cand)
+		var on_slot: bool = def.placement_type == &"wall" or def.placement_type == &"counter_prop"
+		var shown: bool = xf != null and (on_slot or cell.x >= 0)
+		node.visible = shown
+		if shown:
+			node.transform = xf
+		_hold_base = node.position
+		_hold_aabb = node.transform * EquipmentFactory._mesh_bounds(node)
+		var dd: Variant = _decor.get(id)
+		if not _hold_temp and dd is Dictionary:
+			(dd as Dictionary)["base"] = _hold_base
+			(dd as Dictionary)["aabb"] = _hold_aabb
+	_animate_lift()
+
+
+## Model untuk barang yang dipegang: model aslinya bila terpasang, selain itu
+## model sementara yang dibuat sekali selama pegangan berlangsung.
+func _hold_model() -> Node3D:
+	var id: int = int(_hold["id"])
+	var real: Node3D = null
+	if _hold["kind"] == &"equipment":
+		real = furniture.get(id)
+	else:
+		var dd: Variant = _decor.get(id)
+		if dd is Dictionary:
+			real = (dd as Dictionary)["node"] as Node3D
+	if real != null and is_instance_valid(real):
+		if _hold_temp and is_instance_valid(_hold_node):
+			_hold_node.queue_free()
+		_hold_node = real
+		_hold_temp = false
+		return real
+	if _hold_temp and is_instance_valid(_hold_node):
+		return _hold_node
+	if _hold["kind"] == &"equipment":
+		var e: EquipmentInstance = sim.equipment.get_inst(id)
+		if e == null:
+			return null
+		_hold_node = _equipment_model(e)
+	else:
+		var o: Dictionary = sim.decoration.item(id)
+		if o.is_empty():
+			return null
+		_hold_node = DecorFactory.build_cached(StringName(str(o["deco_id"])))
+		var sw: Node3D = _hold_node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
+		if sw != null:
+			_swing.append(sw)
+	_hold_node.name = "Held_%s_%d" % [_hold["kind"], id]
+	_hold_temp = true
+	return _hold_node
+
+
+static func _reparent(node: Node3D, parent: Node3D) -> void:
+	var old: Node = node.get_parent()
+	if old == parent:
+		return
+	if old != null:
+		old.remove_child(node)
+	parent.add_child(node)
+
+
+## Titik tengah puncak model yang dipegang (ikut terangkat), atau Vector3.INF
+## bila tidak ada pegangan atau modelnya tidak digambar di lantai yang dilihat.
+## Toolbar aksi Decoration Mode menunjuk ke titik ini.
+func hold_top() -> Vector3:
+	var node: Node3D = hold_node()
+	if node == null or not node.visible or StringName(str(_hold["floor"])) != camera_rig.active_floor:
+		return Vector3.INF
+	var c: Vector3 = _hold_aabb.get_center()
+	return Vector3(c.x, _hold_aabb.end.y + _lift_height(), c.z)
+
+
+## Seberapa tinggi barang yang dipegang terangkat: karpet hanya sedikit.
+func _lift_height() -> float:
+	if _hold.is_empty():
+		return 0.0
+	if _hold["kind"] == &"decor" and sim.decoration.type_of(sim.decoration.item(int(_hold["id"]))) == &"floor_overlay":
+		return RUG_LIFT_M
+	return LIFT_M
+
+
+## Ubin lantai yang ditempati barang yang dipegang di posisi calonnya (kosong
+## untuk dekorasi dinding/meja).
+func hold_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if _hold.is_empty():
+		return out
+	var cell: Vector2i = _hold["cell"]
+	if cell.x < 0:
+		return out
+	var id: int = int(_hold["id"])
+	if _hold["kind"] == &"equipment":
+		var e: EquipmentInstance = sim.equipment.get_inst(id)
+		return GridMath.footprint_cells(cell, e.def().footprint_tiles, int(_hold["rot"])) if e != null else out
+	var o: Dictionary = sim.decoration.item(id)
+	match sim.decoration.type_of(o):
+		&"floor_prop":
+			out.append(cell)
+		&"floor_overlay":
+			return DecorSlots.overlay_cells(sim.decoration.def_of(o), cell, int(_hold["rot"]))
+	return out
+
+
+## true bila titik layar mengenai barang yang dipegang: badan modelnya, atau
+## ubin jejaknya di lantai. Drag yang dimulai di sini menyeret barang itu.
+func hold_hit(screen_pos: Vector2) -> bool:
+	var node: Node3D = hold_node()
+	if node == null or not node.visible or StringName(str(_hold["floor"])) != camera_rig.active_floor:
+		return false
+	var from: Vector3 = camera_rig.camera.project_ray_origin(screen_pos)
+	var dir: Vector3 = camera_rig.camera.project_ray_normal(screen_pos)
+	var box: AABB = _hold_aabb
+	box.size.y += _lift_height()
+	if box.grow(0.05).intersects_ray(from, dir) != null:
+		return true
+	return hold_cells().has(cell_at_screen(screen_pos))
 
 
 func _animate_lift() -> void:
-	var bob: float = 0.0 if SettingsManager.reduced_motion() else LIFT_BOB_M * sin(_t * 5.0)
-	if _lift_uid >= 0:
-		var dd: Variant = _decor.get(_lift_uid)
-		if dd is Dictionary and is_instance_valid((dd as Dictionary)["node"]) and (dd as Dictionary)["type"] != &"floor_overlay":
-			((dd as Dictionary)["node"] as Node3D).position = Vector3((dd as Dictionary)["base"]) + Vector3(0.0, LIFT_M + bob, 0.0)
-	if _lift_iid < 0:
+	var node: Node3D = hold_node()
+	if node == null:
 		return
-	var n: Variant = furniture.get(_lift_iid)
-	if not (n is Node3D) or not is_instance_valid(n):
-		return
-	(n as Node3D).position.y = LIFT_M + bob
+	var lift: float = _lift_height()
+	var bob: float = 0.0 if SettingsManager.reduced_motion() or lift < LIFT_M else LIFT_BOB_M * sin(_t * 5.0)
+	node.position = _hold_base + Vector3(0.0, lift + bob, 0.0)
 
 
 ## Karpet terpasang yang jejaknya menutupi `cell`, atau -1.
@@ -1007,28 +1232,19 @@ func rug_at(floor_id: StringName, cell: Vector2i) -> int:
 
 ## Titik tengah puncak dekorasi terpasang, atau Vector3.INF bila tidak digambar.
 func top_of_decor(uid: int) -> Vector3:
+	if lifted_decor() == uid:
+		return hold_top()
 	var dd: Variant = _decor.get(uid)
 	if not (dd is Dictionary):
 		return Vector3.INF
 	var b: AABB = (dd as Dictionary)["aabb"]
 	var c: Vector3 = b.get_center()
-	return Vector3(c.x, b.end.y + (LIFT_M if uid == _lift_uid else 0.0), c.z)
+	return Vector3(c.x, b.end.y, c.z)
 
 
 func decor_node(uid: int) -> Node3D:
 	var dd: Variant = _decor.get(uid)
 	return (dd as Dictionary)["node"] as Node3D if dd is Dictionary else null
-
-
-## Decoration Mode: dekorasi `uid` terangkat dan mengambang pelan seperti
-## perabot terpilih (karpet tetap di lantai); -1 menurunkannya lagi.
-func set_decor_lift(uid: int) -> void:
-	if uid == _lift_uid:
-		return
-	var old: Variant = _decor.get(_lift_uid)
-	if old is Dictionary and is_instance_valid((old as Dictionary)["node"]):
-		((old as Dictionary)["node"] as Node3D).position = (old as Dictionary)["base"]
-	_lift_uid = uid
 
 
 func _animate_swing() -> void:
