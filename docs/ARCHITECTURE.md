@@ -79,8 +79,9 @@ at any speed (`TEST_TIME_002`). Text IDs are sorted with `Ids.sort` (`core/ids.g
 A plain `Array.sort()` orders StringName by internal address, so the order, and
 with it the whole run, would change between sessions (`ACC_116_ID_ORDER`).
 
-One sim-second is one real second at 1×. Each sim-second advances the in-game clock by
-`clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
+At 1×, `SimulationRoot.advance` turns each real second into
+`clock.sim_seconds_per_real_second` sim-seconds, and each sim-second advances the in-game
+clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 
 ### 3.3 Day flow (GDD 15, 104)
 
