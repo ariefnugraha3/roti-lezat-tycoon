@@ -65,7 +65,7 @@ Hari 1 sampai 3 **tidak diundi**. Permintaan hari itu sudah ditetapkan—siapa y
 | **2** | Roti Goreng Polos | 9 batch = **54 roti** | 19 pembeli (38 roti) + 4 pesanan ojol (16 roti) |
 | **3** | Donat Gula | 12 batch = **60 roti** | 20 pembeli (44 roti) + 4 pesanan ojol (16 roti) |
 
-*Toko pembukaan yang ramai (keputusan maintainer 2026-10-01):* pembeli tersebar merata dari buka sampai tutup, kira-kira satu tiap 30–35 menit in-game dari 08:05 sampai 17:30, dan di sela-sela mereka datang **8–10 pengunjung lihat-lihat** per hari (Seksi 20.12) yang masuk, memandangi rak, lalu pulang tanpa membeli. Jadwalnya tidak menyisakan jeda lebih dari 35 menit in-game tanpa kedatangan. Total roti naik dari 36/42/45 menjadi 48/54/60. Angka 50 yang diminta maintainer untuk Hari 1 dibulatkan ke 48 karena satu batch Roti Tawar Polos menghasilkan 6 roti.
+*Toko pembukaan yang ramai (keputusan maintainer 2026-10-01):* pembeli tersebar merata dari buka sampai tutup, kira-kira satu tiap 30–35 menit in-game dari 08:05 sampai 17:30, dan di sela-sela mereka datang **14–15 pengunjung lihat-lihat** per hari (Seksi 20.12; dinaikkan dari 8–10 atas permintaan maintainer pada hari yang sama) yang masuk, memandangi rak, lalu pulang tanpa membeli. Jadwalnya tidak menyisakan jeda lebih dari 30 menit in-game tanpa kedatangan. Total roti naik dari 36/42/45 menjadi 48/54/60. Angka 50 yang diminta maintainer untuk Hari 1 dibulatkan ke 48 karena satu batch Roti Tawar Polos menghasilkan 6 roti.
 
 Karena bahannya pas, **satu loyang yang dibiarkan gosong di oven berarti ada pembeli atau pesanan yang tidak kebagian hari itu**. Di sinilah pemain belajar bahwa mengangkat loyang tepat waktu bukan formalitas. Pagi hari angka targetnya diumumkan, dan HUD menampilkan "Permintaan: x / N roti" sepanjang hari supaya pemain tahu sisa kewajibannya. Jadwal lengkap per pembeli, per pesanan RotiFood, dan per pengunjung lihat-lihat ditetapkan di Seksi 20.3.
 
@@ -1836,13 +1836,18 @@ Manifest canonical berikut adalah satu-satunya jadwal Hari 1–3 (keputusan main
 | 2 | 09:30 | `customer_bulk_buyer` |
 | 3 | 10:35 | `customer_school_child` |
 | 4 | 11:40 | `customer_generic` |
-| 5 | 12:50 | `customer_indecisive` |
-| 6 | 13:50 | `customer_school_child` |
-| 7 | 14:55 | `customer_generic` |
-| 8 | 16:05 | `customer_bulk_buyer` |
-| 9 | 17:10 | `customer_school_child` |
+| 5 | 12:15 | `customer_bulk_buyer` |
+| 6 | 12:50 | `customer_indecisive` |
+| 7 | 13:20 | `customer_generic` |
+| 8 | 13:50 | `customer_school_child` |
+| 9 | 14:25 | `customer_indecisive` |
+| 10 | 14:55 | `customer_generic` |
+| 11 | 15:25 | `customer_generic` |
+| 12 | 16:05 | `customer_bulk_buyer` |
+| 13 | 16:40 | `customer_school_child` |
+| 14 | 17:10 | `customer_school_child` |
 
-Total Hari 1: 18 pembeli (36 unit) + 3 pesanan RotiFood (12 unit) = 48 unit, ditambah 9 pengunjung lihat-lihat.
+Total Hari 1: 18 pembeli (36 unit) + 3 pesanan RotiFood (12 unit) = 48 unit, ditambah 14 pengunjung lihat-lihat.
 
 ### **20.3.2 Hari 2 — `recipe_plain_fried_bread`, 9 batch = 54 unit**
 
@@ -1878,16 +1883,21 @@ Total Hari 1: 18 pembeli (36 unit) + 3 pesanan RotiFood (12 unit) = 48 unit, dit
 | # | Pengunjung lihat-lihat spawn_time | customer_archetype (penampilan) |
 | :---: | :---: | :--- |
 | 1 | 08:15 | `customer_generic` |
-| 2 | 09:20 | `customer_office_worker` |
-| 3 | 10:25 | `customer_school_child` |
-| 4 | 11:55 | `customer_generic` |
-| 5 | 12:55 | `customer_indecisive` |
-| 6 | 13:55 | `customer_bulk_buyer` |
-| 7 | 14:55 | `customer_school_child` |
-| 8 | 16:05 | `customer_generic` |
-| 9 | 17:10 | `customer_office_worker` |
+| 2 | 08:45 | `customer_generic` |
+| 3 | 09:20 | `customer_office_worker` |
+| 4 | 10:25 | `customer_school_child` |
+| 5 | 10:50 | `customer_school_child` |
+| 6 | 11:55 | `customer_generic` |
+| 7 | 12:55 | `customer_indecisive` |
+| 8 | 13:25 | `customer_generic` |
+| 9 | 13:55 | `customer_bulk_buyer` |
+| 10 | 14:55 | `customer_school_child` |
+| 11 | 15:25 | `customer_indecisive` |
+| 12 | 16:05 | `customer_generic` |
+| 13 | 16:35 | `customer_generic` |
+| 14 | 17:10 | `customer_office_worker` |
 
-Total Hari 2: 19 pembeli (38 unit) + 4 pesanan RotiFood (16 unit) = 54 unit, ditambah 9 pengunjung lihat-lihat.
+Total Hari 2: 19 pembeli (38 unit) + 4 pesanan RotiFood (16 unit) = 54 unit, ditambah 14 pengunjung lihat-lihat.
 
 ### **20.3.3 Hari 3 — `recipe_sugar_donut`, 12 batch = 60 unit**
 
@@ -1924,17 +1934,22 @@ Total Hari 2: 19 pembeli (38 unit) + 4 pesanan RotiFood (16 unit) = 54 unit, dit
 | # | Pengunjung lihat-lihat spawn_time | customer_archetype (penampilan) |
 | :---: | :---: | :--- |
 | 1 | 08:20 | `customer_generic` |
-| 2 | 09:45 | `customer_school_child` |
-| 3 | 10:45 | `customer_generic` |
-| 4 | 11:50 | `customer_office_worker` |
-| 5 | 12:50 | `customer_school_child` |
-| 6 | 13:50 | `customer_generic` |
-| 7 | 14:50 | `customer_indecisive` |
-| 8 | 15:50 | `customer_school_child` |
-| 9 | 16:50 | `customer_bulk_buyer` |
-| 10 | 17:15 | `customer_generic` |
+| 2 | 08:50 | `customer_indecisive` |
+| 3 | 09:45 | `customer_school_child` |
+| 4 | 10:15 | `customer_generic` |
+| 5 | 10:45 | `customer_generic` |
+| 6 | 11:20 | `customer_school_child` |
+| 7 | 11:50 | `customer_office_worker` |
+| 8 | 12:20 | `customer_bulk_buyer` |
+| 9 | 12:50 | `customer_school_child` |
+| 10 | 13:50 | `customer_generic` |
+| 11 | 14:50 | `customer_indecisive` |
+| 12 | 15:20 | `customer_generic` |
+| 13 | 15:50 | `customer_school_child` |
+| 14 | 16:50 | `customer_bulk_buyer` |
+| 15 | 17:15 | `customer_generic` |
 
-Total Hari 3: 20 pembeli (44 unit) + 4 pesanan RotiFood (16 unit) = 60 unit, ditambah 10 pengunjung lihat-lihat.
+Total Hari 3: 20 pembeli (44 unit) + 4 pesanan RotiFood (16 unit) = 60 unit, ditambah 15 pengunjung lihat-lihat.
 
 ## **20.4 Spawn Conditions Day 4+**
 
@@ -2142,8 +2157,8 @@ Keputusan maintainer 2026-10-01: sebagian orang yang masuk toko **tidak membeli 
 - Pukul 18:00 mereka ikut keluar tanpa penalti (Seksi 104).
 
 **Kedatangan**
-- Hari 1–3: daftar `window_shoppers` pada manifest Seksi 20.3, 8–10 orang per hari yang disisipkan di antara pembeli.
-- Mulai Hari 4: proses Poisson (seperti Seksi 66) dengan laju per jam in-game = `base_physical_rate` tier (Seksi 65) × `time_of_day_multiplier` fisik (Seksi 66) × `weather_multiplier` fisik × `event_multiplier` fisik (Seksi 26.6) × `rate_ratio` (0,40). Rating, harga, dan kampanye tidak berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain. Di Tier 1 hasilnya sekitar 9 orang per hari, kira-kira satu dari tiga pengunjung. Penampilannya diundi dari bobot arketipe tier × modifier jam (Seksi 20.11).
+- Hari 1–3: daftar `window_shoppers` pada manifest Seksi 20.3, 14–15 orang per hari yang disisipkan di antara pembeli (kira-kira 4 dari 10 pengunjung).
+- Mulai Hari 4: proses Poisson (seperti Seksi 66) dengan laju per jam in-game = `base_physical_rate` tier (Seksi 65) × `time_of_day_multiplier` fisik (Seksi 66) × `weather_multiplier` fisik × `event_multiplier` fisik (Seksi 26.6) × `rate_ratio` (0,60). Rating, harga, dan kampanye tidak berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain. Di Tier 1 hasilnya sekitar 13 orang per hari, kira-kira satu dari tiga pengunjung. Frekuensinya dinaikkan 1,5× (dari 0,40 dan 8–10 orang per hari di Hari 1–3) atas permintaan maintainer, 2026-10-01. Penampilannya diundi dari bobot arketipe tier × modifier jam (Seksi 20.11).
 - Ia hanya masuk bila jumlah pengunjung lihat-lihat di dalam toko masih di bawah `max_inside_by_tier` (T1 2, T2 2, T3 3, T4 4, T5 5), jumlah aktor aktif lokasi masih di bawah anggaran Seksi 37.2, dan masih ada tempat berdiri. Bila tidak, kedatangan itu dilewati begitu saja.
 - Tip `tut_window_shopper` (Seksi 127.5) tampil sekali, pada pengunjung lihat-lihat pertama yang masuk saat tidak ada tip lain di layar. Tip ini tidak pernah menggeser tip lain.
 

@@ -169,20 +169,40 @@
      "customer_archetype": "customer_generic"
     },
     {
+     "spawn_time": 44100,
+     "customer_archetype": "customer_bulk_buyer"
+    },
+    {
      "spawn_time": 46200,
      "customer_archetype": "customer_indecisive"
+    },
+    {
+     "spawn_time": 48000,
+     "customer_archetype": "customer_generic"
     },
     {
      "spawn_time": 49800,
      "customer_archetype": "customer_school_child"
     },
     {
+     "spawn_time": 51900,
+     "customer_archetype": "customer_indecisive"
+    },
+    {
      "spawn_time": 53700,
+     "customer_archetype": "customer_generic"
+    },
+    {
+     "spawn_time": 55500,
      "customer_archetype": "customer_generic"
     },
     {
      "spawn_time": 57900,
      "customer_archetype": "customer_bulk_buyer"
+    },
+    {
+     "spawn_time": 60000,
+     "customer_archetype": "customer_school_child"
     },
     {
      "spawn_time": 61800,
@@ -357,11 +377,19 @@
      "customer_archetype": "customer_generic"
     },
     {
+     "spawn_time": 31500,
+     "customer_archetype": "customer_generic"
+    },
+    {
      "spawn_time": 33600,
      "customer_archetype": "customer_office_worker"
     },
     {
      "spawn_time": 37500,
+     "customer_archetype": "customer_school_child"
+    },
+    {
+     "spawn_time": 39000,
      "customer_archetype": "customer_school_child"
     },
     {
@@ -373,6 +401,10 @@
      "customer_archetype": "customer_indecisive"
     },
     {
+     "spawn_time": 48300,
+     "customer_archetype": "customer_generic"
+    },
+    {
      "spawn_time": 50100,
      "customer_archetype": "customer_bulk_buyer"
     },
@@ -381,7 +413,15 @@
      "customer_archetype": "customer_school_child"
     },
     {
+     "spawn_time": 55500,
+     "customer_archetype": "customer_indecisive"
+    },
+    {
      "spawn_time": 57900,
+     "customer_archetype": "customer_generic"
+    },
+    {
+     "spawn_time": 59700,
      "customer_archetype": "customer_generic"
     },
     {
@@ -564,16 +604,32 @@
      "customer_archetype": "customer_generic"
     },
     {
+     "spawn_time": 31800,
+     "customer_archetype": "customer_indecisive"
+    },
+    {
      "spawn_time": 35100,
      "customer_archetype": "customer_school_child"
+    },
+    {
+     "spawn_time": 36900,
+     "customer_archetype": "customer_generic"
     },
     {
      "spawn_time": 38700,
      "customer_archetype": "customer_generic"
     },
     {
+     "spawn_time": 40800,
+     "customer_archetype": "customer_school_child"
+    },
+    {
      "spawn_time": 42600,
      "customer_archetype": "customer_office_worker"
+    },
+    {
+     "spawn_time": 44400,
+     "customer_archetype": "customer_bulk_buyer"
     },
     {
      "spawn_time": 46200,
@@ -586,6 +642,10 @@
     {
      "spawn_time": 53400,
      "customer_archetype": "customer_indecisive"
+    },
+    {
+     "spawn_time": 55200,
+     "customer_archetype": "customer_generic"
     },
     {
      "spawn_time": 57000,

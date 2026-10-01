@@ -68,14 +68,14 @@ func _manifest() -> void:
 		eq(int(plan["batches"]) * r.batch_yield, want[day - 1], "Day %d storage holds %d breads" % [day, want[day - 1]])
 		eq(walk_units + order_units, want[day - 1], "Day %d demand equals the stock exactly" % day)
 		check((plan["walk_ins"] as Array).size() >= 18, "Day %d has at least 18 buyers (got %d)" % [day, (plan["walk_ins"] as Array).size()])
-		check(lookers.size() >= 8 and lookers.size() <= 10, "Day %d has 8-10 window shoppers, about 1 visitor in 3 (got %d)" % [day, lookers.size()])
+		check(lookers.size() >= 14 and lookers.size() <= 15, "Day %d has 14-15 window shoppers, about 4 visitors in 10 (got %d)" % [day, lookers.size()])
 		check(walk_times[0] <= 8.25 * 3600.0, "Day %d first buyer by 08:15" % day)
 		check(walk_times[walk_times.size() - 1] >= 17.25 * 3600.0 and walk_times[walk_times.size() - 1] < 17.75 * 3600.0,
 			"Day %d last buyer between 17:15 and 17:45" % day)
 		var gap: float = 0.0
 		for i in range(1, times.size()):
 			gap = maxf(gap, times[i] - times[i - 1])
-		check(gap <= 35.0 * 60.0, "Day %d: someone walks in at least every 35 in-game minutes (longest gap %d min)" % [day, int(gap / 60.0)])
+		check(gap <= 30.0 * 60.0, "Day %d: someone walks in at least every 30 in-game minutes (longest gap %d min)" % [day, int(gap / 60.0)])
 	# New Game: gudang Hari 1 berisi 8 batch roti tawar (GDD 2).
 	var s: SimulationRoot = new_sim(2000)
 	eq(s.inventory.count(&"ingredient_flour"), 8, "day 1 flour for 8 batches")

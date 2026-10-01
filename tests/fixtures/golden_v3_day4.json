@@ -38,16 +38,16 @@
 		"speed": 1,
 		"time_seconds": 36000.0
 	},
-	"created_at": "2026-09-30T23:13:28Z",
+	"created_at": "2026-10-01T01:49:53Z",
 	"customers": {
 		"abandoned_today": 3,
 		"customers": [],
 		"entered_today": 3,
 		"next_num": 61,
-		"next_window_num": 33,
+		"next_window_num": 51,
 		"no_stock_today": 0,
 		"served_today": 0,
-		"window_shoppers_today": 4
+		"window_shoppers_today": 7
 	},
 	"day": 4,
 	"decorations": {
@@ -126,7 +126,7 @@
 		"missed_today": 0,
 		"next_physical_at": 36047.79005076218,
 		"next_rotifood_at": 42699.648939397215,
-		"next_window_shopper_at": 45784.12813379355,
+		"next_window_shopper_at": 36855.118605431606,
 		"pending": [],
 		"scripted_orders": [],
 		"scripted_walkins": [],
@@ -1596,7 +1596,7 @@
 			},
 			"cosmetic_rng": {
 				"seed": "2530385989",
-				"state": "8851802478801761911"
+				"state": "4907731472140564365"
 			},
 			"customer_arrival_rng": {
 				"seed": "1762953424",
