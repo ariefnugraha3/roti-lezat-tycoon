@@ -46,6 +46,14 @@ var is_critic: bool = false
 var outcome: StringName = &""
 var price_label: StringName = &"NEUTRAL"
 var spawned_at: float = 0.0
+## Pengunjung lihat-lihat (GDD 20.12): ENTERING -> BROWSING di satu atau dua
+## tempat dekat rak -> LEAVING, tanpa antrean, patience, stok, maupun rating.
+var window_shopper: bool = false
+## Sel tempat ia berdiri melihat-lihat; bukan titik eksklusif (GDD 83.3).
+var look_cell: Vector2i = Vector2i(-1, -1)
+## Rak yang sedang dilihat (-1 = melihat-lihat ruangan).
+var look_display: int = -1
+var looks_left: int = 0
 
 
 func def() -> CustomerArchetypeDefinition:
@@ -84,7 +92,8 @@ func to_dict() -> Dictionary:
 		"target_qty": target_qty, "substitution_used": substitution_used, "browse_left": browse_left,
 		"celebrate_left": celebrate_left, "queue_wait": queue_wait, "stall_time": stall_time,
 		"awaiting_tap": awaiting_tap, "is_critic": is_critic, "spawned_at": spawned_at,
-		"actor": actor.to_dict(),
+		"window_shopper": window_shopper, "look_cell": [look_cell.x, look_cell.y], "look_display": look_display,
+		"looks_left": looks_left, "actor": actor.to_dict(),
 	}
 
 

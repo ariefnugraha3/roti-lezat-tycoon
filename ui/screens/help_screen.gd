@@ -6,7 +6,7 @@ extends UIScreen
 const ALL_TIPS: Array[String] = [
 	"tut_welcome", "tut_tap_storage", "tut_choose_recipe", "tut_tap_mixer", "tut_equipment_works",
 	"tut_mixer_done", "tut_to_oven", "tut_burn_risk", "tut_choose_slot", "tut_patience",
-	"tut_manual_cashier", "tut_income", "tut_rotifood", "tut_summary", "tut_freshness",
+	"tut_window_shopper", "tut_manual_cashier", "tut_income", "tut_rotifood", "tut_summary", "tut_freshness",
 	"tut_office_worker", "tut_queue_capacity", "tut_pricing", "tut_smart_speed",
 	"tut_fried_bread_stale", "tut_day3_balance", "tut_market_unlock", "tut_market_teaser",
 ]

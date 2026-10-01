@@ -153,6 +153,15 @@ func on_customer_entered(c: Customer) -> void:
 		_show("tut_office_worker", false)
 
 
+## Pengunjung lihat-lihat: jelaskan sekali bahwa ia memang tidak membeli (GDD
+## 20.12). Tip ini tidak pernah menggeser tip lain yang sedang tampil; bila ada,
+## ia menunggu pengunjung lihat-lihat berikutnya.
+func on_window_shopper_entered() -> void:
+	if skipped or not prompt.is_empty():
+		return
+	_show("tut_window_shopper", false)
+
+
 func on_customer_front(_c: Customer) -> void:
 	if sim.staff.any_cashier_working():
 		return

@@ -185,6 +185,11 @@ func _save_roundtrip() -> void:
 			v1.erase(k)
 		(v1["flags"] as Dictionary).erase("last_freshness_rollover_day")
 		(v1["flags"] as Dictionary).erase("economy_overflowed")
+		# v1 juga belum mengenal pengunjung lihat-lihat (GDD 20.12).
+		for k2: String in ["next_window_num", "window_shoppers_today"]:
+			(v1["customers"] as Dictionary).erase(k2)
+		for k3: String in ["scripted_window_shoppers", "next_window_shopper_at"]:
+			(v1["demand"] as Dictionary).erase(k3)
 		v1["schema_version"] = 1
 		v1["master_seed"] = 55
 		var f2: FileAccess = FileAccess.open(LEGACY_V1, FileAccess.WRITE)
@@ -529,7 +534,7 @@ func _lifecycle() -> void:
 	# Tidak ada progres offline: satu frame raksasa dibatasi 0,25 s nyata.
 	var t0: float = s.time.sim_seconds
 	s.advance(3600.0)
-	check(s.time.sim_seconds - t0 <= 0.25 + 0.0001, "no offline catch-up after returning (GDD 113)")
+	check(s.time.sim_seconds - t0 <= 0.25 * DataRegistry.sim_seconds_per_real_second() + 0.0001, "no offline catch-up after returning (GDD 113)")
 	# Pause lain (modal) tidak dicabut oleh resume lifecycle.
 	PauseManager.push(PauseManager.USER)
 	PauseManager.on_focus_lost()

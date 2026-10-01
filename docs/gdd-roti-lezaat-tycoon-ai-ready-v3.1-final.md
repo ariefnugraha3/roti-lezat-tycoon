@@ -33,7 +33,7 @@ Roti Lezat Tycoon adalah game simulasi manajemen di mana pemain membangun keraja
 
 Siklus permainan utama terbagi dalam tiga tahap operasional harian:
 
-*Kecepatan jam:* **1 jam in-game = 2 menit nyata**, sehingga satu hari penuh (05:00–18:00) berlangsung **26 menit nyata**—6 menit persiapan dan 20 menit jualan. Seluruh arus yang ditulis "per jam" (kedatangan pembeli, pesanan RotiFood) mengikuti jam in-game, jadi jumlah pembeli **per hari** tidak berubah; yang berubah adalah berapa lama pemain punya waktu untuk melayani mereka.
+*Kecepatan jam:* **1 menit in-game = 1 detik nyata** (1 jam in-game = 1 menit nyata), sehingga satu hari penuh (05:00–18:00) berlangsung **13 menit nyata**—3 menit persiapan dan 10 menit jualan. Seluruh arus yang ditulis "per jam" (kedatangan pembeli, pesanan RotiFood) mengikuti jam in-game, jadi jumlah pembeli **per hari** tidak berubah. *Keputusan maintainer 2026-10-01:* semua durasi simulasi (adonan, oven, kesabaran, transaksi, langkah karakter) ikut dipercepat 2× sehingga proporsinya terhadap jam tetap; rasanya sama dengan memainkan kecepatan 2× sebelumnya (Seksi 15.2, 99.1).
 
 **1\. Tahap Persiapan (05:00 – 08:00)**
 
@@ -61,11 +61,13 @@ Hari 1 sampai 3 **tidak diundi**. Permintaan hari itu sudah ditetapkan—siapa y
 
 | Hari | Resep | Bahan | Permintaan |
 | :---- | :---- | :---- | :---- |
-| **1** | Roti Tawar Polos | 6 batch = **36 roti** | 8 pembeli (26 roti) + 2 pesanan ojol (10 roti) |
-| **2** | Roti Goreng Polos | 7 batch = **42 roti** | 9 pembeli (30 roti) + 3 pesanan ojol (12 roti) |
-| **3** | Donat Gula | 9 batch = **45 roti** | 10 pembeli (34 roti) + 3 pesanan ojol (11 roti) |
+| **1** | Roti Tawar Polos | 8 batch = **48 roti** | 18 pembeli (36 roti) + 3 pesanan ojol (12 roti) |
+| **2** | Roti Goreng Polos | 9 batch = **54 roti** | 19 pembeli (38 roti) + 4 pesanan ojol (16 roti) |
+| **3** | Donat Gula | 12 batch = **60 roti** | 20 pembeli (44 roti) + 4 pesanan ojol (16 roti) |
 
-Karena bahannya pas, **satu loyang yang dibiarkan gosong di oven berarti ada pembeli atau pesanan yang tidak kebagian hari itu**. Di sinilah pemain belajar bahwa mengangkat loyang tepat waktu bukan formalitas. Pagi hari angka targetnya diumumkan, dan HUD menampilkan "Permintaan: x / N roti" sepanjang hari supaya pemain tahu sisa kewajibannya. Jadwal lengkap per pembeli dan per pesanan RotiFood ditetapkan di Seksi 20.3.
+*Toko pembukaan yang ramai (keputusan maintainer 2026-10-01):* pembeli tersebar merata dari buka sampai tutup, kira-kira satu tiap 30–35 menit in-game dari 08:05 sampai 17:30, dan di sela-sela mereka datang **8–10 pengunjung lihat-lihat** per hari (Seksi 20.12) yang masuk, memandangi rak, lalu pulang tanpa membeli. Jadwalnya tidak menyisakan jeda lebih dari 35 menit in-game tanpa kedatangan. Total roti naik dari 36/42/45 menjadi 48/54/60. Angka 50 yang diminta maintainer untuk Hari 1 dibulatkan ke 48 karena satu batch Roti Tawar Polos menghasilkan 6 roti.
+
+Karena bahannya pas, **satu loyang yang dibiarkan gosong di oven berarti ada pembeli atau pesanan yang tidak kebagian hari itu**. Di sinilah pemain belajar bahwa mengangkat loyang tepat waktu bukan formalitas. Pagi hari angka targetnya diumumkan, dan HUD menampilkan "Permintaan: x / N roti" sepanjang hari supaya pemain tahu sisa kewajibannya. Jadwal lengkap per pembeli, per pesanan RotiFood, dan per pengunjung lihat-lihat ditetapkan di Seksi 20.3.
 
 Hari 1 sengaja diisi pembeli sabar (anak sekolah, emak-emak arisan, si galau). Pekerja kantoran yang kesabarannya hanya 18 detik baru muncul di hari 2. Mulai hari 4, permintaan kembali acak mengikuti rating, cuaca, dan kampanye (Seksi 8, 9, 10), dan pemain mulai mengelola pembelian bahan sendiri melalui Pasar. **Mulai setelah Hari 3 selesai, Pasar dapat dibuka kapan saja dari Quick Menu, termasuk saat Tahap Persiapan maupun Tahap Jualan.** Pembelian yang dilakukan sebelum toko tutup memiliki waktu pengiriman **3 jam in-game**; pembelian setelah toko tutup langsung masuk ke Gudang dan tersedia pada Tahap Persiapan keesokan hari.
 
@@ -90,7 +92,7 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 4. **Gelembung tanda seru "!" muncul di atas kepalanya** begitu ia menjadi orang terdepan di antrean. Di atas kepala setiap pelanggan juga selalu terdapat **Patience Bar** yang menunjukkan sisa kesabarannya secara visual.
 5. **Ketuk balon itu** — hanya berarti bila karakter pemain sedang berjaga di meja kasir. Kalau ia masih di dapur, ketukan itu justru menyuruhnya berjalan ke meja.
 6. **Popup pesanan terbuka**: daftar roti yang dibeli beserta totalnya.
-7. **Tekan OK** → karakter langsung membungkus, tanpa jeda. Setiap transaksi berlangsung **tepat 3 detik** dan **seluruhnya animasi membungkus** (keputusan maintainer 2026-09-30): pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
+7. **Tekan OK** → karakter langsung membungkus, tanpa jeda. Setiap transaksi berlangsung **tepat 3 detik simulasi** (1,5 detik nyata sejak skala waktu 2026-10-01) dan **seluruhnya animasi membungkus** (keputusan maintainer 2026-09-30): pembeli menaruh rotinya di meja, kasir menyentak kantong kertas hingga terbuka, roti melompat masuk satu per satu, pita diikat dengan kilau kecil, lalu kantong disodorkan dan pembeli mengulurkan tangan menerimanya (Seksi 21.4).
 8. **Pesanan siap, pembeli membayar**, koin masuk ke kas, lalu ia melompat senang dan pulang **sambil menenteng kantong kertas berisi rotinya**.
 
 *Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
@@ -186,7 +188,7 @@ Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara o
 | **Tier 4: Kasir Profesional** | **1.800 KR** | **3.0 detik** / pelanggan | Sabar + ramah: pembeli di antreannya 15% lebih sabar (`queue_patience_drain_multiplier` 0,85), dan setiap penjualannya menaikkan Store Rating 1,5x (`sale_rating_multiplier` 1,5; berlaku untuk `successful_sale` dan `fast_service`, tidak untuk penalti). | Tier 4: Flagship Store |
 | **Tier 5: Kasir Superstar** | **4.000 KR** | **3.0 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
 
-*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** dan seluruhnya fase membungkus (Seksi 21.4). Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus. Kemampuan Tier 2 dan Tier 4 di atas adalah keputusan maintainer 2026-09-30 ("sabar + ramah"), menggantikan kemampuan lama yang gugur bersama kecepatan kasir; Tier 1, 3, dan 5 tidak berubah. Nilainya tinggal di `staff.json` `special`, dan kartu kasir di layar Staff menjelaskan setiap kemampuan dalam kalimat (Seksi 127.17).
+*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** simulasi (1,5 detik nyata, Seksi 15.2) dan seluruhnya fase membungkus (Seksi 21.4). Seperti semua durasi di dokumen ini, angka detik di tabel kasir adalah simulation-seconds; kartu staf menampilkannya dalam detik nyata. Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus. Kemampuan Tier 2 dan Tier 4 di atas adalah keputusan maintainer 2026-09-30 ("sabar + ramah"), menggantikan kemampuan lama yang gugur bersama kecepatan kasir; Tier 1, 3, dan 5 tidak berubah. Nilainya tinggal di `staff.json` `special`, dan kartu kasir di layar Staff menjelaskan setiap kemampuan dalam kalimat (Seksi 127.17).
 
 *Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
 
@@ -527,7 +529,7 @@ Setelah tutorial Hari 1–3 selesai, pembelian Pasar pada jam operasional tidak 
 
 #### **A. Lead Time**
 
-* Waktu kirim tetap: **3 jam in-game**. Dengan skala waktu canonical 1 jam in-game = 2 menit nyata, lead time normal setara **6 menit nyata** selama clock berjalan normal.
+* Waktu kirim tetap: **3 jam in-game**. Dengan skala waktu canonical 1 jam in-game = 1 menit nyata, lead time normal setara **3 menit nyata** selama clock berjalan normal.
 * `arrival_game_time = purchase_game_time + 3:00`.
 * Jika ETA secara matematis melewati 18:00, pesanan tetap dikirim berdasarkan clock/order policy yang ditetapkan scheduler; **pembelian baru yang dibuat setelah toko sudah tutup** adalah kasus khusus dan langsung masuk Gudang untuk esok pagi.
 * Pause game menghentikan clock dan otomatis menghentikan progress ETA.
@@ -1093,7 +1095,7 @@ Untuk menjaga kode tetap modular, bersih, dan mudah di-maintain, seluruh pembent
    * Pembuatan seluruh komponen UI (tombol rounded, panel modal, kartu staf, frame resep, kertas nota Daily Summary) memanfaatkan `StyleBoxFlat` dengan *corner radius*, warna tema pastel, dan bayangan (*drop shadow*) dinamis.
    * Rendering Ikon Vektor: Ikon-ikon in-game (koin emas, bintang rating, jam dinding, balon pesanan, ikon hati/marah, emoji mood Daily Summary) digambar secara prosedural menggunakan fungsi CanvasItem `_draw()` (`draw_circle`, `draw_arc`, `draw_line`, `draw_colored_polygon`).
    * Pasar Bahan Baku: Tampilan katalog bahan baku dengan harga tetap, kartu item berpola rounded lembut, ikon bahan prosedural, serta bar visual kapasitas penyimpanan gudang (*pantry bar*).
-   * Potret Karakter: Potret chibi pada layar pemilihan karakter digambar dengan `_draw()` (lingkaran dan poligon), bukan hasil render 3D—dua gambar diam tidak sepadan dengan biaya satu `SubViewport`.
+   * Potret Karakter: Potret chibi pada layar pemilihan karakter dan kartu staf digambar dengan `_draw()` (lingkaran dan poligon), bukan hasil render 3D—dua gambar diam tidak sepadan dengan biaya satu `SubViewport`. Gayanya **flat sederhana** (keputusan maintainer 2026-10-01): bidang warna polos tanpa garis tepi, gradasi, atau kilau; mata oval dengan satu titik cahaya, senyum satu garis, pipi merona, kemeja dan celemek polos warna tier, serta rambut, topi, dan aksesori sesuai data `visual` staf. Aksesori pergelangan tangan tidak tampil karena potret tidak menggambar tangan.
 4. **Lapisan Tugas Pemain (`PlayerTaskSystem`)**:
    * Menerjemahkan **ketukan** pemain di dunia 3D menjadi perintah produksi, dan sebaliknya menerjemahkan keadaan produksi menjadi penanda yang mengambang di atas perabot.
    * Rantai satu pesanan: gudang → mixer → oven → rak. Alat yang selesai menahan isinya, dan tanda seru **tetap di alat itu** sampai isinya diambil. Tanda baru berpindah ke stasiun berikutnya setelah barangnya benar-benar ada di tangan karakter (Seksi 2, 18.6).
@@ -1202,7 +1204,7 @@ Empat pilar berikut harus tetap terasa pada setiap fitur:
 
 ## **14.2 Target Session**
 
-- Satu hari penuh in-game: ±26 menit nyata sesuai rasio 1 jam in-game = 2 menit nyata.
+- Satu hari penuh in-game: ±13 menit nyata sesuai rasio 1 menit in-game = 1 detik nyata.
 - Satu sesi pendek yang wajar: 1 hari in-game.
 - Sesi menengah: 2–3 hari in-game.
 - Game harus aman dipause kapan saja tanpa menghukum pemain.
@@ -1259,8 +1261,10 @@ CONFIRM_DIALOG
 - Start hari: 05:00.
 - Auto-open: 08:00.
 - Auto-close: 18:00.
-- 1 jam in-game = 120 detik nyata.
-- 1 menit in-game = 2 detik nyata.
+- 1 jam in-game = 60 detik nyata.
+- 1 menit in-game = 1 detik nyata (keputusan maintainer 2026-10-01; sebelumnya 2 detik).
+- 1 simulation-second = 30 detik jam in-game = **0,5 detik nyata** pada 1× (`clock.sim_seconds_per_real_second` = 2,0). Semua durasi dalam detik di dokumen ini adalah simulation-seconds kecuali ditulis "detik nyata" (Seksi 99.1), jadi adonan, oven, burn window, kesabaran, transaksi, pending delay, dan langkah karakter semuanya berjalan 2× lebih cepat dalam waktu nyata dan proporsinya terhadap jam tidak berubah. Ekonomi, jumlah pembeli per hari, dan determinisme tidak berubah.
+- Teks UI yang menyebut detik (waktu adonan/oven di Recipe Book, waktu referensi alat di Market, kecepatan layan di kartu staf) menampilkan detik nyata pada 1×.
 - Waktu **berhenti** saat pause global atau modal yang bersifat blocking.
 - Waktu **berhenti** pada seluruh management menu blocking sesuai Seksi 71 dan pada setiap popup keputusan (lihat CANONICAL di bawah).
 
@@ -1759,6 +1763,8 @@ RETURNING_ITEMS
 DESPAWNED
 ```
 
+Pengunjung lihat-lihat (Seksi 20.12) hanya memakai `SPAWNING → ENTERING → BROWSING → LEAVING → DESPAWNED`, dengan `ENTERING → BROWSING` boleh terulang sekali di tempat kedua.
+
 ## **20.2 Customer Archetype Data**
 
 ```gdscript
@@ -1789,74 +1795,146 @@ requested_quantity
 patience_override
 ```
 
+Pengunjung lihat-lihat (Seksi 20.12) punya daftar sendiri, `window_shoppers`, berisi `spawn_time` dan `customer_archetype`. Arketipe di daftar itu hanya menentukan penampilannya; ia tidak membeli apa pun.
+
 Random generator umum tidak boleh memengaruhi manifest onboarding.
 
-Manifest canonical berikut adalah satu-satunya jadwal Hari 1–3. Satu baris pembeli = satu pelanggan fisik yang membeli `requested_quantity` unit. Satu baris RotiFood = satu pesanan berisi `requested_quantity` unit resep hari itu. Semua baris memakai `patience_override = null`, sehingga patience mengikuti Seksi 58. Total tiap hari wajib sama dengan tabel pembukaan di Seksi 2 dan dengan stok bahan yang disediakan (`batches × batch_yield`).
+Manifest canonical berikut adalah satu-satunya jadwal Hari 1–3 (keputusan maintainer 2026-10-01: toko lebih ramai, pembeli tersebar merata dari buka sampai 17:30, stok 48/54/60). Satu baris pembeli = satu pelanggan fisik yang membeli `requested_quantity` unit. Satu baris RotiFood = satu pesanan berisi `requested_quantity` unit resep hari itu. Semua baris memakai `patience_override = null`, sehingga patience mengikuti Seksi 58. Total tiap hari wajib sama dengan tabel pembukaan di Seksi 2 dan dengan stok bahan yang disediakan (`batches × batch_yield`); pengunjung lihat-lihat tidak membeli, jadi tidak masuk total. Setiap daftar urut menurut jam dan berada di dalam jam buka, dan pesanan RotiFood tidak melewati batas pesanan terakhir 16:55 (Seksi 22.9). `DataRegistry` memeriksa semua aturan ini saat boot. Hari 1 tetap hanya berisi pembeli sabar (Seksi 2).
 
-### **20.3.1 Hari 1 — `recipe_plain_loaf`, 6 batch = 36 unit**
-
-| # | spawn_time | customer_archetype | requested_recipe_id | requested_quantity |
-| :---: | :---: | :--- | :--- | :---: |
-| 1 | 08:30 | `customer_school_child` | `recipe_plain_loaf` | 2 |
-| 2 | 09:15 | `customer_school_child` | `recipe_plain_loaf` | 2 |
-| 3 | 10:00 | `customer_bulk_buyer` | `recipe_plain_loaf` | 6 |
-| 4 | 11:00 | `customer_school_child` | `recipe_plain_loaf` | 2 |
-| 5 | 12:00 | `customer_indecisive` | `recipe_plain_loaf` | 2 |
-| 6 | 13:30 | `customer_bulk_buyer` | `recipe_plain_loaf` | 8 |
-| 7 | 15:00 | `customer_school_child` | `recipe_plain_loaf` | 2 |
-| 8 | 16:30 | `customer_school_child` | `recipe_plain_loaf` | 2 |
-
-| # | RotiFood order_time | requested_recipe_id | requested_quantity |
-| :---: | :---: | :--- | :---: |
-| 1 | 09:45 | `recipe_plain_loaf` | 4 |
-| 2 | 14:00 | `recipe_plain_loaf` | 6 |
-
-Total Hari 1: 8 pembeli (26 unit) + 2 pesanan RotiFood (10 unit) = 36 unit.
-
-### **20.3.2 Hari 2 — `recipe_plain_fried_bread`, 7 batch = 42 unit**
+### **20.3.1 Hari 1 — `recipe_plain_loaf`, 8 batch = 48 unit**
 
 | # | spawn_time | customer_archetype | requested_recipe_id | requested_quantity |
 | :---: | :---: | :--- | :--- | :---: |
-| 1 | 08:20 | `customer_office_worker` | `recipe_plain_fried_bread` | 2 |
-| 2 | 09:00 | `customer_school_child` | `recipe_plain_fried_bread` | 2 |
-| 3 | 09:40 | `customer_bulk_buyer` | `recipe_plain_fried_bread` | 7 |
-| 4 | 10:30 | `customer_school_child` | `recipe_plain_fried_bread` | 2 |
-| 5 | 11:30 | `customer_indecisive` | `recipe_plain_fried_bread` | 2 |
-| 6 | 12:30 | `customer_bulk_buyer` | `recipe_plain_fried_bread` | 9 |
-| 7 | 14:00 | `customer_school_child` | `recipe_plain_fried_bread` | 2 |
-| 8 | 15:30 | `customer_office_worker` | `recipe_plain_fried_bread` | 2 |
-| 9 | 16:40 | `customer_school_child` | `recipe_plain_fried_bread` | 2 |
+| 1 | 08:05 | `customer_school_child` | `recipe_plain_loaf` | 2 |
+| 2 | 08:40 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 3 | 09:10 | `customer_indecisive` | `recipe_plain_loaf` | 2 |
+| 4 | 09:45 | `customer_school_child` | `recipe_plain_loaf` | 2 |
+| 5 | 10:15 | `customer_bulk_buyer` | `recipe_plain_loaf` | 6 |
+| 6 | 10:50 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 7 | 11:20 | `customer_school_child` | `recipe_plain_loaf` | 2 |
+| 8 | 11:55 | `customer_indecisive` | `recipe_plain_loaf` | 2 |
+| 9 | 12:30 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 10 | 13:00 | `customer_school_child` | `recipe_plain_loaf` | 2 |
+| 11 | 13:35 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 12 | 14:05 | `customer_bulk_buyer` | `recipe_plain_loaf` | 6 |
+| 13 | 14:40 | `customer_school_child` | `recipe_plain_loaf` | 2 |
+| 14 | 15:10 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 15 | 15:45 | `customer_indecisive` | `recipe_plain_loaf` | 2 |
+| 16 | 16:20 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 17 | 16:55 | `customer_school_child` | `recipe_plain_loaf` | 1 |
+| 18 | 17:30 | `customer_school_child` | `recipe_plain_loaf` | 1 |
 
 | # | RotiFood order_time | requested_recipe_id | requested_quantity |
 | :---: | :---: | :--- | :---: |
-| 1 | 09:20 | `recipe_plain_fried_bread` | 5 |
-| 2 | 12:00 | `recipe_plain_fried_bread` | 3 |
-| 3 | 15:00 | `recipe_plain_fried_bread` | 4 |
+| 1 | 09:25 | `recipe_plain_loaf` | 4 |
+| 2 | 12:45 | `recipe_plain_loaf` | 3 |
+| 3 | 15:55 | `recipe_plain_loaf` | 5 |
 
-Total Hari 2: 9 pembeli (30 unit) + 3 pesanan RotiFood (12 unit) = 42 unit.
+| # | Pengunjung lihat-lihat spawn_time | customer_archetype (penampilan) |
+| :---: | :---: | :--- |
+| 1 | 08:25 | `customer_generic` |
+| 2 | 09:30 | `customer_bulk_buyer` |
+| 3 | 10:35 | `customer_school_child` |
+| 4 | 11:40 | `customer_generic` |
+| 5 | 12:50 | `customer_indecisive` |
+| 6 | 13:50 | `customer_school_child` |
+| 7 | 14:55 | `customer_generic` |
+| 8 | 16:05 | `customer_bulk_buyer` |
+| 9 | 17:10 | `customer_school_child` |
 
-### **20.3.3 Hari 3 — `recipe_sugar_donut`, 9 batch = 45 unit**
+Total Hari 1: 18 pembeli (36 unit) + 3 pesanan RotiFood (12 unit) = 48 unit, ditambah 9 pengunjung lihat-lihat.
+
+### **20.3.2 Hari 2 — `recipe_plain_fried_bread`, 9 batch = 54 unit**
 
 | # | spawn_time | customer_archetype | requested_recipe_id | requested_quantity |
 | :---: | :---: | :--- | :--- | :---: |
-| 1 | 08:15 | `customer_school_child` | `recipe_sugar_donut` | 2 |
-| 2 | 08:50 | `customer_office_worker` | `recipe_sugar_donut` | 2 |
-| 3 | 09:30 | `customer_bulk_buyer` | `recipe_sugar_donut` | 8 |
-| 4 | 10:20 | `customer_school_child` | `recipe_sugar_donut` | 2 |
-| 5 | 11:10 | `customer_indecisive` | `recipe_sugar_donut` | 2 |
-| 6 | 12:00 | `customer_bulk_buyer` | `recipe_sugar_donut` | 10 |
-| 7 | 13:10 | `customer_school_child` | `recipe_sugar_donut` | 2 |
-| 8 | 14:20 | `customer_office_worker` | `recipe_sugar_donut` | 2 |
-| 9 | 15:30 | `customer_school_child` | `recipe_sugar_donut` | 2 |
-| 10 | 16:30 | `customer_indecisive` | `recipe_sugar_donut` | 2 |
+| 1 | 08:05 | `customer_office_worker` | `recipe_plain_fried_bread` | 2 |
+| 2 | 08:30 | `customer_office_worker` | `recipe_plain_fried_bread` | 2 |
+| 3 | 09:00 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 4 | 09:35 | `customer_office_worker` | `recipe_plain_fried_bread` | 1 |
+| 5 | 10:05 | `customer_bulk_buyer` | `recipe_plain_fried_bread` | 7 |
+| 6 | 10:40 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 7 | 11:10 | `customer_indecisive` | `recipe_plain_fried_bread` | 2 |
+| 8 | 11:40 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 9 | 12:10 | `customer_office_worker` | `recipe_plain_fried_bread` | 2 |
+| 10 | 12:40 | `customer_school_child` | `recipe_plain_fried_bread` | 2 |
+| 11 | 13:10 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 12 | 13:40 | `customer_bulk_buyer` | `recipe_plain_fried_bread` | 8 |
+| 13 | 14:10 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 14 | 14:40 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 15 | 15:10 | `customer_indecisive` | `recipe_plain_fried_bread` | 2 |
+| 16 | 15:45 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 17 | 16:20 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
+| 18 | 16:55 | `customer_office_worker` | `recipe_plain_fried_bread` | 1 |
+| 19 | 17:30 | `customer_school_child` | `recipe_plain_fried_bread` | 1 |
 
 | # | RotiFood order_time | requested_recipe_id | requested_quantity |
 | :---: | :---: | :--- | :---: |
-| 1 | 09:00 | `recipe_sugar_donut` | 4 |
-| 2 | 11:40 | `recipe_sugar_donut` | 3 |
-| 3 | 14:40 | `recipe_sugar_donut` | 4 |
+| 1 | 09:15 | `recipe_plain_fried_bread` | 4 |
+| 2 | 11:25 | `recipe_plain_fried_bread` | 3 |
+| 3 | 13:55 | `recipe_plain_fried_bread` | 5 |
+| 4 | 16:00 | `recipe_plain_fried_bread` | 4 |
 
-Total Hari 3: 10 pembeli (34 unit) + 3 pesanan RotiFood (11 unit) = 45 unit.
+| # | Pengunjung lihat-lihat spawn_time | customer_archetype (penampilan) |
+| :---: | :---: | :--- |
+| 1 | 08:15 | `customer_generic` |
+| 2 | 09:20 | `customer_office_worker` |
+| 3 | 10:25 | `customer_school_child` |
+| 4 | 11:55 | `customer_generic` |
+| 5 | 12:55 | `customer_indecisive` |
+| 6 | 13:55 | `customer_bulk_buyer` |
+| 7 | 14:55 | `customer_school_child` |
+| 8 | 16:05 | `customer_generic` |
+| 9 | 17:10 | `customer_office_worker` |
+
+Total Hari 2: 19 pembeli (38 unit) + 4 pesanan RotiFood (16 unit) = 54 unit, ditambah 9 pengunjung lihat-lihat.
+
+### **20.3.3 Hari 3 — `recipe_sugar_donut`, 12 batch = 60 unit**
+
+| # | spawn_time | customer_archetype | requested_recipe_id | requested_quantity |
+| :---: | :---: | :--- | :--- | :---: |
+| 1 | 08:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 2 | 08:35 | `customer_office_worker` | `recipe_sugar_donut` | 2 |
+| 3 | 09:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 4 | 09:30 | `customer_office_worker` | `recipe_sugar_donut` | 2 |
+| 5 | 10:00 | `customer_bulk_buyer` | `recipe_sugar_donut` | 8 |
+| 6 | 10:30 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 7 | 11:05 | `customer_indecisive` | `recipe_sugar_donut` | 2 |
+| 8 | 11:35 | `customer_school_child` | `recipe_sugar_donut` | 2 |
+| 9 | 12:05 | `customer_office_worker` | `recipe_sugar_donut` | 1 |
+| 10 | 12:35 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 11 | 13:05 | `customer_indecisive` | `recipe_sugar_donut` | 2 |
+| 12 | 13:35 | `customer_bulk_buyer` | `recipe_sugar_donut` | 10 |
+| 13 | 14:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 14 | 14:35 | `customer_school_child` | `recipe_sugar_donut` | 2 |
+| 15 | 15:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 16 | 15:35 | `customer_indecisive` | `recipe_sugar_donut` | 2 |
+| 17 | 16:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 18 | 16:35 | `customer_office_worker` | `recipe_sugar_donut` | 2 |
+| 19 | 17:05 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+| 20 | 17:30 | `customer_school_child` | `recipe_sugar_donut` | 1 |
+
+| # | RotiFood order_time | requested_recipe_id | requested_quantity |
+| :---: | :---: | :--- | :---: |
+| 1 | 09:15 | `recipe_sugar_donut` | 4 |
+| 2 | 11:20 | `recipe_sugar_donut` | 5 |
+| 3 | 13:50 | `recipe_sugar_donut` | 3 |
+| 4 | 15:55 | `recipe_sugar_donut` | 4 |
+
+| # | Pengunjung lihat-lihat spawn_time | customer_archetype (penampilan) |
+| :---: | :---: | :--- |
+| 1 | 08:20 | `customer_generic` |
+| 2 | 09:45 | `customer_school_child` |
+| 3 | 10:45 | `customer_generic` |
+| 4 | 11:50 | `customer_office_worker` |
+| 5 | 12:50 | `customer_school_child` |
+| 6 | 13:50 | `customer_generic` |
+| 7 | 14:50 | `customer_indecisive` |
+| 8 | 15:50 | `customer_school_child` |
+| 9 | 16:50 | `customer_bulk_buyer` |
+| 10 | 17:15 | `customer_generic` |
+
+Total Hari 3: 20 pembeli (44 unit) + 4 pesanan RotiFood (16 unit) = 60 unit, ditambah 10 pengunjung lihat-lihat.
 
 ## **20.4 Spawn Conditions Day 4+**
 
@@ -1891,6 +1969,7 @@ Aturan wajib:
 - Tier 3+: dedicated ojol queue memiliki slot/capacity sendiri jika counter aktif.
 - Scheduler mempertahankan urutan `pending_arrival` dan mencoba masuk kembali ketika `queue_slot_freed` dipancarkan.
 - Actor yang masih pending belum mulai mengurangi patience dan tidak memberi rating penalty hanya karena belum dapat masuk.
+- Pengecualian: pengunjung lihat-lihat (Seksi 20.12) tidak pernah memakai slot antrean. Batas masuknya adalah `max_inside_by_tier` dan anggaran aktor Seksi 37.2, dan ia tidak pernah menjadi `pending_arrival`.
 
 Acceptance invariant:
 
@@ -2044,6 +2123,31 @@ Cara pakai:
 - **Harga unit maks** adalah `budget_profile`. Resep di atas batas ini tidak pernah dipilih, baik sebagai pilihan pertama maupun substitusi.
 - **Reaksi harga** mengikuti Seksi 63.2.
 - **Field tambahan** `CustomerArchetypeDefinition` (Seksi 101.4): `max_unit_price_kr`, `allowed_freshness_states`, `min_recipe_tier`.
+
+## **20.12 Pengunjung Lihat-Lihat (Window Shopper) — CANONICAL**
+
+Keputusan maintainer 2026-10-01: sebagian orang yang masuk toko **tidak membeli apa pun**. Ia masuk lewat pintu depan, berdiri memandangi rak sebentar, lalu pulang. Tujuannya suasana: toko terasa hidup tanpa mengubah ekonomi. Nilai-nilainya TUNABLE di `balance.json` `window_shopper`.
+
+**Perilaku**
+- Lifecycle Seksi 20.1: `ENTERING` ke tempat berdiri, `BROWSING` di sana selama waktu yang diundi seragam dari `look_seconds` (4–7 simulation-seconds), lalu `LEAVING`. Dengan peluang `second_look_chance` (0,5) ia pindah ke tempat kedua dan melihat sekali lagi sebelum pulang. Ia berjalan santai, dengan kecepatan arketipe × `stroll_speed_factor` (0,85).
+- **Tempat berdiri** adalah sel publik di depan atau di samping rak, tidak pernah di belakangnya, pada cincin Chebyshev 1–2 dari jejak rak. Skor terkecil menang: depan 0, samping 2, cincin kedua +1, lorong terlindung +1, sel tunggu pembeli di samping ubin akses rak (Seksi 83.3) +2. Titik eksklusif Seksi 83.3 (slot antrean, titik layan, ubin akses, drop-off), pintu, sel yang sedang dituju pembeli, dan sel pengunjung lihat-lihat lain tidak pernah dipilih. Sel yang dipilih direservasi supaya dua pengunjung tidak berdiri bertumpuk. Tempat kedua mendahulukan rak lain. Bila tidak ada tempat di dekat rak mana pun, termasuk saat toko tanpa rak, ia melihat-lihat ruangan dari sel publik mana saja yang memenuhi aturan yang sama.
+- Ia menghadap tengah rak. Secara visual kepalanya menoleh pelan kiri-kanan menyapu rak, badannya sedikit condong, dan sesekali tangannya menopang dagu. Ia tidak punya patience bar, dan pulang dengan tangan kosong.
+- **Celetukan lucu** (keputusan maintainer 2026-10-01): sejak tatapan terakhirnya sampai ia keluar pintu, gelembung pikiran (komponen yang sama dengan Seksi 31.7) di atas kepalanya menampilkan satu kalimat Inggris dari Seksi 127.19, misalnya `Oh right, I have no money.` Kalimatnya diturunkan dari `visual_seed` aktornya, jadi tiap pengunjung punya satu kalimat yang tetap sama setelah load, tanpa memakai RNG. Gelembung disembunyikan di Decoration Mode dan bila ia di lantai lain. Murni presentasi.
+- **Pembeli selalu didahulukan.** Bila seorang pembeli menuju sel tempat ia berdiri, misalnya untuk menunggu giliran di rak, ia langsung minggir ke tempat lain atau pulang. Bila tempatnya tidak sah lagi karena Decoration Mode menaruh perabot di sana, ia juga pindah atau pulang.
+
+**Tanpa efek gameplay**
+- Tidak memakai slot antrean (pengecualian Seksi 20.5), tidak pernah pending (Seksi 67), dan tidak dihitung sebagai permintaan yang terlewat.
+- Tidak mengambil roti dan tidak mengubah rating (Seksi 25.2). Ia tidak dihitung sebagai pelanggan masuk, gagal beli, atau kabur di Daily Summary (Seksi 46) maupun statistik (Seksi 92). Rak yang kosong tidak memicu `stockout_failure` baginya.
+- Semua undiannya (jadwal Hari 4+, penampilan, tempat berdiri, lama melihat, tempat kedua) memakai `cosmetic_rng` (Seksi 116), dan id-nya (`w…`) terpisah dari id pembeli (`c…`), yang selalu diproses lebih dulu. Dengan atau tanpa pengunjung lihat-lihat, pembeli, penjualan, dan rating berjalan identik.
+- Pukul 18:00 mereka ikut keluar tanpa penalti (Seksi 104).
+
+**Kedatangan**
+- Hari 1–3: daftar `window_shoppers` pada manifest Seksi 20.3, 8–10 orang per hari yang disisipkan di antara pembeli.
+- Mulai Hari 4: proses Poisson (seperti Seksi 66) dengan laju per jam in-game = `base_physical_rate` tier (Seksi 65) × `time_of_day_multiplier` fisik (Seksi 66) × `weather_multiplier` fisik × `event_multiplier` fisik (Seksi 26.6) × `rate_ratio` (0,40). Rating, harga, dan kampanye tidak berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain. Di Tier 1 hasilnya sekitar 9 orang per hari, kira-kira satu dari tiga pengunjung. Penampilannya diundi dari bobot arketipe tier × modifier jam (Seksi 20.11).
+- Ia hanya masuk bila jumlah pengunjung lihat-lihat di dalam toko masih di bawah `max_inside_by_tier` (T1 2, T2 2, T3 3, T4 4, T5 5), jumlah aktor aktif lokasi masih di bawah anggaran Seksi 37.2, dan masih ada tempat berdiri. Bila tidak, kedatangan itu dilewati begitu saja.
+- Tip `tut_window_shopper` (Seksi 127.5) tampil sekali, pada pengunjung lihat-lihat pertama yang masuk saat tidak ada tip lain di layar. Tip ini tidak pernah menggeser tip lain.
+
+**Save** (Seksi 106): pelanggan menyimpan `window_shopper`, `look_cell`, `look_display`, dan `looks_left`, dan DemandManager menyimpan `scripted_window_shoppers` dan `next_window_shopper_at`. Saat load, pengunjung yang sedang melihat kembali ke tempat berdirinya (Seksi 77.2). Save lama tanpa field ini tetap dimuat, dan sisa hari itu berjalan tanpa pengunjung lihat-lihat.
 
 ---
 
@@ -2859,17 +2963,17 @@ Hindari kombinasi warna yang mengurangi keterbacaan role khusus seperti driver o
 
 ## **31.6 Idle Gestures (Pemain & Staf)**
 
-Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak menganggur murni visual (irama diperbarui keputusan maintainer 2026-09-30):
+Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak menganggur murni visual (irama diperbarui keputusan maintainer 2026-09-30, lalu dipercepat 2× mengikuti skala waktu 2026-10-01):
 
 | Lama menganggur (detik nyata) | Gerak |
 | :--- | :--- |
-| **Setiap 15 detik** (15, 30, 45, …) | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±2,4 detik) dengan wajah lega, lalu kain disimpan lagi. Berulang selama belum tertidur. |
-| **Staf: 25 detik. Pemain: 85 detik**, tepat saat gelembung pikiran keempat (Seksi 31.7) hilang, di fase mana pun | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
+| **Setiap 7,5 detik** (7,5, 15, 22,5, …) | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±1,2 detik) dengan wajah lega, lalu kain disimpan lagi. Berulang selama belum tertidur. |
+| **Staf: 12,5 detik. Pemain: 45 detik**, tepat saat gelembung pikiran keempat (Seksi 31.7) hilang, di fase mana pun | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
 
 - **Tidak melakukan apa pun** = tidak berjalan, tidak berinteraksi dengan perabot, tidak membawa barang, tidak punya perintah dalam antrean, dan (untuk kasir atau pemain yang berjaga di meja) tidak sedang melayani transaksi. Berjaga di meja kasir tanpa pembeli termasuk menganggur. Asisten Dapur tanpa tugas termasuk menganggur.
 - Timer memakai **detik nyata** (tidak ikut 2×/3×), berhenti saat game di-pause, dan kembali ke nol begitu ada aktivitas; pose dan ekspresi langsung kembali normal.
 - Pelanggan, driver, dan kurir tidak memakai gerak menganggur.
-- **Tidur pemain — CANONICAL:** ambang tidur pemain = saat gelembung pikiran terakhir hilang, yaitu `thought_after_seconds` terakhir + `thought_show_seconds` (80 + 5 = 85 detik), dan berlaku juga di persiapan walau tidak ada gelembung. Ia tidak pernah tertidur saat gelembung pikiran sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur pada detik ke-85 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 85 detik. Selama tidurnya ditahan, lap wajah tetap berulang tiap 15 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
+- **Tidur pemain — CANONICAL:** ambang tidur pemain = saat gelembung pikiran terakhir hilang, yaitu `thought_after_seconds` terakhir + `thought_show_seconds` (40 + 5 = 45 detik), dan berlaku juga di persiapan walau tidak ada gelembung. Ia tidak pernah tertidur saat gelembung pikiran sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur pada detik ke-45 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 45 detik. Selama tidurnya ditahan, lap wajah tetap berulang tiap 7,5 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
 - Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation` (`idle_wipe_every_seconds`, `staff_doze_after_seconds`, `wipe_gesture_seconds`, `thought_after_seconds`, `thought_show_seconds`).
 
 ## **31.7 Player Thought Bubbles (Toko Sepi)**
@@ -2878,12 +2982,12 @@ Selama **toko buka (08:00–18:00)** dan **sama sekali tidak ada pelanggan**, ba
 
 | Lama toko sepi (detik nyata) | String ID (Seksi 127.12) |
 | :--- | :--- |
-| 20 detik | `thought_quiet_1` |
-| 40 detik | `thought_quiet_2` |
-| 60 detik | `thought_quiet_3` |
-| 80 detik | `thought_quiet_4` |
+| 10 detik | `thought_quiet_1` |
+| 20 detik | `thought_quiet_2` |
+| 30 detik | `thought_quiet_3` |
+| 40 detik | `thought_quiet_4` |
 
-- Satu pikiran tiap 20 detik (keputusan maintainer 2026-09-30). Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal; begitu gelembung keempat hilang (detik 85) karakter yang menganggur tertidur (Seksi 31.6), jadi gelembung dan tidur tidak pernah tampil bersamaan.
+- Satu pikiran tiap 10 detik (keputusan maintainer 2026-09-30, dipercepat 2× pada 2026-10-01). Setiap pikiran tampil 5 detik lalu menghilang sampai ambang berikutnya; lama tampil sengaja tidak ikut dipercepat supaya kalimatnya sempat terbaca. Setelah pikiran keempat tidak ada pikiran lagi sampai toko kembali sepi dari awal; begitu gelembung keempat hilang (detik 45) karakter yang menganggur tertidur (Seksi 31.6), jadi gelembung dan tidur tidak pernah tampil bersamaan.
 - Begitu ada satu pelanggan (pembeli masuk atau pesanan RotiFood aktif), gelembung **langsung hilang** dan hitungan kembali ke nol.
 - Timer memakai detik nyata, berhenti saat pause, dan tidak berjalan sebelum toko buka atau setelah toko tutup.
 - Gelembung digambar di ruang layar (panel krem bersudut membulat, teks Inggris dari katalog string, tiga lingkaran kecil menunjuk ke kepala), tidak menangkap ketukan, dan disembunyikan selama Decoration Mode atau bila pemain berada di lantai lain.
@@ -3180,6 +3284,8 @@ Furniture generator harus menciptakan visual dan metadata node, tetapi data stat
 - Tier 5 event-heavy: <90.
 
 Jika demand logis lebih tinggi, gunakan spawn pacing/virtual queue daripada memaksa semua actor hadir bersamaan.
+
+Pengunjung lihat-lihat (Seksi 20.12) ikut dihitung dan tidak pernah masuk bila anggaran ini sudah penuh.
 
 ## **37.3 Node Budget**
 
@@ -3985,7 +4091,7 @@ Tabel ini adalah satu-satunya definisi kapasitas antrean (ringkasan di Seksi 6 m
 
 # **58. Patience System — Final Numeric Specification**
 
-Patience memakai **simulation seconds**, bukan jam in-game. Nilai ini sengaja berada di rentang puluhan detik agar masuk akal terhadap total hari 26 menit nyata pada 1×.
+Patience memakai **simulation seconds**, bukan jam in-game. Nilai ini sengaja berada di rentang puluhan detik simulasi (separuhnya dalam detik nyata, Seksi 15.2) agar masuk akal terhadap total hari 13 menit nyata pada 1×.
 
 | Actor Type | `max_patience_seconds` | Catatan |
 |---|---:|---|
@@ -4393,6 +4499,8 @@ RotiFood star multiplier:
 Channel multiplier:
 - `marketing_multiplier` hanya berlaku untuk channel fisik; untuk RotiFood nilainya `1.0` (Seksi 8).
 - `weather_multiplier` dan `event_multiplier` per channel mengikuti Seksi 26.6.
+
+Pengunjung lihat-lihat bukan demand dan punya laju sendiri (Seksi 20.12).
 
 Price mix multiplier = weighted average `price_demand` baseline (Seksi 63.2) dari roti yang sedang tersedia, clamp `0.35..1.25`.
 
@@ -4869,6 +4977,7 @@ Demand Event
 - Model NPC dibersihkan ketika mencapai threshold pintu saat keluar; tidak perlu actor berjalan di luar bangunan.
 - Maximum pending delay mengikuti Seksi 67: physical customer 30 simulation-seconds, RotiFood Driver 40 simulation-seconds.
 - Supply courier menggunakan priority transit dan tidak membutuhkan queue capacity customer.
+- Pengunjung lihat-lihat (Seksi 20.12) juga masuk dan keluar lewat pintu depan, tetapi tanpa queue capacity dan tanpa pending: bila ia tidak boleh masuk, kedatangannya dilewati.
 
 ## **83.3 Actor Collision Contract**
 
@@ -4882,6 +4991,8 @@ Free-walking actor tidak melakukan body blocking satu sama lain. Exclusive reser
 - staff/player service point yang secara eksplisit single-user.
 
 Actor yang gagal memperoleh exclusive point menunggu pada logical wait state tanpa menumpuk pada point tersebut.
+
+Tempat berdiri pengunjung lihat-lihat (Seksi 20.12) direservasi hanya supaya dua pengunjung tidak berdiri bertumpuk. Tempat itu bukan exclusive point: ia minggir begitu ada pembeli yang membutuhkan sel tersebut.
 
 ---
 
@@ -5123,7 +5234,7 @@ Semua player-facing tutorial text berikut ditampilkan dalam **English**. Tutoria
 8. Oven complete: pause sekali dan jelaskan `"Take it out before it burns."`
 9. Highlight Display and Slot Picker.
 10. Ulangi guidance ringan sampai scripted Day-1 stock target dapat dipenuhi; jangan memaksa satu command sequence jika player sudah memahami flow.
-11. 08:00 open tutorial: customer enters; explain product selection and patience bar.
+11. 08:00 open tutorial: customer enters; explain product selection and patience bar. The first window shopper who enters while no other tip is showing gets a non-blocking hint: `"Some visitors only look around. They leave without buying, and that is okay."` (Seksi 20.12).
 12. First customer reaches cashier: highlight counter and manual service.
 13. First successful payment: explain KR income.
 14. First RotiFood order: explain tablet, packing, and driver pickup.
@@ -5644,9 +5755,9 @@ Soft maintainability target: scripts should generally stay below ~500 lines. A l
 | World distance | meters |
 | Placement/navigation grid | tile |
 | One tile | **0.5 m × 0.5 m** |
-| Movement speed | meters / real second at 1× simulation speed |
-| Simulation duration (mixing, baking, burn, patience, pending delay, service time) | simulation-seconds: 1 simulation-second = 1 real second at 1× speed (= 30 seconds of in-game clock) |
-| Clock time | in-game seconds since 00:00 (e.g. `time_seconds = 28800` = 08:00); 1 in-game hour = 120 simulation-seconds |
+| Movement speed | meters / simulation-second (so twice that per real second at 1×) |
+| Simulation duration (mixing, baking, burn, patience, pending delay, service time) | simulation-seconds: 1 simulation-second = 30 seconds of in-game clock = 0.5 real seconds at 1× speed (`clock.sim_seconds_per_real_second` = 2.0, maintainer decision 2026-10-01). Every duration in this document written in seconds is a simulation-second unless it says real seconds |
+| Clock time | in-game seconds since 00:00 (e.g. `time_seconds = 28800` = 08:00); 1 in-game hour = 120 simulation-seconds = 60 real seconds at 1×, so 1 in-game minute = 1 real second |
 | UI animation duration | real seconds, unaffected by game speed unless specified |
 | Money | KR, internal `float`/64-bit floating point semantics |
 | Probability | normalized `0.0..1.0` |
@@ -6206,7 +6317,7 @@ Persist independent deterministic state for exactly these streams (owner: `RNGMa
 | `rotifood_rng` | RotiFood order generation and tips (Section 22) |
 | `staff_rng` | baker auto-retrieve rolls (Section 18.8); the roster itself is fixed |
 | `marketing_rng` | campaign-specific rolls (Section 48) |
-| `cosmetic_rng` | visual variation only |
+| `cosmetic_rng` | visual variation only, including every window-shopper roll (Section 20.12) |
 | `audio_rng` | audio variation only |
 
 Arrival and choice use separate streams, so rearranging the display never changes who arrives next. Gameplay-significant outcomes may not consume `cosmetic_rng` or `audio_rng`. Adding a particle/sound variant must not alter tomorrow's weather or customer schedule.
@@ -6719,6 +6830,7 @@ Minimum canonical tutorial strings:
 - `Take it out before it burns.`
 - `Choose a Display slot for the finished bread.`
 - `Customers lose patience while they wait.`
+- `Some visitors only look around. They leave without buying, and that is okay.`
 - `Stand at the cashier to serve customers until you hire a Cashier Assistant.`
 - `RotiFood orders do not reserve stock until you pack them.`
 - `Fried bread goes stale quickly. Keep some batches for the afternoon.`
@@ -7031,6 +7143,23 @@ Keadaan kosong UI kit (Seksi 130.6).
 | String ID | Final English Text |
 | :--- | :--- |
 | `ui_staff_empty` | `No one works here yet. Hire from Applicants after closing.` |
+
+## **127.19 Window Shopper Lines**
+
+Celetukan pengunjung lihat-lihat (Seksi 20.12), keputusan maintainer 2026-10-01. Lima yang pertama terjemahan contoh dari maintainer; sisanya dengan nada yang sama.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `window_shopper_line_1` | `Hmm... not really my thing.` |
+| `window_shopper_line_2` | `Oh right, I have no money.` |
+| `window_shopper_line_3` | `I think I'll just get a burger instead.` |
+| `window_shopper_line_4` | `Wait, why did I even come in here?` |
+| `window_shopper_line_5` | `I thought this was a minimarket.` |
+| `window_shopper_line_6` | `Smells amazing... but I'm on a diet.` |
+| `window_shopper_line_7` | `Just looking, just looking!` |
+| `window_shopper_line_8` | `My wallet says no. My tummy says yes.` |
+| `window_shopper_line_9` | `I'll come back tomorrow. Probably.` |
+| `window_shopper_line_10` | `Do they sell phone credit here?` |
 
 ---
 

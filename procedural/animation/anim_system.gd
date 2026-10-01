@@ -160,6 +160,18 @@ const WIPE_HEAD_TILT: float = -0.18
 const DOZE_CYCLE: float = 4.8
 const DOZE_SNAP: float = 0.35
 const DOZE_HEAD_DROOP: float = 0.30
+## Pengunjung lihat-lihat (GDD 20.12): kepala menyapu rak kiri-kanan (radian,
+## rad/detik), badan ikut sebagian dan sedikit condong, pandangan agak turun.
+const LOOK_SWEEP: float = 0.42
+const LOOK_SWEEP_FREQ: float = 1.5
+const LOOK_BODY_FOLLOW: float = 0.3
+const LOOK_LEAN: float = 0.06
+const LOOK_HEAD_DOWN: float = -0.10
+## Tangan kanan sesekali menopang dagu: maju-naik lalu masuk ke tengah badan.
+const LOOK_CHIN_FREQ: float = 0.9
+const LOOK_CHIN_PITCH: float = 2.1
+const LOOK_CHIN_ROLL: float = -0.45
+const LOOK_HEAD_TILT: float = 0.08
 
 # ---------------------------------------------------------------------------
 # GDD 4.1 / 7 — squash & stretch
@@ -492,8 +504,35 @@ static func doze(actor: Node3D, t: float) -> void:
 			arm.rotation.x = _rest_rot(arm).x + 0.04 * sin(t * 1.1 + float(i))
 
 
+## Pengunjung lihat-lihat (GDD 20.12): kepala menoleh pelan kiri-kanan menyapu
+## rak, badan ikut sedikit dan condong ke depan, dan kira-kira sepertiga waktu
+## tangan kanan menopang dagu ("hmm"). Stateless; dipanggil setelah idle_bob().
+static func look_around(actor: Node3D, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var sweep: float = sin(t * LOOK_SWEEP_FREQ) * LOOK_SWEEP
+	var chin: float = smoothstep(0.25, 0.6, sin(t * LOOK_CHIN_FREQ))
+	var body: Node3D = _part(actor, "Body")
+	var bp: Vector3 = _rest_pos(body) if body != null else Vector3.ZERO
+	if body != null:
+		var br: Vector3 = _rest_rot(body)
+		body.rotation = Vector3(br.x - LOOK_LEAN, br.y + sweep * LOOK_BODY_FOLLOW, body.rotation.z)
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var hp: Vector3 = _rest_pos(head)
+		var hr: Vector3 = _rest_rot(head)
+		var h: float = hp.y - bp.y
+		# Kepala bukan anak badan: digeser supaya tetap menempel di leher saat condong.
+		head.position = Vector3(hp.x, head.position.y - h * (1.0 - cos(LOOK_LEAN)), hp.z - h * sin(LOOK_LEAN))
+		head.rotation = Vector3(head.rotation.x + LOOK_HEAD_DOWN, hr.y + sweep, head.rotation.z + chin * LOOK_HEAD_TILT)
+	var arm: Node3D = _part(actor, "ArmR")
+	if arm != null:
+		arm.rotation.x = lerpf(arm.rotation.x, LOOK_CHIN_PITCH, chin)
+		arm.rotation.z = lerpf(_rest_rot(arm).z, LOOK_CHIN_ROLL, chin)
+
+
 ## Kembalikan lengan, kepala & badan ke pose istirahat setelah gerakan khusus (pack,
-## wipe_face, doze) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
+## wipe_face, doze, look_around) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
 static func end_pose(actor: Node3D) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return

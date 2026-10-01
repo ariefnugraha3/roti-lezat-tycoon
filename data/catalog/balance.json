@@ -14,6 +14,7 @@
   "open_seconds": 28800,
   "close_seconds": 64800,
   "ingame_seconds_per_sim_second": 30,
+  "sim_seconds_per_real_second": 2.0,
   "overnight_aging_hours": 11.0,
   "sim_tick_seconds": 0.05,
   "speeds": [1, 2, 3]
@@ -126,6 +127,14 @@
   "physical_time_of_day": {"morning": 1.35, "late_morning": 0.90, "midday": 1.05, "afternoon": 1.30, "evening": 0.85},
   "rotifood_time_of_day": {"morning": 1.10, "late_morning": 0.85, "midday": 1.25, "afternoon": 1.00, "evening": 1.30}
  },
+ "window_shopper": {
+  "_gdd": "20.12",
+  "rate_ratio": 0.40,
+  "max_inside_by_tier": [2, 2, 3, 4, 5],
+  "look_seconds": [4.0, 7.0],
+  "second_look_chance": 0.5,
+  "stroll_speed_factor": 0.85
+ },
  "rotifood": {
   "_gdd": "22.9, 3.6.C",
   "prep_window_seconds": [60.0, 90.0],
@@ -149,10 +158,10 @@
  },
  "presentation": {
   "_gdd": "31.6, 31.7",
-  "idle_wipe_every_seconds": 15.0,
-  "staff_doze_after_seconds": 25.0,
-  "wipe_gesture_seconds": 2.4,
-  "thought_after_seconds": [20.0, 40.0, 60.0, 80.0],
+  "idle_wipe_every_seconds": 7.5,
+  "staff_doze_after_seconds": 12.5,
+  "wipe_gesture_seconds": 1.2,
+  "thought_after_seconds": [10.0, 20.0, 30.0, 40.0],
   "thought_show_seconds": 5.0
  },
  "supply": {

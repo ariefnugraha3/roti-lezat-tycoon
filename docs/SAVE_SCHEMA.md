@@ -69,10 +69,10 @@ the ones that validation checks.
 | `display_inventory` | object | Display iid → `{tier, slots: [{recipe, stacks: [BreadStack]}]}`. `BreadStack` follows GDD 19.1: `recipe_id`, `quantity`, `slot_id`, `source_job_id`, `produced_at_game_time`, `bake_quality`, `age_ingame_hours`, `base_expiry_hours`, `freshness_state`, `display_tier`. |
 | `production_jobs` | object | `jobs` (stage, timers, reserved ingredients, owner, mixer/oven iid, `burn_elapsed`, `protected`, `table_age_hours`, `table_seq`, …), `next_job_id`, `next_table_seq`, `completed_today`, `batches_burnt_today`. Dough and trays parked on the Holding Table are jobs in stage `DOUGH_ON_TABLE`/`TRAY_ON_TABLE` (GDD 5.1.3). |
 | `equipment_states` | object | `items: [{iid, def_id, floor_id, grid_x, grid_y, rotation_quarters, placed, job_id}]`, `next_iid`, `utility_today`. Positions are grid coordinates, never world transforms (GDD 55 appendix no. 9). |
-| `customers` | object | Active customers (state, patience, held lots, targets, `actor`) plus daily counters. |
+| `customers` | object | Active customers (state, patience, held lots, targets, `actor`) plus daily counters. Window shoppers (GDD 20.12) carry `window_shopper: true`, `look_cell`, `look_display` and `looks_left`; `next_window_num` and `window_shoppers_today` count them. Older saves without these fields load with no window shoppers. |
 | `queues` | object | Per lane: `reservations`, `line`, `service_occupant`; `highest_occupancy_today`. |
 | `cashier` | object | In-progress transactions per lane (`customer`, `duration`, `elapsed`, `manual`, `confirmed`). |
-| `demand` | object | Next arrival times, pending pool, remaining Day 1–3 manifest rows, daily counters. |
+| `demand` | object | Next arrival times, pending pool, remaining Day 1–3 manifest rows, daily counters. `scripted_window_shoppers` and `next_window_shopper_at` schedule window shoppers; when an older save lacks them, the rest of that day has none. |
 | `rotifood_orders` | object | Orders with items, locked unit prices, packed lots, `economy_committed`, driver phase and patience. |
 | `supply_orders` | object | Purchase orders (`items`, `total_cost`, `arrival_game_time`, `state`, `inventory_committed`), `delivery_fifo`, couriers, `market_unlocked`. |
 | `staff` | object | `contracts` (employed, on_duty, working, mode, batch), actors, tasks, `lane_assign`, `wage_liability_today`, `wage_lines_today`. |

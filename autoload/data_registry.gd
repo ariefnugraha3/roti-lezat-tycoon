@@ -20,6 +20,12 @@ const ACHIEVEMENT_CONDITIONS: Array[String] = [
 const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "no_burn_streak_days"]
 ## Gelembung pikiran pemain saat toko sepi, berurutan (GDD 31.7, 127.12).
 const THOUGHT_KEYS: Array[String] = ["thought_quiet_1", "thought_quiet_2", "thought_quiet_3", "thought_quiet_4"]
+## Celetukan pengunjung lihat-lihat saat ia batal membeli (GDD 20.12, 127.19).
+const WINDOW_SHOPPER_LINES: Array[String] = [
+	"window_shopper_line_1", "window_shopper_line_2", "window_shopper_line_3", "window_shopper_line_4",
+	"window_shopper_line_5", "window_shopper_line_6", "window_shopper_line_7", "window_shopper_line_8",
+	"window_shopper_line_9", "window_shopper_line_10",
+]
 const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
 	"locations.json", "weather.json", "marketing.json", "opening.json", "balance.json",
@@ -275,6 +281,17 @@ func batch_duration_factor(batch: int) -> float:
 ## Lama satu transaksi kasir, seluruhnya fase membungkus (GDD 21.4).
 func packing_seconds() -> float:
 	return balf("cashier.packing_seconds")
+
+
+## Detik-simulasi per detik nyata pada 1× (GDD 15.2, 99.1). Dengan 30 detik jam
+## per detik-simulasi, 2,0 berarti 1 menit in-game = 1 detik nyata.
+func sim_seconds_per_real_second() -> float:
+	return balf("clock.sim_seconds_per_real_second")
+
+
+## Lama nyata (pada 1×) dari durasi simulasi, untuk angka yang dibaca pemain.
+func real_seconds(sim_seconds: float) -> float:
+	return sim_seconds / sim_seconds_per_real_second()
 
 
 ## Detik diam sebelum karakter pemain tertidur (GDD 31.6): tepat saat gelembung
@@ -836,6 +853,10 @@ func _validate_weather_marketing() -> void:
 
 
 func _validate_opening() -> void:
+	var clock: Dictionary = _balance.get("clock", {})
+	var open_t: float = float(clock.get("open_seconds", 0.0))
+	var close_t: float = float(clock.get("close_seconds", 0.0))
+	var last_order: float = float((_balance.get("rotifood", {}) as Dictionary).get("last_order_time_seconds", close_t))
 	for d: Variant in _opening.get("days", []):
 		var day: Dictionary = d
 		var r: RecipeDefinition = recipe(StringName(str(day.get("recipe_id", ""))))
@@ -852,6 +873,22 @@ func _validate_opening() -> void:
 			total += int((o as Dictionary)["requested_quantity"])
 		if total != int(day.get("batches", 0)) * r.batch_yield:
 			_err("opening day %s demand %d != batches x yield" % [day.get("day"), total])
+		for ws: Variant in day.get("window_shoppers", []):
+			if archetype(StringName(str((ws as Dictionary)["customer_archetype"]))) == null:
+				_err("opening day %s unknown window shopper archetype" % day.get("day"))
+		# DemandManager memutar tiap daftar dari depan: jam harus urut dan di dalam
+		# jam buka; pesanan RotiFood tidak lewat batas pesanan terakhir (GDD 22.9).
+		for list_key: String in ["walk_ins", "rotifood_orders", "window_shoppers"]:
+			var time_key: String = "order_time" if list_key == "rotifood_orders" else "spawn_time"
+			var latest: float = last_order if list_key == "rotifood_orders" else close_t
+			var prev: float = -1.0
+			for row: Variant in day.get(list_key, []):
+				var t: float = float((row as Dictionary)[time_key])
+				if t < prev:
+					_err("opening day %s %s are not in time order" % [day.get("day"), list_key])
+				if t < open_t or t >= latest:
+					_err("opening day %s %s time %s outside %s..%s" % [day.get("day"), list_key, t, open_t, latest])
+				prev = t
 
 
 func _validate_meta() -> void:
@@ -917,6 +954,8 @@ func _validate_balance() -> void:
 			_err("production.batch_duration_factor x%s must be >= 1.0 (x1 exactly 1.0)" % key)
 	if float((_balance.get("cashier", {}) as Dictionary).get("packing_seconds", 0.0)) <= 0.0:
 		_err("cashier.packing_seconds must be positive")
+	if float((_balance.get("clock", {}) as Dictionary).get("sim_seconds_per_real_second", 0.0)) <= 0.0:
+		_err("clock.sim_seconds_per_real_second must be positive")
 	var p: Dictionary = _balance.get("presentation", {})
 	var wipe_every: float = float(p.get("idle_wipe_every_seconds", 0.0))
 	var wipe_len: float = float(p.get("wipe_gesture_seconds", 0.0))
@@ -944,6 +983,24 @@ func _validate_balance() -> void:
 		_err("rotifood.price_sensitivity must be zero or positive")
 	for k3: String in ["ui_equipment_tier_locked", "ui_recipe_price_locked"]:
 		_check_text(StringName(k3), "balance rules")
+	# Pengunjung lihat-lihat (GDD 20.12).
+	var ws: Dictionary = _balance.get("window_shopper", {})
+	var caps: Array = ws.get("max_inside_by_tier", [])
+	var look: Array = ws.get("look_seconds", [])
+	if float(ws.get("rate_ratio", -1.0)) < 0.0 or caps.size() != 5 or look.size() != 2:
+		_err("window_shopper needs rate_ratio >= 0, five max_inside_by_tier and a look_seconds pair")
+	else:
+		for cap: Variant in caps:
+			if int(cap) < 0:
+				_err("window_shopper.max_inside_by_tier must not be negative")
+		if float(look[0]) <= 0.0 or float(look[1]) < float(look[0]):
+			_err("window_shopper.look_seconds must be positive and rising")
+	var second: float = float(ws.get("second_look_chance", -1.0))
+	if second < 0.0 or second > 1.0 or float(ws.get("stroll_speed_factor", 0.0)) <= 0.0:
+		_err("window_shopper second_look_chance must be 0..1 and stroll_speed_factor positive")
+	_check_text(&"tut_window_shopper", "window_shopper")
+	for k5: String in WINDOW_SHOPPER_LINES:
+		_check_text(StringName(k5), "window_shopper")
 	# Baker berhenti memulai batch yang tidak selesai sebelum batas ini (GDD 23.3).
 	var clock: Dictionary = _balance.get("clock", {})
 	var finish_by: float = float((_balance.get("staff_ai", {}) as Dictionary).get("baker_finish_by_seconds", -1.0))

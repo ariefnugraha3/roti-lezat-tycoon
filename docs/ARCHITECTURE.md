@@ -109,6 +109,12 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   Stock is revalidated and taken on arrival. Substitution uses the GDD 84.3 score.
   The customer then queues. The service point frees the slot, and the cashier
   completes the transaction in the GDD 103.1 order.
+- **Window shoppers** (GDD 20.12) are `Customer` objects with `window_shopper = true`
+  and ids `w…`, which sort after the buyers' `c…`. `DemandManager` admits them from the
+  Day 1–3 manifest or a Poisson process drawn from `cosmetic_rng`, without a queue
+  reservation or a pending pool. `CustomerManager` walks them to a free spot in front of
+  or beside a display, lets them look, and walks them out. They step aside when a buyer
+  heads for their tile. Nothing a buyer does depends on them.
 - **RotiFood** (GDD 22): orders never reserve stock. `pack` takes every item or
   none. Handover credits the sale once (`economy_committed`).
 - **Supply** (GDD 5.2.3, 70): daytime purchases pay immediately and arrive 3 in-game
@@ -194,8 +200,8 @@ One sim-second is one real second at 1×. Each sim-second advances the in-game c
   customer's `receive` pose, so hands and bag share the `pack_phases` beats. It also tells each player/staff
   `ActorView` whether it is busy, and drives the player's `ThoughtBubble`
   (`ui/components/thought_bubble.gd`, screen space) from the real-time "open shop, no
-  customers" timer. `ActorView` owns the idle timer (a face wipe every 15 s, then dozing
-  with floating "Z": staff at 25 s, the player at `DataRegistry.player_doze_after_seconds`,
+  customers" timer. `ActorView` owns the idle timer (a face wipe every 7.5 s, then dozing
+  with floating "Z": staff at 12.5 s, the player at `DataRegistry.player_doze_after_seconds`,
   when the last thought ends); both timers use real seconds and stop while the game is
   paused. In Decoration Mode `WorldView` hides station markers, lifts the selected
   furniture (`set_lift`) and gives `top_of_iid` to the screen's floating action toolbar.
@@ -236,9 +242,10 @@ of starting a broken game.
   headless) renders every character variant from the front, 3/4, back, a face
   close-up with all five moods, and the gameplay camera to PNGs in `LINEUP_OUT`
   (default `user://lineup`), plus a triangle and draw-call report, and a poses page
-  (packing, face wipe, dozing, carried bread and bag, thought bubble).
+  (packing, face wipe, dozing, carried bread and bag, thought bubble) with a
+  window-shopper row (head sweep and hand-on-chin at several moments).
   `tools/world_snapshot.tscn` (also windowed) plays a real day with `SimBot` and
   captures the shop at the gameplay camera: the packing sequence at the counter
   (`pack_seq_*.png` plus a `pack_sequence.png` strip), packing in the overview and close-up,
-  the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
+  a window shopper looking at the display, the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
   and trays at different freshness (with and without its marker).

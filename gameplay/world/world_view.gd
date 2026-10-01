@@ -62,6 +62,8 @@ var view_floor_override: StringName = &""
 var _pack_bags: Dictionary = {}
 var _thought_layer: CanvasLayer = null
 var _thought_bubble: ThoughtBubble = null
+## customer_id -> gelembung celetukan pengunjung lihat-lihat (GDD 20.12).
+var _shopper_bubbles: Dictionary = {}
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
 ## Perabot yang sedang diangkat di Decoration Mode (-1 = tidak ada).
@@ -290,6 +292,7 @@ func _process(delta: float) -> void:
 		camera_rig.follow(camera_rig.follow_target, delta)
 	_sync_actors(delta)
 	_update_thoughts(delta)
+	_update_shopper_lines()
 	_marker_timer -= delta
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ
@@ -349,8 +352,11 @@ func _sync_actors(delta: float) -> void:
 			continue
 		_apply_customer_carry(v, c)
 		v.set_receive(_receive_amount(c))
-		var show_bar: bool = c.state != Customer.CELEBRATING and c.state != Customer.LEAVING and c.state != Customer.LEAVE_NO_STOCK
+		# Pengunjung lihat-lihat tidak pernah menunggu, jadi tanpa patience bar (GDD 20.12).
+		var show_bar: bool = not c.window_shopper and c.state != Customer.CELEBRATING and c.state != Customer.LEAVING \
+			and c.state != Customer.LEAVE_NO_STOCK
 		v.set_patience(c.patience_ratio(), show_bar, large)
+		v.set_look_around(c.window_shopper and c.state == Customer.BROWSING and not a2.moving)
 		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
 		var thought: String = ""
 		if c.drains_patience() and c.patience_ratio() < 0.3:
@@ -439,8 +445,12 @@ func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:
 
 ## Pembeli menenteng roti lepas dari rak ke kasir; saat fase membungkus roti itu
 ## sudah di meja; setelah membayar ia pulang membawa kantong kertas (GDD 2, 21.4).
-## LEAVING hanya dicapai lewat CELEBRATING, yaitu setelah membayar.
+## Bagi pembeli, LEAVING hanya dicapai lewat CELEBRATING, yaitu setelah membayar;
+## pengunjung lihat-lihat datang dan pulang dengan tangan kosong (GDD 20.12).
 func _apply_customer_carry(v: ActorView, c: Customer) -> void:
+	if c.window_shopper:
+		v.set_carry("")
+		return
 	if c.state == Customer.CELEBRATING or c.state == Customer.LEAVING:
 		v.set_carry("bag")
 		return
@@ -589,6 +599,49 @@ func _update_thoughts(delta: float) -> void:
 
 func quiet_seconds() -> float:
 	return _quiet_real
+
+
+## Celetukan pengunjung lihat-lihat (GDD 20.12, 127.19): satu kalimat lucu per
+## orang, tampil sejak tatapan terakhirnya sampai ia keluar pintu. Murni
+## presentasi; tidak menangkap ketukan dan disembunyikan di Decoration Mode atau
+## bila ia di lantai lain.
+func _update_shopper_lines() -> void:
+	var live: Dictionary = {}
+	if not decoration_mode:
+		for c: Customer in sim.customers.sorted():
+			if not shopper_speaking(c):
+				continue
+			var v: ActorView = views.get(c.id)
+			if v == null or not v.visible:
+				continue
+			live[c.id] = true
+			var b: ThoughtBubble = _shopper_bubbles.get(c.id)
+			if b == null:
+				b = ThoughtBubble.new()
+				b.name = "ShopperLine"
+				_thought_layer.add_child(b)
+				_shopper_bubbles[c.id] = b
+			b.show_key(shopper_line_key(c))
+			b.point_at(camera_rig.world_to_screen(v.global_position + Vector3(0.0, v.head_top() + THOUGHT_ANCHOR_GAP, 0.0)))
+	for id: Variant in _shopper_bubbles.keys():
+		if not live.has(id):
+			(_shopper_bubbles[id] as ThoughtBubble).queue_free()
+			_shopper_bubbles.erase(id)
+
+
+## Ia berceletuk pada tatapan terakhirnya dan selama berjalan pulang.
+static func shopper_speaking(c: Customer) -> bool:
+	return c.window_shopper and ((c.state == Customer.BROWSING and c.looks_left <= 1) or c.state == Customer.LEAVING)
+
+
+## Kalimatnya diturunkan dari visual_seed (kosmetik), jadi tetap sama setelah load.
+static func shopper_line_key(c: Customer) -> String:
+	var lines: Array[String] = DataRegistry.WINDOW_SHOPPER_LINES
+	return lines[posmod(c.actor.visual_seed, lines.size())]
+
+
+func shopper_bubble(customer_id: StringName) -> ThoughtBubble:
+	return _shopper_bubbles.get(customer_id)
 
 
 ## Toko buka tanpa pembeli di dalam dan tanpa pesanan RotiFood aktif (GDD 31.7).

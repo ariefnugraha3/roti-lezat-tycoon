@@ -142,21 +142,25 @@ func is_running() -> bool:
 	return time.is_running_phase()
 
 
-## Dipanggil GameRoot setiap frame dengan delta nyata.
+## Dipanggil GameRoot setiap frame dengan delta nyata. Satu detik nyata pada 1×
+## = `clock.sim_seconds_per_real_second` detik-simulasi (GDD 15.2, 99.1); batas
+## tick per frame ikut diskalakan supaya 3× tetap tidak kehilangan waktu.
 func advance(real_delta: float) -> void:
 	if PauseManager.is_paused() or not is_running():
 		_accumulator = 0.0
 		return
-	_accumulator += minf(real_delta, 0.25) * float(time.speed)
+	var scale: float = DataRegistry.sim_seconds_per_real_second()
+	var max_ticks: int = int(ceil(float(MAX_TICKS_PER_FRAME) * scale))
+	_accumulator += minf(real_delta, 0.25) * float(time.speed) * scale
 	var ticks: int = 0
-	while _accumulator >= tick_seconds and ticks < MAX_TICKS_PER_FRAME:
+	while _accumulator >= tick_seconds and ticks < max_ticks:
 		_accumulator -= tick_seconds
 		step(tick_seconds)
 		ticks += 1
 		if not is_running():
 			_accumulator = 0.0
 			break
-	if ticks >= MAX_TICKS_PER_FRAME:
+	if ticks >= max_ticks:
 		_accumulator = 0.0
 
 

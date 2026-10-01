@@ -48,6 +48,8 @@ var _pack_p: float = -1.0
 var _pack_n: int = 3
 ## Pembeli mengulurkan tangan menerima kantong (0..1, GDD 21.4).
 var _receive_k: float = 0.0
+## Pengunjung lihat-lihat sedang mengamati rak (GDD 20.12).
+var _looking: bool = false
 ## Tidur ditahan sementara (pemain: rangkaian pikiran toko sepi belum selesai, GDD 31.6).
 var _doze_blocked: bool = false
 ## Ambang tidur aktor ini (detik nyata); < 0 = ambang staf.
@@ -80,6 +82,7 @@ func bind(id: StringName, key: String, spec: Dictionary) -> void:
 func reset_for_pool() -> void:
 	actor_id = &""
 	visible = false
+	set_look_around(false)
 	_set_carry("")
 	if _patience != null:
 		_patience.visible = false
@@ -112,6 +115,8 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 		ProceduralAnimationSystem.walk(model, _t, a.speed_mps * 4.5)
 	else:
 		ProceduralAnimationSystem.idle_bob(model, _t)
+		if _looking:
+			ProceduralAnimationSystem.look_around(model, _t)
 		if _receive_k > 0.0:
 			ProceduralAnimationSystem.receive(model, _t, _receive_k)
 		match _gesture:
@@ -172,6 +177,21 @@ func set_receive(k: float) -> void:
 	if was and _receive_k <= 0.0 and model != null:
 		ProceduralAnimationSystem.end_pose(model)
 		_apply_carry_pose()
+
+
+## Pengunjung lihat-lihat berdiri mengamati rak (GDD 20.12). Saat berhenti,
+## kepala, badan, dan lengan kembali ke pose istirahat.
+func set_look_around(on: bool) -> void:
+	if on == _looking:
+		return
+	_looking = on
+	if not on and model != null and is_instance_valid(model):
+		ProceduralAnimationSystem.end_pose(model)
+		_apply_carry_pose()
+
+
+func is_looking_around() -> bool:
+	return _looking
 
 
 ## Progres fase membungkus dari kasir ini, supaya tangannya sinkron dengan kantong.

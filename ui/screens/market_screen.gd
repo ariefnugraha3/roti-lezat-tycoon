@@ -184,7 +184,7 @@ func _equipment_card(def: EquipmentDefinition, open: bool) -> Control:
 	if def.category_id == &"display":
 		lbl(info, Tx.t("ui_equipment_capacity", {"count": def.capacity, "slots": def.slot_count}), 15)
 	else:
-		lbl(info, Tx.t("ui_equipment_reference", {"seconds": str(snappedf(def.reference_seconds, 0.01))}), 15)
+		lbl(info, Tx.t("ui_equipment_reference", {"seconds": str(snappedf(DataRegistry.real_seconds(def.reference_seconds), 0.01))}), 15)
 	lbl(info, Tx.t("ui_equipment_utility", {"cost": Tx.kr(def.utility_cost_kr_per_ingame_hour)}), 15)
 	lbl(info, Tx.t("ui_equipment_footprint", {"w": def.footprint_tiles.x, "h": def.footprint_tiles.y}), 15)
 	var recipes: PackedStringArray = PackedStringArray()

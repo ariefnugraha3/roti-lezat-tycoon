@@ -262,11 +262,17 @@ func _placement() -> void:
 
 func _speed() -> void:
 	var s: SimulationRoot = new_sim(81)
+	# 1×: 1 detik nyata = 1 menit in-game (keputusan maintainer 2026-10-01, GDD 15.2).
+	var per_real: float = DataRegistry.sim_seconds_per_real_second()
+	var c0: float = s.time.time_seconds
+	for i0 in 30:
+		s.advance(1.0 / 30.0)
+	near(s.time.time_seconds - c0, 60.0, s.time.ratio * s.tick_seconds + 0.001, "1x: 1 real second = 1 in-game minute")
 	s.time.set_speed(3)
 	var t0: float = s.time.sim_seconds
 	for i in 30:
 		s.advance(1.0 / 30.0)
-	near(s.time.sim_seconds - t0, 3.0, 0.051, "3x speed: 1 real second = 3 simulation seconds")
+	near(s.time.sim_seconds - t0, 3.0 * per_real, 0.051, "3x speed: 1 real second = 3 in-game minutes")
 	# Menu manajemen menghentikan timer sepenuhnya.
 	PauseManager.push(&"modal_market")
 	var t1: float = s.time.sim_seconds

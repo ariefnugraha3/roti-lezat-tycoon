@@ -7,11 +7,11 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "ACC_21_PACKING", "name": "every checkout is a 3 s packing phase from its first moment, then payment, then the bag leaves with the customer", "fn": _packing},
-		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "the player falls asleep when the last quiet-shop thought ends (85 s), never under a bubble", "fn": _doze_after_thoughts},
+		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "the player falls asleep when the last quiet-shop thought ends (45 s), never under a bubble", "fn": _doze_after_thoughts},
 		{"id": "ACC_21_PACK_CHOREOGRAPHY", "name": "packing reads as open bag, bread hops in one by one, ribbon, offer; cashier and customer hands follow", "fn": _pack_choreography},
 		{"id": "ACC_18_BATCH_DURATION", "name": "x3/x5 batches multiply ingredients and yield but only stretch durations by 20%/40%", "fn": _batch_duration},
-		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face every 15 s; staff doze at 25 s, the player at 85 s", "fn": _idle_gestures},
-		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear every 20 s only while the open shop has no customers", "fn": _thoughts},
+		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face every 7.5 s; staff doze at 12.5 s, the player at 45 s", "fn": _idle_gestures},
+		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear every 10 s only while the open shop has no customers", "fn": _thoughts},
 	]
 
 
@@ -99,9 +99,9 @@ func _idle_gestures() -> void:
 	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
 	var staff_doze: float = DataRegistry.balf("presentation.staff_doze_after_seconds")
 	var player_doze: float = DataRegistry.player_doze_after_seconds()
-	near(every, 15.0, 0.0001, "a face wipe every 15 s (GDD 31.6)")
-	near(staff_doze, 25.0, 0.0001, "staff doze after 25 s (GDD 31.6)")
-	near(player_doze, 85.0, 0.0001, "the player dozes when the last thought ends: 80 s + 5 s")
+	near(every, 7.5, 0.0001, "a face wipe every 7.5 s (GDD 31.6)")
+	near(staff_doze, 12.5, 0.0001, "staff doze after 12.5 s (GDD 31.6)")
+	near(player_doze, 45.0, 0.0001, "the player dozes when the last thought ends: 40 s + 5 s")
 	# Staf: ambang tidur bawaan.
 	var v := ActorView.new()
 	runner.add_child(v)
@@ -110,22 +110,22 @@ func _idle_gestures() -> void:
 	v.set_busy(false)
 	near(v.doze_after(), staff_doze, 0.0001, "views use the staff threshold unless told otherwise")
 	var a := SimActor.new()
-	_run_view(v, a, 14.8)
-	eq(v.gesture(), ActorView.GESTURE_NONE, "nothing special before 15 s")
+	_run_view(v, a, every - 0.2)
+	eq(v.gesture(), ActorView.GESTURE_NONE, "nothing special before 7.5 s")
 	_run_view(v, a, 0.4)
-	eq(v.gesture(), ActorView.GESTURE_WIPE, "wipes the face at 15 s")
+	eq(v.gesture(), ActorView.GESTURE_WIPE, "wipes the face at 7.5 s")
 	var cloth: Node = v.model.find_child("WipeCloth", true, false)
 	check(cloth != null and (cloth as Node3D).visible, "a cloth appears in the right hand")
 	eq(v.model.get_meta("mood"), "lega", "relieved face while wiping")
 	var arm: Node3D = CharacterFactory.part(v.model, "ArmR")
-	_run_view(v, a, 0.8)
+	_run_view(v, a, 0.3)
 	check(arm.rotation.z > 1.5, "right arm is raised to the face")
 	_run_view(v, a, 2.0)
 	eq(v.gesture(), ActorView.GESTURE_NONE, "wipe ends after the gesture")
 	check(not (cloth as Node3D).visible, "cloth is put away")
 	eq(v.model.get_meta("mood"), "senang", "normal face again")
 	_run_view(v, a, staff_doze - v.idle_seconds() + 0.2)
-	eq(v.gesture(), ActorView.GESTURE_DOZE, "staff doze at 25 s")
+	eq(v.gesture(), ActorView.GESTURE_DOZE, "staff doze at 12.5 s")
 	eq(v.model.get_meta("mood"), "ngantuk", "sleepy face")
 	var head: Node3D = CharacterFactory.part(v.model, "Head")
 	_run_view(v, a, 2.0)
@@ -156,7 +156,7 @@ func _idle_gestures() -> void:
 	v.set_action(&"")
 	_run_view(v, a, 0.1)
 	check(arm.rotation.x < 0.5, "arms return after packing")
-	# Pemain: lap wajah di detik 15, 30, 45, 60, 75, lalu tidur di detik 85.
+	# Pemain: lap wajah di detik 7,5, 15, 22,5, 30, 37,5, lalu tidur di detik 45.
 	var pv := ActorView.new()
 	runner.add_child(pv)
 	pv.bind(&"player", "player|idle_test", CharacterFactory.spec_for_player("wanita"))
@@ -168,7 +168,7 @@ func _idle_gestures() -> void:
 	var marks_ok: bool = true
 	var last: int = ActorView.GESTURE_NONE
 	var first_doze: float = -1.0
-	while pv.idle_seconds() < 90.0:
+	while pv.idle_seconds() < 50.0:
 		_run_view(pv, pa, 0.1)
 		var g: int = pv.gesture()
 		if g == ActorView.GESTURE_WIPE and last != ActorView.GESTURE_WIPE:
@@ -178,9 +178,9 @@ func _idle_gestures() -> void:
 		if g == ActorView.GESTURE_DOZE and first_doze < 0.0:
 			first_doze = pv.idle_seconds()
 		last = g
-	eq(wipes, 5, "the player wipes five times before sleeping (15/30/45/60/75 s)")
-	check(marks_ok, "every wipe starts on a 15 s mark")
-	check(first_doze >= player_doze - 0.001 and first_doze < player_doze + 0.25, "the player falls asleep at 85 s (%.2f)" % first_doze)
+	eq(wipes, 5, "the player wipes five times before sleeping (7.5/15/22.5/30/37.5 s)")
+	check(marks_ok, "every wipe starts on a 7.5 s mark")
+	check(first_doze >= player_doze - 0.001 and first_doze < player_doze + 0.25, "the player falls asleep at 45 s (%.2f)" % first_doze)
 	# Tidur ditahan (rangkaian pikiran toko sepi belum selesai): lap tetap berulang.
 	pv.set_doze_blocked(true)
 	var wiped_while_blocked: bool = false
@@ -208,15 +208,15 @@ func _idle_gestures() -> void:
 
 func _thoughts() -> void:
 	PauseManager.clear_all()
-	eq(ThoughtBubble.key_for(19.9), "", "no thought before 20 s")
-	eq(ThoughtBubble.key_for(20.0), "thought_quiet_1", "20 s: first thought")
-	eq(ThoughtBubble.key_for(24.9), "thought_quiet_1", "each thought stays for 5 s")
-	eq(ThoughtBubble.key_for(25.1), "", "then hides until the next one")
-	eq(ThoughtBubble.key_for(39.9), "", "nothing between thoughts")
-	eq(ThoughtBubble.key_for(40.5), "thought_quiet_2", "40 s: second thought")
-	eq(ThoughtBubble.key_for(61.0), "thought_quiet_3", "60 s: third thought")
-	eq(ThoughtBubble.key_for(84.0), "thought_quiet_4", "80 s: fourth thought")
-	eq(ThoughtBubble.key_for(85.5), "", "no more thoughts after the fourth")
+	eq(ThoughtBubble.key_for(9.9), "", "no thought before 10 s")
+	eq(ThoughtBubble.key_for(10.0), "thought_quiet_1", "10 s: first thought")
+	eq(ThoughtBubble.key_for(14.9), "thought_quiet_1", "each thought stays for 5 s")
+	eq(ThoughtBubble.key_for(15.1), "", "then hides until the next one")
+	eq(ThoughtBubble.key_for(19.9), "", "nothing between thoughts")
+	eq(ThoughtBubble.key_for(20.5), "thought_quiet_2", "20 s: second thought")
+	eq(ThoughtBubble.key_for(31.0), "thought_quiet_3", "30 s: third thought")
+	eq(ThoughtBubble.key_for(44.0), "thought_quiet_4", "40 s: fourth thought")
+	eq(ThoughtBubble.key_for(45.5), "", "no more thoughts after the fourth")
 	for k: String in DataRegistry.THOUGHT_KEYS:
 		check(DataRegistry.has_text(k), "%s has English text" % k)
 	# Integrasi WorldView: toko buka, tidak ada pelanggan sama sekali.
@@ -228,8 +228,8 @@ func _thoughts() -> void:
 	s.time.phase = TimeManager.OPEN
 	s.customers.customers.clear()
 	var bubble: ThoughtBubble = world.thought_bubble()
-	world._update_thoughts(20.5)
-	check(bubble.is_showing(), "bubble shows after 20 s with no customers")
+	world._update_thoughts(10.5)
+	check(bubble.is_showing(), "bubble shows after 10 s with no customers")
 	eq(bubble.current_key(), "thought_quiet_1", "first thought shown")
 	eq(bubble.text().replace("\n", " "), Tx.t("thought_quiet_1"), "English text from the catalog (wrapped into lines)")
 	# Ada pelanggan: gelembung langsung hilang dan hitungan diulang.
@@ -340,7 +340,7 @@ func _doze_after_thoughts() -> void:
 	var doze_at: float = DataRegistry.player_doze_after_seconds()
 	near(doze_at, float(after[after.size() - 1]) + DataRegistry.balf("presentation.thought_show_seconds"), 0.0001,
 		"sleep comes exactly when the last thought bubble ends")
-	near(doze_at, 85.0, 0.0001, "the last thought (80 s) ends at 85 s")
+	near(doze_at, 45.0, 0.0001, "the last thought (40 s) ends at 45 s")
 	var s: SimulationRoot = new_sim(718)
 	s.tutorial.skip()
 	var world := WorldView.new()
@@ -355,7 +355,7 @@ func _doze_after_thoughts() -> void:
 		world._process(0.25)
 		if pv.gesture() == ActorView.GESTURE_DOZE and prep_doze < 0.0:
 			prep_doze = pv.idle_seconds()
-	check(prep_doze >= doze_at - 0.001 and prep_doze < doze_at + 0.5, "idle during preparation: asleep at 85 s too (got %.2f)" % prep_doze)
+	check(prep_doze >= doze_at - 0.001 and prep_doze < doze_at + 0.5, "idle during preparation: asleep at 45 s too (got %.2f)" % prep_doze)
 	eq(pv.gesture(), ActorView.GESTURE_DOZE, "stays asleep")
 	# Toko buka dan sepi: terbangun, berpikir, baru tertidur di detik 85.
 	s.time.phase = TimeManager.OPEN
@@ -377,7 +377,7 @@ func _doze_after_thoughts() -> void:
 			thoughts_seen += 1
 	check(not overlap, "never asleep while a thought bubble shows")
 	eq(thoughts_seen, 4, "all four thoughts play before sleep")
-	check(first_doze >= doze_at - 0.001 and first_doze < doze_at + 0.5, "falls asleep at 85 s of quiet (got %.2f)" % first_doze)
+	check(first_doze >= doze_at - 0.001 and first_doze < doze_at + 0.5, "falls asleep at 45 s of quiet (got %.2f)" % first_doze)
 	eq(pv.gesture(), ActorView.GESTURE_DOZE, "stays asleep afterwards")
 	world.queue_free()
 	await runner.get_tree().process_frame

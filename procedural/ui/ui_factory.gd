@@ -842,7 +842,7 @@ static func polaroid(staff_id: String) -> Control:
 		speed_text = Tx.t("ui_staff_speed", {"speed": "%.2f" % def.work_speed_multiplier})
 	else:
 		# Semua transaksi sama lamanya, siapa pun kasirnya (GDD 21.4).
-		speed_text = Tx.t("ui_staff_service", {"seconds": "%.1f" % DataRegistry.packing_seconds()})
+		speed_text = Tx.t("ui_staff_service", {"seconds": "%.1f" % DataRegistry.real_seconds(DataRegistry.packing_seconds())})
 	body.add_child(_stat_row("bolt", Palette.WARMER_LAMP, speed_text))
 
 	if def.is_baker():
@@ -1910,14 +1910,19 @@ class DashedSeparator extends Control:
 			x += step
 
 
-## Potret chibi 2D untuk kartu polaroid staf (GDD 3.4, 3.5, 7).
-## Seluruh bentuk digambar dari lingkaran + poligon membulat — tanpa gambar,
-## tanpa SubViewport 3D.
+## Potret chibi 2D untuk kartu polaroid staf dan layar pilih karakter (GDD 3.4,
+## 3.5, 7, 12.3). Gaya flat sederhana: bidang warna polos tanpa garis tepi,
+## gradasi, atau kilau, dari elips dan poligon membulat di `_draw()` (tanpa
+## gambar dan tanpa SubViewport 3D). Semua ukuran diturunkan dari `hr`
+## (jari-jari kepala), jadi tetap rapi di ukuran berapa pun.
 class ChibiPortrait extends Control:
+
+	const EYE: Color = Color(0.24, 0.13, 0.07)
 
 	var skin: Color = Color(0.949, 0.788, 0.627)
 	var hair: Color = Color(0.169, 0.129, 0.094)
 	var apron: Color = Color(1.0, 0.984, 0.961)
+	var shirt: Color = Palette.FLOUR_WHITE
 	var backdrop: Color = Color(0.976, 0.941, 0.878)
 	var hair_style: String = "pendek"
 	var hat: String = "none"
@@ -1928,6 +1933,7 @@ class ChibiPortrait extends Control:
 		custom_minimum_size = Vector2(168.0, 156.0)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		clip_contents = true
 
 	## Isi parameter visual dari StaffDefinition.visual (warna "#rrggbb").
 	func configure(visual: Dictionary, role: String, tier: int) -> void:
@@ -1943,6 +1949,8 @@ class ChibiPortrait extends Control:
 		hat = String(visual.get("hat", "none"))
 		chubby = clampf(float(visual.get("chubby", 0.0)), 0.0, 1.0)
 		backdrop = Palette.apron_for_tier(role, tier).lerp(Palette.VANILLA_CREAM, 0.72)
+		# Celemek terang di atas kemeja krem hangat; celemek berwarna di atas kemeja putih.
+		shirt = Color(0.93, 0.86, 0.76) if apron.get_luminance() > 0.85 else Palette.FLOUR_WHITE
 		queue_redraw()
 
 	static func _col(v: Variant, fallback: Color) -> Color:
@@ -1956,233 +1964,285 @@ class ChibiPortrait extends Control:
 		var r: Rect2 = Rect2(Vector2.ZERO, size)
 		if r.size.x < 24.0 or r.size.y < 24.0:
 			return
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(r, 10.0), backdrop)
-
 		var s: float = minf(r.size.x, r.size.y)
-		var hr: float = s * 0.23
-		var c: Vector2 = Vector2(r.size.x * 0.5, r.size.y * 0.55)
-		var body_top: float = c.y + hr * 0.68
-		var body_w: float = s * (0.66 + chubby * 0.16)
-		var body_h: float = maxf(r.size.y - body_top - s * 0.02, hr * 0.7)
-
+		var hr: float = s * 0.25
+		var c: Vector2 = Vector2(r.size.x * 0.5, r.size.y * 0.52)
+		draw_colored_polygon(ProceduralUIFactory.rounded_points(r, 10.0), backdrop)
+		_disc(c + Vector2(0.0, -hr * 0.05), hr * 1.50, backdrop.lightened(0.18))
+		var body_top: float = c.y + hr * 0.78
 		_hair_back(c, hr)
-
-		# Badan + celemek (GDD 3.4: warna celemek mencerminkan tier keahlian).
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(
-			Rect2(c.x - body_w * 0.5, body_top, body_w, body_h), body_w * 0.30), apron)
-		# Kerah V memperlihatkan kulit leher.
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(c.x - hr * 0.42, body_top - hr * 0.08),
-			Vector2(c.x + hr * 0.42, body_top - hr * 0.08),
-			Vector2(c.x, body_top + hr * 0.52),
-		]), skin)
-
-		# Telinga lalu kepala bulat khas chibi.
-		draw_circle(Vector2(c.x - hr * 0.98, c.y + hr * 0.10), hr * 0.20, skin)
-		draw_circle(Vector2(c.x + hr * 0.98, c.y + hr * 0.10), hr * 0.20, skin)
-		draw_circle(c, hr, skin)
-
-		_hair_front(c, hr)
+		_body(c, hr, body_top, r.size.y)
+		_head(c, hr)
 		_face(c, hr)
+		_hair_front(c, hr)
 		_accessories(c, hr, body_top)
 		_hat(c, hr)
 
-	# --- rambut -------------------------------------------------------------
+	# --- alat gambar ----------------------------------------------------------
+
+	func _disc(p: Vector2, rad: float, col: Color) -> void:
+		draw_circle(p, rad, col, true, -1.0, true)
+
+	func _oval(p: Vector2, rx: float, ry: float, col: Color) -> void:
+		draw_colored_polygon(_ell(p, rx, ry), col)
+
+	## Titik-titik elips: penuh bila a1 - a0 = TAU, sebagian ditutup tali busur.
+	static func _ell(p: Vector2, rx: float, ry: float, a0: float = 0.0, a1: float = TAU, n: int = 28) -> PackedVector2Array:
+		var pts: PackedVector2Array = PackedVector2Array()
+		var full: bool = absf(a1 - a0 - TAU) < 0.001
+		var count: int = n if full else n + 1
+		for i in count:
+			var a: float = a0 + (a1 - a0) * float(i) / float(n)
+			pts.append(p + Vector2(cos(a) * rx, sin(a) * ry))
+		return pts
+
+	func _box(rect: Rect2, radius: float, col: Color) -> void:
+		draw_colored_polygon(ProceduralUIFactory.rounded_points(rect, radius), col)
+
+	func _head_rx(hr: float) -> float:
+		return hr * (1.0 + chubby * 0.08)
+
+	# --- badan ----------------------------------------------------------------
+
+	func _body(c: Vector2, hr: float, body_top: float, bottom: float) -> void:
+		var bw: float = hr * (2.5 + chubby * 0.4)
+		var deep: float = bottom - body_top + hr * 2.0
+		var shade: Color = skin.darkened(0.08)
+		_box(Rect2(c.x - hr * 0.21, c.y + hr * 0.55, hr * 0.42, body_top - c.y - hr * 0.40), hr * 0.06, shade)
+		_box(Rect2(c.x - bw * 0.5, body_top, bw, deep), bw * 0.36, shirt)
+		# Leher baju berbentuk V.
+		draw_colored_polygon(PackedVector2Array([Vector2(c.x - hr * 0.30, body_top - hr * 0.01),
+			Vector2(c.x + hr * 0.30, body_top - hr * 0.01), Vector2(c.x, body_top + hr * 0.30)]), shade)
+		# Celemek polos dengan tali leher.
+		var bib: Rect2 = Rect2(c.x - bw * 0.28, body_top + hr * 0.30, bw * 0.56, deep)
+		draw_line(Vector2(c.x - bw * 0.24, bib.position.y + hr * 0.04), Vector2(c.x - hr * 0.32, body_top + hr * 0.02), apron, hr * 0.11, true)
+		draw_line(Vector2(c.x + bw * 0.24, bib.position.y + hr * 0.04), Vector2(c.x + hr * 0.32, body_top + hr * 0.02), apron, hr * 0.11, true)
+		_box(bib, hr * 0.16, apron)
+
+	# --- kepala & wajah -------------------------------------------------------
+
+	func _head(c: Vector2, hr: float) -> void:
+		var rx: float = _head_rx(hr)
+		_disc(Vector2(c.x - rx * 0.97, c.y + hr * 0.10), hr * 0.20, skin)
+		_disc(Vector2(c.x + rx * 0.97, c.y + hr * 0.10), hr * 0.20, skin)
+		_oval(c, rx, hr * 0.95, skin)
+
+	func _face(c: Vector2, hr: float) -> void:
+		var blush: Color = Color(Palette.ROSY_CHEEK, 0.5)
+		for sx: float in [-1.0, 1.0]:
+			_oval(c + Vector2(sx * hr * 0.60, hr * 0.33), hr * 0.17, hr * 0.10, blush)
+			var e: Vector2 = c + Vector2(sx * hr * 0.36, hr * 0.06)
+			_oval(e, hr * 0.11, hr * 0.15, EYE)
+			_disc(e + Vector2(-hr * 0.035, -hr * 0.05), hr * 0.045, Palette.FLOUR_WHITE)
+		if hair_style == "jenggot":
+			var rx: float = _head_rx(hr)
+			var band: PackedVector2Array = _ell(c + Vector2(0.0, hr * 0.02), rx * 0.99, hr * 0.97, PI * 0.12, PI * 0.88, 18)
+			var inner: PackedVector2Array = _ell(c + Vector2(0.0, -hr * 0.02), rx * 0.88, hr * 0.80, PI * 0.12, PI * 0.88, 18)
+			inner.reverse()
+			band.append_array(inner)
+			draw_colored_polygon(band, hair)
+		draw_arc(c + Vector2(0.0, hr * 0.24), hr * 0.16, PI * 0.2, PI * 0.8, 12, EYE, hr * 0.055, true)
+
+	# --- rambut ---------------------------------------------------------------
 
 	func _hair_back(c: Vector2, hr: float) -> void:
+		var rx: float = _head_rx(hr)
+		var back: Color = hair.darkened(0.06)
 		match hair_style:
 			"kuncir_ganda":
-				draw_circle(c + Vector2(-hr * 1.24, -hr * 0.05), hr * 0.36, hair)
-				draw_circle(c + Vector2(hr * 1.24, -hr * 0.05), hr * 0.36, hair)
-				draw_circle(c + Vector2(-hr * 1.32, hr * 0.42), hr * 0.26, hair)
-				draw_circle(c + Vector2(hr * 1.32, hr * 0.42), hr * 0.26, hair)
+				for sx: float in [-1.0, 1.0]:
+					_oval(c + Vector2(sx * rx * 1.26, hr * 0.26), hr * 0.32, hr * 0.52, hair)
+					_disc(Vector2(c.x + sx * rx * 1.14, c.y - hr * 0.16), hr * 0.10, Palette.STRAWBERRY)
 			"panjang_kepang":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 1.06, c.y - hr * 0.60, hr * 2.12, hr * 1.90), hr * 0.52), hair)
-				for i in 3:
-					draw_circle(c + Vector2(hr * 0.92, hr * (1.10 + 0.40 * float(i))), hr * 0.20, hair)
+				_box(Rect2(c.x - rx * 1.12, c.y - hr * 0.70, rx * 2.24, hr * 2.60), rx * 0.62, back)
 			"bob":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 1.12, c.y - hr * 0.90, hr * 2.24, hr * 1.85), hr * 0.62), hair)
+				_box(Rect2(c.x - rx * 1.14, c.y - hr * 0.90, rx * 2.28, hr * 1.74), rx * 0.62, back)
 			"ikal", "ombre":
-				draw_circle(c + Vector2(-hr * 1.02, hr * 0.26), hr * 0.42, hair)
-				draw_circle(c + Vector2(hr * 1.02, hr * 0.26), hr * 0.42, hair)
-				draw_circle(c + Vector2(-hr * 0.88, hr * 0.76), hr * 0.32, hair)
-				draw_circle(c + Vector2(hr * 0.88, hr * 0.76), hr * 0.32, hair)
+				for sx2: float in [-1.0, 1.0]:
+					_disc(Vector2(c.x + sx2 * rx * 1.06, c.y - hr * 0.28), hr * 0.36, back)
+					_disc(Vector2(c.x + sx2 * rx * 1.10, c.y + hr * 0.14), hr * 0.38, back)
+					var low: Color = hair.lerp(Palette.PASTEL_STRAWBERRY, 0.65) if hair_style == "ombre" else back
+					_disc(Vector2(c.x + sx2 * rx * 0.98, c.y + hr * 0.60), hr * 0.32, low)
 			"sanggul":
-				draw_circle(c + Vector2(0.0, -hr * 1.12), hr * 0.34, hair)
+				_disc(Vector2(c.x, c.y - hr * 1.10), hr * 0.38, hair)
 			_:
 				pass
 
 	func _hair_front(c: Vector2, hr: float) -> void:
-		if hair_style == "cepak":
-			_hair_cap(c, hr * 1.01, -0.32)
-		else:
-			_hair_cap(c, hr * 1.05, -0.06)
+		var rx: float = _head_rx(hr)
+		var base: float = -0.38
+		var bumps: int = 3
+		var amp: float = 0.10
+		var tilt: float = 0.0
+		var locks: float = 0.38
 		match hair_style:
+			"cepak", "spike":
+				base = -0.58
+				bumps = 4
+				amp = 0.04
+				locks = 0.0
 			"belah_samping":
-				draw_colored_polygon(PackedVector2Array([
-					Vector2(c.x - hr * 1.02, c.y - hr * 0.30),
-					Vector2(c.x - hr * 0.10, c.y - hr * 1.00),
-					Vector2(c.x + hr * 0.74, c.y - hr * 0.32),
-					Vector2(c.x - hr * 0.24, c.y - hr * 0.10),
-				]), hair)
-			"spike":
-				for i in 5:
-					var t: float = -0.70 + 0.35 * float(i)
-					draw_colored_polygon(PackedVector2Array([
-						Vector2(c.x + hr * (t - 0.17), c.y - hr * 0.84),
-						Vector2(c.x + hr * t, c.y - hr * 1.34),
-						Vector2(c.x + hr * (t + 0.17), c.y - hr * 0.84),
-					]), hair)
-			"ombre":
-				var tip: Color = hair.lerp(Palette.PASTEL_STRAWBERRY, 0.62)
-				draw_circle(c + Vector2(-hr * 1.00, hr * 0.62), hr * 0.30, tip)
-				draw_circle(c + Vector2(hr * 1.00, hr * 0.62), hr * 0.30, tip)
-			"jenggot":
-				draw_arc(c + Vector2(0.0, hr * 0.08), hr * 0.90, PI * 0.16, PI * 0.84,
-					18, hair, hr * 0.30, true)
+				base = -0.44
+				bumps = 1
+				amp = 0.05
+				tilt = 0.26
+			"bob":
+				base = -0.30
+				bumps = 0
+				locks = 0.70
+			"panjang_kepang", "ikal", "ombre":
+				bumps = 2
+				locks = 0.60
 			"sanggul":
-				draw_circle(c + Vector2(0.0, -hr * 1.08), hr * 0.30, hair)
-			_:
-				pass
+				bumps = 2
+				amp = 0.08
+			"jenggot":
+				locks = 0.28
+		draw_colored_polygon(_cap(c, hr, rx, base, bumps, amp, tilt), hair)
+		if locks > 0.0:
+			for sx: float in [-1.0, 1.0]:
+				var top: Vector2 = c + Vector2(sx * rx * 0.90, 0.0)
+				draw_colored_polygon(PackedVector2Array([
+					top + Vector2(-hr * 0.19, -hr * 0.30), top + Vector2(hr * 0.19, -hr * 0.30),
+					top + Vector2(hr * 0.17, hr * locks * 0.62), top + Vector2(0.0, hr * locks),
+					top + Vector2(-hr * 0.17, hr * locks * 0.62),
+				]), hair)
+		if hair_style == "spike":
+			for i in 5:
+				var t: float = -0.60 + 0.30 * float(i)
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(c.x + rx * (t - 0.15), c.y - hr * 0.84), Vector2(c.x + rx * (t + 0.02), c.y - hr * 1.32),
+					Vector2(c.x + rx * (t + 0.15), c.y - hr * 0.84),
+				]), hair)
+		if hair_style == "panjang_kepang":
+			var b: Vector2 = c + Vector2(rx * 0.92, hr * 0.62)
+			for k in 3:
+				_oval(b + Vector2(0.0, hr * 0.30 * float(k)), hr * 0.16, hr * 0.18, hair)
+			_disc(b + Vector2(0.0, hr * 0.80), hr * 0.08, Palette.STRAWBERRY)
 
-	## Tudung rambut: busur atas kepala ditutup garis lurus di bawahnya.
-	func _hair_cap(c: Vector2, rad: float, cut: float) -> void:
+	## Tudung rambut: busur atas kepala, lalu tepi poni dari pelipis kanan ke kiri
+	## yang turun mengikuti dahi. `bumps` lekukan lembut sedalam `amp`; `tilt`
+	## membuat poni menyamping (belah samping).
+	func _cap(c: Vector2, hr: float, rx: float, base: float, bumps: int, amp: float, tilt: float) -> PackedVector2Array:
 		var pts: PackedVector2Array = PackedVector2Array()
-		var steps: int = 18
-		var a0: float = PI * 0.97
-		var a1: float = TAU + PI * 0.03
-		for i in steps + 1:
-			var a: float = a0 + (a1 - a0) * (float(i) / float(steps))
-			pts.append(c + Vector2(cos(a) * rad, sin(a) * rad))
-		pts.append(c + Vector2(rad * 0.86, rad * cut))
-		pts.append(c + Vector2(-rad * 0.86, rad * cut))
-		draw_colored_polygon(pts, hair)
+		var top: Vector2 = c + Vector2(0.0, -hr * 0.03)
+		for i in 25:
+			var a: float = PI * 0.97 + PI * 1.06 * float(i) / 24.0
+			pts.append(top + Vector2(cos(a) * rx * 1.06, sin(a) * hr * 1.03))
+		for j in 31:
+			var t: float = float(j) / 30.0
+			var x: float = lerpf(c.x + rx * 0.99, c.x - rx * 0.99, t)
+			var u: float = (x - c.x) / rx
+			var y: float = base + 0.30 * u * u + tilt * t
+			if bumps > 0:
+				y += amp * (0.5 - 0.5 * cos(TAU * float(bumps) * t))
+			pts.append(Vector2(x, c.y + hr * y))
+		return pts
 
-	# --- wajah --------------------------------------------------------------
-
-	func _face(c: Vector2, hr: float) -> void:
-		var eye: Color = Palette.DARK_CHOCOLATE
-		var blush: Color = Color(Palette.ROSY_CHEEK, 0.75)
-		draw_circle(c + Vector2(-hr * 0.60, hr * 0.30), hr * 0.17, blush)
-		draw_circle(c + Vector2(hr * 0.60, hr * 0.30), hr * 0.17, blush)
-		draw_circle(c + Vector2(-hr * 0.36, -hr * 0.02), hr * 0.125, eye)
-		draw_circle(c + Vector2(hr * 0.36, -hr * 0.02), hr * 0.125, eye)
-		draw_circle(c + Vector2(-hr * 0.31, -hr * 0.08), hr * 0.045, Palette.FLOUR_WHITE)
-		draw_circle(c + Vector2(hr * 0.41, -hr * 0.08), hr * 0.045, Palette.FLOUR_WHITE)
-		draw_arc(c + Vector2(0.0, hr * 0.18), hr * 0.24, PI * 0.18, PI * 0.82,
-			14, eye, hr * 0.07, true)
-
-	# --- aksesori & topi ----------------------------------------------------
+	# --- aksesori & topi ------------------------------------------------------
 
 	func _accessories(c: Vector2, hr: float, body_top: float) -> void:
-		for item in accessory:
+		var rx: float = _head_rx(hr)
+		for item: Variant in accessory:
 			var id: String = String(item)
 			if id.begins_with("kacamata"):
-				var rim: Color = Palette.GOLD_STAR if id != "kacamata_bulat" else Palette.DARK_CHOCOLATE
-				_glasses(c, hr, rim)
+				var rim: Color = Palette.GOLD_STAR.darkened(0.15) if id != "kacamata_bulat" else Palette.DARK_CHOCOLATE
+				for sx: float in [-1.0, 1.0]:
+					draw_arc(c + Vector2(sx * hr * 0.36, hr * 0.06), hr * 0.22, 0.0, TAU, 24, rim, hr * 0.05, true)
+				draw_line(c + Vector2(-hr * 0.14, hr * 0.04), c + Vector2(hr * 0.14, hr * 0.04), rim, hr * 0.045, true)
 				if id == "kacamata_rantai":
-					draw_arc(c + Vector2(0.0, hr * 0.22), hr * 1.02, PI * 0.08, PI * 0.92,
-						16, Palette.GOLD_STAR, hr * 0.05, true)
+					draw_arc(c + Vector2(0.0, hr * 0.22), rx * 1.0, PI * 0.08, PI * 0.92, 18, Palette.GOLD_STAR, hr * 0.03, true)
 			elif id == "kumis":
-				draw_arc(c + Vector2(-hr * 0.16, hr * 0.04), hr * 0.22, PI * 0.05, PI * 0.72,
-					12, hair, hr * 0.10, true)
-				draw_arc(c + Vector2(hr * 0.16, hr * 0.04), hr * 0.22, PI * 0.28, PI * 0.95,
-					12, hair, hr * 0.10, true)
+				for sx2: float in [-1.0, 1.0]:
+					_oval(c + Vector2(sx2 * hr * 0.12, hr * 0.20), hr * 0.13, hr * 0.06, hair)
 			elif id == "pita_kuning":
-				_bow(c + Vector2(-hr * 0.88, -hr * 0.58), hr * 0.30, Palette.BUTTER_YELLOW)
+				_bow(c + Vector2(-rx * 0.80, -hr * 0.66), hr * 0.28, Palette.BUTTER_YELLOW)
 			elif id == "jepit_stroberi":
-				draw_circle(c + Vector2(-hr * 0.82, -hr * 0.52), hr * 0.16, Palette.PASTEL_STRAWBERRY)
-				draw_circle(c + Vector2(-hr * 0.82, -hr * 0.66), hr * 0.09, Palette.PASTEL_MINT)
+				_disc(Vector2(c.x - rx * 0.78, c.y - hr * 0.56), hr * 0.14, Palette.STRAWBERRY)
+				_oval(Vector2(c.x - rx * 0.78, c.y - hr * 0.70), hr * 0.09, hr * 0.05, Palette.MATCHA)
+			elif id == "bando_gingham":
+				_band(c, rx, hr, Palette.GINGHAM_A, 0.15)
 			elif id == "anting_mutiara":
-				draw_circle(c + Vector2(-hr * 1.02, hr * 0.34), hr * 0.10, Palette.FLOUR_WHITE)
-				draw_circle(c + Vector2(hr * 1.02, hr * 0.34), hr * 0.10, Palette.FLOUR_WHITE)
+				for sx3: float in [-1.0, 1.0]:
+					_disc(Vector2(c.x + sx3 * rx * 0.97, c.y + hr * 0.34), hr * 0.07, Palette.FLOUR_WHITE)
 			elif id == "dasi_kupu":
-				_bow(Vector2(c.x, body_top + hr * 0.32), hr * 0.32, Palette.APRON_MAROON)
+				_bow(Vector2(c.x, body_top + hr * 0.12), hr * 0.26, Palette.APRON_MAROON)
 			elif id == "syal_merah":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 0.62, body_top - hr * 0.10, hr * 1.24, hr * 0.34),
-					hr * 0.16), Palette.DANGER)
+				_box(Rect2(c.x - hr * 0.68, body_top - hr * 0.12, hr * 1.36, hr * 0.30), hr * 0.14, Palette.DANGER)
 			elif id == "medali":
-				draw_line(Vector2(c.x - hr * 0.30, body_top + hr * 0.10),
-					Vector2(c.x, body_top + hr * 0.72), Palette.GOLD_STAR, hr * 0.07, true)
-				draw_circle(Vector2(c.x, body_top + hr * 0.80), hr * 0.20, Palette.GOLD_STAR)
+				for sx4: float in [-1.0, 1.0]:
+					draw_line(Vector2(c.x + sx4 * hr * 0.28, body_top + hr * 0.08), Vector2(c.x, body_top + hr * 0.60), Palette.STRAWBERRY, hr * 0.06, true)
+				_disc(Vector2(c.x, body_top + hr * 0.70), hr * 0.16, Palette.GOLD_STAR)
 			elif id == "pena_telinga":
-				draw_line(c + Vector2(hr * 0.94, -hr * 0.12), c + Vector2(hr * 1.12, hr * 0.38),
-					Palette.OJOL_GREEN, hr * 0.10, true)
-			elif id == "jam_vintage":
-				draw_circle(Vector2(c.x - hr * 1.02, body_top + hr * 0.95), hr * 0.16, Palette.PINE_WOOD)
-			elif id == "gelang_karet":
-				draw_circle(Vector2(c.x - hr * 1.02, body_top + hr * 0.95), hr * 0.14, Palette.WARMER_LAMP)
-			elif id == "sarung_tangan" or id == "sarung_tangan_satin":
-				draw_circle(Vector2(c.x - hr * 1.04, body_top + hr * 1.05), hr * 0.22, Palette.FLOUR_WHITE)
-				draw_circle(Vector2(c.x + hr * 1.04, body_top + hr * 1.05), hr * 0.22, Palette.FLOUR_WHITE)
+				draw_line(c + Vector2(rx * 0.92, -hr * 0.14), c + Vector2(rx * 1.10, hr * 0.34), Palette.OJOL_GREEN, hr * 0.08, true)
+			elif id in ["jam_vintage", "gelang_karet", "sarung_tangan", "sarung_tangan_satin"]:
+				# Aksesori tangan: potret tidak menggambar tangan, jadi tidak tampil.
+				pass
 			elif id == "handuk_pundak":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x + hr * 0.40, body_top - hr * 0.04, hr * 0.44, hr * 1.10),
-					hr * 0.14), Palette.PASTEL_PERIWINKLE)
+				_box(Rect2(c.x + hr * 0.50, body_top - hr * 0.06, hr * 0.42, hr * 1.06), hr * 0.12, Palette.PASTEL_PERIWINKLE)
 			elif id == "buku_saku" or id == "pisau_kayu":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x + hr * 0.18, body_top + hr * 0.62, hr * 0.34, hr * 0.46),
-					hr * 0.06), Palette.CARAMEL)
+				_box(Rect2(c.x + hr * 0.46, body_top + hr * 0.50, hr * 0.24, hr * 0.40), hr * 0.04, Palette.CARAMEL)
 			elif id == "tusuk_konde":
-				draw_line(c + Vector2(-hr * 0.30, -hr * 1.20), c + Vector2(hr * 0.30, -hr * 0.98),
-					Palette.CARAMEL, hr * 0.08, true)
+				draw_line(c + Vector2(-hr * 0.34, -hr * 1.24), c + Vector2(hr * 0.34, -hr * 1.02), Palette.CARAMEL, hr * 0.06, true)
+			elif id == "pin_bintang":
+				_star(Vector2(c.x - hr * 0.60, body_top + hr * 0.56), hr * 0.14, Palette.GOLD_STAR)
 			else:
-				# Pin kecil di celemek untuk aksesori yang belum punya bentuk khusus.
-				draw_circle(Vector2(c.x + hr * 0.44, body_top + hr * 0.48), hr * 0.12, Palette.GOLD_STAR)
+				# Pin bulat untuk aksesori lain (mis. pin senyum).
+				_disc(Vector2(c.x - hr * 0.60, body_top + hr * 0.56), hr * 0.12, Palette.BUTTER_YELLOW)
 
-	func _glasses(c: Vector2, hr: float, rim: Color) -> void:
-		draw_arc(c + Vector2(-hr * 0.36, -hr * 0.02), hr * 0.27, 0.0, TAU, 18, rim, hr * 0.07, true)
-		draw_arc(c + Vector2(hr * 0.36, -hr * 0.02), hr * 0.27, 0.0, TAU, 18, rim, hr * 0.07, true)
-		draw_line(c + Vector2(-hr * 0.09, -hr * 0.02), c + Vector2(hr * 0.09, -hr * 0.02),
-			rim, hr * 0.06, true)
+	func _bow(pos: Vector2, rad: float, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([pos, pos + Vector2(-rad, -rad * 0.64), pos + Vector2(-rad, rad * 0.64)]), col)
+		draw_colored_polygon(PackedVector2Array([pos, pos + Vector2(rad, -rad * 0.64), pos + Vector2(rad, rad * 0.64)]), col)
+		_disc(pos, rad * 0.28, col.darkened(0.15))
 
-	func _bow(pos: Vector2, r: float, col: Color) -> void:
-		draw_colored_polygon(PackedVector2Array([
-			pos, pos + Vector2(-r, -r * 0.62), pos + Vector2(-r, r * 0.62),
-		]), col)
-		draw_colored_polygon(PackedVector2Array([
-			pos, pos + Vector2(r, -r * 0.62), pos + Vector2(r, r * 0.62),
-		]), col)
-		draw_circle(pos, r * 0.30, col.darkened(0.18))
+	func _star(p: Vector2, rad: float, col: Color) -> void:
+		var pts: PackedVector2Array = PackedVector2Array()
+		for i in 10:
+			var a: float = -PI * 0.5 + PI * float(i) / 5.0
+			var rr: float = rad if i % 2 == 0 else rad * 0.45
+			pts.append(p + Vector2(cos(a) * rr, sin(a) * rr))
+		draw_colored_polygon(pts, col)
+
+	## Pita melengkung di atas kepala (bando, bandana, ikat kepala).
+	func _band(c: Vector2, rx: float, hr: float, col: Color, width: float) -> void:
+		var band: PackedVector2Array = _ell(c + Vector2(0.0, -hr * 0.02), rx * 1.09, hr * 1.05, PI * 1.08, PI * 1.92, 20)
+		var inner: PackedVector2Array = _ell(c + Vector2(0.0, -hr * 0.02), rx * (1.09 - width), hr * (1.05 - width), PI * 1.08, PI * 1.92, 20)
+		inner.reverse()
+		band.append_array(inner)
+		draw_colored_polygon(band, col)
 
 	func _hat(c: Vector2, hr: float) -> void:
+		var rx: float = _head_rx(hr)
 		var white: Color = Palette.FLOUR_WHITE
 		match hat:
 			"topi_koki":
-				draw_circle(c + Vector2(-hr * 0.52, -hr * 1.06), hr * 0.40, white)
-				draw_circle(c + Vector2(0.0, -hr * 1.26), hr * 0.46, white)
-				draw_circle(c + Vector2(hr * 0.52, -hr * 1.06), hr * 0.40, white)
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 0.78, c.y - hr * 1.14, hr * 1.56, hr * 0.46), hr * 0.14), white)
+				_disc(Vector2(c.x - rx * 0.50, c.y - hr * 1.10), hr * 0.38, white)
+				_disc(Vector2(c.x, c.y - hr * 1.30), hr * 0.46, white)
+				_disc(Vector2(c.x + rx * 0.50, c.y - hr * 1.10), hr * 0.38, white)
+				_box(Rect2(c.x - rx * 0.80, c.y - hr * 1.16, rx * 1.60, hr * 0.44), hr * 0.12, white)
 			"toque":
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 0.72, c.y - hr * 1.98, hr * 1.44, hr * 1.06), hr * 0.26), white)
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 0.80, c.y - hr * 1.18, hr * 1.60, hr * 0.44), hr * 0.12), white)
+				_box(Rect2(c.x - rx * 0.70, c.y - hr * 1.80, rx * 1.40, hr * 0.94), hr * 0.28, white)
+				_box(Rect2(c.x - rx * 0.82, c.y - hr * 1.16, rx * 1.64, hr * 0.44), hr * 0.12, white)
 			"topi_pet":
-				draw_arc(c + Vector2(0.0, -hr * 0.16), hr * 0.90, PI * 1.02, TAU - PI * 0.02,
-					20, Palette.PASTEL_PERIWINKLE, hr * 0.46, true)
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 1.34, c.y - hr * 0.74, hr * 1.10, hr * 0.24), hr * 0.10),
-					Palette.PASTEL_PERIWINKLE)
+				var cap: Color = Palette.PASTEL_PERIWINKLE
+				_oval(c + Vector2(-rx * 0.62, -hr * 0.66), rx * 0.60, hr * 0.14, cap.darkened(0.15))
+				draw_colored_polygon(_ell(c + Vector2(0.0, -hr * 0.52), rx * 1.03, hr * 0.60, PI, TAU, 20), cap)
+				_disc(Vector2(c.x, c.y - hr * 1.12), hr * 0.07, cap.darkened(0.2))
 			"bandana", "hachimaki":
-				var band: Color = Palette.WARMER_LAMP if hat == "bandana" else white
-				draw_colored_polygon(ProceduralUIFactory.rounded_points(
-					Rect2(c.x - hr * 1.00, c.y - hr * 0.88, hr * 2.00, hr * 0.38), hr * 0.14), band)
+				var col: Color = Palette.WARMER_LAMP if hat == "bandana" else white
+				var knot: Vector2 = c + Vector2(rx * 1.0, -hr * 0.40)
+				_oval(knot + Vector2(hr * 0.22, hr * 0.10), hr * 0.20, hr * 0.10, col)
+				_oval(knot + Vector2(hr * 0.16, hr * 0.32), hr * 0.10, hr * 0.20, col)
+				_band(c, rx, hr, col, 0.28)
+				_disc(knot, hr * 0.11, col.darkened(0.12))
 				if hat == "hachimaki":
-					draw_circle(c + Vector2(0.0, -hr * 0.69), hr * 0.13, Palette.DANGER)
+					_disc(Vector2(c.x, c.y - hr * 0.92), hr * 0.10, Palette.DANGER)
 			"bando", "bando_kelinci":
-				draw_arc(c, hr * 1.06, PI * 1.12, TAU - PI * 0.12, 18,
-					Palette.PASTEL_STRAWBERRY, hr * 0.13, true)
 				if hat == "bando_kelinci":
-					draw_colored_polygon(ProceduralUIFactory.rounded_points(
-						Rect2(c.x - hr * 0.64, c.y - hr * 1.84, hr * 0.28, hr * 0.88), hr * 0.14),
-						Palette.PASTEL_STRAWBERRY)
-					draw_colored_polygon(ProceduralUIFactory.rounded_points(
-						Rect2(c.x + hr * 0.36, c.y - hr * 1.84, hr * 0.28, hr * 0.88), hr * 0.14),
-						Palette.PASTEL_STRAWBERRY)
+					for sx: float in [-1.0, 1.0]:
+						var ear: Vector2 = c + Vector2(sx * rx * 0.44, -hr * 1.36)
+						_oval(ear, hr * 0.15, hr * 0.44, white)
+						_oval(ear + Vector2(0.0, hr * 0.04), hr * 0.07, hr * 0.30, Palette.PASTEL_STRAWBERRY)
+				_band(c, rx, hr, Palette.PASTEL_STRAWBERRY, 0.15)
 			_:
 				pass

@@ -132,9 +132,9 @@ func _run() -> void:
 	print("\n".join(tris_report))
 
 
-## Pose & aksi lewat ActorView sungguhan (GDD 21.4, 31.6, 31.7): membungkus,
+## Pose & aksi lewat ActorView sungguhan (GDD 20.12, 21.4, 31.6, 31.7): membungkus,
 ## mengelap wajah, terkantuk-kantuk, pembeli menenteng roti dan kantong, staf
-## membawa loyang, plus gelembung pikiran pemain.
+## membawa loyang, gelembung pikiran pemain, dan pengunjung lihat-lihat.
 func _poses() -> void:
 	_clear()
 	PauseManager.clear_all()
@@ -183,6 +183,29 @@ func _poses() -> void:
 		v2.rotation_degrees.y = 38.0
 	await _shot("poses_three_quarter")
 	layer.queue_free()
+	# Pengunjung lihat-lihat (GDD 20.12) di beberapa detik: kepala menyapu rak
+	# kiri-kanan, badan sedikit condong, sesekali tangan menopang dagu.
+	_clear()
+	var lookers: Array[ActorView] = []
+	var at: Array[float] = [1.0, 2.2, 3.4, 6.1]
+	for k3 in at.size():
+		var lv := ActorView.new()
+		_stage.add_child(lv)
+		lv.bind(StringName("look_%d" % k3), "look|%d" % k3, CharacterFactory.spec_for_customer("customer_school_child", 5 + k3))
+		lv.position = Vector3((float(k3) - float(at.size() - 1) * 0.5) * SPACING, 0.0, 0.0)
+		lv.set_look_around(true)
+		var t3: float = 0.0
+		while t3 < at[k3]:
+			var sa3 := SimActor.new()
+			sa3.pos = Vector2(lv.position.x, lv.position.z)
+			lv.sync(sa3, 0.1, true)
+			t3 += 0.1
+		lookers.append(lv)
+	_front_camera(float(PER_ROW) * SPACING)
+	await _shot("poses_window_shopper")
+	for lv2: ActorView in lookers:
+		lv2.rotation_degrees.y = 38.0
+	await _shot("poses_window_shopper_three_quarter")
 
 
 func _clear() -> void:

@@ -3,7 +3,9 @@ extends SimManager
 ## TimeManager — pemilik jam, hari, fase, dan kecepatan (GDD 15, 71, 98, 99.1).
 ##
 ## 1 detik-simulasi = `clock.ingame_seconds_per_sim_second` detik jam in-game
-## (balance.json, GDD 15.2).
+## (balance.json, GDD 15.2). Satu detik nyata pada 1× memajukan
+## `clock.sim_seconds_per_real_second` detik-simulasi (SimulationRoot.advance),
+## jadi 1 menit in-game = 1 detik nyata.
 ## Jam hanya maju pada fase PREPARATION dan OPEN. Pause (PauseManager) dan modal
 ## keputusan menghentikan seluruh simulasi, termasuk jam.
 

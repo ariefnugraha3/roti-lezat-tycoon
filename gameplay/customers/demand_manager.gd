@@ -5,12 +5,18 @@ extends SimManager
 ## Hari 1-3 memakai manifest deterministik tanpa RNG. Mulai Hari 4 kedatangan
 ## fisik & order RotiFood dijadwalkan dari rumus demand per channel. Kedatangan
 ## yang tidak mendapat slot antrean menjadi data pending (bukan aktor) dan
-## kedaluwarsa diam-diam setelah batas tunggu (GDD 67).
+## kedaluwarsa diam-diam setelah batas tunggu (GDD 67). Pengunjung lihat-lihat
+## (GDD 20.12) punya jadwal sendiri yang murni kosmetik: manifest Hari 1-3,
+## lalu proses Poisson dari cosmetic_rng, sehingga siapa pembeli berikutnya dan
+## apa yang ia beli tidak pernah berubah karena mereka (GDD 116).
 
 var scripted_walkins: Array[Dictionary] = []
 var scripted_orders: Array[Dictionary] = []
+## {time, archetype}
+var scripted_window_shoppers: Array[Dictionary] = []
 var next_physical_at: float = -1.0
 var next_rotifood_at: float = -1.0
+var next_window_shopper_at: float = -1.0
 var critic_at: float = -1.0
 ## {archetype, scripted, recipe, quantity, patience_override, since}
 var pending: Array[Dictionary] = []
@@ -28,9 +34,11 @@ func new_game() -> void:
 func reset_day() -> void:
 	scripted_walkins.clear()
 	scripted_orders.clear()
+	scripted_window_shoppers.clear()
 	pending.clear()
 	next_physical_at = -1.0
 	next_rotifood_at = -1.0
+	next_window_shopper_at = -1.0
 	critic_at = -1.0
 	demand_total_today = 0
 	delivered_today = 0
@@ -59,11 +67,15 @@ func plan_day() -> void:
 			scripted_orders.append({"time": float(od["order_time"]), "recipe": StringName(str(od["requested_recipe_id"])),
 				"quantity": int(od["requested_quantity"])})
 			demand_total_today += int(od["requested_quantity"])
+		for ws: Variant in plan.get("window_shoppers", []):
+			var wsd: Dictionary = ws
+			scripted_window_shoppers.append({"time": float(wsd["spawn_time"]), "archetype": StringName(str(wsd["customer_archetype"]))})
 		return
 	next_physical_at = sim.time.open_time
 	next_rotifood_at = sim.time.open_time
 	_schedule_next_physical(sim.time.open_time)
 	_schedule_next_rotifood(sim.time.open_time)
+	_schedule_next_window_shopper(sim.time.open_time)
 	_roll_critic()
 
 
@@ -149,6 +161,33 @@ func _schedule_next_rotifood(from_t: float) -> void:
 	next_rotifood_at = from_t + _interval(rotifood_rate_per_hour(from_t), r, 1.0)
 
 
+## Laju pengunjung lihat-lihat (GDD 20.12): orang lewat yang menengok ke dalam,
+## menurut tier, jam, cuaca, dan hari libur. Rating, harga, dan kampanye tidak
+## berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain.
+func window_shopper_rate_per_hour(t: float) -> float:
+	var tod: float = float(DataRegistry.bal("demand.physical_time_of_day")[String(time_block(t))])
+	return sim.world.location.base_physical_rate * tod * sim.weather.physical_multiplier() \
+		* sim.weather.event_physical_multiplier() * DataRegistry.balf("window_shopper.rate_ratio")
+
+
+func _schedule_next_window_shopper(from_t: float) -> void:
+	var r: RandomNumberGenerator = sim.rng.stream(&"cosmetic_rng")
+	next_window_shopper_at = from_t + _interval(window_shopper_rate_per_hour(from_t), r, DataRegistry.balf("queue.min_admission_interval_seconds"))
+
+
+## Penampilan pengunjung lihat-lihat: bobot arketipe tier × jam (GDD 20.11),
+## diundi dari cosmetic_rng karena tidak memengaruhi gameplay (GDD 116).
+func roll_window_shopper_look(t: float) -> StringName:
+	var block: StringName = time_block(t)
+	var weights: Dictionary = {}
+	for def: CustomerArchetypeDefinition in DataRegistry.archetypes():
+		var w: float = def.spawn_weight(sim.world.location.tier) * def.time_modifier(block)
+		if w > 0.0:
+			weights[String(def.id)] = w
+	var pick: Variant = RNGManager.weighted_pick(sim.rng.stream(&"cosmetic_rng"), weights)
+	return StringName(str(pick)) if pick != null else &"customer_generic"
+
+
 ## Arketipe dari bobot tier × modifier jam × kampanye, dinormalisasi (GDD 20.11).
 func roll_archetype(t: float) -> StringName:
 	var block: StringName = time_block(t)
@@ -195,6 +234,15 @@ func step(dt: float) -> void:
 				sim.rotifood.create_random_order()
 			_schedule_next_rotifood(at2)
 	_process_pending(dt)
+	# Pengunjung lihat-lihat, sesudah pembeli pending mendapat giliran (GDD 20.12).
+	while not scripted_window_shoppers.is_empty() and float(scripted_window_shoppers[0]["time"]) <= now:
+		var ws: Dictionary = scripted_window_shoppers.pop_front()
+		sim.customers.try_admit_window_shopper(ws["archetype"])
+	if next_window_shopper_at >= 0.0:
+		while now >= next_window_shopper_at:
+			var at3: float = next_window_shopper_at
+			sim.customers.try_admit_window_shopper(roll_window_shopper_look(at3))
+			_schedule_next_window_shopper(at3)
 
 
 func _enqueue(arrival: Dictionary) -> void:
@@ -243,8 +291,12 @@ func capture() -> Dictionary:
 	for p: Dictionary in pending:
 		pend.append({"archetype": String(p["archetype"]), "scripted": p["scripted"], "recipe": String(p["recipe"]),
 			"quantity": p["quantity"], "patience_override": p["patience_override"], "since": p["since"]})
-	return {"scripted_walkins": walk, "scripted_orders": orders, "next_physical_at": next_physical_at,
-		"next_rotifood_at": next_rotifood_at, "critic_at": critic_at, "pending": pend,
+	var lookers: Array = []
+	for ws: Dictionary in scripted_window_shoppers:
+		lookers.append({"time": ws["time"], "archetype": String(ws["archetype"])})
+	return {"scripted_walkins": walk, "scripted_orders": orders, "scripted_window_shoppers": lookers,
+		"next_physical_at": next_physical_at, "next_rotifood_at": next_rotifood_at,
+		"next_window_shopper_at": next_window_shopper_at, "critic_at": critic_at, "pending": pend,
 		"demand_total_today": demand_total_today, "delivered_today": delivered_today, "missed_today": missed_today}
 
 
@@ -257,6 +309,10 @@ func restore(d: Dictionary) -> void:
 	for o: Variant in d.get("scripted_orders", []):
 		var od: Dictionary = o
 		scripted_orders.append({"time": float(od["time"]), "recipe": StringName(str(od["recipe"])), "quantity": int(od["quantity"])})
+	# Save lama belum punya pengunjung lihat-lihat: hari itu berjalan tanpa mereka.
+	for ws: Variant in d.get("scripted_window_shoppers", []):
+		var wsd: Dictionary = ws
+		scripted_window_shoppers.append({"time": float(wsd["time"]), "archetype": StringName(str(wsd["archetype"]))})
 	for p: Variant in d.get("pending", []):
 		var pd: Dictionary = p
 		pending.append({"archetype": StringName(str(pd["archetype"])), "scripted": bool(pd["scripted"]),
@@ -264,6 +320,7 @@ func restore(d: Dictionary) -> void:
 			"patience_override": pd.get("patience_override"), "since": float(pd["since"])})
 	next_physical_at = float(d.get("next_physical_at", -1.0))
 	next_rotifood_at = float(d.get("next_rotifood_at", -1.0))
+	next_window_shopper_at = float(d.get("next_window_shopper_at", -1.0))
 	critic_at = float(d.get("critic_at", -1.0))
 	demand_total_today = int(d.get("demand_total_today", 0))
 	delivered_today = int(d.get("delivered_today", 0))

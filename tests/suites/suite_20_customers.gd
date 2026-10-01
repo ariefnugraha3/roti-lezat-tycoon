@@ -66,6 +66,7 @@ func _pending_delay() -> void:
 	var s: SimulationRoot = new_sim(6)
 	s.demand.scripted_walkins.clear()
 	s.demand.scripted_orders.clear()
+	s.demand.scripted_window_shoppers.clear()
 	run_until(s, 8.0 * 3600.0 + 60.0)
 	stock(s, &"recipe_plain_loaf", 6)
 	var lane: QueueLane = s.queue.main_lane()
@@ -124,6 +125,7 @@ func _open_store(seed_value: int) -> SimulationRoot:
 	var s: SimulationRoot = new_sim(seed_value)
 	s.demand.scripted_walkins.clear()
 	s.demand.scripted_orders.clear()
+	s.demand.scripted_window_shoppers.clear()
 	run_until(s, 8.0 * 3600.0 + 10.0)
 	return s
 

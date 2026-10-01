@@ -21,9 +21,9 @@ func _new_game() -> void:
 	check(s.world.layout_valid(), "starter layout keeps protected paths")
 	for e: EquipmentInstance in s.equipment.placed_list():
 		check(not s.world.access_of(e.iid).is_empty(), "%s has an access tile" % e.def_id)
-	# Bahan Hari 1: 6 batch roti tawar, pas tanpa cadangan (GDD 2).
-	eq(s.inventory.count(&"ingredient_flour"), 6, "day 1 flour")
-	eq(s.inventory.count(&"ingredient_butter"), 6, "day 1 butter")
+	# Bahan Hari 1: 8 batch roti tawar, pas tanpa cadangan (GDD 2).
+	eq(s.inventory.count(&"ingredient_flour"), 8, "day 1 flour")
+	eq(s.inventory.count(&"ingredient_butter"), 8, "day 1 butter")
 	free_sim(s)
 
 

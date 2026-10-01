@@ -1,8 +1,8 @@
 extends Node
-## QA visual adegan dunia sungguhan (GDD 21.4, 31.6, 31.7, 130.5): simulasi
+## QA visual adegan dunia sungguhan (GDD 20.12, 21.4, 31.6, 31.7, 130.5): simulasi
 ## dijalankan SimBot, lalu layar dipotret dengan kamera gameplay. Menangkap
-## kantong di meja kasir saat membungkus, gelembung pikiran pemain di toko sepi,
-## dan pemain yang terkantuk-kantuk.
+## kantong di meja kasir saat membungkus, pengunjung lihat-lihat di depan rak,
+## gelembung pikiran pemain di toko sepi, dan pemain yang terkantuk-kantuk.
 ## Jalankan dengan jendela (bukan --headless, karena perlu renderer):
 ##   godot --path . --resolution 1920x1080 res://tools/world_snapshot.tscn
 ## Folder keluaran: env LINEUP_OUT, atau user://lineup bila tidak diisi.
@@ -77,6 +77,22 @@ func _run() -> void:
 	rig.camera.size = 2.6
 	await _frames(12)
 	await _shot("world_packing_close")
+	rig.ortho_size = normal_size
+	rig.camera.size = normal_size
+	# Pengunjung lihat-lihat (GDD 20.12): berdiri di depan rak, menoleh, tanpa
+	# patience bar, dengan celetukannya, pada gambaran toko dan dari dekat.
+	var looking := func() -> bool:
+		for c: Customer in sim.customers.sorted():
+			if WorldView.shopper_speaking(c) and c.state == Customer.BROWSING and not c.actor.moving:
+				return true
+		return false
+	print("window shopper reached: ", await _advance(bot, looking))
+	await _frames(30)
+	await _shot("world_window_shopper")
+	rig.ortho_size = 4.2
+	rig.camera.size = 4.2
+	await _frames(20)
+	await _shot("world_window_shopper_close")
 	rig.ortho_size = normal_size
 	rig.camera.size = normal_size
 	# 2. Toko sepi: semua pembeli pergi, pemain berjaga tanpa transaksi.

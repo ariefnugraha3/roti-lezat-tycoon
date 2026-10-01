@@ -3,22 +3,27 @@ extends SimManager
 ## CustomerManager — pemilik siklus hidup logis pelanggan fisik (GDD 20, 58,
 ## 69, 83, 84, 98). Pelanggan baru hanya "masuk toko" setelah memperoleh token
 ## kapasitas antrean; sebelum itu ia hanya data pending di DemandManager.
+## Pengunjung lihat-lihat (GDD 20.12) juga tinggal di sini, dengan id "w…" yang
+## selalu diurutkan sesudah pembeli "c…", dan tidak pernah menyentuh antrean.
 
 const BROWSE_SECONDS: float = 1.0
 const CELEBRATE_SECONDS: float = 0.8
 
 var customers: Dictionary = {}
 var next_num: int = 1
+var next_window_num: int = 1
 var entered_today: int = 0
 var served_today: int = 0
 var abandoned_today: int = 0
 var no_stock_today: int = 0
+var window_shoppers_today: int = 0
 var _smart_slow_armed: bool = true
 
 
 func new_game() -> void:
 	customers.clear()
 	next_num = 1
+	next_window_num = 1
 	reset_day()
 
 
@@ -27,6 +32,7 @@ func reset_day() -> void:
 	served_today = 0
 	abandoned_today = 0
 	no_stock_today = 0
+	window_shoppers_today = 0
 
 
 func customer(id: StringName) -> Customer:
@@ -107,6 +113,271 @@ func try_admit(arrival: Dictionary) -> bool:
 	_choose_target(c)
 	sim.tutorial.on_customer_entered(c)
 	return true
+
+
+# ===========================================================================
+# PENGUNJUNG LIHAT-LIHAT (GDD 20.12)
+# ===========================================================================
+
+## Pengunjung lihat-lihat yang sedang di dalam toko.
+func window_shopper_count() -> int:
+	var n: int = 0
+	for c: Variant in customers.values():
+		if (c as Customer).window_shopper:
+			n += 1
+	return n
+
+
+## Aktor yang bergerak di lokasi: pemain, staf, pelanggan, driver, kurir (GDD 37.2).
+func active_actor_count() -> int:
+	return 1 + sim.staff.actors.size() + customers.size() + sim.rotifood.driver_count() + sim.supply.couriers.size()
+
+
+## Ia tidak memakai token antrean. Ia masuk hanya bila jumlahnya di bawah batas
+## tier, aktor aktif di bawah anggaran lokasi (GDD 37.2), dan ada tempat berdiri
+## bebas. Bila tidak, kedatangan itu dilewati: ia bukan permintaan, jadi tidak
+## pernah pending dan tidak dihitung sebagai permintaan yang terlewat.
+func try_admit_window_shopper(archetype: StringName) -> bool:
+	if not sim.time.is_open():
+		return false
+	var def: CustomerArchetypeDefinition = DataRegistry.archetype(archetype)
+	if def == null:
+		return false
+	var caps: Array = DataRegistry.bal("window_shopper.max_inside_by_tier")
+	if window_shopper_count() >= int(caps[clampi(sim.world.location.tier - 1, 0, caps.size() - 1)]):
+		return false
+	if active_actor_count() >= sim.world.location.active_actor_budget:
+		return false
+	if customers.size() + sim.rotifood.driver_count() >= DataRegistry.bali("queue.max_visible_customer_actors"):
+		return false
+	var door: Vector2i = sim.world.entrance_cell()
+	var spot: Dictionary = _pick_look_spot(-1)
+	if spot.is_empty():
+		return false
+	var r: RandomNumberGenerator = sim.rng.stream(&"cosmetic_rng")
+	var c := Customer.new()
+	c.id = StringName("w%d" % next_window_num)
+	next_window_num += 1
+	c.archetype = archetype
+	c.window_shopper = true
+	c.looks_left = 2 if r.randf() < DataRegistry.balf("window_shopper.second_look_chance") else 1
+	c.spawned_at = sim.time.sim_seconds
+	c.actor = _window_shopper_actor(c)
+	c.actor.visual_seed = r.randi()
+	c.actor.place_at(sim.world.store_floor(), door)
+	customers[c.id] = c
+	window_shoppers_today += 1
+	EventBus.sfx.emit(&"door_bell_enter", c.actor.floor_id)
+	_go_look(c, spot)
+	sim.tutorial.on_window_shopper_entered()
+	return true
+
+
+func _window_shopper_actor(c: Customer) -> SimActor:
+	var a := SimActor.new()
+	a.id = c.id
+	a.kind = &"customer"
+	a.nav_class = FloorGrid.NAV_PUBLIC
+	a.speed_mps = c.def().movement_speed_mps * DataRegistry.balf("window_shopper.stroll_speed_factor")
+	a.visual_key = c.archetype
+	return a
+
+
+## Tempat berdiri melihat-lihat: sel publik di depan atau di samping rak, tidak
+## pernah di belakangnya. Titik eksklusif GDD 83.3, pintu, sel yang sedang dituju
+## pembeli, dan sel pengunjung lain tidak pernah dipilih. Tatapan kedua
+## mendahulukan rak lain; tanpa tempat di dekat rak mana pun ia melihat-lihat
+## ruangan. {cell, display} atau {} bila tidak ada tempat.
+func _pick_look_spot(avoid_display: int) -> Dictionary:
+	var floor_id: StringName = sim.world.store_floor()
+	var fg: FloorGrid = sim.world.grid(floor_id)
+	var wait: Dictionary = _buyer_wait_cells(floor_id)
+	var busy: Dictionary = _buyer_goal_cells(floor_id)
+	var r: RandomNumberGenerator = sim.rng.stream(&"cosmetic_rng")
+	var options: Array = []
+	var others: Array = []
+	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
+		if e.floor_id != floor_id:
+			continue
+		var cells: Array[Vector2i] = _look_cells(fg, floor_id, e, wait, busy)
+		if cells.is_empty():
+			continue
+		options.append([e.iid, cells])
+		if e.iid != avoid_display:
+			others.append([e.iid, cells])
+	if not others.is_empty():
+		options = others
+	if options.is_empty():
+		var room: Array[Vector2i] = _look_cells(fg, floor_id, null, wait, busy)
+		if room.is_empty():
+			return {}
+		return {"cell": room[r.randi_range(0, room.size() - 1)], "display": -1}
+	var pick: Array = options[r.randi_range(0, options.size() - 1)]
+	var list: Array[Vector2i] = pick[1]
+	return {"cell": list[r.randi_range(0, list.size() - 1)], "display": int(pick[0])}
+
+
+## Sel sah dengan skor terkecil di sekitar rak `e` (null = seluruh zona toko).
+## Skor: depan rak 0, samping 2 (belakang tidak pernah); cincin kedua +1; lorong
+## terlindung +1; sel tunggu pembeli +2. Urutan sel tetap, jadi undian kosmetik
+## atas hasilnya deterministik.
+func _look_cells(fg: FloorGrid, floor_id: StringName, e: EquipmentInstance, wait: Dictionary, busy: Dictionary) -> Array[Vector2i]:
+	var footprint: Array[Vector2i] = []
+	var center := Vector2.ZERO
+	var ahead_dir := Vector2.ZERO
+	if e != null:
+		footprint = e.footprint_cells()
+		center = _cells_center(footprint)
+		ahead_dir = (_cells_center(e.front_cells()) - center).normalized()
+	var best: Array[Vector2i] = []
+	var best_score: int = 1 << 30
+	for z in fg.size.y:
+		for x in fg.size.x:
+			var c := Vector2i(x, z)
+			var score: int = 0
+			if e != null:
+				var ring: int = 1 << 30
+				for f: Vector2i in footprint:
+					ring = mini(ring, maxi(absi(c.x - f.x), absi(c.y - f.y)))
+				if ring < 1 or ring > 2:
+					continue
+				var ahead: float = (GridMath.cell_center(c) - center).dot(ahead_dir)
+				if ahead < -0.01:
+					continue
+				score = (0 if ahead > 0.01 else 2) + ring - 1
+			if busy.has(c) or not _look_cell_ok(fg, floor_id, c):
+				continue
+			if fg.flag(c) == FloorGrid.Flag.WALKABLE_NO_BUILD:
+				score += 1
+			if wait.has(c):
+				score += 2
+			if score < best_score:
+				best_score = score
+				best.clear()
+			if score == best_score:
+				best.append(c)
+	return best
+
+
+static func _cells_center(cells: Array[Vector2i]) -> Vector2:
+	var sum := Vector2.ZERO
+	for c: Vector2i in cells:
+		sum += GridMath.cell_center(c)
+	return sum / float(maxi(cells.size(), 1))
+
+
+func _look_cell_ok(fg: FloorGrid, floor_id: StringName, c: Vector2i) -> bool:
+	if not fg.is_public_walkable(c) or fg.is_door(c) or fg.access_at.has(c):
+		return false
+	var f: int = fg.flag(c)
+	if f == FloorGrid.Flag.QUEUE_RESERVED or f == FloorGrid.Flag.INTERACTION_RESERVED:
+		return false
+	return sim.world.point_holder(floor_id, c) == &""
+
+
+## Sel tujuan terakhir setiap pembeli di lantai ini: tempat ia sedang berjalan
+## atau berdiri. Pengunjung lihat-lihat tidak pernah memilihnya.
+func _buyer_goal_cells(floor_id: StringName) -> Dictionary:
+	var out: Dictionary = {}
+	for v: Variant in customers.values():
+		var b: Customer = v
+		if not b.window_shopper and b.actor.goal_floor == floor_id and b.actor.goal_cell.x >= 0:
+			out[b.actor.goal_cell] = true
+	return out
+
+
+## Sel tempat pembeli menunggu saat titik browsing rak sedang dipakai (GDD 83.3).
+func _buyer_wait_cells(floor_id: StringName) -> Dictionary:
+	var out: Dictionary = {}
+	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
+		var acc: Dictionary = sim.world.access_of(e.iid)
+		if acc.is_empty() or StringName(str(acc["floor"])) != floor_id:
+			continue
+		var w: Vector2i = _neighbor_wait_cell(floor_id, acc["cell"])
+		if w.x >= 0:
+			out[w] = true
+	return out
+
+
+func _go_look(c: Customer, spot: Dictionary) -> void:
+	var floor_id: StringName = sim.world.store_floor()
+	c.look_cell = spot["cell"]
+	c.look_display = int(spot["display"])
+	sim.world.reserve_point(floor_id, c.look_cell, c.id)
+	c.state = Customer.ENTERING
+	if not c.actor.go_to(sim.world, floor_id, c.look_cell):
+		_window_leave(c)
+
+
+## Tempat berdiri masih sah (Decoration Mode bisa menaruh perabot di atasnya).
+func _look_spot_valid(c: Customer) -> bool:
+	var fg: FloorGrid = sim.world.grid(sim.world.store_floor())
+	return fg != null and c.look_cell.x >= 0 and fg.is_public_walkable(c.look_cell) and not fg.access_at.has(c.look_cell)
+
+
+## Pembeli yang menuju atau berdiri di sel itu (mis. menunggu giliran di rak).
+func _buyer_heading_to(cell: Vector2i) -> bool:
+	return _buyer_goal_cells(sim.world.store_floor()).has(cell)
+
+
+## Pembeli selalu didahulukan: bila ada pembeli yang perlu sel tempat ia berdiri,
+## pengunjung lihat-lihat minggir ke tempat lain atau pulang. Pembelinya sendiri
+## tidak pernah menunggu karena itu.
+func _step_window_shopper(c: Customer, dt: float) -> void:
+	match c.state:
+		Customer.ENTERING:
+			if not _look_spot_valid(c) or _buyer_heading_to(c.look_cell):
+				_next_look_or_leave(c, false)
+			elif c.actor.has_route():
+				pass
+			elif c.actor.cell() != c.look_cell:
+				if not c.actor.go_to(sim.world, sim.world.store_floor(), c.look_cell):
+					_window_leave(c)
+			else:
+				var span: Array = DataRegistry.bal("window_shopper.look_seconds")
+				c.state = Customer.BROWSING
+				c.browse_left = sim.rng.stream(&"cosmetic_rng").randf_range(float(span[0]), float(span[1]))
+				_face_look_target(c)
+		Customer.BROWSING:
+			c.browse_left -= dt
+			if not _look_spot_valid(c):
+				_window_leave(c)
+			elif c.browse_left <= 0.0 or _buyer_heading_to(c.look_cell):
+				_next_look_or_leave(c)
+		_:
+			if not c.actor.has_route():
+				_despawn(c)
+
+
+## Tempat lama tetap terkunci selama memilih tempat baru, jadi ia tidak memilih
+## sel yang sama lagi. `looked` false = ia minggir sebelum sempat melihat.
+func _next_look_or_leave(c: Customer, looked: bool = true) -> void:
+	if looked:
+		c.looks_left -= 1
+	var spot: Dictionary = _pick_look_spot(c.look_display) if c.looks_left > 0 else {}
+	sim.world.release_all_for(c.id)
+	if spot.is_empty():
+		_window_leave(c)
+	else:
+		_go_look(c, spot)
+
+
+## Pulang tanpa membeli: tanpa penalti rating dan tanpa statistik "gagal beli".
+func _window_leave(c: Customer) -> void:
+	sim.world.release_all_for(c.id)
+	c.look_cell = Vector2i(-1, -1)
+	c.state = Customer.LEAVING
+	_walk_out(c)
+
+
+## Menghadap ke tengah rak yang dilihat.
+func _face_look_target(c: Customer) -> void:
+	var e: EquipmentInstance = sim.equipment.get_inst(c.look_display) if c.look_display >= 0 else null
+	if e == null or not e.placed:
+		return
+	var to: Vector2 = _cells_center(e.footprint_cells()) - c.actor.pos
+	if to.length_squared() > 0.0001:
+		c.actor.facing = to.normalized()
 
 
 # ===========================================================================
@@ -351,6 +622,9 @@ func step(dt: float) -> void:
 	var lowest: float = 1.0
 	for c: Customer in sorted():
 		var arrived: bool = c.actor.step(dt, sim.world)
+		if c.window_shopper:
+			_step_window_shopper(c, dt)
+			continue
 		match c.state:
 			Customer.ENTERING:
 				_step_entering(c, arrived)
@@ -575,17 +849,20 @@ func capture() -> Dictionary:
 	var list: Array = []
 	for c: Customer in sorted():
 		list.append(c.to_dict())
-	return {"next_num": next_num, "customers": list, "entered_today": entered_today,
-		"served_today": served_today, "abandoned_today": abandoned_today, "no_stock_today": no_stock_today}
+	return {"next_num": next_num, "next_window_num": next_window_num, "customers": list, "entered_today": entered_today,
+		"served_today": served_today, "abandoned_today": abandoned_today, "no_stock_today": no_stock_today,
+		"window_shoppers_today": window_shoppers_today}
 
 
 func restore(d: Dictionary) -> void:
 	customers.clear()
 	next_num = int(d.get("next_num", 1))
+	next_window_num = int(d.get("next_window_num", 1))
 	entered_today = int(d.get("entered_today", 0))
 	served_today = int(d.get("served_today", 0))
 	abandoned_today = int(d.get("abandoned_today", 0))
 	no_stock_today = int(d.get("no_stock_today", 0))
+	window_shoppers_today = int(d.get("window_shoppers_today", 0))
 	for item: Variant in d.get("customers", []):
 		var cd: Dictionary = item
 		var c := Customer.new()
@@ -612,11 +889,18 @@ func restore(d: Dictionary) -> void:
 		c.awaiting_tap = bool(cd.get("awaiting_tap", false))
 		c.is_critic = bool(cd.get("is_critic", false))
 		c.spawned_at = float(cd.get("spawned_at", 0.0))
-		c.actor = SimActor.new()
-		c.actor.id = c.id
-		c.actor.kind = &"customer"
-		c.actor.nav_class = FloorGrid.NAV_PUBLIC
-		c.actor.speed_mps = c.def().movement_speed_mps
+		c.window_shopper = bool(cd.get("window_shopper", false))
+		c.look_cell = arr_to_cell(cd.get("look_cell", [-1, -1]))
+		c.look_display = int(cd.get("look_display", -1))
+		c.looks_left = int(cd.get("looks_left", 0))
+		if c.window_shopper:
+			c.actor = _window_shopper_actor(c)
+		else:
+			c.actor = SimActor.new()
+			c.actor.id = c.id
+			c.actor.kind = &"customer"
+			c.actor.nav_class = FloorGrid.NAV_PUBLIC
+			c.actor.speed_mps = c.def().movement_speed_mps
 		c.actor.apply_dict(cd.get("actor", {}))
 		customers[c.id] = c
 
@@ -625,6 +909,9 @@ func restore(d: Dictionary) -> void:
 ## lanjutkan rute (GDD 77.2). Tidak ada penjualan/roti ganda.
 func reconstruct() -> void:
 	for c: Customer in sorted():
+		if c.window_shopper:
+			_reconstruct_window_shopper(c)
+			continue
 		var lane: QueueLane = sim.queue.lane(c.lane_id)
 		match c.state:
 			Customer.QUEUING:
@@ -653,3 +940,21 @@ func reconstruct() -> void:
 					c.state = Customer.BROWSING
 			_:
 				_walk_out(c)
+
+
+## Pengunjung lihat-lihat kembali ke tempat berdirinya, atau pulang bila tempat
+## itu sudah tidak sah atau sudah dipakai orang lain.
+func _reconstruct_window_shopper(c: Customer) -> void:
+	var floor_id: StringName = sim.world.store_floor()
+	match c.state:
+		Customer.ENTERING, Customer.BROWSING:
+			if not _look_spot_valid(c) or not sim.world.reserve_point(floor_id, c.look_cell, c.id):
+				_window_leave(c)
+			elif c.state == Customer.BROWSING:
+				c.actor.place_at(floor_id, c.look_cell)
+				_face_look_target(c)
+			elif not c.actor.go_to(sim.world, floor_id, c.look_cell):
+				_window_leave(c)
+		_:
+			c.state = Customer.LEAVING
+			_walk_out(c)
