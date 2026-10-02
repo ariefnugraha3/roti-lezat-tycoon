@@ -12,7 +12,7 @@ extends RefCounted
 ##     Body (pivot pinggul): BodyMesh, Apron -> ApronMesh, ArmL, ArmR (pivot bahu)
 ##     Head (pivot leher): HeadMesh (kepala, telinga, pipi, rambut, topi),
 ##       Face -> EyeL, EyeR, BrowL, BrowR, Mouth; Hair, Hat (penanda kontrak)
-##     LegL, LegR (pivot pinggul), CarryAnchor, ShadowBlob, [PropsMesh]
+##     LegL, LegR (pivot pinggul), CarryAnchor, ShadowBlob
 ##
 ## Proporsi (GDD 130.2) pada height 1.0: tinggi ~0.90 m; kepala ~42 %, torso
 ## ~30 %, kaki ~28 %; garis mata ~45 % tinggi kepala dari dagu. Wajah menghadap
@@ -228,7 +228,7 @@ static func build(spec: Dictionary) -> Node3D:
 	_pivot(root, "CarryAnchor", Vector3(0.0, 0.40, FRONT * 0.20))
 
 	var mb: Dictionary = {}
-	for key: String in ["body", "apron", "head", "arm_l", "arm_r", "leg_l", "leg_r", "extra"]:
+	for key: String in ["body", "apron", "head", "arm_l", "arm_r", "leg_l", "leg_r"]:
 		mb[key] = MeshBuilder.new()
 	_build_torso(s, mb["body"])
 	_build_skirt(s, mb["body"])
@@ -253,9 +253,6 @@ static func build(spec: Dictionary) -> Node3D:
 	arm_r.add_child((mb["arm_r"] as MeshBuilder).commit("ArmRMesh"))
 	leg_l.add_child((mb["leg_l"] as MeshBuilder).commit("LegLMesh"))
 	leg_r.add_child((mb["leg_r"] as MeshBuilder).commit("LegRMesh"))
-	var extra: MeshBuilder = mb["extra"]
-	if not extra.is_empty():
-		root.add_child(extra.commit("PropsMesh"))
 	var shadow := MeshBuilder.new()
 	var blob: float = 0.20 * (1.0 + 0.3 * chubby)
 	shadow.disc(Transform3D(Basis(), Vector3(0.0, 0.004, 0.0)), blob, SHADOW_COLOR, Color(SHADOW_COLOR, 0.0), 14)
@@ -462,7 +459,9 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 			spec["head_tilt"] = rng.randf_range(10.0, 16.0)
 			spec["cloth"] = Palette.PASTEL_PERIWINKLE
 			spec["sleeve"] = "long"
-			spec["prop"] = _pack(["tanda_tanya"])
+			# Tanpa tanda tanya melayang (keputusan maintainer 2026-10-02): pemain
+			# mengira tanda itu penanda status. Kepala miring dan baju ungu muda
+			# tetap menjadi cirinya.
 			spec["mood"] = "sedih"
 		"food_vlogger":
 			spec["cloth"] = _pick_color(_vivid_tones(), rng)
@@ -1563,7 +1562,6 @@ static func _attach_prop(id: String, s: Dictionary, mb: Dictionary) -> void:
 	var body: MeshBuilder = mb["body"]
 	var arm_l: MeshBuilder = mb["arm_l"]
 	var arm_r: MeshBuilder = mb["arm_r"]
-	var extra: MeshBuilder = mb["extra"]
 	var cloth: Color = s["cloth"]
 	var chubby: float = s["chubby"]
 	var back_z: float = -FRONT * (_torso_r(0.14, chubby) + 0.058)
@@ -1625,13 +1623,6 @@ static func _attach_prop(id: String, s: Dictionary, mb: Dictionary) -> void:
 			arm_r.box(Transform3D(Basis(), cam), Vector3(0.090, 0.050, 0.062), DARK_GLASS)
 			arm_r.cylinder(Transform3D(Basis(), cam + Vector3(0.0, -0.036, 0.0)), 0.026, 0.023, 0.025, Palette.CHALKBOARD, 10)
 			arm_r.box(Transform3D(Basis(), cam + Vector3(-0.026, 0.0, -0.036)), Vector3(0.020, 0.014, 0.012), Palette.DANGER)
-		"tanda_tanya":
-			# Tanda tanya empuk melayang (Si Galau): busur + batang + titik.
-			var q := Vector3(0.155, 1.010, 0.0)
-			extra.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), q + Vector3(0.0, 0.080, 0.0)), 0.036, 0.013, Palette.WARMER_LAMP, 10, 4,
-				deg_to_rad(-120.0), deg_to_rad(150.0))
-			extra.capsule(q + Vector3(0.0, 0.044, 0.0), q + Vector3(0.0, 0.018, 0.0), 0.013, 0.013, Palette.WARMER_LAMP, 6, 1)
-			extra.ellipsoid(Transform3D(Basis(), q + Vector3(0.0, -0.020, 0.0)), Vector3.ONE * 0.016, Palette.WARMER_LAMP, SEG_SMALL.x, SEG_SMALL.y)
 		_:
 			pass
 

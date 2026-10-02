@@ -17,6 +17,7 @@ func tests() -> Array:
 		{"id": "ACC_31_DETERMINISM", "name": "the same customer seed builds the same character; seeds vary", "fn": _determinism},
 		{"id": "ACC_31_EXPRESSIONS", "name": "expressions reshape eyes, brows and mouth; carry pose holds items", "fn": _expressions},
 		{"id": "ACC_4_WALK_SMOOTH", "name": "4.2 walking takes calm steps (at most 3.6 a second, set by the on-screen speed), starts and stops without snapping, and stops stepping during a pause", "fn": _walk_smooth},
+		{"id": "ACC_20_INDECISIVE_NO_MARK", "name": "20.11 Si Galau no longer carries a floating question mark (players read it as a status); the head tilt and periwinkle clothes stay", "fn": _indecisive_no_mark},
 	]
 
 
@@ -38,6 +39,18 @@ func _all_specs() -> Array:
 	out.append(["Pak Lurah", CharacterFactory.spec_for_lurah()])
 	out.append(["empty spec", {}])
 	return out
+
+
+## Keputusan maintainer 2026-10-02: tanda tanya melayang Si Galau dihapus.
+func _indecisive_no_mark() -> void:
+	for seed_i: int in [1, 7, 42, 1234]:
+		var spec: Dictionary = CharacterFactory.spec_for_customer("customer_indecisive", seed_i)
+		check((spec["prop"] as PackedStringArray).is_empty(), "seed %d carries no prop" % seed_i)
+		check(float(spec["head_tilt"]) >= 10.0, "seed %d still tilts the head" % seed_i)
+		eq(spec["cloth"], Palette.PASTEL_PERIWINKLE, "seed %d still wears periwinkle" % seed_i)
+		var ch: Node3D = CharacterFactory.build(spec)
+		check(ch.find_child("PropsMesh", true, false) == null, "seed %d has nothing floating by the head" % seed_i)
+		ch.free()
 
 
 func _rig() -> void:
