@@ -94,9 +94,11 @@ func _loading_stages() -> void:
 	check(AudioManager.is_stream_ready(&"shop_music_morning") and AudioManager.is_stream_ready(&"shop_ambience_room"),
 		"today's music and ambience were prepared behind the overlay")
 	near(game.sim.time.time_seconds, 5.0 * 3600.0, 0.001, "the day starts at 05:00 sharp")
+	check(not AudioManager._ambient.is_empty(), "the shop ambience plays in the game")
 	# Muat profil (Continue): tahap bacaan save lebih dulu.
 	game.return_to_menu()
 	await runner.get_tree().process_frame
+	check(AudioManager._ambient.is_empty(), "back on the main menu the shop ambience stops; only the menu music plays (GDD 33.1)")
 	game.load_profile(&"profile_1")
 	var rec2: Dictionary = await _record_loading(game)
 	eq(rec2["stages"], _texts(LOAD_STAGES), "loading a save walks through its stages in order")

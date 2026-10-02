@@ -276,6 +276,9 @@ func _teardown() -> void:
 	SaveManager.active_profile = &""
 	AudioManager.rng_source = null
 	AudioManager.stop_all_loops()
+	# Ambience toko dan cuaca milik dunia; Main Menu hanya memutar menu_music
+	# (GDD 33.1). Dulu ambience terus berputar di bawah musik menu.
+	AudioManager.set_ambience([])
 	for n: Node in [hud, commands, world, sim]:
 		if n != null and is_instance_valid(n):
 			n.queue_free()
