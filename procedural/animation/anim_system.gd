@@ -559,6 +559,49 @@ static func look_around(actor: Node3D, t: float) -> void:
 		arm.rotation.z = lerpf(_rest_rot(arm).z, LOOK_CHIN_ROLL, chin)
 
 
+## Sudut ayunan kaki ke depan saat duduk (rad) dan ayunan kecil kaki yang
+## menjuntai; pinggul sedikit di atas bantal; lengan bertumpu di pangkuan.
+const SIT_LEG_ANGLE: float = 1.22
+const SIT_LEG_DANGLE: float = 0.07
+const SIT_HIP_LIFT: float = 0.03
+const SIT_ARM_ANGLE: float = 0.55
+
+
+## Duduk di kursi koki (GDD 5.1.4): seluruh model diturunkan supaya pinggulnya
+## tepat di atas bantal (`seat_y`, meter dunia dari lantai), kedua kaki terayun
+## ke depan dan menjuntai pelan seperti anak kecil di kursi tinggi, dan tangan
+## bertumpu di pangkuan (kecuali `arms` false, saat lap wajah atau terkantuk).
+## Dipanggil setelah idle_bob() tiap frame.
+static func sit(actor: Node3D, t: float, seat_y: float, arms: bool = true) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var leg_l: Node3D = _part(actor, "LegL")
+	var hip: float = (_rest_pos(leg_l).y if leg_l != null else 0.25) * _base_scale(actor).y
+	actor.position.y = seat_y + SIT_HIP_LIFT - hip
+	for i in 2:
+		var leg: Node3D = _part(actor, "LegL" if i == 0 else "LegR")
+		if leg != null:
+			leg.rotation.x = _rest_rot(leg).x + SIT_LEG_ANGLE + sin(t * 1.4 + float(i) * PI) * SIT_LEG_DANGLE
+	if not arms:
+		return
+	for j in 2:
+		var arm: Node3D = _part(actor, "ArmL" if j == 0 else "ArmR")
+		if arm != null:
+			arm.rotation.x = _rest_rot(arm).x + SIT_ARM_ANGLE
+
+
+## Berdiri lagi dari kursi: model kembali ke lantai dan kaki serta lengan ke
+## pose istirahat.
+static func stand_up(actor: Node3D) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	actor.position.y = 0.0
+	for part_name: String in ["LegL", "LegR", "ArmL", "ArmR"]:
+		var n: Node3D = _part(actor, part_name)
+		if n != null:
+			n.rotation = _rest_rot(n)
+
+
 ## Kembalikan lengan, kepala & badan ke pose istirahat setelah gerakan khusus (pack,
 ## wipe_face, doze, look_around) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
 static func end_pose(actor: Node3D) -> void:

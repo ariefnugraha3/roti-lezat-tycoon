@@ -240,7 +240,6 @@ func insert_oven(job_id: int, oven_iid: int, actor_id: StringName, staff_speed: 
 	j.stage_duration = oven_stage_seconds(j.recipe(), oven.tier(), j.batch_multiplier, staff_speed)
 	j.stage_elapsed = 0.0
 	j.burn_elapsed = 0.0
-	j.protected = false
 	j.carrier_id = &""
 	EventBus.sfx.emit(&"oven_close", oven.floor_id)
 	return true
@@ -315,7 +314,6 @@ func _complete(j: ProductionJob) -> void:
 	completed_today[j.recipe_id] = int(completed_today.get(j.recipe_id, 0)) + 1
 	sim.analytics.note_batch_completed(j.recipe_id, j.quantity_output)
 	sim.statistics.add(&"total_bread_produced", j.quantity_output)
-	sim.staff.note_batch_completed(j.owner_actor_id)
 	sim.achievements.note_recipe_produced(j.recipe_id)
 	jobs.erase(j.job_id)
 
@@ -375,8 +373,6 @@ func step(dt: float) -> void:
 					j.stage_elapsed = j.stage_duration
 					_on_bake_complete(j)
 			ProductionJob.BAKE_DONE_WAITING_PICKUP, ProductionJob.OVERBAKING:
-				if j.protected:
-					continue
 				j.burn_elapsed += dt
 				_update_burn(j)
 	age_table(sim.time.ingame_hours(dt))
@@ -389,17 +385,10 @@ func _on_bake_complete(j: ProductionJob) -> void:
 	var floor_id: StringName = oven.floor_id if oven != null else &"floor_1"
 	EventBus.station_completed.emit(j.oven_id, j.stage)
 	EventBus.sfx.emit(&"oven_done", floor_id)
-	# Auto-retrieve: satu roll per job, hanya bila tahap oven dimulai Asisten Dapur
-	# yang masih bertugas (GDD 18.8). Baker yang sudah pergi (dipecat, libur)
-	# tidak bisa mengambilnya, jadi hasilnya sama dengan roll gagal.
-	var staff_def: StaffDefinition = DataRegistry.staff(j.stage_started_by)
-	if staff_def != null and staff_def.is_baker() and sim.staff.is_working(staff_def.id):
-		var p: float = staff_def.auto_retrieve_probability
-		var ok: bool = p >= 1.0 or (p > 0.0 and sim.rng.stream(&"staff_rng").randf() < p)
-		if ok:
-			j.protected = true
-			j.claimed_by = staff_def.id
-	if not j.protected:
+	# Tidak ada lagi roll auto-retrieve (keputusan maintainer 2026-10-02): loyang
+	# pesanan dapur diangkat koki yang bertugas; loyang pemain menunggu pemain,
+	# kecuali koki yang menganggur sempat mengambilnya (GDD 23.3).
+	if not sim.staff.handles(j):
 		sim.time.smart_slowdown("tut_smart_speed")
 		sim.tutorial.on_event(&"oven_ready")
 		sim.alerts.raise_oven(j.oven_id, &"ready")
@@ -411,7 +400,8 @@ func _update_burn(j: ProductionJob) -> void:
 	if j.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP and j.burn_elapsed >= def.perfect_window_seconds:
 		j.stage = ProductionJob.OVERBAKING
 		EventBus.sfx.emit(&"oven_burn_warning", oven.floor_id if oven != null else &"floor_1")
-		sim.alerts.raise_oven(j.oven_id, &"burning")
+		if not sim.staff.handles(j):
+			sim.alerts.raise_oven(j.oven_id, &"burning")
 		sim.tutorial.on_event(&"near_burn")
 	if j.stage == ProductionJob.OVERBAKING and j.burn_elapsed >= def.burn_grace_seconds():
 		j.stage = ProductionJob.BURNT
@@ -448,11 +438,12 @@ func has_active_jobs() -> bool:
 
 
 ## Ada loyang matang di oven yang menunggu diangkat pemain dan bisa gosong
-## (GDD 62): tidak dilindungi auto-retrieve baker (GDD 18.8). Loyang yang sudah
-## gosong tidak dihitung, karena tidak ada lagi yang bisa diselamatkan.
+## (GDD 62): bukan pesanan dapur yang diurus koki dan belum dituju koki
+## (GDD 23.3). Loyang yang sudah gosong tidak dihitung, karena tidak ada lagi
+## yang bisa diselamatkan.
 func oven_needs_player() -> bool:
 	for j: ProductionJob in sorted_jobs():
-		if j.oven_id >= 0 and not j.protected and (j.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP or j.stage == ProductionJob.OVERBAKING):
+		if j.oven_id >= 0 and not sim.staff.handles(j) and (j.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP or j.stage == ProductionJob.OVERBAKING):
 			return true
 	return false
 

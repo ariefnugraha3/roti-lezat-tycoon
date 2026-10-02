@@ -542,6 +542,30 @@
    "visual_profile_id": "holding_table"
   },
   {
+   "id": "staff_chair",
+   "localization_key": "staff_chair",
+   "category_id": "chair",
+   "tier": 1,
+   "footprint_tiles": [
+    1,
+    1
+   ],
+   "height_m": 0.55,
+   "interaction_face": "front",
+   "rotations_allowed": [
+    0,
+    90,
+    180,
+    270
+   ],
+   "utility_cost_kr_per_ingame_hour": 0,
+   "process_multiplier": 1.0,
+   "capacity": 0,
+   "price_kr": 0,
+   "for_sale": false,
+   "visual_profile_id": "staff_chair"
+  },
+  {
    "id": "counter_cashier",
    "localization_key": "counter_cashier",
    "category_id": "counter",

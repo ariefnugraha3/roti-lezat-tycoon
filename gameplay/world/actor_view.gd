@@ -64,6 +64,8 @@ var _z_timer: float = 0.0
 var _walk_phase: float = 0.0
 var _walk_w: float = 0.0
 var _vis_speed: float = 0.0
+## Titik duduk dunia (permukaan bantal kursi koki, GDD 5.1.4); INF = berdiri.
+var _seat: Vector3 = Vector3.INF
 
 
 func _init() -> void:
@@ -102,6 +104,7 @@ func reset_for_pool() -> void:
 	_idle_enabled = false
 	_busy = true
 	_action = &""
+	_seat = Vector3.INF
 	_clear_idle_fx()
 
 
@@ -109,6 +112,8 @@ func reset_for_pool() -> void:
 func sync(a: SimActor, delta: float, animate: bool) -> void:
 	_t += delta
 	var target := Vector3(a.pos.x, 0.0, a.pos.y)
+	if _seat != Vector3.INF:
+		target = Vector3(_seat.x, 0.0, _seat.z)
 	var before: Vector3 = global_position
 	var jumped: bool = global_position.distance_to(target) > 1.5
 	global_position = target if jumped else global_position.lerp(target, minf(1.0, delta * 18.0))
@@ -120,7 +125,15 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 	if model == null or not animate:
 		return
 	_update_idle(a, delta)
-	if _action == &"pack" and not a.moving:
+	if _seat != Vector3.INF:
+		ProceduralAnimationSystem.idle_bob(model, _t)
+		match _gesture:
+			GESTURE_WIPE:
+				ProceduralAnimationSystem.wipe_face(model, _wipe_progress(), _t)
+			GESTURE_DOZE:
+				ProceduralAnimationSystem.doze(model, _t)
+		ProceduralAnimationSystem.sit(model, _t, _seat.y, _gesture == GESTURE_NONE)
+	elif _action == &"pack" and not a.moving:
 		ProceduralAnimationSystem.pack(model, _t, _pack_p, _pack_n)
 	elif _walk_w > 0.0:
 		ProceduralAnimationSystem.walk_cycle(model, _walk_phase, _walk_w)
@@ -165,6 +178,21 @@ func _update_walk(a: SimActor, before: Vector3, jumped: bool, delta: float) -> v
 ## Bobot langkah saat ini (0 = diam, 1 = berjalan penuh).
 func walk_weight() -> float:
 	return _walk_w
+
+
+## Koki duduk di kursinya: WorldView memberi titik bantal (dunia); INF = berdiri.
+func set_seat(p: Vector3) -> void:
+	if p == _seat:
+		return
+	var was: bool = _seat != Vector3.INF
+	_seat = p
+	if was and p == Vector3.INF and model != null and is_instance_valid(model):
+		ProceduralAnimationSystem.stand_up(model)
+		_apply_carry_pose()
+
+
+func is_seated() -> bool:
+	return _seat != Vector3.INF
 
 
 ## Aktifkan gerak menganggur (pemain & staf). Pelanggan tidak pernah memakainya.

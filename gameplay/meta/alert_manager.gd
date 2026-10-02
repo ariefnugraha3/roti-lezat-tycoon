@@ -37,11 +37,15 @@ func raise_staff_blocked(staff_id: StringName, floor_id: StringName) -> void:
 func active_alerts() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for j: ProductionJob in sim.production.sorted_jobs():
+		# Langkah yang diurus koki (pesanan dapur, atau sedang dituju koki) tidak
+		# memanggil pemain (GDD 23.3).
+		if sim.staff.handles(j):
+			continue
 		if j.stage == ProductionJob.MIX_DONE_WAITING_PICKUP and j.owner_actor_id == PlayerTaskManager.PLAYER_ID:
 			var m: EquipmentInstance = sim.equipment.get_inst(j.mixer_id)
 			if m != null:
 				out.append({"type": &"mixer_ready", "floor_id": m.floor_id, "iid": m.iid, "priority": 2})
-		elif j.is_waiting_oven_pickup() and not j.protected:
+		elif j.is_waiting_oven_pickup():
 			var o: EquipmentInstance = sim.equipment.get_inst(j.oven_id)
 			if o != null:
 				var burning: bool = j.stage == ProductionJob.OVERBAKING or j.stage == ProductionJob.BURNT

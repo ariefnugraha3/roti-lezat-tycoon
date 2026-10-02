@@ -29,16 +29,15 @@ var ingredient_value_kr: float = 0.0
 var mixer_id: int = -1
 var oven_id: int = -1
 var created_at: float = 0.0
-## player atau staff_id pemilik job.
+## Pemilik job: "player", atau "kitchen" untuk pesanan "Ask a Baker" yang
+## dikerjakan koki mana pun yang bertugas (GDD 23.3).
 var owner_actor_id: StringName = &"player"
-## Siapa yang memulai tahap sekarang (untuk auto-retrieve & kecepatan terkunci).
+## Siapa yang memulai tahap sekarang.
 var stage_started_by: StringName = &""
 var stage_duration: float = 0.0
 var stage_elapsed: float = 0.0
 ## Detik sejak READY_PERFECT dimulai (jendela gosong, GDD 62).
 var burn_elapsed: float = 0.0
-## Auto-retrieve berhasil: timer gosong dibekukan sampai baker mengambil tray.
-var protected: bool = false
 ## Kualitas hasil saat tray diangkat (GDD 19.1 bake_quality).
 var bake_quality: float = 1.0
 ## Unit yang masih di loyang yang sedang dibawa.
@@ -82,7 +81,7 @@ func to_dict() -> Dictionary:
 		"ingredient_value_kr": ingredient_value_kr, "mixer_id": mixer_id, "oven_id": oven_id,
 		"created_at": created_at, "owner_actor_id": String(owner_actor_id),
 		"stage_started_by": String(stage_started_by), "stage_duration": stage_duration,
-		"stage_elapsed": stage_elapsed, "burn_elapsed": burn_elapsed, "protected": protected,
+		"stage_elapsed": stage_elapsed, "burn_elapsed": burn_elapsed,
 		"bake_quality": bake_quality, "carried_units": carried_units, "carrier_id": String(carrier_id),
 		"claimed_by": String(claimed_by), "cogs_noted": cogs_noted, "produced_at": produced_at,
 		"table_age_hours": table_age_hours, "table_seq": table_seq,
@@ -106,7 +105,6 @@ static func from_dict(d: Dictionary) -> ProductionJob:
 	j.stage_duration = float(d.get("stage_duration", 0.0))
 	j.stage_elapsed = float(d.get("stage_elapsed", 0.0))
 	j.burn_elapsed = float(d.get("burn_elapsed", 0.0))
-	j.protected = bool(d.get("protected", false))
 	j.bake_quality = float(d.get("bake_quality", 1.0))
 	j.carried_units = int(d.get("carried_units", 0))
 	j.carrier_id = StringName(str(d.get("carrier_id", "")))

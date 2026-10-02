@@ -23,6 +23,8 @@ var moving: bool = false
 ## Barang yang dibawa: {} kosong, atau {type, job_id, recipe_id, units}.
 var carried: Dictionary = {}
 var state: StringName = &"IDLE"
+## Kursi koki tempat aktor ini duduk (iid perabot), -1 = tidak duduk (GDD 5.1.4).
+var seat_iid: int = -1
 var visual_seed: int = 0
 var visual_key: StringName = &""
 ## Watchdog (GDD 38.1).
@@ -146,6 +148,7 @@ func to_dict() -> Dictionary:
 		"pos": [pos.x, pos.y], "facing": [facing.x, facing.y], "state": String(state),
 		"goal_floor": String(goal_floor), "goal_cell": [goal_cell.x, goal_cell.y],
 		"carried": carried, "visual_seed": visual_seed, "visual_key": String(visual_key),
+		"seat_iid": seat_iid,
 	}
 
 
@@ -157,5 +160,6 @@ func apply_dict(d: Dictionary) -> void:
 	goal_floor = StringName(str(d.get("goal_floor", "")))
 	goal_cell = SimManager.arr_to_cell(d.get("goal_cell", [-1, -1]))
 	carried = d.get("carried", {})
+	seat_iid = int(d.get("seat_iid", -1))
 	visual_seed = int(d.get("visual_seed", 0))
 	visual_key = StringName(str(d.get("visual_key", "")))

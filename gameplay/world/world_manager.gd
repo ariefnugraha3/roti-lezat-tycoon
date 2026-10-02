@@ -399,6 +399,32 @@ func layout_valid() -> bool:
 	return _connectivity_ok()
 
 
+## Save dari template lama (jalur kasir baru Tier 1, 2, dan 4, keputusan
+## maintainer 2026-10-02): perabot yang footprint-nya kini menimpa sel yang tidak
+## boleh dibangun (slot antrean, titik layan/kasir, drop-off, meja), atau yang
+## tidak lagi punya tile akses, dilepas dari lantai. Pemanggil menempatkannya
+## kembali dengan auto_place; isinya tidak berubah karena instance-nya sama.
+func release_conflicts() -> Array[EquipmentInstance]:
+	var out: Array[EquipmentInstance] = []
+	for e: EquipmentInstance in sim.equipment.placed_list():
+		var fg: FloorGrid = grid(e.floor_id)
+		var bad: bool = fg == null
+		if not bad:
+			for c: Vector2i in e.footprint_cells():
+				if not fg.in_bounds(c) or fg.flag(c) != FloorGrid.Flag.WALKABLE_BUILDABLE:
+					bad = true
+					break
+		if not bad and access_of(e.iid).is_empty():
+			bad = true
+		if bad:
+			out.append(e)
+	for e2: EquipmentInstance in out:
+		e2.placed = false
+	if not out.is_empty():
+		rebuild_occupancy()
+	return out
+
+
 # ===========================================================================
 # PENEMPATAN OTOMATIS DETERMINISTIK (New Game & migrasi, GDD 47, 105.12)
 # ===========================================================================

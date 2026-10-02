@@ -71,6 +71,7 @@ func _fill(world: WorldView) -> void:
 		_place(EquipmentFactory.build_display(t))
 		_place(EquipmentFactory.build_storage(t))
 	_place(EquipmentFactory.build_holding_table())
+	_place(EquipmentFactory.build_staff_chair())
 	var profile: String = _any_profile()
 	_place(EquipmentFactory.dough_bowl(), 1.0)
 	_place(EquipmentFactory.bread_tray(profile, 1.0, &"FRESH"), 1.0)

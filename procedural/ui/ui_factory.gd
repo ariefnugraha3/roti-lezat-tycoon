@@ -836,9 +836,11 @@ static func slider_row(label_text: String, min_v: float, max_v: float, value: fl
 
 
 ## Kartu polaroid / ID Card staf (GDD 3.4 & 7): bingkai foto putih bersudut
-## membulat, potret chibi prosedural, nama, tier bintang, gaji, dan kecepatan.
-## Potret digambar di `_draw()` — TIDAK memakai SubViewport 3D.
-static func polaroid(staff_id: String) -> Control:
+## membulat, potret chibi prosedural, nama, jabatan, dan gaji harian (`wage`,
+## sama untuk semua staf di lokasi itu; < 0 = tanpa baris gaji). Staf tidak
+## punya tier (keputusan maintainer 2026-10-02). Potret digambar di `_draw()` —
+## TIDAK memakai SubViewport 3D.
+static func polaroid(staff_id: String, wage: float = -1.0) -> Control:
 	var root: PanelContainer = PanelContainer.new()
 	root.name = "Polaroid"
 	root.custom_minimum_size = Vector2(196.0, 300.0)
@@ -872,11 +874,10 @@ static func polaroid(staff_id: String) -> Control:
 		return root
 
 	var role: String = String(def.role_id)
-	var tier: int = clampi(def.tier, 1, 5)
 
 	var face: ChibiPortrait = ChibiPortrait.new()
 	face.name = "Portrait"
-	face.configure(def.visual, role, tier)
+	face.configure(def.visual, role, 1)
 	body.add_child(face)
 	root.set_meta("portrait", face)
 
@@ -889,28 +890,8 @@ static func polaroid(staff_id: String) -> Control:
 	peran.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(peran)
 
-	var stars: HBoxContainer = HBoxContainer.new()
-	stars.name = "Tier"
-	stars.alignment = BoxContainer.ALIGNMENT_CENTER
-	stars.add_theme_constant_override("separation", 2)
-	for i in 5:
-		var on: bool = i < tier
-		stars.add_child(icon("star", 15, Palette.GOLD_STAR if on else Color(Palette.TEXT_MUTED, 0.28)))
-	body.add_child(stars)
-
-	body.add_child(_stat_row("coin", Palette.GOLD_STAR, Tx.t("ui_staff_wage", {"wage": Tx.kr(def.daily_wage_kr)})))
-
-	var speed_text: String = ""
-	if def.is_baker():
-		speed_text = Tx.t("ui_staff_speed", {"speed": "%.2f" % def.work_speed_multiplier})
-	else:
-		# Semua transaksi sama lamanya, siapa pun kasirnya (GDD 21.4).
-		speed_text = Tx.t("ui_staff_service", {"seconds": "%.1f" % DataRegistry.real_seconds(DataRegistry.packing_seconds())})
-	body.add_child(_stat_row("bolt", Palette.WARMER_LAMP, speed_text))
-
-	if def.is_baker():
-		var ab: int = int(round(def.auto_retrieve_probability * 100.0))
-		body.add_child(_stat_row("fire", Palette.DANGER, Tx.t("ui_staff_auto_retrieve", {"percent": ab})))
+	if wage >= 0.0:
+		body.add_child(_stat_row("coin", Palette.GOLD_STAR, Tx.t("ui_staff_wage", {"wage": Tx.kr(wage)})))
 
 	return root
 
@@ -2073,7 +2054,8 @@ class ChibiPortrait extends Control:
 		hair_style = String(visual.get("hair_style", "pendek"))
 		hat = String(visual.get("hat", "none"))
 		chubby = clampf(float(visual.get("chubby", 0.0)), 0.0, 1.0)
-		backdrop = Palette.apron_for_tier(role, tier).lerp(Palette.VANILLA_CREAM, 0.72)
+		# Latar mengikuti warna celemek orangnya sendiri (staf tidak punya tier).
+		backdrop = apron.lerp(Palette.VANILLA_CREAM, 0.72)
 		# Celemek terang di atas kemeja krem hangat; celemek berwarna di atas kemeja putih.
 		shirt = Color(0.93, 0.86, 0.76) if apron.get_luminance() > 0.85 else Palette.FLOUR_WHITE
 		queue_redraw()

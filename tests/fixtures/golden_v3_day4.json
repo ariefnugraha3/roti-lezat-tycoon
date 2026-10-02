@@ -38,7 +38,7 @@
 		"speed": 1,
 		"time_seconds": 36000.0
 	},
-	"created_at": "2026-10-01T11:38:43Z",
+	"created_at": "2026-10-02T12:29:57Z",
 	"customers": {
 		"abandoned_today": 3,
 		"customers": [],
@@ -138,72 +138,72 @@
 					"recipe": "recipe_plain_loaf",
 					"stacks": [
 						{
-							"age_ingame_hours": 4.440000000000022,
+							"age_ingame_hours": 4.443750000000018,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4743.000000008489,
+							"produced_at_game_time": 4742.450000008487,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 31
 						},
 						{
-							"age_ingame_hours": 3.615833333333695,
+							"age_ingame_hours": 3.6279166666670304,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4841.900000008849,
+							"produced_at_game_time": 4840.350000008843,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 35
 						},
 						{
-							"age_ingame_hours": 0.8333333333333047,
+							"age_ingame_hours": 0.834166666666638,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4896.350000009047,
+							"produced_at_game_time": 4894.600000009041,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 37
 						},
 						{
-							"age_ingame_hours": 0.7324999999999825,
+							"age_ingame_hours": 0.7333333333333157,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4896.350000009047,
+							"produced_at_game_time": 4894.600000009041,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 37
 						},
 						{
-							"age_ingame_hours": 4.67416666666703,
+							"age_ingame_hours": 4.675833333333695,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4714.900000008387,
+							"produced_at_game_time": 4714.600000008386,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 30
 						},
 						{
-							"age_ingame_hours": 4.67416666666716,
+							"age_ingame_hours": 4.675833333333827,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4714.900000008387,
+							"produced_at_game_time": 4714.600000008386,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
@@ -215,36 +215,36 @@
 					"recipe": "recipe_plain_fried_bread",
 					"stacks": [
 						{
-							"age_ingame_hours": 4.046666666667046,
+							"age_ingame_hours": 4.054583333333706,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 4790.200000008661,
+							"produced_at_game_time": 4789.150000008657,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
 							"source_job_id": 33
 						},
 						{
-							"age_ingame_hours": 3.8500000000003984,
+							"age_ingame_hours": 3.8600000000004,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 4813.800000008747,
+							"produced_at_game_time": 4812.500000008742,
 							"quantity": 1,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
 							"source_job_id": 34
 						},
 						{
-							"age_ingame_hours": 4.243333333334524,
+							"age_ingame_hours": 4.249166666667852,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 4766.600000008575,
+							"produced_at_game_time": 4765.800000008572,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:1",
@@ -256,12 +256,12 @@
 					"recipe": "recipe_plain_fried_bread",
 					"stacks": [
 						{
-							"age_ingame_hours": 3.8500000000003984,
+							"age_ingame_hours": 3.8600000000004,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 8.0,
 							"display_tier": 1,
 							"freshness_state": "GOOD",
-							"produced_at_game_time": 4813.800000008747,
+							"produced_at_game_time": 4812.500000008742,
 							"quantity": 5,
 							"recipe_id": "recipe_plain_fried_bread",
 							"slot_id": "4:2",
@@ -273,36 +273,36 @@
 					"recipe": "recipe_plain_loaf",
 					"stacks": [
 						{
-							"age_ingame_hours": 3.615833333333695,
+							"age_ingame_hours": 3.6279166666670304,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4841.900000008849,
+							"produced_at_game_time": 4840.350000008843,
 							"quantity": 5,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
 							"source_job_id": 35
 						},
 						{
-							"age_ingame_hours": 3.381666666666992,
+							"age_ingame_hours": 3.3958333333336608,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4870.000000008951,
+							"produced_at_game_time": 4868.200000008945,
 							"quantity": 6,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
 							"source_job_id": 36
 						},
 						{
-							"age_ingame_hours": 3.162500000000291,
+							"age_ingame_hours": 3.17666666666696,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4896.350000009047,
+							"produced_at_game_time": 4894.600000009041,
 							"quantity": 2,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
@@ -1279,7 +1279,7 @@
 				"def_id": "oven_t1",
 				"floor_id": "floor_1",
 				"grid_x": 0,
-				"grid_y": 7,
+				"grid_y": 8,
 				"iid": 2,
 				"job_id": -1,
 				"placed": true,
@@ -1309,15 +1309,25 @@
 				"def_id": "holding_table",
 				"floor_id": "floor_1",
 				"grid_x": 0,
-				"grid_y": 8,
+				"grid_y": 9,
 				"iid": 5,
+				"job_id": -1,
+				"placed": true,
+				"rotation_quarters": 0
+			},
+			{
+				"def_id": "staff_chair",
+				"floor_id": "floor_1",
+				"grid_x": 5,
+				"grid_y": 10,
+				"iid": 6,
 				"job_id": -1,
 				"placed": true,
 				"rotation_quarters": 0
 			}
 		],
-		"next_iid": 6,
-		"utility_today": 6.157500000000263
+		"next_iid": 7,
+		"utility_today": 6.072500000000249
 	},
 	"flags": {
 		"bailout_pending": false,
@@ -1359,7 +1369,8 @@
 				2.75,
 				0.25
 			],
-			"state": "INTERACTING",
+			"seat_iid": -1,
+			"state": "IDLE",
 			"visual_key": "player",
 			"visual_seed": 0
 		},
@@ -1367,14 +1378,9 @@
 			"gender": "male"
 		},
 		"commands": [],
-		"current": {
-			"from_customer": false,
-			"id": 924,
-			"kind": "display",
-			"target": 4
-		},
+		"current": {},
 		"manning_lane": "",
-		"next_command_id": 925
+		"next_command_id": 928
 	},
 	"pricing": {
 		"experiment_high_sold": false,
@@ -1391,19 +1397,18 @@
 			{
 				"bake_quality": 1.0,
 				"batch_multiplier": 1,
-				"burn_elapsed": 0.5499999999999999,
+				"burn_elapsed": 0.6,
 				"carried_units": 1,
 				"carrier_id": "player",
 				"claimed_by": "",
 				"cogs_noted": true,
-				"created_at": 4855.200000008897,
+				"created_at": 4853.800000008892,
 				"ingredient_value_kr": 340.0,
 				"job_id": 37,
 				"mixer_id": 3,
 				"oven_id": 2,
 				"owner_actor_id": "player",
-				"produced_at": 4896.350000009047,
-				"protected": false,
+				"produced_at": 4894.600000009041,
 				"quantity_output": 6,
 				"recipe_id": "recipe_plain_loaf",
 				"reserved_ingredients": {
@@ -1412,7 +1417,7 @@
 					"ingredient_water_salt": 1,
 					"ingredient_yeast": 1
 				},
-				"stage": "CARRIED_TO_DISPLAY",
+				"stage": "PLACEMENT_UI",
 				"stage_duration": 15.0,
 				"stage_elapsed": 15.0,
 				"stage_started_by": "player",
@@ -1429,6 +1434,12 @@
 		"lanes": {
 			"lane_a": {
 				"id": "lane_a",
+				"line": [],
+				"reservations": [],
+				"service_occupant": ""
+			},
+			"lane_b": {
+				"id": "lane_b",
 				"line": [],
 				"reservations": [],
 				"service_occupant": ""
@@ -1536,6 +1547,8 @@
 			"bread_sold": 58,
 			"burnt_batches": 0,
 			"campaign": {},
+			"close_early_penalty": 0.0,
+			"closed_early_at": -1.0,
 			"cogs_consumed": 6000.0,
 			"customers_entered": 20,
 			"day_number": 3,
@@ -1647,7 +1660,7 @@
 				"order_id": 12,
 				"packed": true,
 				"packed_all_prime": true,
-				"packed_at": 5139.4500000099315,
+				"packed_at": 5139.600000009932,
 				"packed_lots": [],
 				"prep_window": 78.15251922607422,
 				"preparation_deadline": 5247.650000010222,
@@ -1679,24 +1692,24 @@
 				"order_id": 13,
 				"packed": true,
 				"packed_all_prime": true,
-				"packed_at": 5261.250000010375,
+				"packed_at": 5261.150000010374,
 				"packed_lots": [
 					{
 						"display_id": 4,
 						"slot_index": 0,
 						"stack": {
-							"age_ingame_hours": 4.5179166666666175,
+							"age_ingame_hours": 4.51874999999995,
 							"bake_quality": 1.0,
 							"base_expiry_hours": 20.0,
 							"display_tier": 1,
 							"freshness_state": "FRESH",
-							"produced_at_game_time": 4714.900000008387,
+							"produced_at_game_time": 4714.600000008386,
 							"quantity": 3,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:0",
 							"source_job_id": 30
 						},
-						"taken_at": 5261.250000010375,
+						"taken_at": 5261.150000010374,
 						"unit_price": 90.0
 					}
 				],
@@ -1715,7 +1728,7 @@
 		"received_today": 2,
 		"tips_today": 30.0
 	},
-	"schema_version": 4,
+	"schema_version": 5,
 	"staff": {
 		"actors": {},
 		"contracts": {},

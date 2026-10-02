@@ -23,6 +23,8 @@ const SKIP_TICKS_PER_CHUNK: int = 20
 const LOADING_AUDIO_BUDGET_USEC: int = 30000
 ## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
 const STABLE_FRAME_MS: float = 80.0
+## Dua ketukan pada perabot yang sama secepat ini = ketukan ganda tak sengaja.
+const DOUBLE_TAP_MS: int = 350
 const MAX_SETTLE_FRAMES: int = 12
 
 var sim: SimulationRoot = null
@@ -37,6 +39,9 @@ var _orientation: OrientationGuard = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
 var _skip_overlay: SkipOverlay = null
+## Ketukan terakhir pada perabot: {iid, ms}. Ketukan kedua pada perabot yang sama
+## dalam DOUBLE_TAP_MS dianggap satu ketukan, bukan pembatalan (GDD 16.4).
+var _last_equipment_tap: Dictionary = {}
 ## Pemanasan shader saat loading dan setelah upgrade lokasi (ShaderWarmup).
 ## Mati di headless (tanpa GPU tidak ada yang dikompilasi); tes boleh menyalakannya.
 var shader_warmup: bool = DisplayServer.get_name() != "headless"
@@ -389,6 +394,18 @@ func request_skip_to_open() -> void:
 			pass
 
 
+## "Close Early" (GDD 15.5): konfirmasi dulu (dialog menjeda simulasi, jadi
+## penalti yang tertulis tepat), lalu toko tutup, jam maju ke 18:00, dan Daily
+## Summary terbuka lewat alur penutupan biasa.
+func request_close_early() -> void:
+	if sim == null or sim.close_early_block() != &"":
+		return
+	var stars: String = "%.2f" % sim.close_early_penalty()
+	modals.confirm(Tx.t("ui_close_early_confirm", {"time": Tx.clock(sim.time.close_time), "stars": stars}), func() -> void:
+		if sim != null and sim.close_early():
+			EventBus.sfx.emit(&"ui_confirm", &""))
+
+
 ## Mulai lompatan. Simulasi berjalan tick demi tick seperti biasa, hanya jauh
 ## lebih cepat, sampai 08:00 atau sampai ada oven yang butuh pemain.
 func begin_skip_to_open() -> void:
@@ -430,7 +447,12 @@ func _on_world_tap(pos: Vector2) -> void:
 	var p: Dictionary = world.pick(pos)
 	match p.get("kind", &"none"):
 		&"equipment":
-			sim.player.tap_equipment(int(p["iid"]))
+			var iid: int = int(p["iid"])
+			var now: int = Time.get_ticks_msec()
+			if int(_last_equipment_tap.get("iid", -1)) == iid and now - int(_last_equipment_tap.get("ms", 0)) < DOUBLE_TAP_MS:
+				return
+			_last_equipment_tap = {"iid": iid, "ms": now}
+			sim.player.tap_equipment(iid)
 		&"cashier":
 			sim.player.tap_cashier(StringName(str(p["lane"])), false)
 		&"customer":

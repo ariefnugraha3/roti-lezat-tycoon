@@ -191,6 +191,8 @@ func migrate(data: Dictionary) -> Dictionary:
 				d = _migrate_v2_to_v3(d)
 			3:
 				d = _migrate_v3_to_v4(d)
+			4:
+				d = _migrate_v4_to_v5(d)
 			_:
 				return {"ok": false, "error": "no migrator from v%d" % v}
 		v = int(d["schema_version"])
@@ -233,6 +235,35 @@ func _migrate_v2_to_v3(d: Dictionary) -> Dictionary:
 ## load (SimulationRoot._ensure_table); field meja pada job memakai default 0.
 func _migrate_v3_to_v4(d: Dictionary) -> Dictionary:
 	d["schema_version"] = 4
+	return d
+
+
+## v4: staf masih bertier (keputusan maintainer 2026-10-02 menghapusnya).
+## - Pengaturan kerja koki (mode, resep target, batch) dan tugas staf dibuang.
+## - Job milik seorang koki menjadi pesanan dapur ("kitchen"), klaim staf dan
+##   flag auto-retrieve (`protected`) dibuang.
+## Staf di atas batas baru diberhentikan, kursi koki dibuat, dan perabot yang
+## menimpa jalur kasir baru dipindah saat load (SimulationRoot.load_from_save).
+func _migrate_v4_to_v5(d: Dictionary) -> Dictionary:
+	var staff: Dictionary = d.get("staff", {})
+	var contracts: Dictionary = staff.get("contracts", {})
+	for k: Variant in contracts.keys():
+		var c: Variant = contracts[k]
+		if c is Dictionary:
+			for old: String in ["mode", "target_recipe", "batch"]:
+				(c as Dictionary).erase(old)
+	staff["tasks"] = {}
+	var jobs_root: Dictionary = d.get("production_jobs", {})
+	for j: Variant in jobs_root.get("jobs", []):
+		if not j is Dictionary:
+			continue
+		var jd: Dictionary = j
+		if str(jd.get("owner_actor_id", "")).begins_with("staff_"):
+			jd["owner_actor_id"] = "kitchen"
+		if str(jd.get("claimed_by", "")).begins_with("staff_"):
+			jd["claimed_by"] = ""
+		jd.erase("protected")
+	d["schema_version"] = 5
 	return d
 
 

@@ -188,7 +188,7 @@ func rebuild_furniture() -> void:
 		var node: Node3D = _build_furniture(e)
 		parent.add_child(node)
 		furniture[e.iid] = node
-		if e.category() != &"storage":
+		if e.category() != &"storage" and e.category() != &"chair":
 			var m := StationMarker.new()
 			parent.add_child(m)
 			m.pasang_di(node)
@@ -256,6 +256,8 @@ func _equipment_model(e: EquipmentInstance) -> Node3D:
 			node = EquipmentFactory.build_display(def.tier)
 		&"table":
 			node = EquipmentFactory.build_holding_table()
+		&"chair":
+			node = EquipmentFactory.build_staff_chair()
 		_:
 			node = EquipmentFactory.build_storage(def.tier)
 	node.name = "Equip_%d" % e.iid
@@ -380,6 +382,7 @@ func _sync_actors(delta: float) -> void:
 			sv0.set_busy(_staff_busy(StringName(str(sid)), a))
 			sv0.set_action(&"pack" if packers.has(a.id) else &"")
 			_apply_pack(sv0, packers.get(a.id))
+			sv0.set_seat(_seat_of(a))
 		_sync_one(a, "staff|" + String(sid), _staff_spec.bind(String(sid)), delta, live, false)
 		var sv: ActorView = views.get(a.id)
 		if sv != null:
@@ -401,7 +404,8 @@ func _sync_actors(delta: float) -> void:
 		var show_bar: bool = not c.window_shopper and c.drains_patience()
 		v.set_patience(c.patience_ratio(), show_bar, large)
 		v.set_look_around(c.window_shopper and c.state == Customer.BROWSING and not a2.moving)
-		v.set_alert(c.awaiting_tap and not sim.staff.any_cashier_working() and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
+		# Hanya pembeli di jalur pemain yang menunggu ketukan (GDD 21.2).
+		v.set_alert(c.awaiting_tap and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
 		var thought: String = ""
 		if c.drains_patience() and c.patience_ratio() < 0.3:
 			thought = "..."
@@ -530,6 +534,17 @@ func _player_busy() -> bool:
 	return p.manning_lane != &"" and not sim.cashier.transaction_for(p.manning_lane).is_empty()
 
 
+## Permukaan bantal kursi tempat koki duduk (GDD 5.1.4), atau INF bila berdiri.
+func _seat_of(a: SimActor) -> Vector3:
+	if a.seat_iid < 0:
+		return Vector3.INF
+	var node: Node3D = furniture.get(a.seat_iid) as Node3D
+	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
+		return Vector3.INF
+	var seat: Node3D = node.get_node_or_null("Seat") as Node3D
+	return seat.global_position if seat != null else Vector3.INF
+
+
 func _staff_busy(sid: StringName, a: SimActor) -> bool:
 	if not a.carried.is_empty() or a.state == &"WALKING" or a.state == &"INTERACTING" or sim.staff.tasks.has(sid):
 		return true
@@ -603,12 +618,17 @@ func _build_pack_bag(lane: QueueLane) -> PackBagRig:
 	var along := Vector2(to_customer.y, -to_customer.x)
 	# Mesin kasir ada di tengah MEJA; pada meja dua ubin (Tier 3-5) titik itu
 	# bergeser setengah ubin dari garis lane, dan kantong dulu menembus mesinnya.
+	# Meja dua jalur (Tier 1-2): mesin kasir tiap jalur di ubinnya sendiri dan
+	# kantong di sisi ubin yang kosong (DecorSlots.lane_frame).
 	var anchor: Vector2 = (sp + cp) * 0.5
 	var f: FloorDefinition = sim.world.location.floor_def(lane.floor_id)
 	if f != null:
-		var fr: Dictionary = DecorSlots.counter_frame(f, f.counter(lane.counter_id))
-		if not fr.is_empty():
-			anchor = fr["center"]
+		for ld: Dictionary in f.lanes:
+			if ld["id"] == lane.id:
+				var lf: Dictionary = DecorSlots.lane_frame(f, ld)
+				if not lf.is_empty():
+					anchor = lf["register"]
+					along = lf["bag_side"]
 	var pos: Vector2 = anchor + along * PACK_BAG_SIDE + to_customer * 0.04
 	rig.position = Vector3(pos.x, EquipmentFactory.COUNTER_HEIGHT, pos.y)
 	var profile: String = ""

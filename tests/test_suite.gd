@@ -186,6 +186,12 @@ static func logical_state(d: Dictionary) -> Dictionary:
 	if c.has("staff"):
 		(c["staff"] as Dictionary).erase("actors")
 		(c["staff"] as Dictionary).erase("tasks")
+	# Pemilih petak yang terbuka saat disimpan kembali ke loyang yang dibawa saat
+	# load (PlayerTaskManager.reconstruct), seperti transform aktor.
+	if c.has("production_jobs"):
+		for j: Variant in (c["production_jobs"] as Dictionary).get("jobs", []):
+			if str((j as Dictionary).get("stage", "")) == "PLACEMENT_UI":
+				(j as Dictionary)["stage"] = "CARRIED_TO_DISPLAY"
 	if c.has("supply_orders"):
 		(c["supply_orders"] as Dictionary).erase("couriers")
 	c.erase("active_floor_id")

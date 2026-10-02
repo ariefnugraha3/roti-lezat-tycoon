@@ -97,12 +97,14 @@ Toko melayani dua arus pembeli sekaligus: (a) Pelanggan fisik yang masuk, memili
 
 *Roti yang tidak jadi dibayar kembali ke rak.* Pembeli yang kehabisan kesabaran — atau yang masih berdiri di dalam toko saat pintu ditutup pukul 18:00 — menaruh kembali rotinya ke etalase persis seperti semula, lengkap dengan kualitas dan usianya. Yang hilang adalah penjualannya dan sebagian reputasi, bukan rotinya.
 
-**Siapa yang melayani meja kasir ditentukan satu aturan sederhana:**
+**Siapa yang melayani meja kasir (keputusan maintainer 2026-10-02):** meja kasir punya beberapa **jalur**, dua di Tier 1–3 dan tiga di Tier 4–5 (Seksi 57). Jalur pertama selalu **jalur pemain**; jalur lainnya dijaga **Asisten Kasir**, satu kasir per jalur.
 
-* **Ada Asisten Kasir yang bertugas → pembeli dilayani OTOMATIS.** Kasir berdiri sendiri di mejanya sepanjang jam buka; pemain tidak perlu menyentuh meja kasir sama sekali dan bebas berada di dapur. Inilah yang sesungguhnya dibeli pemain saat menggaji kasir (3.1).
-* **Tidak ada Asisten Kasir → karakter pemain harus berdiri di meja kasir.** Ketuk meja kasir → karakter berjalan ke posisi melayani di sisi dapur meja dan berbalik menghadap antrean. **Transaksi hanya berjalan selama ia berdiri di sana.** Begitu ia dipanggil pergi ke mixer atau oven, antrean berhenti bergerak dan pembeli mulai kehilangan kesabaran; transaksi yang sedang berjalan **membeku di tempat**—tidak dibatalkan, karena pembelinya masih berdiri menunggu ia kembali.
+* **Jalur Asisten Kasir → pembeli dilayani OTOMATIS.** Kasir berdiri sendiri di jalurnya sepanjang jam buka; pemain bebas berada di dapur. Inilah yang sesungguhnya dibeli pemain saat menggaji kasir (3.1).
+* **Jalur pemain → karakter pemain harus berdiri di sana.** Ketuk meja kasir → karakter berjalan ke posisi melayani jalur pemain di sisi dapur meja dan berbalik menghadap antrean. Pemain boleh berjaga di sini juga saat kasir sedang bekerja, sehingga dua atau tiga jalur melayani bersamaan. **Transaksi hanya berjalan selama ia berdiri di sana.** Begitu ia dipanggil pergi ke mixer atau oven, antrean berhenti bergerak dan pembeli mulai kehilangan kesabaran; transaksi yang sedang berjalan **membeku di tempat**—tidak dibatalkan, karena pembelinya masih berdiri menunggu ia kembali.
 
-Aturan ini juga berlaku saat kasir sedang **diliburkan** (Mode Solo, 3.0.C): kasir yang tidak bertugas sama dengan tidak ada kasir, dan meja kembali menuntut kehadiran pemain.
+* **Antrean hanya mengular di jalur yang aktif.** Jalur kasir aktif selama kasirnya bertugas. Jalur pemain aktif selama pemain berjaga di sana, atau bila tidak ada jalur lain yang aktif (antrean menunggu pemain). Saat jalur baru aktif, pembeli urutan berikutnya yang masih antre pindah ke jalur itu sampai antreannya seimbang. Saat pemain meninggalkan jalurnya, pembeli yang belum dilayani pindah ke jalur kasir yang masih muat, sedangkan pembeli yang sedang dibungkus tetap menunggu pemain kembali (Seksi 21.3).
+
+Kasir yang **diliburkan** (Mode Solo, 3.0.C) sama dengan tidak ada kasir: jalurnya tutup, dan meja kembali menuntut kehadiran pemain.
 
 Di sinilah tekanan utama tahap jualan selama toko belum mampu menggaji kasir: **memanggang dan melayani memperebutkan satu pasang kaki yang sama**. Pemain bisa membuat roti lagi di tahap ini, tapi setiap menit yang ia habiskan di dapur adalah antrean kasir yang mengular—dan roti yang ditinggal di oven tetap berisiko gosong. Menyewa Asisten Kasir adalah yang membebaskan kakinya, dan itulah alasan ekonomis utama untuk menggajinya.
 
@@ -172,117 +174,103 @@ Begitu bailout diterapkan, toko memasuki **Mode Solo** (state machine: Seksi 49)
 
 ## **Manajemen Karyawan (Staff Management)**
 
-Karyawan bertindak sebagai Asisten berdedikasi yang membantu otomatisasi operasional toko. Semakin tinggi keahlian karyawan, semakin cepat waktu kerjanya (*work speed*) dan semakin besar gaji harian (*daily salary*) yang harus dibayarkan.
+Karyawan bertindak sebagai Asisten yang membantu operasional toko. **Keputusan maintainer 2026-10-02:** asisten tidak punya tier dan tidak berbeda keahlian maupun waktu kerja. Semua Asisten Kasir bekerja persis sama, begitu pula semua Asisten Dapur; yang membedakan kandidat hanyalah nama, rupa, dan cerita. Gaji harian sama untuk kasir dan koki dan ditetapkan tier toko (Seksi 3.3).
 
 ### **3.1 Asisten Kasir (Cashier Assistant)**
 
-Asisten Kasir bertugas di meja kasir untuk melayani transaksi pembeli **secara otomatis**. Keberadaan kasir membebaskan pemain dari keharusan mengklik balon pesanan secara manual dan menjaga agar antrean toko tidak macet.
+Asisten Kasir menjaga **jalurnya sendiri** di meja kasir dan melayani transaksi pembeli **secara otomatis**. Keberadaan kasir membebaskan pemain dari keharusan berjaga di meja dan menjaga antrean toko tetap mengalir.
 
-**Arti "otomatis" di sini harfiah:** begitu seorang Asisten Kasir bertugas, jalur kasirnya berjalan sendiri sepanjang jam buka—karakter pemain boleh berada di mana saja di dalam toko, bahkan sibuk di dapur, dan antrean tetap mengalir. Sebaliknya, **tanpa kasir yang bertugas, meja itu hanya melayani selama karakter pemain berdiri di depannya** (lihat Tahap Jualan pada Seksi 2 dan Mode Solo pada 3.0.C). Membandingkan dua keadaan inilah yang membuat gaji kasir terasa sepadan.
+**Arti "otomatis" di sini harfiah:** begitu seorang Asisten Kasir bertugas, jalurnya berjalan sendiri sepanjang jam buka—karakter pemain boleh berada di mana saja di dalam toko, bahkan sibuk di dapur, dan antrean tetap mengalir. Pemain tetap boleh membuka jalurnya sendiri di samping kasir (jalur pemain, Seksi 2 dan 21.2) untuk mempercepat antrean saat ramai.
 
-| Tingkat / Jabatan | Gaji Harian (Per Hari) | Kecepatan Transaksi (Work Speed) | Kemampuan Khusus & Efek | Cocok untuk Lokasi |
-| :--- | :---: | :---: | :--- | :--- |
-| **Tier 1: Kasir Magang** | **150 KR** | **3.0 detik** / pelanggan | Pemula, kadang lambat menghitung koin. | Tier 1: Garasi Rumah |
-| **Tier 2: Kasir Junior** | **350 KR** | **3.0 detik** / pelanggan | Sabar: pembeli di antreannya 8% lebih sabar (`queue_patience_drain_multiplier` 0,92). | Tier 2: Ruko 1 Pintu |
-| **Tier 3: Kasir Terampil** | **800 KR** | **3.0 detik** / pelanggan | Menurunkan tingkat stres antrean pelanggan sebesar -15%. | Tier 3: Bakery Mandiri |
-| **Tier 4: Kasir Profesional** | **1.800 KR** | **3.0 detik** / pelanggan | Sabar + ramah: pembeli di antreannya 15% lebih sabar (`queue_patience_drain_multiplier` 0,85), dan setiap penjualannya menaikkan Store Rating 1,5x (`sale_rating_multiplier` 1,5; berlaku untuk `successful_sale` dan `fast_service`, tidak untuk penalti). | Tier 4: Flagship Store |
-| **Tier 5: Kasir Superstar** | **4.000 KR** | **3.0 detik** / pelanggan | Senyuman manis: +5% peluang pelanggan memberi tip koin ekstra. | Tier 5: Mega Bakery |
-
-*Catatan Packing (keputusan maintainer 2026-09-30):* setiap transaksi, oleh pemain maupun kasir tier mana pun, berlangsung tepat **3 detik** simulasi (1,5 detik nyata, Seksi 15.2) dan seluruhnya fase membungkus (Seksi 21.4). Seperti semua durasi di dokumen ini, angka detik di tabel kasir adalah simulation-seconds; kartu staf menampilkannya dalam detik nyata. Tier kasir tidak lagi berbeda kecepatan; yang membedakan tinggal gaji dan kemampuan khusus. Kemampuan Tier 2 dan Tier 4 di atas adalah keputusan maintainer 2026-09-30 ("sabar + ramah"), menggantikan kemampuan lama yang gugur bersama kecepatan kasir; Tier 1, 3, dan 5 tidak berubah. Nilainya tinggal di `staff.json` `special`, dan kartu kasir di layar Staff menjelaskan setiap kemampuan dalam kalimat (Seksi 127.17).
-
-*Catatan Kasir:* Jika pemain memiliki lebih dari satu meja kasir (Tier 3 ke atas), penempatan lebih dari satu kasir akan membuka antrean paralel terpisah, secara instan membagi separuh beban antrean toko.
-
-*Batas yang berlaku saat ini:* jumlah jalur kasir yang terbuka = jumlah **kasir yang bertugas**, dibatasi jumlah meja yang dimiliki lokasi. Meja yang tidak ada kasirnya tetap tertutup—karakter pemain tidak bisa membuka jalur kedua di samping kasir yang sedang bekerja. Pemain hanya menggantikan kasir ketika **tidak ada kasir bertugas sama sekali**, dan saat itu ia melayani satu jalur.
+* **Semua kasir setara** (keputusan maintainer 2026-10-02): tidak ada tier, kemampuan khusus, atau perbedaan kecepatan. Setiap transaksi, oleh pemain maupun kasir, berlangsung tepat **3 detik** simulasi (1,5 detik nyata, Seksi 15.2) dan seluruhnya fase membungkus (Seksi 21.4). Kemampuan lama (pembeli lebih sabar, rating ×1,5 per penjualan, tip fisik) dihapus bersama tiernya.
+* **Pesanan RotiFood tetap urusan pemain.** Kasir tidak mengemas pesanan aplikasi; pemain yang membuka pesanan dan menekan OK (Seksi 3.6). Driver yang pesanannya sudah dikemas menerima kantongnya sendiri di service point (Seksi 22.9).
+* Gaji harian kasir sama dengan koki, menurut tier toko (Seksi 3.3).
 
 ---
 
 ### **3.2 Asisten Dapur (Kitchen Assistant / Baker)**
 
-Asisten Dapur bertugas mengolah bahan mentah menjadi roti siap santap (mengambil bahan dari gudang, mengoperasikan mixer, memasukkan loyang ke oven, dan memindahkan roti matang ke rak display). 
+Asisten Dapur (koki) membantu produksi roti di dapur. Keputusan maintainer 2026-10-02:
 
-Selain kecepatan kerja yang tinggi, Asisten Dapur tier tinggi memiliki kemampuan krusial: **Proteksi Roti Gosong (Auto-Retrieve)**, yaitu otomatis mengangkat loyang saat pemanggangan selesai sehingga pemain tidak perlu takut roti hangus saat sibuk.
-
-| Tingkat / Jabatan | Gaji Harian (Per Hari) | Pengali Kecepatan (Work Speed) | Proteksi Roti Gosong (Auto-Retrieve) | Cocok untuk Lokasi |
-| :--- | :---: | :---: | :---: | :--- |
-| **Tier 1: Pembantu Dapur (Trainee)** | **180 KR** | **1.0x** (Waktu standar alat) | **0%** (Pemain tetap harus mengangkat loyang sendiri) | Tier 1: Garasi Rumah |
-| **Tier 2: Asisten Baker (Junior)** | **400 KR** | **1.25x** (25% lebih cepat) | **25% peluang** otomatis mengangkat roti matang | Tier 2: Ruko 1 Pintu |
-| **Tier 3: Baker Berpengalaman** | **950 KR** | **1.60x** (60% lebih cepat) | **60% peluang** otomatis mengangkat roti matang | Tier 3: Bakery Mandiri |
-| **Tier 4: Chef Pastry Profesional** | **2.200 KR** | **2.00x** (2x lipat lebih cepat) | **90% peluang** otomatis mengangkat roti matang | Tier 4: Flagship Store |
-| **Tier 5: Master Artisan Baker** | **5.000 KR** | **2.80x** (Hampir 3x lipat cepat) | **100% Anti-Gosong** (Pasti ditata rapi ke etalase display) | Tier 5: Mega Bakery |
-
-*Catatan Dapur:* Pemain dapat mengatur mode kerja Asisten Dapur:
-1. *Mode Auto-Replenish*: Asisten otomatis memproduksi roti yang stoknya paling sedikit di rak display.
-2. *Mode Target Resep*: Pemain menetapkan resep spesifik yang harus dibuat secara berkelanjutan hingga bahan habis.
+* **Semua koki setara**: tidak ada tier, pengali kecepatan kerja, maupun peluang auto-retrieve. Durasi mixer dan oven sama siapa pun yang memulainya (Seksi 18.5), dan semua staf berjalan secepat karakter pemain (Seksi 59).
+* **Koki hanya membuat resep yang dipesan pemain.** Di Buku Resep, di samping tombol **Make**, ada tombol **Ask a Baker** (Seksi 7, 23.3): resep dan batch yang sama, tetapi koki yang mengerjakan semua langkahnya, yaitu mulai mengaduk, mengantar adonan ke oven, mengangkat loyang, lalu menatanya di rak. Pesanan hanya bisa diberikan bila ada koki yang bertugas, bahannya cukup, dan ada mixer kosong yang memenuhi tier resep. Bahan dipotong saat itu juga, persis seperti Make. Mode Auto-Replenish, Target Resep, dan setelan batch per koki dihapus.
+* **Inisiatif saat menganggur.** Koki yang tidak sedang mengerjakan pesanan melanjutkan langkah pemain yang alatnya **sudah selesai**: adonan di mixer yang selesai diantar ke oven yang bisa menerimanya, dan loyang matang di oven diangkat lalu ditata di rak. Koki tidak pernah memulai adukan pemain.
+* **Ketukan pemain menang.** Bila pemain mengetuk alat yang sudah selesai itu, koki yang sedang menujunya batal membantu dan kembali ke kursinya. Bila pemain membatalkan ketukan itu (mengetuk alat yang sama sekali lagi selama karakternya belum sampai, Seksi 16.4), koki kembali mengerjakannya.
+* **Kursi koki.** Koki yang tidak punya pekerjaan duduk diam di kursinya (Seksi 5.1.4), dan memulai hari di sana.
+* **Ke mana loyang dibawa:** ke **rak display** yang masih bisa menerima resep itu (petak berisi resep yang sama lebih dulu, lalu petak kosong). Bila semua rak penuh, koki memarkir loyang di Meja Tunggu (Seksi 5.1.3).
+* Gaji harian koki sama dengan kasir, menurut tier toko (Seksi 3.3).
 
 ---
 
-### **3.3 Batas Kapasitas Staf (Berdasarkan Tier Lokasi)**
+### **3.3 Batas Kapasitas Staf & Gaji (Berdasarkan Tier Lokasi)**
 
-Kapasitas jumlah karyawan yang dapat dipekerjakan dibatasi oleh luas fisik bangunan toko:
+Keputusan maintainer 2026-10-02. Jumlah karyawan dibatasi jalur meja kasir: setiap Asisten Kasir menjaga satu jalur di samping jalur pemain, jadi Tier 1–3 (meja dua jalur) hanya punya tempat untuk satu kasir dan Tier 4–5 (meja tiga jalur) untuk dua. Batas koki mengikuti batas kasir. Gaji harian **sama untuk kasir dan koki** dan naik bersama tier toko. Nilainya tinggal di `locations.json` (`staff_capacity_by_role`, `staff_daily_wage_kr`).
 
-| Tier Lokasi | Maks. Asisten Kasir | Maks. Asisten Dapur | Total Maks. Karyawan | Estimasi Beban Gaji Harian |
-| :--- | :---: | :---: | :---: | :--- |
-| **Tier 1: Garasi Rumah** | 1 Orang | 1 Orang | 2 Orang | 330 – 500 KR / hari |
-| **Tier 2: Ruko 1 Pintu** | 1 Orang | 2 Orang | 3 Orang | 750 – 1.500 KR / hari |
-| **Tier 3: Toko Bakery Mandiri** | 2 Orang | 2 Orang | 4 Orang | 2.000 – 3.500 KR / hari |
-| **Tier 4: Flagship Store** | 2 Orang | 3 Orang | 5 Orang | 5.000 – 10.000 KR / hari |
-| **Tier 5: Mega Bakery Landmark** | 3 Orang | 4 Orang | 7 Orang | 15.000 – 32.000 KR / hari |
+| Tier Lokasi | Jalur Kasir (pemain + kasir) | Maks. Asisten Kasir | Maks. Asisten Dapur | Gaji Harian per Orang | Beban Gaji Maksimal |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Tier 1: Garasi Rumah** | 2 | 1 Orang | 1 Orang | **150 KR** | 300 KR / hari |
+| **Tier 2: Ruko 1 Pintu** | 2 | 1 Orang | 1 Orang | **400 KR** | 800 KR / hari |
+| **Tier 3: Toko Bakery Mandiri** | 2 | 1 Orang | 1 Orang | **900 KR** | 1.800 KR / hari |
+| **Tier 4: Flagship Store** | 3 | 2 Orang | 2 Orang | **2.000 KR** | 8.000 KR / hari |
+| **Tier 5: Mega Bakery Landmark** | 3 | 2 Orang | 2 Orang | **4.500 KR** | 18.000 KR / hari |
+
+Gaji mengikuti tier toko saat liabilitas dikunci pukul 05:00 (Seksi 87.3), jadi upgrade toko menaikkan gaji semua staf mulai hari berikutnya. Save lama yang mempekerjakan lebih banyak staf dari batas ini memberhentikan yang paling baru direkrut saat dimuat, tanpa biaya (Seksi 106).
 
 ---
 
 ### **3.4 Rekrutmen & Sistem Penggajian**
 
-* **Portal Lowongan Kerja In-Game**: Pemain membuka bursa pelamar melalui menu **Manajemen Karyawan** pada **Tahap Tutup (18:00)**. Daftar pelamar disajikan dalam bentuk foto polaroid imut dengan rincian nama, jabatan, tingkat keahlian, dan gaji harian.
+* **Portal Lowongan Kerja In-Game**: Pemain membuka bursa pelamar melalui menu **Manajemen Karyawan** pada **Tahap Tutup (18:00)**. Daftar pelamar disajikan dalam bentuk foto polaroid imut dengan rincian nama, jabatan, cerita, dan gaji harian (sama untuk semua pelamar di toko itu, Seksi 3.3).
 * **Tanpa Biaya Rekrutmen (Gratis Rekrut)**: Tidak ada biaya awal untuk merekrut karyawan baru. Pemain dapat langsung merekrut kandidat yang diinginkan selama slot staf di toko masih tersedia.
 * **Beban Murni Gaji Harian**: Biaya karyawan murni berasal dari gaji harian (*daily salary*) yang otomatis dipotong dari kas toko pada layar *Daily Summary* setiap pukul 18:00.
 * **Pemecatan & Pergantian Staf**: Pemain dapat memberhentikan staf kapan saja tanpa denda penalti. Gaji hari tersebut tetap dibayarkan secara penuh pada laporan penutupan toko sore itu.
-* **Visual Prosedural Karakter Staf**: Karakter staf dirakit secara prosedural dengan seragam celemek dan topi koki yang warnanya mencerminkan tingkatan keahlian mereka (misal: Tier 1 celemek putih sederhana $\rightarrow$ Tier 3 celemek cokelat karamel $\rightarrow$ Tier 5 celemek emas koki kepala).
+* **Visual Prosedural Karakter Staf**: Karakter staf dirakit secara prosedural dengan celemek dan topi koki khas masing-masing. Sejak 2026-10-02 warna celemek murni penampilan, bukan tanda keahlian.
 
 ### **3.5 Daftar Karakter Karyawan yang Dapat Direkrut (Staff Roster)**
 
-Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan menghangatkan hati (*cozy & wholesome*), serta ciri visual prosedural tersendiri.
+Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan menghangatkan hati (*cozy & wholesome*), serta ciri visual prosedural tersendiri. Sejak 2026-10-02 roster tidak bertier: semua kasir sama kemampuannya, begitu pula semua koki, dan cerita mereka murni kepribadian (Seksi 3, 3.3).
 
 #### **A. Roster Kandidat Asisten Kasir**
 
-| Nama Staf | Tier Jabatan | Gaji Harian | Kecepatan Transaksi (Seksi 21.4) | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
-| :--- | :---: | :---: | :---: | :--- | :--- |
-| **Budi** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Mahasiswa baru yang rajin; sering grogi saat menghitung koin kembalian tapi selalu tersenyum tulus. | Kacamata bulat besar, celemek katun putih polos, rambut belah samping rapi. |
-| **Sari** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Gadis ramah tetangga toko; suka menyapa pembeli dengan suara riang ceria ala kartun Minggu pagi. | Kuncir kuda ganda, pita rambut kuning mentega, celemek putih bergaris tipis. |
-| **Dimas** | Tier 1 (Magang) | **150 KR** | 3.0 detik | Terlalu asyik bercerita cuaca dengan pelanggan sampai kadang lupa menekan tombol konfirmasi kasir. | Topi pet kasir miring ke samping, celemek putih gading, ekspresi cengengesan. |
-| **Nadia** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Mantan kasir minimarket; terbiasa menyusun struk transaksi dengan sangat rapi dan teliti. | Rambut bob pendek rapi, celemek hijau mint pastel, senyum profesional ramah. |
-| **Rian** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Pemuda aktif yang gesit; tanggap melayani arus pejalan kaki jam pulang sekolah. | Rambut spike pendek, celemek hijau mint, gelang karet oranye sporty. |
-| **Lili** | Tier 2 (Junior) | **350 KR** | 3.0 detik | Pembawaannya tenang dan sabar; membuat pembeli yang sedang antre merasa adem dan tidak gelisah. | Jepit rambut stroberi imut, celemek hijau mint lembut, pipi merona merah muda. |
-| **Maya** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
-| **Reza** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
-| **Dewi** | Tier 3 (Terampil)| **800 KR** | 3.0 detik | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
-| **Hendra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Ahli psikologi konsumen; obrolan hangatnya membuat setiap pembeli pulang tersenyum. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
-| **Citra** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
-| **Kenji** | Tier 4 (Profesional)| **1.800 KR**| 3.0 detik | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan dan kecepatan kilatnya. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
-| **Grace** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | "Duta Senyum Nasional"; aura ramahnya membuat pembeli bahagia dan sering memberi tip koin ekstra. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
-| **Tejo** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | Kasir legendaris era toserba 90-an; sanggup menghitung kembalian secepat kilat bahkan sambil merem. | Kumis tipis retro nostalgia, celemek emas koki kepala, pena terselip di telinga. |
-| **Luna** | Tier 5 (Superstar) | **4.000 KR**| 3.0 detik | Bintang idola lokal yang magang santai di toko roti; kehadirannya membuat kasir selalu ramai gembira. | Rambut ombre pastel manis, bando telinga kelinci empuk, celemek emas bertabur pin bintang. |
+| Nama Staf | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
+| :--- | :--- | :--- |
+| **Budi** | Mahasiswa baru yang rajin; sering grogi saat menghitung koin kembalian tapi selalu tersenyum tulus. | Kacamata bulat besar, celemek katun putih polos, rambut belah samping rapi. |
+| **Sari** | Gadis ramah tetangga toko; suka menyapa pembeli dengan suara riang ceria ala kartun Minggu pagi. | Kuncir kuda ganda, pita rambut kuning mentega, celemek putih bergaris tipis. |
+| **Dimas** | Terlalu asyik bercerita cuaca dengan pelanggan sampai kadang lupa menekan tombol konfirmasi kasir. | Topi pet kasir miring ke samping, celemek putih gading, ekspresi cengengesan. |
+| **Nadia** | Mantan kasir minimarket; terbiasa menyusun struk transaksi dengan sangat rapi dan teliti. | Rambut bob pendek rapi, celemek hijau mint pastel, senyum profesional ramah. |
+| **Rian** | Pemuda aktif yang gesit; tanggap melayani arus pejalan kaki jam pulang sekolah. | Rambut spike pendek, celemek hijau mint, gelang karet oranye sporty. |
+| **Lili** | Pembawaannya tenang dan sabar; selalu bersenandung pelan sambil membungkus pesanan. | Jepit rambut stroberi imut, celemek hijau mint lembut, pipi merona merah muda. |
+| **Maya** | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
+| **Reza** | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
+| **Dewi** | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
+| **Hendra** | Ahli psikologi konsumen; obrolan hangatnya membuat setiap pembeli pulang tersenyum. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
+| **Citra** | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
+| **Kenji** | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
+| **Grace** | "Duta Senyum Nasional"; aura ramahnya membuat setiap pembeli pulang berseri-seri. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
+| **Tejo** | Kasir legendaris era toserba 90-an; sanggup menghitung kembalian secepat kilat bahkan sambil merem. | Kumis tipis retro nostalgia, celemek emas koki kepala, pena terselip di telinga. |
+| **Luna** | Bintang idola lokal yang magang santai di toko roti; kehadirannya membuat kasir selalu ramai gembira. | Rambut ombre pastel manis, bando telinga kelinci empuk, celemek emas bertabur pin bintang. |
 
 ---
 
 #### **B. Roster Kandidat Asisten Dapur (Baker)**
 
-| Nama Baker | Tier Jabatan | Gaji Harian | Kecepatan & Proteksi Gosong | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
-| :--- | :---: | :---: | :---: | :--- | :--- |
-| **Joko** | Tier 1 (Trainee) | **180 KR** | 1.0x / 0% Anti-Gosong | Kuat mengaduk adonan tepung berat berjam-jam; tapi sering melamun saat oven berdenting. | Tubuh agak gempal berisi, celemek putih tebal bertabur bubuk tepung putih. |
-| **Ani** | Tier 1 (Trainee) | **180 KR** | 1.0x / 0% Anti-Gosong | Suka mencicipi selai sebelum dioles ke roti; sangat antusias belajar aneka teknik memanggang. | Topi koki miring menggemaskan, celemek putih polos, hidung bertotol tepung. |
-| **Bagus** | Tier 1 (Trainee) | **180 KR** | 1.0x / 0% Anti-Gosong | Terbiasa membantu ibunya membuat kue goreng di rumah; langkah kakinya cepat saat mondar-mandir. | Celemek putih pendek, lengan baju dilipat tinggi, senyum polos bersemangat. |
-| **Fajar** | Tier 2 (Junior) | **400 KR** | 1.25x / 25% Anti-Gosong | Menguasai teknik menggulung adonan croissant dengan ketebalan yang merata sempurna. | Celemek oranye pastel, sarung tangan kain tahan panas, bandana koki oranye. |
-| **Rina** | Tier 2 (Junior) | **400 KR** | 1.25x / 25% Anti-Gosong | Sangat disiplin menimbang gramasi ragi dan mentega; jarang sekali membuat adonan bantat. | Kacamata frame bulat tipis, celemek oranye pastel berenda, rambut dikuncir rapi. |
-| **Doni** | Tier 2 (Junior) | **400 KR** | 1.25x / 25% Anti-Gosong | Tidak mudah patah arang; sigap membersihkan meja dapur setiap selesai mengocok telur. | Celemek oranye cerah, handuk kecil tersampir di pundak, ekspresi ramah fokus. |
-| **Aris** | Tier 3 (Senior) | **950 KR** | 1.60x / 60% Anti-Gosong | "Si Raja Ragi"; ahli fermentasi roti tawar dan baguette berkulit renyah dengan remah selembut spons. | Topi koki silinder sedang, celemek cokelat kopi pekat, kumis melingkar rapi. |
-| **Tari** | Tier 3 (Senior) | **950 KR** | 1.60x / 60% Anti-Gosong | Gerakannya anggun dan luwes dalam memanggang Cinnamon Roll dan Danish pastry yang wangi semerbak. | Celemek cokelat kopi bermotif renda bunga, rambut disanggul rapi dengan tusuk konde kayu. |
-| **Gilang** | Tier 3 (Senior) | **950 KR** | 1.60x / 60% Anti-Gosong | Tangan dingin spesialis roti sobek manis; adonannya selalu mengembang cantik dalam cuaca apa pun. | Celemek cokelat kopi, sarung tangan oven tebal motif gingham, tatapan tenang berpengalaman. |
-| **Sophie** | Tier 4 (Pakar) | **2.200 KR**| 2.00x / 90% Anti-Gosong | Baker Prancis lulusan Eropa klasik; ahli melipat pastry mentega ratusan lapis tipis yang renyah berkilau. | Topi toque koki tinggi Prancis, celemek marun elegan bergaris emas, syal leher merah. |
-| **Danu** | Tier 4 (Pakar) | **2.200 KR**| 2.00x / 90% Anti-Gosong | Maestro roti sehat artisan; menguasai seni fermentasi ragi alami Sourdough dan olahan gandum utuh. | Jenggot koki terpangkas rapi, celemek marun pekat berkantong alat pisau roti kayu. |
-| **Aoi** | Tier 4 (Pakar) | **2.200 KR**| 2.00x / 90% Anti-Gosong | Perfeksionis asal Kyoto; mampu memanggang puluhan lembar krep tipis Matcha Mille Crepes tanpa cela. | Bandana hachimaki hitam-putih khas chef Jepang, celemek marun, gerakan tangan presisi. |
-| **Pierre** | Tier 5 (Master) | **5.000 KR**| 2.80x / 100% Anti-Gosong | Maestro pastry dunia; roti buatannya mengembang selembut awan surga dan selalu ludes diburu pecinta roti. | Topi koki menjulang tinggi dengan sulaman benang emas, celemek emas koki agung, medali kuliner. |
-| **Mawar** | Tier 5 (Master) | **5.000 KR**| 2.80x / 100% Anti-Gosong | Nenek sakti pembawa buku resep rahasia keluarga; sentuhan tangannya 100% anti-gosong seumur hidup. | Kacamata rantai emas vintage, celemek emas rajut berhias sulaman mawar merah, aura keibuan hangat. |
-| **Alistair** | Tier 5 (Master) | **5.000 KR**| 2.80x / 100% Anti-Gosong | Alkemis kuliner modern; spesialis mengolah jamur truffle dan butter artisan menjadi roti termahal di kota. | Jas koki hitam beraksen emas mewah, sarung tangan satin putih, tatapan tajam visioner. |
+| Nama Baker | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
+| :--- | :--- | :--- |
+| **Joko** | Kuat mengaduk adonan tepung berat berjam-jam; tapi sering melamun saat oven berdenting. | Tubuh agak gempal berisi, celemek putih tebal bertabur bubuk tepung putih. |
+| **Ani** | Suka mencicipi selai sebelum dioles ke roti; sangat antusias belajar aneka teknik memanggang. | Topi koki miring menggemaskan, celemek putih polos, hidung bertotol tepung. |
+| **Bagus** | Terbiasa membantu ibunya membuat kue goreng di rumah; langkah kakinya cepat saat mondar-mandir. | Celemek putih pendek, lengan baju dilipat tinggi, senyum polos bersemangat. |
+| **Fajar** | Menguasai teknik menggulung adonan croissant dengan ketebalan yang merata sempurna. | Celemek oranye pastel, sarung tangan kain tahan panas, bandana koki oranye. |
+| **Rina** | Sangat disiplin menimbang gramasi ragi dan mentega; jarang sekali membuat adonan bantat. | Kacamata frame bulat tipis, celemek oranye pastel berenda, rambut dikuncir rapi. |
+| **Doni** | Tidak mudah patah arang; sigap membersihkan meja dapur setiap selesai mengocok telur. | Celemek oranye cerah, handuk kecil tersampir di pundak, ekspresi ramah fokus. |
+| **Aris** | "Si Raja Ragi"; ahli fermentasi roti tawar dan baguette berkulit renyah dengan remah selembut spons. | Topi koki silinder sedang, celemek cokelat kopi pekat, kumis melingkar rapi. |
+| **Tari** | Gerakannya anggun dan luwes dalam memanggang Cinnamon Roll dan Danish pastry yang wangi semerbak. | Celemek cokelat kopi bermotif renda bunga, rambut disanggul rapi dengan tusuk konde kayu. |
+| **Gilang** | Tangan dingin spesialis roti sobek manis; adonannya selalu mengembang cantik dalam cuaca apa pun. | Celemek cokelat kopi, sarung tangan oven tebal motif gingham, tatapan tenang berpengalaman. |
+| **Sophie** | Baker Prancis lulusan Eropa klasik; ahli melipat pastry mentega ratusan lapis tipis yang renyah berkilau. | Topi toque koki tinggi Prancis, celemek marun elegan bergaris emas, syal leher merah. |
+| **Danu** | Maestro roti sehat artisan; menguasai seni fermentasi ragi alami Sourdough dan olahan gandum utuh. | Jenggot koki terpangkas rapi, celemek marun pekat berkantong alat pisau roti kayu. |
+| **Aoi** | Perfeksionis asal Kyoto; mampu memanggang puluhan lembar krep tipis Matcha Mille Crepes tanpa cela. | Bandana hachimaki hitam-putih khas chef Jepang, celemek marun, gerakan tangan presisi. |
+| **Pierre** | Maestro pastry dunia; roti buatannya mengembang selembut awan surga dan selalu ludes diburu pecinta roti. | Topi koki menjulang tinggi dengan sulaman benang emas, celemek emas koki agung, medali kuliner. |
+| **Mawar** | Nenek sakti pembawa buku resep rahasia keluarga; punya cerita untuk setiap roti yang ia buat. | Kacamata rantai emas vintage, celemek emas rajut berhias sulaman mawar merah, aura keibuan hangat. |
+| **Alistair** | Alkemis kuliner modern; spesialis mengolah jamur truffle dan butter artisan menjadi roti termahal di kota. | Jas koki hitam beraksen emas mewah, sarung tangan satin putih, tatapan tajam visioner. |
 
 ## **Perilaku Konsumen**
 
@@ -309,11 +297,11 @@ Meskipun bernuansa retro-cozy tahun 2000, dunia *Roti Lezat Tycoon* berlatar di 
 
 #### **A. Alur Siklus Pesanan Online (The Delivery Order Loop)**
 1. **Notifikasi Masuk (Chime Alert)**: Tablet digital di samping kasir berdering dengan nada ceria (*ting-ting-ting!*). Balon pesanan digital muncul di atas tablet, menampilkan icon kantong kemasan, daftar roti yang dipesan warga kota, dan *Preparation Timer* (misal: 60 - 90 detik).
-2. **Pengemasan Roti (Packing & Bagging)**: Pemain (atau Asisten Kasir/Dapur yang bertugas) mengklik pesanan untuk mengemas roti dari stok etalase display ke dalam kantong kardus cokelat berpita manis (*Procedural Paper Bag*). Roti yang dikemas langsung mengurangi stok display toko.
+2. **Pengemasan Roti (Packing & Bagging)**: Pemain mengklik pesanan untuk mengemas roti dari stok etalase display ke dalam kantong kardus cokelat berpita manis (*Procedural Paper Bag*). Roti yang dikemas langsung mengurangi stok display toko.
 
    *Bentuk ketukannya sama persis dengan pembeli fisik:* ketuk balon → **popup pesanan** memperlihatkan daftar roti beserta sisa stok etalase untuk tiap butirnya → satu tombol menyelesaikan langkah itu. Balonnya bisa diketuk di dua tempat yang sama-sama membuka popup yang sama: panel "Pesanan RotiFood" di HUD, dan tanda "!" yang mengambang di atas tablet di ujung meja kasir. Roti yang kurang ditandai merah di dalam popup, jadi pemain tahu resep mana yang harus dipanggang lebih dulu—tombolnya tidak pernah mati tanpa alasan.
 
-   Berbeda dari pembeli fisik, pesanan aplikasi **tidak menuntut karakter berdiri di meja kasir**: yang bekerja di sini tablet, bukan mesin kasir.
+   Berbeda dari pembeli fisik, pesanan aplikasi **tidak menuntut karakter berdiri di meja kasir**: yang bekerja di sini tablet, bukan mesin kasir. Asisten Kasir dan koki **tidak pernah** mengemas pesanan RotiFood; setiap pesanan menunggu OK dari pemain (keputusan maintainer 2026-10-02).
 3. **Kedatangan Driver Ojol**: Karakter chibi Driver Ojek Online tiba di toko dengan langkah riang membawa nomor pesanan digital di ponsel pintarnya.
 4. **Serah Terima Cepat (Handover)**: Pemain atau kasir menyerahkan kantong roti kepada driver. Driver memasukkan bungkusan ke dalam tas termal punggungnya, melambaikan tangan dengan senyum puas, lalu bergegas mengantarkannya ke pelanggan. Koin Roti (KR) hasil penjualan langsung masuk ke kas kasir.
 
@@ -457,12 +445,21 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
 Meja kerja kayu sederhana di dapur untuk **menaruh sementara** mangkuk adonan dan loyang roti matang saat oven atau rak sedang penuh. Meja ini **bukan rak jualan**: pembeli dan pesanan RotiFood tidak pernah mengambil apa pun darinya.
 
 * **Sepaket bangunan**: satu meja per lokasi (`holding_table`, jejak 2 × 1 ubin, Seksi 60), gratis, tidak dijual di Pasar, dan tidak bisa disimpan (Put Away). Seperti Gudang, meja boleh digeser di Mode Dekorasi dan ikut pindah saat upgrade lokasi. New Game dan save lama (Seksi 106) menempatkannya otomatis di zona dapur.
-* **Hanya pemain**: Asisten Dapur tidak pernah menaruh maupun mengambil barang di meja. Satu-satunya pengecualian adalah serah terima otomatis saat staf berhenti bertugas (Seksi 87.2): loyang yang tidak muat di rak dan adonan yang tidak mendapat mixer bebas diparkir di meja, supaya tidak ada job yatim.
+* **Koki hanya menaruh, tidak mengambil**: koki memarkir loyang di meja bila semua rak penuh, dan adonan bila tidak ada oven yang bisa menerimanya (Seksi 3.2, keputusan maintainer 2026-10-02). Serah terima saat staf berhenti bertugas (Seksi 87.2) juga memarkir di sini, supaya tidak ada job yatim. Mengambil barang dari meja tetap hanya pemain.
 * **Tanpa batas isi**: pemain boleh menaruh berapa pun adonan dan loyang. Isi meja tidak dihitung dalam batas job serentak (Seksi 129) dan tidak menahan upgrade lokasi (Seksi 105).
 * **Menaruh** (satu ketukan): karakter yang membawa adonan atau loyang mengetuk meja; bawaannya diletakkan di sana dan tangannya kosong lagi. Loyang yang sebagian isinya sudah masuk rak ditaruh bersama sisa unitnya.
 * **Mengambil** (satu ketukan, tangan kosong): karakter mengambil **barang yang paling dekat basi dan punya tujuan kosong**, yaitu adonan bila ada oven yang bisa menerimanya (termasuk oven berisi loyang gosong, Seksi 16.5) atau loyang bila rak masih punya ruang. Bila tidak ada barang yang bisa diantar, muncul ikon oven penuh atau rak penuh (Seksi 16.7) sesuai barang yang paling mendesak.
 * **Membusuk**: isi meja menua menurut Seksi 19.7.6, dan barang yang basi dibuang otomatis sebagai waste.
 * **Penanda**: tanda "!" muncul di meja saat bawaan tidak punya tujuan kosong ("taruh di sini"), atau saat tangan kosong dan ada barang yang bisa diantar ("ambil"). Denyutnya makin cepat saat isi meja mendekati basi.
+
+### **5.1.4 Kursi Koki (Staff Chair) — CANONICAL**
+
+Keputusan maintainer 2026-10-02. Kursi pinus mungil berbantal gingham tempat Asisten Dapur duduk saat tidak punya pekerjaan.
+
+* **Sepaket bangunan**: satu kursi per slot koki lokasi (`staff_chair`, jejak 1 × 1 ubin, Seksi 60): satu di Tier 1–3, dua di Tier 4–5. Gratis, tidak dijual di Pasar, tidak bisa disimpan (Put Away), dan tidak memakai slot alat.
+* **Bisa dipindah**: seperti Gudang dan Meja Tunggu, kursi boleh digeser dan diputar di Mode Dekorasi, hanya di zona dapur. Koki duduk menghadap tile aksesnya, membelakangi sandaran.
+* **Otomatis**: New Game menempatkan kursi di dapur, upgrade ke Tier 4 menambah kursi kedua, dan save lama mendapat kursinya saat dimuat (Seksi 106).
+* **Perilaku**: koki yang menganggur berjalan ke kursi bebas lalu duduk, kakinya menjuntai seperti anak di kursi tinggi, dan tetap terkantuk-kantuk bila lama menganggur (Seksi 31.6). Pukul 05:00 koki muncul sudah duduk di kursinya. Begitu ada pekerjaan (pesanan atau inisiatif, Seksi 3.2) ia berdiri. Bila kursinya dipindah, ia berdiri lalu duduk lagi di tempat barunya.
 
 ## **5.2 Sistem Bahan Baku (Fixed Price Ingredients)**
 
@@ -629,13 +626,14 @@ Sistem properti menggunakan mekanisme **Beli Putus (Hak Milik)** sehingga pemain
 | **Slot Mixer (Dapur)** | **1 Unit** | **2 Unit** | **3 Unit** | **4 Unit** | **5 Unit** |
 | **Slot Oven (Dapur)** | **1 Unit** | **2 Unit** | **3 Unit** | **4 Unit** | **5 Unit** |
 | **Slot Rak Display** | **1 Rak** | **2 Rak** | **3 Rak** | **4 Rak** | **6 Rak** |
-| **Slot Meja Kasir** | **1 Kasir** | **1 Kasir** | **2 Kasir** | **2 Kasir** | **3 Kasir** |
+| **Jalur Meja Kasir** | **2 Jalur** | **2 Jalur** | **2 Jalur** | **3 Jalur** | **3 Jalur** |
 | **Gudang Penyimpanan** | Kulkas Bekas & Rak Kayu | Kulkas Dua Pintu & Lemari | Chiller Tegak & Lemari Stainless | Chiller Ganda & Lemari Segar | Cold Room & Rak Industri |
 | **Jejak Gudang (ubin)** | **2 × 1** | **3 × 1** | **4 × 1** | **4 × 1** | **5 × 1** |
 | **Kapasitas Gudang** | **150 Unit** | **400 Unit** | **1.000 Unit** | **2.500 Unit** | **6.000 Unit** |
-| **Maks. Asisten Dapur** | 1 Orang | 2 Orang | 2 Orang | 3 Orang | 4 Orang |
-| **Maks. Asisten Kasir** | 1 Orang | 1 Orang | 2 Orang | 2 Orang | 3 Orang |
-| **Kapasitas Antrean Toko (Seksi 57.6)**| 4 slot (bersama ojol) | 6 slot (bersama ojol) | 8 slot + 3 slot ojol | 10 slot + 4 slot ojol | 18 slot + 6 slot ojol |
+| **Maks. Asisten Dapur** | 1 Orang | 1 Orang | 1 Orang | 2 Orang | 2 Orang |
+| **Maks. Asisten Kasir** | 1 Orang | 1 Orang | 1 Orang | 2 Orang | 2 Orang |
+| **Gaji Harian per Staf (Seksi 3.3)** | 150 KR | 400 KR | 900 KR | 2.000 KR | 4.500 KR |
+| **Kapasitas Antrean Toko (Seksi 57.6)**| 8 slot (bersama ojol) | 12 slot (bersama ojol) | 8 slot + 3 slot ojol | 15 slot + 4 slot ojol | 18 slot + 6 slot ojol |
 | **Ukuran Bangunan Fisik** | **3 m × 6 m** | **L1: 3 m × 6 m; L2: 3 m × 4 m** | **L1: 3 m × 6 m; L2: 3 m × 6 m** | **8 m × 8 m** | **10 m × 10 m** |
 | **Ukuran Grid** | **6 × 12 ubin** | **L1: 6 × 12; L2: 6 × 8 ubin** | **L1: 6 × 12; L2: 6 × 12 ubin** | **16 × 16 ubin** | **20 × 20 ubin** |
 | **Pembagian Zona** | **3×3 m toko + 3×3 m dapur** | **Lantai bawah seluruhnya toko; lantai atas 3×4 m dapur** | **Lantai bawah seluruhnya toko; lantai atas seluruhnya dapur** | **4×8 m kiri toko + 4×8 m kanan dapur** | **6×10 m kiri toko + 4×10 m kanan dapur** |
@@ -770,8 +768,8 @@ Catatan placement:
   * **Ubin Quick Menu** (perbaikan 2026-10-02): semua ubin sama besar dan ikonnya sebaris. Label rata atas, paling banyak dua baris yang dipenggal per kata, dan selalu muat di muka ubin di atas bibirnya. Ukuran ubin dihitung dari label terpanjang pada skala teks yang dipakai (100/125/150%, Seksi 28.5). Dulu label dua baris keluar dari ubin, dan pada 125% kata "Management" terpotong. Petunjuk tutorial dan tombol after-hours di tengah bawah berdiri di atas panel jam dan Quick Menu, mana pun yang lebih tinggi; dulu petunjuk itu menutupi lencana fase di panel jam.
 * **Desain Menu Utama**:  
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).  
-  * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal).  
-  * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid, lengkap dengan indikator skill dan kecepatan proses.  
+  * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal). **Hanya daftar resep di kiri yang digulir** (keputusan maintainer 2026-10-02); rincian di kanan muat tanpa gulir pada skala teks 100% dan 125%, untuk setiap resep dan ukuran batch. Urutannya: judul dengan chip kebutuhan alat; kartu **Ingredients** (tabel nama dan "Have / Need") dan **Details** (hasil batch & biaya, waktu mix/bake/burn, umur simpan, penggemar) berdampingan; satu baris harga (label, slider, nilai); satu baris reaksi pembeli dengan harga referensi & rentang di kanan, yang pada Hari 1–3 diganti catatan harga terkunci; lalu ukuran batch, tombol **Ask a Baker** (hanya bila ada koki yang direkrut; Seksi 3.2), dan tombol Make dalam satu baris, dengan alasan bila belum bisa dibuat. Nama resep yang terlalu panjang di daftar dipotong dengan elipsis supaya lebar daftar tetap.  
+  * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid (nama, jabatan, gaji harian). **Tidak pernah digulir ke samping** (keputusan maintainer 2026-10-02). Di atas: kapasitas per peran, gaji per orang di toko ini, dan proyeksi kas. Di kiri ada daftar karyawan per peran (Cashier Assistant, Kitchen Assistant): ikon peran, nama, lalu gaji untuk pelamar atau status tugas untuk tim. Hanya daftar ini yang digulir, ke bawah. Di kanan ada rincian orang yang dipilih, muat tanpa gulir pada skala teks 100% dan 125%: kartu Polaroid, bio, tugas perannya, kegiatannya sekarang (melayani di meja, sibuk di dapur, atau beristirahat di kursi), dan tombol aksinya (Hire dengan alasan bila belum bisa; atau status tugas, libur/jadwal, dan Dismiss). Staf tidak punya bintang tier atau kemampuan khusus, dan koki tidak punya pengaturan kerja (Seksi 3.2).  
   * Mode Dekorasi: Perabot sungguhan di dunia 3D disentuh langsung, terangkat dan berkedip, lalu diseret ke ubin lain seperti di The Sims; petak tujuannya disorot seukuran jejak lantai perabot itu. Kedip putih berarti tempatnya sah, kedip merah berarti ditolak beserta alasannya. Perabot baru benar-benar pindah saat **Place** diketuk. Tombol aksinya (Place, Rotate, Put Away, Cancel) melayang tepat di atas perabot yang dipegang, tanpa panel samping (Seksi 72.2).
   * Pemilih Petak Rak: Muncul setelah karakter tiba di rak sambil membawa loyang. Kisi tombol besar sebanyak petak rak yang sesungguhnya (jumlahnya menurut tier rak, Seksi 85) menyalin susunan petak itu (kiri ke kanan), lengkap dengan isi tiap petak. Satu loyang boleh disebar ke beberapa petak—layarnya tidak menutup sampai loyangnya habis.    
 * **UX Feedback & In-Game Indicators**:  
@@ -1311,8 +1309,18 @@ Keputusan maintainer 2026-09-30. Selama **persiapan (05:00–08:00)** panel jam 
 - Ketuk tombol → dialog konfirmasi (`ui_skip_open_confirm`, Seksi 127.15) → lompatan berjalan.
 - Lompatan **bukan** pembekuan: simulasi maju tick demi tick seperti biasa, hanya jauh lebih cepat. Mixer dan oven tetap bekerja, Asisten Dapur tetap memanggang, roti di rak dan Meja Tunggu tetap menua, dan kurir tetap tiba, persis seperti bila pemain menunggu. Hasilnya identik dengan menunggu, jadi determinisme tidak berubah (Seksi 81.7).
 - Dunia tetap tergambar seperti time-lapse di balik lapisan yang menahan semua ketukan dan menampilkan jam yang berlari serta bar progres. Modal yang muncul di tengah jalan (tutorial, jeda karena fokus hilang) menahan lompatan sampai ditutup.
-- Lompatan berhenti tepat ketika toko buka pukul 08:00, atau **lebih awal** begitu ada loyang matang di oven yang harus diangkat pemain (tidak dilindungi auto-retrieve, Seksi 18.8), supaya roti tidak gosong tanpa bisa dicegah. Toast `ui_skip_open_stopped` menjelaskannya.
+- Lompatan berhenti tepat ketika toko buka pukul 08:00, atau **lebih awal** begitu ada loyang matang di oven yang harus diangkat pemain (bukan pesanan dapur yang diurus koki dan belum dituju koki, Seksi 23.3), supaya roti tidak gosong tanpa bisa dicegah. Toast `ui_skip_open_stopped` menjelaskannya.
 - Tombol tidak tampil di luar persiapan dan selama hard-block Hari 1 sebelum Gudang dibuka (Seksi 88.1). Bila sudah ada loyang yang menunggu diangkat, tombol tampil redup dan mengetuknya menampilkan `ui_skip_open_oven`.
+
+## **15.5 Close Early — CANONICAL**
+
+Keputusan maintainer 2026-10-02. Selama **toko buka (08:00–18:00)**, di tempat tombol Skip to Open, panel jam HUD menampilkan tombol **Close Early** (`ui_close_early`, Seksi 127.22). Tombol ini tersedia setiap hari, termasuk Hari 1–3, kecuali selama hard-block Hari 1 sebelum Gudang dibuka (Seksi 88.1).
+
+- Ketuk tombol → dialog konfirmasi (`ui_close_early_confirm`) yang menyebut berapa bintang rating toko yang hilang. Dialog menjeda simulasi, jadi angka itu tepat.
+- Setelah dikonfirmasi, **jam langsung maju ke 18:00** tanpa time-lapse, lalu penutupan berjalan persis seperti biasa: shutdown deterministik Seksi 104 dan settlement Seksi 15.3. Pembeli di dalam pulang tanpa membeli dan roti yang dipegangnya kembali ke rak. Pesanan RotiFood yang belum dikemas dibatalkan tanpa penalti, mixer dan oven membeku di posisinya, dan Daily Summary terbuka.
+- **Gaji karyawan tetap penuh.** Liabilitas gaji sudah ditetapkan pukul 05:00 (Seksi 87) dan tidak pernah diprorata.
+- **Konsekuensi: rating toko fisik turun** `rating.close_early_per_hour` = **0,05 bintang per jam in-game yang dipotong** dari jam buka, dihitung sampai menit. Tutup pukul 17:00 = −0,05, pukul 14:30 = −0,175, pukul 12:00 = −0,30, dan pukul 08:00 = −0,50. Penalti ini tidak diskalakan tier (Seksi 25.2), dan RotiFood Stars tidak berubah.
+- Daily Summary mencatat jam penutupan dan bintang yang hilang (`closed_early_at`, `close_early_penalty`) dan menampilkannya sebagai highlight pertama (`hl_closed_early`).
 
 ---
 
@@ -1364,6 +1372,7 @@ var priority: int
 - Task pengambilan yang sudah dimulai tidak boleh kehilangan item.
 - Jika actor sedang membawa item, command yang tidak kompatibel ditolak dengan feedback visual kecil.
 - Queue command disimpan sebagai logical target/action ID, bukan world transform mentah.
+- **Ketuk lagi untuk membatalkan** (keputusan maintainer 2026-10-02): mengetuk perabot yang masih dituju perintah pemain (mengantre atau sedang dijalani, sebelum interaksinya selesai) membatalkan perintah itu, dengan feedback `ui_feedback_command_cancelled`. Ketukan kedua pada perabot yang sama dalam 350 ms tetap dihitung satu ketukan. Koki yang tadi mundur karena perintah itu kembali mengerjakannya (Seksi 23.3).
 
 ## **16.5 Hand Occupancy Rules**
 
@@ -1533,30 +1542,29 @@ Untuk MVP satu alat memproses satu job pada satu waktu, walaupun narasi alat sep
 
 ## **18.5 Progress Timing**
 
-**CANONICAL:** durasi tiap tahap = waktu dasar resep (Seksi 61.5) × rasio waktu referensi alat (Seksi 5.1) × faktor durasi batch ÷ kecepatan kerja staf.
+**CANONICAL:** durasi tiap tahap = waktu dasar resep (Seksi 61.5) × rasio waktu referensi alat (Seksi 5.1) × faktor durasi batch. Tidak ada pengali kecepatan staf (keputusan maintainer 2026-10-02): durasinya sama siapa pun yang memulai tahap.
 
 ```text
 mixer_stage_seconds = max(1.0,
     (mix_seconds_base + optional_prep_seconds)
   × mixer_reference_seconds[active_mixer_tier] / mixer_reference_seconds[required_mixer_tier]
-  × batch_duration_factor[batch_multiplier] / staff_work_speed)
+  × batch_duration_factor[batch_multiplier])
 
 oven_stage_seconds = max(1.0,
     bake_seconds_base
   × oven_reference_seconds[active_oven_tier] / oven_reference_seconds[required_oven_tier]
-  × batch_duration_factor[batch_multiplier] / staff_work_speed)
+  × batch_duration_factor[batch_multiplier])
 ```
 
 - `mixer_reference_seconds` / `oven_reference_seconds` = waktu proses per tier pada Seksi 5.1.
 - Alat dengan tier di bawah `required_mixer_tier` / `required_oven_tier` tidak dapat menerima job resep tersebut (Seksi 61.1).
 - `batch_multiplier` = 1 / 3 / 5 (Seksi 18.9).
 - `batch_duration_factor` = **1.0 untuk x1, 1.2 untuk x3, 1.4 untuk x5** (TUNABLE, `balance.json` `production.batch_duration_factor`): batch x3 hanya menambah 20% dan x5 hanya 40% dari durasi dasar, walau bahan dan hasilnya berlipat 3 dan 5 (Seksi 18.9).
-- `staff_work_speed` = `work_speed_multiplier` Asisten Dapur yang memulai tahap itu (Seksi 3.2). Tahap yang dimulai karakter pemain memakai `1.0`. Nilainya dikunci saat tahap dimulai.
 - Setiap modifier diterapkan tepat satu kali. Durasi akhir tidak pernah kurang dari 1.0 simulation-second.
 - `optional_prep_seconds` dijalankan di Mixer sebagai bagian akhir tahap `MIXING` (shaping, filling, laminasi, fermentasi). Mixer tetap occupied, dan satu progress bar mencakup mix + prep. Tidak ada stage atau station prep terpisah.
 - `recipe_total_time` = mix + prep + bake pada tier minimum. Nilai ini ringkasan desain untuk balancing/UI, **bukan timer kedua**.
 
-Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 7 s + 10.5 s. Di Mixer T3 + Oven T3 menjadi `7 × 5/10 = 3.5 s` dan `10.5 × 8/15 = 5.6 s`. Croissant Klasik di Mixer T3 = `11.25 + 9.375 = 20.625 s`; bila dimulai Asisten Dapur 1.60×, menjadi ±12.9 s. Roti Goreng Polos x5 di Mixer T1 + Oven T1 = `7 × 1.4 = 9.8 s` + `10.5 × 1.4 = 14.7 s` untuk lima kali lipat roti.
+Contoh non-canonical: Roti Goreng Polos di Mixer T1 + Oven T1 = 7 s + 10.5 s. Di Mixer T3 + Oven T3 menjadi `7 × 5/10 = 3.5 s` dan `10.5 × 8/15 = 5.6 s`. Croissant Klasik di Mixer T3 = `11.25 + 9.375 = 20.625 s`, sama bila dimulai pemain maupun koki. Roti Goreng Polos x5 di Mixer T1 + Oven T1 = `7 × 1.4 = 9.8 s` + `10.5 × 1.4 = 14.7 s` untuk lima kali lipat roti.
 
 ## **18.6 Completion Lock**
 
@@ -1577,18 +1585,15 @@ Saat oven selesai:
 
 **CANONICAL:** Burn timing mengikuti tabel final per oven tier pada Seksi 62. State minimum adalah `READY_PERFECT`, `OVERBAKE_WARNING`, dan `BURNT`. `BURNT` tidak boleh ditaruh di display; tray dibuang sebagai waste saat diambil, atau saat adonan baru dimasukkan ke oven itu (Seksi 16.5, 62). Visual browning harus mengikuti normalized burn progress.
 
-Auto-Retrieve baker melakukan check tepat pada completion event sesuai chance tier.
+Tidak ada lagi auto-retrieve (Seksi 18.8).
 
-## **18.8 Auto-Retrieve Resolution**
+## **18.8 Auto-Retrieve — Dihapus**
 
-- Roll chance satu kali per job saat oven selesai (transisi ke `READY_PERFECT`), memakai `staff_rng` (Seksi 116). Roll hanya berlaku untuk job yang tahap ovennya dimulai Asisten Dapur; job yang dimulai karakter pemain tidak di-roll.
-- Jika sukses: job **terlindung dari gosong**. Burn timer dibekukan sampai baker mengambil tray, lalu baker mengirimnya ke display sesuai mode kerjanya.
-- Jika baker sedang membawa item lain, pengambilan masuk priority queue dan tidak dianggap gagal; perlindungan gosong tetap berlaku sampai tray diambil.
-- Jika gagal: baker tidak mengambil tray itu. Tanda "!" dan alert Oven Ready menunggu pemain, dan burn timer berjalan normal (Seksi 3.2, 62). Setelah tray itu `BURNT`, baker yang membawa adonan boleh memakai oven tersebut; loyang gosong dibuang otomatis (Seksi 16.5).
-- Tier 5 100% berarti tidak melakukan RNG; selalu sukses.
-- Roll hanya berlaku bila baker yang memulai tahap oven **masih bertugas** saat oven selesai. Baker yang sudah pergi (dipecat, diliburkan, Mode Solo) tidak bisa mengambil tray, jadi hasilnya sama dengan roll gagal.
-- Klaim dilepas pukul 18:00, tetapi tray tetap terlindung; keesokan harinya baker yang memanggangnya mengklaim dan mengambilnya lagi.
-- Bila baker dipecat atau diliburkan, tray yang terlindung untuknya kembali seperti roll gagal (tanda "!", alert, burn timer berjalan), dan job miliknya yang belum selesai berpindah ke pemain (Seksi 87.2).
+Keputusan maintainer 2026-10-02: tidak ada lagi roll auto-retrieve maupun loyang yang "terlindung dari gosong". Burn timer setiap loyang berjalan normal (Seksi 62). Sebagai gantinya:
+
+- Loyang **pesanan dapur** ("Ask a Baker") diangkat koki yang bertugas begitu matang. Selama ada koki yang bertugas, alert Oven Ready tidak memanggil pemain untuk loyang itu.
+- Loyang **milik pemain** diangkat koki yang sedang menganggur bila pemain tidak sedang menuju oven itu (Seksi 3.2, 23.3). Selama koki menuju oven, tanda "!" berganti bar penuh.
+- Bila koki terakhir pergi (dipecat, diliburkan, Mode Solo), pesanan dapur yang belum selesai berpindah ke pemain dan tanda "!" muncul di alatnya (Seksi 87.2).
 
 ## **18.9 Batch Multiplier**
 
@@ -2189,14 +2194,23 @@ is_open
 
 ## **21.2 Lane Opening Rules**
 
-- Tanpa cashier assistant: hanya lane utama yang bisa dilayani player.
-- Dengan assistant: lane tersebut otomatis aktif.
-- Player tidak membuka lane tambahan di samping assistant.
-- Tier 3+ membuka lebih dari satu lane hanya jika terdapat meja dan assistant sesuai aturan.
+Keputusan maintainer 2026-10-02:
+
+- Meja kasir punya dua jalur di Tier 1–3 dan tiga jalur di Tier 4–5 (Seksi 57). Jalur pertama (`main`) selalu jalur pemain; jalur lain dijaga Asisten Kasir, satu kasir per jalur, urut `staff_id`.
+- Jalur kasir **terbuka** selama kasirnya bertugas, termasuk saat ia berjalan ke posnya.
+- Jalur pemain terbuka selama karakter pemain berdiri di titik kasirnya, atau bila tidak ada jalur lain yang terbuka (antrean menunggu pemain, seperti toko tanpa kasir).
+- Pemain boleh berjaga di jalurnya kapan saja, juga di samping kasir yang sedang bekerja. Mengetuk meja kasir selalu mengirim pemain ke jalur pemain.
 
 ## **21.3 Queue Assignment**
 
-**CANONICAL:** pelanggan memilih cashier lane dengan **estimated total wait time terendah**, bukan sekadar queue length. Formula final ada di Seksi 84.4.
+**CANONICAL:** pelanggan memilih jalur terbuka dengan **estimated total wait time terendah**, bukan sekadar queue length. Formula final ada di Seksi 84.4.
+
+**Antrean mengalir ke jalur yang aktif** (keputusan maintainer 2026-10-02). Setiap tick, sebelum admission (Seksi 102):
+
+- Jalur yang tutup melepas pembeli yang belum dilayani (yang menunggu ketukan di titik layanan, yang berdiri di antrean, lalu yang belum tiba di antrean), terdepan lebih dulu, ke jalur terbuka berbeban terkecil yang masih punya slot. Yang tidak muat menunggu di jalurnya.
+- Jalur terbuka yang bebannya (reservasi + pembeli di titik layanan) lebih besar 2 atau lebih dari jalur terbuka lain melepas pembeli terdepannya **yang masih antre** ke jalur itu, sampai selisihnya di bawah 2. Pembeli di titik layanan jalur terbuka tidak dipindah.
+- Pembeli yang transaksinya sudah dimulai tidak pernah dipindah; transaksi manual membeku sampai pemain kembali (Seksi 21.4).
+- Driver RotiFood tidak dipindah. Pembeli yang pindah berhenti mengurangi patience selama berjalan ke ekor jalur barunya.
 
 ## **21.4 Manual Cashier Flow**
 
@@ -2248,12 +2262,9 @@ Koin masuk hanya setelah packing selesai dan transaksi berhasil. Selama fase mem
 
 Pelanggan yang belum mencapai payment commit pada 18:00 dianggap tidak terjual dan mengembalikan barang, tanpa penalti rating.
 
-## **21.8 Physical Tips**
+## **21.8 Physical Tips — Dihapus**
 
-Tip fisik hanya muncul pada transaksi yang dilayani Asisten Kasir Tier 5 ("+5% peluang tip", Seksi 3.1):
-- peluang 5% per transaksi, di-roll dengan `customer_choice_rng`;
-- besar tip = `round_half_up(subtotal × 0.10)`;
-- dicatat sebagai `TIP_PHYSICAL`.
+Tip fisik dulu hanya muncul dari Asisten Kasir Tier 5. Kemampuan itu dihapus bersama tier staf (keputusan maintainer 2026-10-02): penjualan fisik tidak pernah memberi tip. Kategori ledger `TIP_PHYSICAL` tetap dikenali untuk save lama.
 
 ---
 
@@ -2315,7 +2326,7 @@ Saat semua stock cukup:
 ## **22.6 Driver Arrival & Queue Admission (Canonical)**
 
 - Driver menjadi eligible untuk datang sesuai schedule order, tetapi **tidak boleh spawn masuk toko jika antrean tujuan penuh**.
-- Tier 1–2: Driver Ojol meminta slot pada antrean utama yang sama dengan pelanggan fisik.
+- Tier 1–2: Driver Ojol meminta slot pada jalur pemain (jalur utama), bersama pelanggan fisik. Driver tidak ikut dipindah antarjalur (Seksi 21.3) dan menerima kantongnya tanpa pemain atau kasir (Seksi 22.9).
 - Tier 3+: jika dedicated pickup counter aktif, driver meminta slot pada antrean khusus ojol.
 - Hanya setelah `QueueManager.reserve_slot(driver_id, target_queue)` berhasil, driver actor boleh masuk dan berjalan ke slot yang dialokasikan.
 - Bila reservasi gagal, arrival tetap `pending` dan dicoba lagi ketika slot kosong; jangan menumpuk beberapa driver di entrance.
@@ -2382,6 +2393,7 @@ INTERACTING
 CARRYING
 WAITING
 BLOCKED
+SITTING        koki duduk di kursinya (Seksi 5.1.4)
 ```
 
 ## **23.2 Task Blackboard**
@@ -2396,26 +2408,27 @@ COMPLETED_TASKS
 
 Task harus memiliki owner lock agar dua baker tidak mengambil batch yang sama.
 
-## **23.3 Baker Priority — Auto Replenish**
+## **23.3 Baker Priority — Pesanan & Inisiatif**
 
-**CANONICAL Baker Priority:**
+Keputusan maintainer 2026-10-02. **CANONICAL Baker Priority** (koki yang sedang tidak punya tugas, dievaluasi ulang tiap 0,5 detik simulasi):
 
-1. Ambil tray dari oven untuk job yang auto-retrieve-nya berhasil (Seksi 18.8).
-2. Deliver carried item.
-3. Pindahkan adonan selesai dari mixer ke oven kosong, atau ke oven berisi loyang gosong yang otomatis dibuang (job milik baker, Seksi 16.5).
-4. Refill display untuk resep dengan unit sellable paling sedikit (Seksi 3.2).
-5. Mulai job baru jika ingredients cukup dan target mode mengizinkan.
-6. Idle animation.
+1. **Antar barang bawaan**: adonan ke oven yang bisa menerimanya (termasuk oven berisi loyang gosong, Seksi 16.5), loyang ke rak terpasang yang masih bisa menerima resep itu. Tanpa tujuan, barang diparkir di Meja Tunggu (Seksi 5.1.3).
+2. **Langkah pesanan dapur** (`owner_actor_id = "kitchen"`, dibuat tombol Ask a Baker): angkat loyang yang matang (juga yang gosong, untuk dibuang), angkat adonan yang selesai bila ada oven yang bisa menerimanya, lalu mulai mengaduk pesanan yang masih `ORDERED`.
+3. **Inisiatif pada langkah pemain** yang alatnya sudah selesai: angkat loyang matang (bukan yang gosong) lalu tata di rak, dan angkat adonan yang selesai bila ada oven yang bisa menerimanya. Koki tidak pernah memulai adukan pemain.
+4. **Tidak ada pekerjaan**: berjalan ke kursi bebas lalu duduk (Seksi 5.1.4).
 
-Tray yang auto-retrieve-nya gagal tidak diambil baker. Oven itu tertahan sampai pemain mengambilnya, dan baker memakai alat lain atau menunggu (Seksi 3.2, 30.4). Setelah tray itu gosong, baker yang membawa adonan boleh memakainya (Seksi 16.5).
+Aturan klaim dan penanda:
 
-**Batas mulai batch** (keputusan maintainer 2026-09-29): baker hanya memulai job baru (langkah 5) bila mixing + baking-nya selesai paling lambat `staff_ai.baker_finish_by_seconds`. Durasinya dihitung dengan kecepatan baker itu, mixer bebas yang akan dipakai, dan oven paling lambat yang bisa memanggang resep itu; bila batch terbesar tidak sempat, baker mencoba batch lebih kecil. Batch yang sudah berjalan tetap diselesaikan dan diantar ke rak, sehingga dapur kosong saat tutup dan upgrade lokasi tidak tertahan (Seksi 105 no.11).
+- Langkah yang dituju seorang koki diklaim (`claimed_by`) sampai selesai atau dibatalkan, jadi dua koki tidak mengambil langkah yang sama.
+- Alat yang sedang dituju **perintah pemain** (mengantre atau sedang dijalani) dilewati. Bila perintah itu muncul saat koki sudah menuju alat, koki membatalkan langkahnya dan kembali ke kursi. Bila perintah itu dibatalkan (Seksi 16.4), koki boleh mengambilnya lagi.
+- Alat yang sudah selesai menampilkan "!" bila menunggu pemain, dan bar progres penuh tanpa "!" bila koki sudah menujunya atau bila itu pesanan dapur yang diurus koki yang bertugas.
+- Pesanan dapur dikerjakan koki mana pun yang bertugas. Bila tidak ada koki yang bertugas (dipecat, diliburkan, Mode Solo, atau tidak terjadwal pagi itu), pesanan dapur berpindah ke pemain.
+- Koki menata loyang di rak yang ia datangi: petak berisi resep yang sama lebih dulu, lalu petak kosong. Sisa yang tidak muat tetap dibawa ke rak lain atau ke Meja Tunggu.
+- Tidak ada batas jam mulai batch (aturan 17:30 tanggal 2026-09-29 dihapus bersama produksi otomatis). Pesanan dikerjakan kapan pun ia diberikan; batch yang belum selesai pukul 18:00 menunggu koki keesokan paginya.
 
-## **23.4 Baker Target Recipe Mode**
+## **23.4 Baker Target Recipe Mode — Dihapus**
 
-- Hanya recipe target yang dibuat.
-- Berhenti jika ingredient tidak cukup, display penuh, atau alat tidak tersedia.
-- Tidak boleh masuk infinite retry loop.
+Mode Auto-Replenish dan Target Resep dihapus (keputusan maintainer 2026-10-02). Koki hanya membuat pesanan Ask a Baker (Seksi 3.2, 23.3).
 
 ## **23.5 Staff Collision / Deadlock**
 
@@ -2429,10 +2442,7 @@ Jika dua staff saling menghalangi secara visual, mereka tidak boleh deadlock kar
 
 ## **23.7 Baker Batch Size**
 
-- Setiap Asisten Dapur punya setting batch di Staff Management: `Auto` (default), `x1`, `x3`, atau `x5`.
-- `Auto`: baker memakai batch terbesar (x5 → x3 → x1) yang bahannya cukup di Gudang dan output-nya muat di sisa kapasitas display saat job dimulai. Bila x1 pun tidak muat, baker tidak memulai job (Seksi 23.4).
-- Setting manual dibatasi aturan yang sama. Bila tidak terpenuhi, baker turun ke batch yang lebih kecil.
-- Batch besar jauh lebih cepat per unit, karena durasinya hanya dikali `batch_duration_factor` (x3 ×1.2, x5 ×1.4; Seksi 18.5, 18.9) dan bolak-balik juga lebih sedikit. Risikonya: bahan untuk seluruh batch terpakai sekaligus, dan lebih banyak unit menua bersamaan (Seksi 19.7).
+Batch pesanan dapur dipilih pemain di Buku Resep (x1/x3/x5), sama seperti Make (Seksi 18.9). Setelan batch per koki di layar Staff dihapus (keputusan maintainer 2026-10-02).
 
 ---
 
@@ -2500,6 +2510,7 @@ utility_cost += active_seconds * utility_rate_per_second
 ## **24.6 Wage Settlement**
 
 - Dibayar sekali pukul 18:00.
+- Besar gaji per staf = `staff_daily_wage_kr` tier lokasi saat liabilitas dikunci pukul 05:00, sama untuk kasir dan koki (Seksi 3.3).
 - Staff yang dipecat hari itu tetap mendapat wage penuh sesuai GDD.
 - Staff yang diliburkan sebelum hari kerja dimulai tidak dibayar.
 - Jika staff berstatus `on_duty=true` pada saat hari kerja dimulai (05:00), **gaji penuh hari itu terutang**. Mengubah menjadi off-duty setelah 05:00 tidak membatalkan gaji. Staff yang sudah off-duty sebelum 05:00 tidak dikenai gaji hari tersebut.
@@ -2590,8 +2601,9 @@ Nilai berikut adalah default canonical dan berstatus TUNABLE lewat catalog, buka
 | `vip_success` | penilaian Food Vlogger positif (Seksi 20.10); diterapkan pukul 05:00 esok hari | +0.30 |
 | `vip_failure` | penilaian Food Vlogger negatif; diterapkan pukul 05:00 esok hari | −0.30 |
 | `marketing_daily_bonus` | saat settlement, nilai per tier kampanye di Seksi 8.2; bonus Tier 2 hanya bila abandonment hari itu ≤ 10% | Seksi 8.2 |
+| `close_early` | pemain menutup toko lebih awal (Seksi 15.5), sebelum settlement | −0.05 per jam in-game yang dipotong |
 
-Lima event per-customer pertama dikali `tier_scale = 2.0 / base_physical_rate[tier]` (Seksi 65): T1 1.00, T2 0.57, T3 0.40, T4 0.27, T5 0.20. Dengan begitu kecepatan perubahan rating per hari tetap setara walau jumlah pelanggan naik per tier. Event VIP dan marketing tidak diskalakan.
+Lima event per-customer pertama dikali `tier_scale = 2.0 / base_physical_rate[tier]` (Seksi 65): T1 1.00, T2 0.57, T3 0.40, T4 0.27, T5 0.20. Dengan begitu kecepatan perubahan rating per hari tetap setara walau jumlah pelanggan naik per tier. Event VIP, marketing, dan `close_early` tidak diskalakan.
 
 ## **25.3 RotiFood Rating**
 
@@ -3485,7 +3497,7 @@ Semua nilai berikut harus editable tanpa code change:
 - weather multipliers.
 - marketing multipliers.
 - store prices.
-- staff auto-retrieve chances.
+- staff wages per location tier.
 
 ## **41.3 Balance Telemetry (Local)**
 
@@ -3760,7 +3772,7 @@ Milestone berikut hanya checkpoint review untuk merangkum hasil. Urutan implemen
 - 3 Tier 1 recipes.
 - Days 1–3 onboarding.
 - RotiFood basic.
-- Staff Tier 1.
+- Staff (Cashier & Kitchen Assistant).
 - Daily Summary.
 - Bailout/Solo Mode.
 - Web + Android smoke build.
@@ -3996,12 +4008,13 @@ Istilah yang dipakai di template:
 - Entrance door: `x=2..3, z=0`.
 - Protected entrance spine: `x=2..3, z=0..4` = `WALKABLE_NO_BUILD`.
 - Fixed cashier counter: `x=0..2, z=5`. Tablet RotiFood berada di ujung meja ini.
-- Customer service point: `(1,4)`.
-- Player cashier point: `(1,6)`.
-- Main queue slots: `(1,3)`, `(1,2)`, `(1,1)`, `(0,1)` = **4 slots**.
-- Supply drop-off: `(0,4)`.
+- Dua jalur di meja yang sama (keputusan maintainer 2026-10-02): jalur A milik pemain, jalur B milik Asisten Kasir.
+- Customer service points: A `(1,4)`, B `(0,4)`.
+- Cashier points: A `(1,6)`, B `(0,6)`.
+- Queue A: `(1,3)`, `(1,2)`, `(1,1)`, `(1,0)`; Queue B: `(0,3)`, `(0,2)`, `(0,1)`, `(0,0)` = **8 slots**.
+- Supply drop-off: `(2,4)` di ujung spine, di depan ujung tablet meja.
 - Passage store ↔ kitchen: `(3,5)` (protected).
-- Baris staf di belakang meja: `(0,6)`.
+- Mesin kasir tiap jalur berdiri di ubin mejanya sendiri; kantong belanja di sisi ubin tablet, dan hiasan meja di ujung luar ubin tablet (Seksi 72.3).
 - Kitchen protected spine: `x=2..3, z=6..11`.
 - Display placement zone default: `x=4..5, z=1..4`.
 - Kitchen buildable strips: `x=0..1` dan `x=4..5`, kecuali reserved interaction tile.
@@ -4013,11 +4026,12 @@ Istilah yang dipakai di template:
 - Entrance: `x=2..3, z=0`.
 - Protected spine: `x=2..3, z=0..9`, ditambah gap `(3,10)` menuju baris staf.
 - Cashier counter: `x=0..2, z=10`. Tablet RotiFood berada di ujung meja ini.
-- Customer service point: `(1,9)`.
-- Cashier point: `(1,11)`.
-- Main queue: `(1,8)`, `(1,7)`, `(1,6)`, `(1,5)`, `(1,4)`, `(0,4)` = **6 slots**.
-- Supply drop-off: `(0,9)`.
-- Baris staf: `(0,11)`, `(2,11)`, `(3,11)`.
+- Dua jalur di meja yang sama (keputusan maintainer 2026-10-02): jalur A milik pemain, jalur B milik Asisten Kasir.
+- Customer service points: A `(1,9)`, B `(0,9)`.
+- Cashier points: A `(1,11)`, B `(0,11)`.
+- Queue A: `(1,8)`…`(1,3)`; Queue B: `(0,8)`…`(0,3)` = **12 slots**.
+- Supply drop-off: `(2,9)` di ujung spine, di depan ujung tablet meja.
+- Baris staf: `(2,11)`, `(3,11)`.
 - Stair/door portal to upper floor: `(4,11)` dengan access tile `(4,10)`; keduanya `NO_BUILD`.
 
 **Upper / Kitchen Floor**
@@ -4032,7 +4046,7 @@ Istilah yang dipakai di template:
 - `6 × 12 tiles`.
 - Entrance: `x=2..3, z=0`.
 - Protected central spine: `x=2..3, z=0..10`.
-- Cashier counter A: `x=0..1, z=10`; counter B: `x=4..5, z=10`.
+- Cashier counter A: `x=0..1, z=10` (jalur pemain); counter B: `x=4..5, z=10` (jalur Asisten Kasir).
 - Customer service points: `(1,9)` dan `(4,9)`.
 - Cashier points: `(1,11)` dan `(4,11)`.
 - Queue A: `(1,8)`, `(1,7)`, `(1,6)`, `(0,6)` = 4 slots.
@@ -4060,13 +4074,14 @@ Istilah yang dipakai di template:
 - Entrance: `x=3..4, z=0`.
 - Store protected main aisle: `x=3..4, z=0..15`.
 - Store/kitchen boundary pada `x=7`: dinding rendah (`FIXED_STRUCTURE`), kecuali meja dan passage berikut.
-  - Cashier counter A `(7,5),(7,6)`, counter B `(7,10),(7,11)`, RotiFood counter `(7,14),(7,15)`.
+  - Cashier counter A `(7,5),(7,6)` (jalur pemain), counter B `(7,10),(7,11)`, counter C `(7,2),(7,3)` (jalur ketiga, keputusan maintainer 2026-10-02), RotiFood counter `(7,14),(7,15)`.
   - Passage staf `(7,8)` dan `(8,8)` (protected).
-- Cashier service points: `(6,5)` dan `(6,10)`.
-- Cashier points: `(8,5)` dan `(8,10)`.
+- Cashier service points: `(6,5)`, `(6,10)`, dan `(6,2)`.
+- Cashier points: `(8,5)`, `(8,10)`, dan `(8,2)`.
 - Queue A: `(5,5),(4,5),(3,5),(2,5),(1,5)` = 5 slots.
 - Queue B: `(5,10),(4,10),(3,10),(2,10),(1,10)` = 5 slots.
-- **Physical queue capacity total = 10**.
+- Queue C: `(5,2),(4,2),(3,2),(2,2),(1,2)` = 5 slots.
+- **Physical queue capacity total = 15**.
 - RotiFood driver service point: `(6,14)`.
 - RotiFood queue: `(5,14),(4,14),(3,14),(2,14)` = **4 slots**.
 - Supply drop-off: `(6,6)`.
@@ -4098,17 +4113,17 @@ Istilah yang dipakai di template:
 
 | Tier | Physical Customer Capacity | RotiFood Capacity | Queue Topology |
 |---|---:|---:|---|
-| T1 | 4 shared slots | shared | 1 lane |
-| T2 | 6 shared slots | shared | 1 lane |
-| T3 | 8 | 3 | 2 cashier lanes + dedicated delivery |
-| T4 | 10 | 4 | 2 cashier lanes + dedicated delivery |
-| T5 | 18 | 6 | 3 cashier lanes + dedicated delivery |
+| T1 | 8 shared slots | shared | 2 lanes (player + 1 cashier) |
+| T2 | 12 shared slots | shared | 2 lanes (player + 1 cashier) |
+| T3 | 8 | 3 | 2 lanes (player + 1 cashier) + dedicated delivery |
+| T4 | 15 | 4 | 3 lanes (player + 2 cashiers) + dedicated delivery |
+| T5 | 18 | 6 | 3 lanes (player + 2 cashiers) + dedicated delivery |
 
-Untuk Tier 1–2, RotiFood driver memakan slot queue yang sama dengan customer fisik. Untuk Tier 3+, capacity dipisahkan.
+Untuk Tier 1–2, RotiFood driver memakan slot jalur pemain bersama customer fisik. Untuk Tier 3+, capacity dipisahkan.
 
 Tabel ini adalah satu-satunya definisi kapasitas antrean (ringkasan di Seksi 6 mengikuti tabel ini). Aturan hitungnya:
 - Kapasitas = jumlah queue slot. Service point kasir/RotiFood tidak dihitung. Actor yang sedang dilayani berdiri di service point dan melepas slot antreannya.
-- Admission (Seksi 20.5) menghitung slot pada lane yang **terbuka**. Lane terbuka = lane dengan Asisten Kasir bertugas, atau lane utama saat pemain melayani manual (Seksi 21.2). Contoh: Tier 3 dengan satu lane terbuka hanya menerima 4 customer fisik.
+- Admission (Seksi 20.5) menghitung slot pada lane yang **terbuka** (Seksi 21.2): lane kasir dengan Asisten Kasir bertugas, dan lane pemain selama pemain berjaga di sana atau bila tidak ada lane lain yang terbuka. Contoh: Tier 3 dengan kasir bertugas dan pemain di dapur hanya menerima 4 customer fisik; begitu pemain berjaga, kapasitasnya 8.
 - Kapasitas RotiFood terpisah berlaku bila meja RotiFood aktif. Bila tidak aktif, driver memakai antrean utama seperti Tier 1–2.
 
 ---
@@ -4162,14 +4177,9 @@ Satuan canonical adalah meter per simulation-second. Karena 1 tile = 0,5 m, `til
 | Food Vlogger | 1.10 m/s | 2.2 |
 | RotiFood Driver | 1.25 m/s | 2.5 |
 | Supply Courier | 1.40 m/s | 2.8 |
-| Cashier Staff | 1.20 m/s | 2.4, hanya untuk movement non-counter |
-| Baker T1 | 1.25 m/s | 2.5 |
-| Baker T2 | 1.35 m/s | 2.7 |
-| Baker T3 | 1.45 m/s | 2.9 |
-| Baker T4 | 1.55 m/s | 3.1 |
-| Baker T5 | 1.70 m/s | 3.4 |
+| Staff (Asisten Kasir & Dapur) | 1.50 m/s | 3.0 |
 
-Movement speed dan `work_speed_multiplier` adalah statistik berbeda. Baker cepat bekerja tidak berarti semua timer alat dikalikan dua kali.
+Sejak 2026-10-02 semua staf berjalan secepat karakter pemain (`staff.json` `staff_movement_speed_mps`) dan tidak punya pengali kecepatan kerja (Seksi 3, 18.5).
 
 ---
 
@@ -4204,6 +4214,7 @@ Semua footprint wajib bilangan bulat tile. Mesh visual boleh sedikit inset dari 
 | Stair Door / Portal | T2–T3 | 2×1 reserved | 1.0×0.5 m | door-height | front |
 | Supply Package Visual | all | 1×1 max | ≤0.5×0.5 m | ≤0.45 m | none |
 | Holding Table (Meja Tunggu) | all | 2×1 | 1.0×0.5 m | 0.62 m | front long side |
+| Staff Chair (Kursi Koki) | all | 1×1 | 0.5×0.5 m | 0.55 m | front (koki duduk menghadap tile akses, Seksi 5.1.4) |
 
 ### **60.1 Rotation Rules**
 
@@ -4391,7 +4402,7 @@ During `OVERBAKING`, quality multiplier turun linear dari `0.95 -> 0.60`. Visual
 
 Saat timer overbake berakhir: status `BURNT`, quality multiplier `0.0`, item **tidak dapat dijual**. Player/staff harus mengambil batch dari oven; batch lalu otomatis masuk disposal/trash dan tidak menghasilkan KR. Oven tidak bisa menerima batch baru selama batch burnt masih tertahan, kecuali pemain atau baker yang membawa adonan mengetuk oven itu: loyang gosong otomatis dibuang (tetap tercatat sebagai waste dan burnt batch), lalu adonan langsung masuk (Seksi 16.5).
 
-Baker `Auto-Retrieve` melakukan retrieval tepat pada transisi ke `READY_PERFECT` bila proc berhasil; Tier 5 Baker selalu berhasil.
+Tidak ada lagi auto-retrieve (Seksi 18.8): koki yang bertugas mengangkat loyang pesanan dapur, dan koki yang menganggur boleh mengangkat loyang pemain (Seksi 23.3).
 
 > Freshness setelah roti masuk Display mengikuti **Seksi 19.7 dan 61.3**. Burn quality dan freshness adalah dua sistem terpisah.
 
@@ -4658,7 +4669,7 @@ Keputusan maintainer 2026-09-30: **tidak ada panel samping**, supaya dunia terli
 
 - **Bilah atas** tipis: judul, satu baris petunjuk atau status (sah / alasan ditolak), tombol lantai L1/L2 di lokasi bertingkat, dan tombol **Done**.
 - **Tab bawah**: Equipment (dengan jumlah alat yang belum dipasang), Your Decorations, dan Decor Shop. Mengetuk tab membuka baki kartu barang yang bisa digeser mendatar; mengetuk tab yang sama menutupnya. Keterangan arsiran ubin (harus kosong, area salah) ada di kiri tab.
-- **Toolbar aksi melayang tepat di atas barang yang dipegang**, dengan ekor yang menunjuk ke barang itu, dan ikut pindah bersamanya: nama barang, **Place** (hijau, bertanda centang), **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang dan Meja Tunggu (Seksi 5.1.3) atau barang yang belum dipasang; Rotate hanya untuk alat dan karpet. Selama barang diseret, toolbar disembunyikan. Barang yang tidak digambar di lantai yang sedang dilihat memakai toolbar yang sama, berlabuh di atas tab.
+- **Toolbar aksi melayang tepat di atas barang yang dipegang**, dengan ekor yang menunjuk ke barang itu, dan ikut pindah bersamanya: nama barang, **Place** (hijau, bertanda centang), **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang, Meja Tunggu, dan kursi koki (Seksi 5.1.3–5.1.4) atau barang yang belum dipasang; Rotate hanya untuk alat dan karpet. Selama barang diseret, toolbar disembunyikan. Barang yang tidak digambar di lantai yang sedang dilihat memakai toolbar yang sama, berlabuh di atas tab.
 - Barang yang dipegang terangkat sedikit dan mengambang pelan (karpet tetap rata di lantai). Penanda "!" dan bar progres disembunyikan selama mode ini.
 
 **Memindah barang seperti The Sims (keputusan maintainer 2026-10-01).** Sebelumnya ketukan dipakai untuk dua hal sekaligus: memilih perabot dan memilih ubin tujuan. Akibatnya ubin yang tertutup model perabot sulit dituju. Mengetuk perabot lain di depan ubin itu malah memilihnya, dan mengetuk perabot terpilih (misalnya untuk menggesernya satu ubin) malah meletakkannya. Aturan sekarang:
@@ -5224,16 +5235,16 @@ Roster pada Seksi 3.5 adalah **fixed canonical roster**.
 - Tidak ada RNG recruitment pool, refresh harian, rarity, reroll, recruitment fee, atau candidate expiration.
 - Kandidat yang sedang dipekerjakan ditandai `EMPLOYED` dan tidak dapat direkrut dua kali.
 - Kandidat yang dipecat kembali tersedia mulai menu Staff Management berikutnya.
-- Tier staff tidak naik melalui XP; untuk kemampuan lebih tinggi player harus merekrut kandidat tier lebih tinggi.
+- Staf tidak punya tier maupun XP; semua kandidat setara (keputusan maintainer 2026-10-02).
 
 ## **87.2 Work Schedule**
 
 - Staff `on_duty=true` spawn/aktif otomatis pada **05:00**.
-- Cashier mengambil service position menjelang 08:00 dan melayani otomatis selama Open phase.
-- Baker mulai bekerja sejak Preparation 05:00 mengikuti mode automation.
+- Cashier mengambil posnya di jalur kasir (bukan jalur pemain, Seksi 21.2) dan melayani otomatis selama Open phase.
+- Baker muncul duduk di kursinya pukul 05:00 (Seksi 5.1.4) dan bekerja sejak Preparation mengikuti Seksi 23.3.
 - Pada 18:00 staff menyelesaikan atomic handoff yang sedang committed, lalu berhenti mengambil task baru dan despawn/idle after-hours.
 - **Serah terima tanpa job yatim**: loyang yang dibawa staf masuk rak; sisa yang tidak muat diparkir di Meja Tunggu (Seksi 5.1.3). Adonan kembali ke mixer bebas, atau ke Meja Tunggu bila tidak ada. Aturan yang sama berlaku saat staf dipecat atau diliburkan.
-- Baker yang dipecat, diliburkan, atau masuk Mode Solo menyerahkan job miliknya yang belum selesai kepada pemain, sehingga tanda "!" muncul di alatnya (Seksi 18.8). Tidak ada job yang tertinggal tanpa pemilik yang bisa mengerjakannya.
+- Pesanan dapur yang belum selesai berpindah ke pemain begitu tidak ada lagi koki yang bertugas (dipecat, diliburkan, Mode Solo, atau tidak terjadwal pagi itu), sehingga tanda "!" muncul di alatnya (Seksi 18.8, 23.3). Tidak ada job yang tertinggal tanpa pemilik yang bisa mengerjakannya.
 - Tidak ada shift editor atau jam kerja individual.
 
 ## **87.3 Wage Liability**
@@ -5241,7 +5252,7 @@ Roster pada Seksi 3.5 adalah **fixed canonical roster**.
 Pada 05:00 sistem membuat `DailyWageLiability` immutable untuk seluruh staff `on_duty=true`.
 
 ```text
-wage_due_today = sum(daily_salary of staff on duty at 05:00)
+wage_due_today = staff_daily_wage_kr(location) × count(staff on duty at 05:00)
 ```
 
 - Off-duty sebelum 05:00 -> tidak ada wage hari itu.
@@ -5922,12 +5933,12 @@ min_recipe_tier: int 1..5
 ```text
 id: StringName
 role_id: StringName               cashier/baker
-tier: int 1..5
-daily_wage_kr: float > 0
-work_speed_multiplier: float > 0
-auto_retrieve_probability: float 0..1
+display_name: String
+visual: Dictionary                CharacterFactory parameters
 visual_profile_id: StringName
 ```
+
+No tier, wage, speed, auto-retrieve, or special fields (maintainer decision 2026-10-02). Wages come from `LocationDefinition.staff_daily_wage_kr`, and every staff member walks at `staff.json` `staff_movement_speed_mps`.
 
 ## **101.6 `LocationDefinition`**
 
@@ -5936,7 +5947,8 @@ id: StringName
 tier: int 1..5
 upgrade_cost_kr: float
 floors: Array[FloorDefinition]
-staff_capacity_by_role: Dictionary
+staff_capacity_by_role: Dictionary   cashier capacity = lanes - 1 (Section 21.2)
+staff_daily_wage_kr: float > 0       same for cashier and baker (Section 3.3)
 queue_capacity_physical: int
 queue_capacity_rotifood: int
 protected_no_build_cells: Array
@@ -5958,9 +5970,9 @@ When multiple simulation events become due on the same simulation tick, process 
 
 1. **P0 — Lifecycle / save safety:** focus-loss pause request, load reconstruction barrier, stable-checkpoint barrier.
 2. **P1 — Clock boundaries:** day rollover, 05:00 preparation start, 08:00 opening, 18:00 closing boundary.
-3. **P2 — Production equipment:** mix complete, bake complete, burn threshold, auto-retrieve.
+3. **P2 — Production equipment:** mix complete, bake complete, burn threshold.
 4. **P3 — Inventory commits:** production consume/rollback, display placement, supply delivery commit.
-5. **P4 — Customer state:** pickup/revalidation, patience expiry, cashier transaction completion.
+5. **P4 — Customer state:** lane rebalancing (Section 21.3) before new admissions, pickup/revalidation, patience expiry, cashier transaction completion.
 6. **P5 — RotiFood:** pack commit, driver handover, order expiry.
 7. **P6 — Economy/reputation/statistics/analytics:** ledger, rating, records, achievements.
 8. **P7 — UI/audio/cosmetic:** animation, particles, sound, toast, notification.
@@ -6001,7 +6013,7 @@ No stock is reserved at order arrival. Packing performs an atomic display-stock 
 
 # **104. 18:00 Canonical Shutdown Matrix**
 
-At exactly 18:00, stop admitting new physical customers and new RotiFood orders before resolving the table below.
+At exactly 18:00, stop admitting new physical customers and new RotiFood orders before resolving the table below. Close Early (Section 15.5) runs the same table at the moment the player closes, after moving the clock to 18:00.
 
 | State at 18:00 | Canonical Result |
 | :--- | :--- |
@@ -6039,7 +6051,7 @@ Migration order:
 8. Preserve ratings, analytics, achievements, statistics, market purchase orders, and RNG states.
 9. Pending physical arrivals are cleared because the store topology changes while paused; no penalty.
 10. Active in-store customers/RotiFood must be zero before upgrade UI enables purchase.
-11. Active production jobs must be complete/empty before equipment can migrate; otherwise purchase button remains disabled. Items on the Holding Table are not active jobs: they move with the table, which is re-placed after the production equipment (Section 5.1.3).
+11. Active production jobs must be complete/empty before equipment can migrate; otherwise purchase button remains disabled. Items on the Holding Table are not active jobs: they move with the table, which is re-placed after the production equipment (Section 5.1.3). Staff chairs are re-placed after the table, and the upgrade to Tier 4 adds the second chair (Section 5.1.4).
 12. Furniture positions do **not** carry blindly across a different floor plan. Each item is placed using deterministic migration anchors; remaining movable items go to an `unplaced_owned_furniture` inventory for player placement.
 13. Rebuild navigation/no-build masks and validate protected routes.
 14. Save stable checkpoint before resuming.
@@ -6066,7 +6078,7 @@ Minimum root shape:
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "game_version": "1.0.0",
   "catalog_versions": { "catalog_schema_version": 1, "content_version": 1 },
   "created_at": "2026-09-25T10:00:00Z",
@@ -6124,6 +6136,8 @@ Minimum root shape:
 ```
 
 Schema 4 adds the Holding Table (Section 5.1.3): job stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`, job fields `table_age_hours` and `table_seq`, and `production_jobs.next_table_seq`. The v3 → v4 migrator only bumps the version; a save without a table gets one created and auto-placed in the kitchen on load.
+
+Schema 5 follows the staff rework (maintainer decision 2026-10-02, Sections 3.1–3.3, 23). The v4 → v5 migrator drops the bakers' old work settings (`mode`, `target_recipe`, `batch`) and the staff `tasks`, turns jobs owned by a baker into kitchen orders (`owner_actor_id = "kitchen"`), clears staff claims, and drops the job field `protected`. On load: staff above the new limits are dismissed, newest hire first; staff chairs are created and auto-placed (Section 5.1.4); and furniture whose footprint now covers a queue slot, service or cashier point, or drop-off of the new lane templates (Section 57), or that lost its access tile, is re-placed with its contents. Customers left in a lane are rebalanced on the first tick.
 
 The actual project must include a version-controlled **golden save fixture** under `tests/fixtures/` that loads successfully and is used by migration/regression tests. Transient pooled-node IDs, cached mesh references, signal connections, UI animation progress, and ephemeral pathfinding routes must never be serialized.
 
@@ -6355,9 +6369,9 @@ Persist independent deterministic state for exactly these streams (owner: `RNGMa
 | :--- | :--- |
 | `weather_rng` | daily weather/holiday roll and forecast (Section 26) |
 | `customer_arrival_rng` | physical arrival timing and archetype roll (Sections 65–66) |
-| `customer_choice_rng` | recipe choice, purchase quantity, physical tips, critic outcome (Sections 84, 20.10) |
+| `customer_choice_rng` | recipe choice, purchase quantity, critic outcome (Sections 84, 20.10) |
 | `rotifood_rng` | RotiFood order generation and tips (Section 22) |
-| `staff_rng` | baker auto-retrieve rolls (Section 18.8); the roster itself is fixed |
+| `staff_rng` | reserved: no roll uses it since auto-retrieve was removed (Section 18.8); the roster itself is fixed |
 | `marketing_rng` | campaign-specific rolls (Section 48) |
 | `cosmetic_rng` | visual variation only, including every window-shopper roll (Section 20.12) |
 | `audio_rng` | audio variation only |
@@ -6913,18 +6927,11 @@ Seksi 127.7–127.11 melengkapi katalog ini. Placeholder `{…}` diisi runtime; 
 | `counter_cashier` | `Cashier Counter` |
 | `counter_rotifood` | `RotiFood Pickup Counter` |
 | `holding_table` | `Holding Table` |
+| `staff_chair` | `Staff Chair` |
 
 ## **127.8 Staff Titles & Bios**
 
-Role: `Cashier Assistant` dan `Kitchen Assistant`.
-
-| Tier | Cashier title | Baker title |
-| :---: | :--- | :--- |
-| 1 | `Trainee Cashier` | `Kitchen Trainee` |
-| 2 | `Junior Cashier` | `Junior Baker` |
-| 3 | `Skilled Cashier` | `Senior Baker` |
-| 4 | `Professional Cashier` | `Pastry Expert` |
-| 5 | `Superstar Cashier` | `Master Artisan Baker` |
+Role: `Cashier Assistant` dan `Kitchen Assistant` (`ui_staff_role_cashier`, `ui_staff_role_baker`). Sejak 2026-10-02 tidak ada jabatan per tier; bio murni kepribadian.
 
 | Staff ID | Final English Bio |
 | :--- | :--- |
@@ -6933,14 +6940,14 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `staff_cashier_dimas` | `Loves chatting about the weather so much that he sometimes forgets to press Confirm.` |
 | `staff_cashier_nadia` | `A former minimarket cashier who keeps every receipt neat and precise.` |
 | `staff_cashier_rian` | `Quick on his feet and always ready for the after-school rush.` |
-| `staff_cashier_lili` | `Calm and patient; waiting customers feel relaxed around her.` |
+| `staff_cashier_lili` | `Calm and patient; she hums softly while she packs every order.` |
 | `staff_cashier_maya` | `A persuasive talker who can soothe even the most hurried office worker.` |
 | `staff_cashier_reza` | `His fingers dance across the register keys without a single mistake.` |
 | `staff_cashier_dewi` | `Remembers every regular's name and favorite bread.` |
 | `staff_cashier_hendra` | `A shopper-psychology expert whose warm chat sends every customer home smiling.` |
 | `staff_cashier_citra` | `Calm and composed, she can handle a queue of twenty without breaking a sweat.` |
-| `staff_cashier_kenji` | `Disciplined and courteous, famous for his polite bow and lightning speed.` |
-| `staff_cashier_grace` | `The "Ambassador of Smiles". Happy customers often leave her an extra tip.` |
+| `staff_cashier_kenji` | `Disciplined and courteous, famous for his polite little bow.` |
+| `staff_cashier_grace` | `The "Ambassador of Smiles". Customers leave her counter beaming.` |
 | `staff_cashier_tejo` | `A legendary 90s department-store cashier who can count change with his eyes closed.` |
 | `staff_cashier_luna` | `A local idol on a relaxed side job; the counter is always buzzing when she's around.` |
 | `staff_baker_joko` | `Can knead heavy dough for hours, but tends to daydream when the oven dings.` |
@@ -6956,7 +6963,7 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `staff_baker_danu` | `A healthy-artisan maestro of natural sourdough and whole grains.` |
 | `staff_baker_aoi` | `A perfectionist from Kyoto who stacks flawless matcha mille crepes.` |
 | `staff_baker_pierre` | `A world-class pastry maestro whose bread is as soft as a cloud.` |
-| `staff_baker_mawar` | `A grandmother with a secret family recipe book. Nothing ever burns in her hands.` |
+| `staff_baker_mawar` | `A grandmother with a secret family recipe book and a story for every loaf.` |
 | `staff_baker_alistair` | `A modern culinary alchemist who turns truffle and artisan butter into the city's finest bread.` |
 
 ## **127.9 Daily Summary, HUD & Market Strings**
@@ -7007,8 +7014,6 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `ui_available_after_closing` | `Available after closing` |
 | `ui_equipment_replace` | `Replace` |
 | `ui_equipment_sell` | `Sell for {price}` |
-| `ui_staff_batch_size` | `Batch Size` |
-| `ui_batch_auto` | `Auto` |
 
 ## **127.10 Pak Lurah, Mood & Highlight Strings**
 
@@ -7026,7 +7031,7 @@ Role: `Cashier Assistant` dan `Kitchen Assistant`.
 | `hl_rain_surge` | `Heavy rain, and RotiFood boomed! +{percent}% online orders.` |
 | `hl_orders_cancelled` | `{count} RotiFood orders were cancelled. Watch your stock!` |
 | `hl_burnt_batches` | `{count} batches burned today. Keep an eye on the oven!` |
-| `hl_staff_star` | `{name} did amazing work today! Production x{multiplier}.` |
+| `hl_staff_star` | `{name} put {count} batches on the shelves today!` |
 | `hl_low_ingredients` | `Ingredients are running low! Don't forget the Market.` |
 | `hl_solo_day` | `You're running the shop solo today. You've got this!` |
 | `hl_campaign_running` | `{campaign} is still running (day {day}/5).` |
@@ -7161,9 +7166,9 @@ Tahap layar loading (Seksi 89.5), layar "Rotate your phone" dan tombol layar pen
 | `ui_rotate_tap` | `Auto-rotate turned off? Tap anywhere to switch to landscape.` |
 | `ui_settings_fullscreen_enter` | `Play in full screen` |
 
-## **127.17 Decoration Slot & Cashier Perk Strings**
+## **127.17 Decoration Slot Strings**
 
-Slot dekorasi Decoration Mode (Seksi 72.2–72.3) dan kalimat kemampuan kasir di kartu Staff (Seksi 3.1). `{type}` = nama jenis dari `decor_type_*` (`Wall`, `Counter`, `Floor`, `Rug`); `{count}`/`{max}` = batas lokasi; `{percent}` dihitung dari nilai `special` kasir.
+Slot dekorasi Decoration Mode (Seksi 72.2–72.3). `{type}` = nama jenis dari `decor_type_*` (`Wall`, `Counter`, `Floor`, `Rug`); `{count}`/`{max}` = batas lokasi. Kalimat kemampuan kasir (`staff_special_*`) dihapus bersama tier staf (keputusan maintainer 2026-10-02).
 
 | String ID | Final English Text |
 | :--- | :--- |
@@ -7175,9 +7180,6 @@ Slot dekorasi Decoration Mode (Seksi 72.2–72.3) dan kalimat kemampuan kasir di
 | `ui_decor_rug_hint` | `Drag the rug, or tap a shop tile to move it there. Rotate turns it; tap Place when it looks right.` |
 | `ui_decor_slot_count` | `{type} {used}/{max}` |
 | `ui_decor_slot_usage_tip` | `Decorations in use at this shop. A bigger shop has more spots.` |
-| `staff_special_queue` | `Customers in this lane stay calmer (−{percent}% impatience).` |
-| `staff_special_rating` | `Friendly service: every sale in this lane lifts your rating {percent}% more.` |
-| `staff_special_tip` | `A sweet smile: {percent}% chance of an extra tip.` |
 
 ## **127.18 UI Polish Strings**
 
@@ -7212,6 +7214,47 @@ Baris panel Pesanan RotiFood (Seksi 7), keputusan maintainer 2026-10-02.
 | :--- | :--- |
 | `ui_rotifood_row_packed` | `Packed` |
 | `ui_rotifood_more` | `+{count} more` |
+
+## **127.21 Recipe Book Strings**
+
+Kartu rincian Buku Resep (Seksi 7), keputusan maintainer 2026-10-02.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_recipe_details` | `Details` |
+| `ui_recipe_have_need` | `Have / Need` |
+
+## **127.22 Close Early Strings**
+
+Tombol, dialog, dan highlight Tutup Lebih Awal (Seksi 15.5), keputusan maintainer 2026-10-02.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_close_early` | `Close Early` |
+| `ui_close_early_tip` | `Close the shop now and jump to {time}.` |
+| `ui_close_early_confirm` | `Close the shop now? Customers inside leave without buying and the clock jumps to {time}. Staff are still paid for the full day, and the store rating drops by {stars} stars.` |
+| `hl_closed_early` | `You closed early at {time}. The store rating fell by {stars} stars.` |
+
+## **127.23 Staff Rework Strings**
+
+Perombakan asisten (Seksi 3.1–3.3, 5.1.4, 16.4, 23), keputusan maintainer 2026-10-02. `{wage}` = gaji harian satu staf di lokasi itu; `{recipe}`/`{batch}` = pesanan dari Buku Resep.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_recipe_ask_baker` | `Ask a Baker` |
+| `ui_recipe_no_baker` | `No baker is on duty right now.` |
+| `ui_baker_order_placed` | `A baker will make {recipe} x{batch}.` |
+| `ui_staff_wage_each` | `Wage here: {wage} per day each` |
+| `ui_staff_duty_cashier` | `Runs a checkout lane of their own while you do other things. RotiFood orders still need your OK.` |
+| `ui_staff_duty_baker` | `Bakes what you ask for with Ask a Baker in the Recipe Book. When idle, carries your finished dough to an oven and your finished bread to a shelf.` |
+| `ui_staff_activity_counter` | `Serving at the counter` |
+| `ui_staff_activity_working` | `Busy in the kitchen` |
+| `ui_staff_activity_resting` | `Resting in the staff chair` |
+| `ui_feedback_command_cancelled` | `Cancelled` |
+| `ui_upgrade_detail` | `{mixers} Mixers · {ovens} Ovens · {displays} Displays · {cashiers} Checkout lanes` |
+| `ui_upgrade_staff` | `Cashiers: {cashiers} · Bakers: {bakers} · Wage: {wage} per day each` |
+| `ui_summary_wage_line` | `{name} ({role})` |
+| `staff_chair` | `Staff Chair` |
 
 ---
 

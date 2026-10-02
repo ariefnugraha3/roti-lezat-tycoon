@@ -53,7 +53,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Actors | `PlayerTaskManager` (`gameplay/actors/`) | The player character and its command queue (GDD 16). |
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers; arrivals and the pending pool. |
 | Delivery & supply | `RotiFoodManager` (`gameplay/delivery/`), `SupplyOrderManager` (`gameplay/supply/`) | RotiFood orders and drivers; market orders and couriers. |
-| Staff | `StaffManager` (`gameplay/staff/`) | Contracts, duty, wage liability, staff actors and tasks. |
+| Staff | `StaffManager` (`gameplay/staff/`) | Contracts, duty, wage liability (one wage per location tier), staff actors and tasks, cashier lane assignment, kitchen orders, staff chairs. |
 | Meta | `gameplay/meta/`: reputation, weather, marketing, bailout, statistics, analytics, achievements, tutorial, alerts, day reports | Their respective GDD systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
@@ -68,7 +68,7 @@ this fixed order:
 
 ```
 time.advance → (18:00 → close_day) → production → equipment (utility) → supply
-→ display (aging) → player → staff → demand → customers → cashier → rotifood → alerts
+→ display (aging) → player → staff → lane rebalancing → demand → customers → cashier → rotifood → alerts
 ```
 
 Economy, reputation and statistics are updated inside those calls, at the moment
@@ -102,7 +102,16 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   → the mixer holds the dough until pickup → `insert_oven` → `READY_PERFECT` →
   `OVERBAKING` → `BURNT` using the oven tier's windows (GDD 62) → `pickup_tray` →
   `place_from_tray`, one slot at a time, via the slot picker. Player jobs wait for a
-  tap at each stage. Bakers follow the GDD 23.3 priorities.
+  tap at each stage. Staff are equal since 2026-10-02 (no tiers, perks, work speed
+  or auto-retrieve). Bakers only make what the player orders with Ask a Baker in the
+  Recipe Book: `StaffManager.order_recipe` creates a job owned by `KITCHEN_ID`, and any
+  baker on duty works its steps. Idle bakers also pick up the player's finished
+  dough and trays (GDD 23.3), but skip any station a player command targets
+  (`PlayerTaskManager.has_command_for`), and drop a step the moment such a command
+  appears. Tapping the station again cancels the command (`cancel_command_for`).
+  Bakers with nothing to do walk to a staff chair and sit (`SimActor.seat_iid`, drawn
+  by `ActorView.set_seat` and `ProceduralAnimationSystem.sit`). With no baker on duty,
+  kitchen jobs pass to the player.
 - **Customers** (GDD 20, 84): `DemandManager` produces arrivals (the Day 1–3
   manifest, then a Poisson process). An arrival needs a queue reservation
   (`QueueManager.reserve`), otherwise it goes to the pending pool (30 s, or 40 s
@@ -110,6 +119,14 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   Stock is revalidated and taken on arrival. Substitution uses the GDD 84.3 score.
   The customer then queues. The service point frees the slot, and the cashier
   completes the transaction in the GDD 103.1 order.
+- **Checkout lanes** (GDD 21.2–21.3): two lanes at Tiers 1–3, three at Tiers 4–5.
+  Lane A (`main`) is the player's and is open while the player stands at its cashier
+  point (`is_manning_lane` checks the real position) or when no other lane is open;
+  every other lane belongs to one cashier and is open while that cashier is on duty.
+  `CustomerManager.rebalance_lanes`, run each tick before admission, moves unserved
+  customers out of closed lanes and evens open lanes (front of line first) with
+  `QueueManager.move_actor`, which moves the reservation without freeing a slot to a
+  new arrival. Customers mid-checkout and RotiFood drivers never move.
 - **Window shoppers** (GDD 20.12) are `Customer` objects with `window_shopper = true`
   and ids `w…`, which sort after the buyers' `c…`. `DemandManager` admits them from the
   Day 1–3 manifest or a Poisson process drawn from `cosmetic_rng`, without a queue
@@ -246,6 +263,11 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 - Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
   `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
   `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.
+- Close Early (GDD 15.5) is the opposite: it does not simulate the skipped hours.
+  `SimulationRoot.close_early` takes the rating penalty, moves the clock to 18:00 and
+  calls the normal `close_day(early)`, so the 18:00 shutdown matrix (GDD 104) and the
+  settlement run exactly once. The report carries `closed_early_at` and
+  `close_early_penalty`.
 - Audio: `AudioGenerator.build(generator_id)` renders each event in
   `audio_events.json`. `AudioManager` plays it. Music beds come from
   `audio/music_build.gd`, which renders a bed a slice at a time; `AudioManager` runs

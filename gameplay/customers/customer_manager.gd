@@ -773,9 +773,6 @@ func _drain(c: Customer, dt: float) -> void:
 	c.queue_wait += dt
 	c.stall_time += dt
 	var m: float = DataRegistry.balf("patience.drain_base")
-	var cashier: StaffDefinition = sim.staff.cashier_def_for_lane(c.lane_id)
-	if cashier != null:
-		m *= cashier.special_value("queue_patience_drain_multiplier", 1.0)
 	if lane != null and lane.occupancy_ratio() >= DataRegistry.balf("patience.near_full_occupancy_ratio"):
 		m *= DataRegistry.balf("patience.near_full_multiplier")
 	if c.stall_time > DataRegistry.balf("patience.stall_seconds"):
@@ -784,6 +781,95 @@ func _drain(c: Customer, dt: float) -> void:
 	c.patience = maxf(0.0, c.patience - m * dt)
 	if c.patience <= 0.0:
 		abandon(c)
+
+
+# ===========================================================================
+# JALUR KASIR: ANTREAN MENGALIR KE JALUR YANG AKTIF (GDD 21.3)
+# ===========================================================================
+
+## Keputusan maintainer 2026-10-02: antrean hanya mengular di jalur yang aktif.
+## Dipanggil tiap tick sebelum admission (SimulationRoot.step), supaya pembeli
+## yang sudah di dalam toko mendapat slot lebih dulu daripada kedatangan baru.
+## - Jalur yang tutup (pemain meninggalkan jalurnya, kasir berhenti) melepas
+##   pembeli yang belum dilayani ke jalur terbuka yang masih punya slot.
+## - Jalur terbuka yang bebannya lebih besar 2 atau lebih dari jalur terbuka lain
+##   melepas pembeli terdepannya yang masih antre ke jalur itu, sampai seimbang.
+## Pembeli yang transaksinya sudah dimulai tidak pernah dipindah, dan driver
+## RotiFood tetap di jalurnya.
+func rebalance_lanes() -> void:
+	if not sim.time.is_open():
+		return
+	var open: Array[QueueLane] = sim.queue.open_physical_lanes()
+	if open.is_empty():
+		return
+	for lane: QueueLane in sim.queue.lanes:
+		if open.has(lane):
+			continue
+		for cid: StringName in _movable(lane, true):
+			var to: QueueLane = _lightest(open)
+			if to == null:
+				break
+			_move_customer(customer(cid), lane, to)
+	if open.size() < 2:
+		return
+	for _i in 32:
+		var heavy: QueueLane = null
+		for l: QueueLane in open:
+			if heavy == null or sim.queue.load_of(l) > sim.queue.load_of(heavy):
+				heavy = l
+		var light: QueueLane = _lightest(open)
+		if heavy == null or light == null or heavy == light:
+			return
+		if sim.queue.load_of(heavy) - sim.queue.load_of(light) < 2:
+			return
+		var cand: Array[StringName] = _movable(heavy, false)
+		if cand.is_empty():
+			return
+		_move_customer(customer(cand[0]), heavy, light)
+
+
+## Jalur terbuka berbeban paling kecil yang masih punya slot (urutan template
+## sebagai pemecah seri), atau null.
+func _lightest(open: Array[QueueLane]) -> QueueLane:
+	var best: QueueLane = null
+	for l: QueueLane in open:
+		if l.free_capacity() <= 0:
+			continue
+		if best == null or sim.queue.load_of(l) < sim.queue.load_of(best):
+			best = l
+	return best
+
+
+## Pembeli di jalur ini yang boleh dipindah, terdepan lebih dulu: pembeli di
+## titik layanan yang belum dilayani (hanya bila `include_front`), lalu yang
+## berdiri di antrean, lalu yang belum tiba di antrean.
+func _movable(lane: QueueLane, include_front: bool) -> Array[StringName]:
+	var out: Array[StringName] = []
+	if include_front and lane.service_occupant != &"":
+		var f: Customer = customer(lane.service_occupant)
+		if f != null and f.state == Customer.FRONT_OF_QUEUE:
+			out.append(f.id)
+	for id: StringName in lane.line:
+		var c: Customer = customer(id)
+		if c != null and c.state == Customer.QUEUING:
+			out.append(c.id)
+	for id2: StringName in lane.reservations:
+		var c2: Customer = customer(id2)
+		if c2 != null and not lane.line.has(id2) and not out.has(id2) 				and c2.state in [Customer.ENTERING, Customer.BROWSING, Customer.CARRYING_TO_QUEUE]:
+			out.append(c2.id)
+	return out
+
+
+func _move_customer(c: Customer, from: QueueLane, to: QueueLane) -> void:
+	if c == null or not sim.queue.move_actor(c.id, from, to):
+		return
+	c.lane_id = to.id
+	c.awaiting_tap = false
+	if c.state == Customer.QUEUING or c.state == Customer.FRONT_OF_QUEUE:
+		sim.cashier.cancel_for(c.id)
+		c.state = Customer.CARRYING_TO_QUEUE
+		c.last_slot = -1
+		_go_to_tail(c)
 
 
 ## Patience habis: roti kembali ke rak persis seperti semula, penalti sekali (GDD 20.9).

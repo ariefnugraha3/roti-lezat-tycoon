@@ -158,7 +158,7 @@ func _render_equipment() -> void:
 	if not stored.is_empty():
 		lbl(list, Tx.t("ui_equipment_stored_list"), 20, Palette.UI_WOOD)
 		for e: EquipmentInstance in stored:
-			if e.category() == &"storage":
+			if EquipmentManager.is_fixture(e.category()):
 				continue
 			var row: HBoxContainer = hbox(list, 10)
 			var n: Label = lbl(row, "%s (T%d)" % [Tx.item_name(e.def_id), e.tier()], 16)
@@ -272,7 +272,8 @@ func _location_card(l: LocationDefinition) -> Control:
 	var body: VBoxContainer = ProceduralUIFactory.content_of(card)
 	lbl(body, Tx.t("ui_upgrade_detail", {"mixers": l.slot_count(&"mixer"), "ovens": l.slot_count(&"oven"),
 		"displays": l.slot_count(&"display"), "cashiers": l.slot_count(&"cashier")}), 16, Palette.TEXT, true)
-	lbl(body, Tx.t("ui_upgrade_staff", {"cashiers": l.staff_capacity(&"cashier"), "bakers": l.staff_capacity(&"baker")}), 16)
+	lbl(body, Tx.t("ui_upgrade_staff", {"cashiers": l.staff_capacity(&"cashier"), "bakers": l.staff_capacity(&"baker"),
+		"wage": Tx.kr(l.staff_daily_wage_kr)}), 16)
 	lbl(body, Tx.t("ui_upgrade_storage", {"capacity": DataRegistry.equipment(l.storage_id).capacity}), 16)
 	return card
 

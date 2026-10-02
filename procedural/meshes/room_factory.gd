@@ -15,6 +15,9 @@ const T: float = GridMath.WORLD_METERS_PER_TILE
 const WALL_THICK: float = 0.10
 const LOW_WALL: float = 0.16
 const PARTITION_H: float = 0.62
+## Tablet RotiFood di meja dua jalur bergeser sejauh ini ke dalam ubinnya,
+## memberi tempat hiasan meja di ujung luar (Tier 1-2).
+const TABLET_INSET: float = 0.08
 const WALL_HEIGHTS: Array[float] = [1.80, 2.00, 2.05, 2.30, 2.50]
 ## Lebar bingkai jendela dan tinggi pusatnya (fraksi tinggi dinding). Slot hiasan
 ## dinding (DecorSlots) memakai angka yang sama supaya tidak menutupi jendela.
@@ -214,23 +217,40 @@ static func _build_counter(root: Node3D, loc: LocationDefinition, f: FloorDefini
 		else:
 			dir = Vector2(0.0, signf(to.y))
 	var node: Node3D
+	var shared: Array[Dictionary] = []
+	if not rotifood:
+		shared = DecorSlots.lanes_on(f, c["id"])
+	var yaw: float = atan2(dir.x, dir.y)
 	if rotifood:
 		node = EquipmentFactory.build_pickup_counter()
 		if skins.has("rotifood_counter"):
 			_star_trim(node)
+	elif shared.size() > 1:
+		# Meja dua jalur (Tier 1-2): satu mesin kasir di ubin meja tiap jalur.
+		node = EquipmentFactory.build_divider_counter(loc.tier, span - 0.04, 0)
+		var inv := Basis(Vector3.UP, yaw).inverse()
+		for i in shared.size():
+			var lf: Dictionary = DecorSlots.lane_frame(f, shared[i])
+			var reg: Vector2 = lf["register"]
+			var local: Vector3 = inv * (Vector3(reg.x, 0.0, reg.y) - center)
+			EquipmentFactory.add_divider_register(node, i, local.x, loc.tier)
 	else:
 		node = EquipmentFactory.build_divider_counter(loc.tier, span - 0.04, 1)
 	node.name = "Counter_%s" % c["id"]
 	node.set_meta("counter_id", c["id"])
 	root.add_child(node)
 	node.position = center
-	node.rotation.y = atan2(dir.x, dir.y)
+	node.rotation.y = yaw
 	var tablet_cell: Vector2i = c.get("tablet_cell", FloorDefinition.NONE_CELL)
 	if tablet_cell != FloorDefinition.NONE_CELL:
 		var tab: Node3D = EquipmentFactory.build_tablet()
 		tab.name = "Tablet"
 		root.add_child(tab)
 		tab.position = GridMath.cell_center3(tablet_cell, EquipmentFactory.COUNTER_HEIGHT)
+		if shared.size() > 1:
+			# Ujung luar ubin tablet dipakai hiasan meja (DecorSlots): tablet ke dalam.
+			var toward: Vector2 = -((DecorSlots.lane_frame(f, shared[0]) as Dictionary).get("bag_side", Vector2.ZERO) as Vector2)
+			tab.position += Vector3(toward.x, 0.0, toward.y) * TABLET_INSET
 		tab.rotation.y = atan2(-dir.x, -dir.y)
 
 

@@ -10,7 +10,7 @@
     "mixer": 1,
     "oven": 1,
     "display": 1,
-    "cashier": 1
+    "cashier": 2
    },
    "decor_slots": {
     "wall": 2,
@@ -22,7 +22,8 @@
     "cashier": 1,
     "baker": 1
    },
-   "queue_capacity_physical": 4,
+   "staff_daily_wage_kr": 150,
+   "queue_capacity_physical": 8,
    "queue_capacity_rotifood": 0,
    "shared_rotifood_queue": true,
    "storage_id": "storage_t1",
@@ -161,12 +162,7 @@
        11
       ]
      ],
-     "staff_only": [
-      [
-       0,
-       6
-      ]
-     ],
+     "staff_only": [],
      "walls": [],
      "counters": [
       {
@@ -218,20 +214,51 @@
          1
         ],
         [
-         0,
-         1
+         1,
+         0
         ]
        ],
        "main": true
+      },
+      {
+       "id": "lane_b",
+       "counter_id": "counter_main",
+       "service_point": [
+        0,
+        4
+       ],
+       "cashier_point": [
+        0,
+        6
+       ],
+       "queue": [
+        [
+         0,
+         3
+        ],
+        [
+         0,
+         2
+        ],
+        [
+         0,
+         1
+        ],
+        [
+         0,
+         0
+        ]
+       ],
+       "main": false
       }
      ],
      "rotifood_counter": null,
      "supply_dropoff": [
-      0,
+      2,
       4
      ],
      "supply_drop_cell": [
-      0,
+      2,
       5
      ],
      "portal": null,
@@ -263,7 +290,7 @@
     "mixer": 2,
     "oven": 2,
     "display": 2,
-    "cashier": 1
+    "cashier": 2
    },
    "decor_slots": {
     "wall": 3,
@@ -273,9 +300,10 @@
    },
    "staff_capacity_by_role": {
     "cashier": 1,
-    "baker": 2
+    "baker": 1
    },
-   "queue_capacity_physical": 6,
+   "staff_daily_wage_kr": 400,
+   "queue_capacity_physical": 12,
    "queue_capacity_rotifood": 0,
    "shared_rotifood_queue": true,
    "storage_id": "storage_t2",
@@ -399,10 +427,6 @@
      ],
      "staff_only": [
       [
-       0,
-       11
-      ],
-      [
        2,
        11
       ],
@@ -470,20 +494,59 @@
          4
         ],
         [
-         0,
-         4
+         1,
+         3
         ]
        ],
        "main": true
+      },
+      {
+       "id": "lane_b",
+       "counter_id": "counter_main",
+       "service_point": [
+        0,
+        9
+       ],
+       "cashier_point": [
+        0,
+        11
+       ],
+       "queue": [
+        [
+         0,
+         8
+        ],
+        [
+         0,
+         7
+        ],
+        [
+         0,
+         6
+        ],
+        [
+         0,
+         5
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         0,
+         3
+        ]
+       ],
+       "main": false
       }
      ],
      "rotifood_counter": null,
      "supply_dropoff": [
-      0,
+      2,
       9
      ],
      "supply_drop_cell": [
-      0,
+      2,
       10
      ],
      "portal": {
@@ -631,9 +694,10 @@
     "floor_overlay": 1
    },
    "staff_capacity_by_role": {
-    "cashier": 2,
-    "baker": 2
+    "cashier": 1,
+    "baker": 1
    },
+   "staff_daily_wage_kr": 900,
    "queue_capacity_physical": 8,
    "queue_capacity_rotifood": 3,
    "shared_rotifood_queue": false,
@@ -1121,7 +1185,7 @@
     "mixer": 4,
     "oven": 4,
     "display": 4,
-    "cashier": 2
+    "cashier": 3
    },
    "decor_slots": {
     "wall": 6,
@@ -1131,9 +1195,10 @@
    },
    "staff_capacity_by_role": {
     "cashier": 2,
-    "baker": 3
+    "baker": 2
    },
-   "queue_capacity_physical": 10,
+   "staff_daily_wage_kr": 2000,
+   "queue_capacity_physical": 15,
    "queue_capacity_rotifood": 4,
    "shared_rotifood_queue": false,
    "storage_id": "storage_t4",
@@ -1512,14 +1577,6 @@
       ],
       [
        7,
-       2
-      ],
-      [
-       7,
-       3
-      ],
-      [
-       7,
        4
       ],
       [
@@ -1566,6 +1623,21 @@
         [
          7,
          11
+        ]
+       ],
+       "tablet_cell": null
+      },
+      {
+       "id": "counter_c",
+       "type": "counter_cashier",
+       "cells": [
+        [
+         7,
+         2
+        ],
+        [
+         7,
+         3
         ]
        ],
        "tablet_cell": null
@@ -1638,6 +1710,41 @@
         [
          1,
          10
+        ]
+       ],
+       "main": false
+      },
+      {
+       "id": "lane_c",
+       "counter_id": "counter_c",
+       "service_point": [
+        6,
+        2
+       ],
+       "cashier_point": [
+        8,
+        2
+       ],
+       "queue": [
+        [
+         5,
+         2
+        ],
+        [
+         4,
+         2
+        ],
+        [
+         3,
+         2
+        ],
+        [
+         2,
+         2
+        ],
+        [
+         1,
+         2
         ]
        ],
        "main": false
@@ -1721,9 +1828,10 @@
     "floor_overlay": 2
    },
    "staff_capacity_by_role": {
-    "cashier": 3,
-    "baker": 4
+    "cashier": 2,
+    "baker": 2
    },
+   "staff_daily_wage_kr": 4500,
    "queue_capacity_physical": 18,
    "queue_capacity_rotifood": 6,
    "shared_rotifood_queue": false,

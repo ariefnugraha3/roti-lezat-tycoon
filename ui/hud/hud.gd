@@ -29,6 +29,7 @@ var _solo: Label = null
 var _speed_buttons: Array[Button] = []
 var _pause_btn: Button = null
 var _skip_btn: Button = null
+var _close_btn: Button = null
 var _stock_box: VBoxContainer = null
 var _stock_panel: Control = null
 var _orders_box: VBoxContainer = null
@@ -216,12 +217,25 @@ func _build_top_center(frame: Control) -> void:
 		_speed_buttons.append(b)
 	_skip_btn = _build_skip_button()
 	v.add_child(_skip_btn)
+	_close_btn = _build_close_button()
+	v.add_child(_close_btn)
 	_demand = ProceduralUIFactory.label("", 16, Palette.UI_WOOD)
 	_demand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_demand)
 	_holiday = ProceduralUIFactory.label("", 14, Palette.GOLDEN_CRUST)
 	_holiday.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_holiday)
+
+
+## "Close Early" (GDD 15.5): hanya selama toko buka, di tempat Skip to Open.
+func _build_close_button() -> Button:
+	var b: Button = ProceduralUIFactory.icon_text_button("moon", Tx.t("ui_close_early"), "secondary", 24, 17)
+	b.name = "CloseEarly"
+	b.tooltip_text = Tx.t("ui_close_early_tip", {"time": Tx.clock(sim.time.close_time)})
+	b.custom_minimum_size = Vector2(maxf(210.0, b.custom_minimum_size.x), 52)
+	b.pressed.connect(func() -> void: game.request_close_early())
+	b.visible = false
+	return b
 
 
 ## "Skip to Open" (GDD 15.4): hanya selama persiapan. Ikon + teks di dalam satu
@@ -604,6 +618,7 @@ func _refresh_all() -> void:
 	_skip_btn.visible = block != &"phase" and block != &"tutorial" and not game.is_skipping_to_open()
 	# Oven menunggu diangkat: tombol tetap bisa diketuk dan menjelaskan alasannya.
 	_skip_btn.modulate = Color(1, 1, 1, 0.6 if block == &"oven" else 1.0)
+	_close_btn.visible = sim.close_early_block() == &""
 	if _after_hours.visible:
 		(_after_hours.get_node("Continue") as Button).disabled = not sim.reports.can_continue()
 	_refresh_speed()
@@ -735,6 +750,10 @@ func _order_row(o: DeliveryOrder) -> Button:
 	return b
 
 
+func close_early_button() -> Button:
+	return _close_btn
+
+
 func rotifood_button() -> RotiFoodButton:
 	return _rf_button
 
@@ -846,11 +865,12 @@ const FEEDBACK_KEYS: Dictionary = {
 	&"display_full": "ui_feedback_display_full", &"nothing_to_do": "ui_feedback_nothing_to_do",
 	&"command_queue_full": "ui_feedback_command_queue_full", &"staff_serving": "ui_feedback_staff_serving",
 	&"no_free_oven": "ui_feedback_no_free_oven", &"burnt_discarded": "ui_feedback_burnt_discarded",
+	&"command_cancelled": "ui_feedback_command_cancelled",
 }
 const FEEDBACK_ICONS: Dictionary = {
 	&"path_blocked": "cross", &"hands_full": "bag", &"station_busy": "hourglass",
 	&"missing_ingredients": "box", &"display_full": "warning", &"nothing_to_do": "bubble",
-	&"burnt_discarded": "fire",
+	&"burnt_discarded": "fire", &"command_cancelled": "cross",
 }
 
 

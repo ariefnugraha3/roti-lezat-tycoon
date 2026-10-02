@@ -663,6 +663,49 @@ static func build_holding_table() -> Node3D:
 	return root
 
 
+## Tinggi permukaan bantal kursi koki (sebelum skala footprint), meter.
+const CHAIR_SEAT_Y: float = 0.20
+
+
+## Kursi koki (GDD 5.1.4): kursi pinus mungil berbantal gingham stroberi dan
+## sandaran melengkung dengan hati kecil. Muka (+Z) menghadap tile aksesnya,
+## sandaran di -Z. Titik "Seat" di permukaan bantal dipakai WorldView untuk
+## mendudukkan koki. Lebar & dalamnya pas satu ubin supaya tidak diskalakan.
+static func build_staff_chair() -> Node3D:
+	var root: Node3D = _root("StaffChair", 1)
+	var pine: Color = Palette.PINE_WOOD
+	var wood_top: float = CHAIR_SEAT_Y - 0.045
+	# Empat kaki bulat yang sedikit meruncing, dengan palang di tengahnya.
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_cyl(root, wood_top - 0.02, 0.022, 0.018, pine.darkened(0.16), Vector3(sx * 0.165, (wood_top - 0.02) * 0.5, sz * 0.165))
+	for sz2: float in [-1.0, 1.0]:
+		_box(root, Vector3(0.31, 0.022, 0.022), pine.darkened(0.22), Vector3(0.0, 0.065, sz2 * 0.165))
+	# Dudukan kayu dan bantal empuk bergaris gingham.
+	_slab(root, Vector3(0.42, 0.04, 0.42), 0.012, pine, Vector3(0.0, wood_top - 0.02, 0.0))
+	var cushion: float = wood_top + 0.022
+	_slab(root, Vector3(0.37, 0.045, 0.35), 0.02, Palette.GINGHAM_A, Vector3(0.0, cushion, 0.015))
+	for i in 3:
+		_box(root, Vector3(0.026, 0.047, 0.352), Palette.GINGHAM_B, Vector3(-0.11 + 0.11 * float(i), cushion + 0.001, 0.015))
+	# Sandaran: dua tiang belakang, papan melengkung, dan hati kecil di tengahnya.
+	for sx2: float in [-1.0, 1.0]:
+		_box(root, Vector3(0.034, 0.30, 0.034), pine.darkened(0.08), Vector3(sx2 * 0.165, wood_top + 0.13, -0.19))
+	var rail_y: float = wood_top + 0.25
+	_slab(root, Vector3(0.40, 0.10, 0.04), 0.018, pine.lightened(0.06), Vector3(0.0, rail_y, -0.19))
+	_box(root, Vector3(0.30, 0.025, 0.03), pine.darkened(0.08), Vector3(0.0, wood_top + 0.12, -0.19))
+	var heart: MeshInstance3D = _sph(root, 0.026, Palette.ROSY_CHEEK, Vector3(-0.016, rail_y + 0.006, -0.166))
+	heart.scale = Vector3(1.0, 1.0, 0.45)
+	var heart2: MeshInstance3D = _sph(root, 0.026, Palette.ROSY_CHEEK, Vector3(0.016, rail_y + 0.006, -0.166))
+	heart2.scale = Vector3(1.0, 1.0, 0.45)
+	var tip: MeshInstance3D = _box(root, Vector3(0.034, 0.034, 0.022), Palette.ROSY_CHEEK, Vector3(0.0, rail_y - 0.016, -0.168), Vector3(0.0, 0.0, 45.0))
+	tip.name = "HeartTip"
+	var seat := Node3D.new()
+	seat.name = "Seat"
+	seat.position = Vector3(0.0, cushion + 0.0225, 0.015)
+	root.add_child(seat)
+	return root
+
+
 ## Mangkuk kayu berisi adonan, alasnya di y = 0. Dipakai di tangan karakter
 ## dan di Meja Tunggu.
 static func dough_bowl(dough_color: Color = Palette.RAW_DOUGH) -> Node3D:
@@ -1131,6 +1174,13 @@ static func build_divider_counter(tier: int, span: float, registers: int) -> Nod
 
 ## Satu mesin kasir di atas meja pembatas: badan kotak krem, laci uang dan layar
 ## kecil miring yang sama-sama menghadap kasir di sisi -Z.
+## Mesin kasir tambahan di atas meja pembatas, pada posisi X lokal `local_x`
+## (meja yang dipakai beberapa jalur, Tier 1-2, keputusan maintainer 2026-10-02).
+static func add_divider_register(counter: Node3D, index: int, local_x: float, tier: int) -> Node3D:
+	var trim_colors: Array[Color] = [Palette.CARAMEL, METAL_COPPER, METAL_COPPER, METAL_CHROME, Palette.APRON_GOLD]
+	return _divider_register(counter, index, Vector3(local_x, DIVIDER_HEIGHT, -0.030), trim_colors[clampi(tier, 1, 5) - 1])
+
+
 static func _divider_register(parent: Node3D, index: int, pos: Vector3, trim: Color) -> Node3D:
 	var reg := Node3D.new()
 	reg.name = "Register%d" % index

@@ -76,7 +76,7 @@ func build() -> void:
 		var sd: StaffDefinition = DataRegistry.staff(StringName(str((wl as Dictionary)["staff_id"])))
 		if sd != null:
 			var role: String = Tx.t("ui_staff_role_cashier") if sd.is_cashier() else Tx.t("ui_staff_role_baker")
-			_line(sc, "   " + Tx.t("ui_summary_wage_line", {"name": sd.display_name, "role": role, "tier": sd.tier}), Tx.kr_signed(-sd.daily_wage_kr))
+			_line(sc, "   " + Tx.t("ui_summary_wage_line", {"name": sd.display_name, "role": role}), Tx.kr_signed(-float((wl as Dictionary).get("wage", 0.0))))
 	if float(r.get("marketing_cost_if_charged_today", 0.0)) > 0.0:
 		_line(sc, Tx.t("ui_summary_marketing"), Tx.kr_signed(-float(r["marketing_cost_if_charged_today"])))
 	_line(sc, Tx.t("ui_summary_total_expenses"), Tx.kr_signed(-float(r.get("total_expenses", 0.0))), true)

@@ -85,6 +85,8 @@ func _init() -> void:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
 	queue.queue_slot_freed.connect(demand.on_slot_freed)
+	# Kursi koki dipindah di Mode Dekorasi: koki yang duduk di sana berdiri dulu.
+	world.layout_changed.connect(staff.on_layout_changed)
 
 
 func _add(m: SimManager, node_name: String) -> Variant:
@@ -114,7 +116,7 @@ func start_new_game(pid: StringName, name_text: String, gender: String, master_s
 
 
 ## Starter: storage + 1 Mixer T1 + 1 Oven T1 + 1 Display T1 terpasang (GDD 5.1.2),
-## lalu Meja Tunggu di dapur (GDD 5.1.3).
+## lalu Meja Tunggu (GDD 5.1.3) dan kursi koki (GDD 5.1.4) di dapur.
 func _create_starter_equipment() -> void:
 	var loc: LocationDefinition = world.location
 	var order: Array[StringName] = [loc.storage_id, &"oven_t1", &"mixer_t1", &"display_t1", DataRegistry.table_definition().id]
@@ -122,6 +124,23 @@ func _create_starter_equipment() -> void:
 		var e: EquipmentInstance = equipment.create_instance(def_id)
 		if not world.auto_place(e):
 			GameLogger.error("WORLD", "starter %s could not be placed" % def_id)
+	_ensure_chairs()
+
+
+## Kursi koki sepaket bangunan: satu per slot koki lokasi (GDD 5.1.4). Save lama
+## belum punya kursi, dan upgrade ke Tier 4 menambah satu; yang belum terpasang
+## ditempatkan otomatis di dapur.
+func _ensure_chairs() -> void:
+	var want: int = world.location.staff_capacity(&"baker")
+	var have: Array[EquipmentInstance] = []
+	for e: EquipmentInstance in equipment.all_sorted():
+		if e.category() == &"chair":
+			have.append(e)
+	for i in range(have.size(), want):
+		have.append(equipment.create_instance(DataRegistry.chair_definition().id))
+	for c: EquipmentInstance in have:
+		if not c.placed and not world.auto_place(c):
+			GameLogger.error("WORLD", "staff chair %d could not be placed" % c.iid)
 
 
 ## Save lama (skema < 4) belum punya Meja Tunggu: dibuat dan ditempatkan saat
@@ -183,6 +202,9 @@ func step(dt: float) -> void:
 	display.step(dt)
 	player.step(dt)
 	staff.step(dt)
+	# Pembeli di jalur yang tutup atau terlalu panjang pindah lebih dulu, sebelum
+	# kedatangan baru mendapat slot (GDD 21.3).
+	customers.rebalance_lanes()
 	demand.step(dt)
 	customers.step(dt)
 	cashier.step(dt)
@@ -219,6 +241,38 @@ func skip_to_open_step(max_ticks: int) -> StringName:
 		if production.oven_needs_player():
 			return &"oven"
 	return &""
+
+
+## "Close Early" (GDD 15.5, keputusan maintainer 2026-10-02): &"" bila toko boleh
+## ditutup sekarang; &"phase" bila toko tidak sedang buka; &"tutorial" bila
+## tutorial masih mengunci ketukan (GDD 88.1).
+func close_early_block() -> StringName:
+	if time.phase != TimeManager.OPEN:
+		return &"phase"
+	if not tutorial.allows_tap(&"close_early"):
+		return &"tutorial"
+	return &""
+
+
+## Bintang rating toko yang hilang bila toko ditutup sekarang: per jam in-game yang
+## dipotong dari jam buka (`rating.close_early_per_hour`, GDD 25.2).
+func close_early_penalty() -> float:
+	var hours: float = maxf(0.0, (time.close_time - time.time_seconds) / 3600.0)
+	return DataRegistry.balf("rating.close_early_per_hour") * hours
+
+
+## Tutup sekarang: rating toko turun sesuai sisa jam buka, jam maju ke 18:00, lalu
+## shutdown deterministik dan settlement persis seperti tutup biasa (GDD 15.3,
+## 104). Gaji tetap penuh karena liabilitasnya sudah tetap sejak 05:00 (GDD 87).
+func close_early() -> bool:
+	if close_early_block() != &"":
+		return false
+	var at: float = time.time_seconds
+	var penalty: float = close_early_penalty()
+	reputation.add_physical(-penalty)
+	time.time_seconds = time.close_time
+	close_day({"closed_early_at": at, "close_early_penalty": penalty})
+	return true
 
 
 ## Menjalankan simulasi headless selama `seconds` detik-simulasi (test).
@@ -282,7 +336,8 @@ func _add_opening_stock() -> void:
 
 
 ## 18:00: shutdown deterministik (GDD 104) lalu settlement tepat sekali (GDD 15.3).
-func close_day() -> void:
+## `early` berisi jam dan penalti bila toko ditutup lebih awal (GDD 15.5).
+func close_day(early: Dictionary = {}) -> void:
 	time.set_phase(TimeManager.CLOSING)
 	EventBus.shop_closed.emit(time.day)
 	customers.shutdown()
@@ -303,7 +358,7 @@ func close_day() -> void:
 	marketing.end_of_day(float(customers.abandoned_today) / float(entered))
 	weather.forecast_next()
 	bailout.check_after_settlement()
-	var report: Dictionary = reports.build({"utility": utility, "wages": wages})
+	var report: Dictionary = reports.build({"utility": utility, "wages": wages}.merged(early))
 	statistics.end_day(float(report["net_profit"]), production.batches_burnt_today)
 	analytics.end_day(time.day)
 	achievements.end_day(production.batches_burnt_today, customers.abandoned_today)
@@ -411,10 +466,12 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 		if equipment.placed_count(e4.category()) >= world.location.slot_count(e4.category()):
 			continue
 		world.auto_place(e4)
-	# Meja Tunggu ditempatkan setelah alat produksi, bersama isinya (GDD 5.1.3).
+	# Meja Tunggu ditempatkan setelah alat produksi, bersama isinya (GDD 5.1.3),
+	# lalu kursi koki (GDD 5.1.4).
 	var table: EquipmentInstance = equipment.table_instance()
 	if table != null and not world.auto_place(table):
 		return false
+	_ensure_chairs()
 	for iid: Variant in display.display_ids():
 		var d: EquipmentInstance = equipment.get_inst(int(iid))
 		if d != null and display.used(d.iid) > 0 and not d.placed:
@@ -502,13 +559,25 @@ func load_from_save(d: Dictionary) -> void:
 			display.ensure_display(e.iid, e.tier())
 	decoration.restore(d.get("decorations", {}))
 	world.rebuild_occupancy()
+	# Template jalur kasir 2026-10-02: perabot yang kini menimpa slot antrean,
+	# titik layan/kasir, atau drop-off dilepas dulu (GDD 57).
+	var displaced: Array[EquipmentInstance] = world.release_conflicts()
 	# Dekorasi dari save lama yang melanggar aturan slot kembali ke inventaris (GDD 72.3).
 	decoration.enforce_rules()
+	for e2: EquipmentInstance in displaced:
+		if not world.auto_place(e2):
+			GameLogger.warn("WORLD", "%s %d left unplaced after the layout update" % [e2.def_id, e2.iid])
 	_ensure_table()
+	_ensure_chairs()
 	production.restore(d.get("production_jobs", {}))
 	queue.restore(d.get("queues", {}))
 	cashier.restore(d.get("cashier", {}))
 	staff.restore(d.get("staff", {}))
+	# Batas staf baru (keputusan maintainer 2026-10-02): kelebihan dari save lama
+	# diberhentikan, yang paling baru direkrut lebih dulu.
+	var dismissed: Array[String] = staff.enforce_capacity()
+	if not dismissed.is_empty():
+		GameLogger.important("STAFF", "over the new staff limit, dismissed: %s" % ", ".join(dismissed))
 	customers.restore(d.get("customers", {}))
 	demand.restore(d.get("demand", {}))
 	rotifood.restore(d.get("rotifood_orders", {}))

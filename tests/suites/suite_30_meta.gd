@@ -129,26 +129,30 @@ func _staff_wages() -> void:
 	eq(s.staff.hire(&"staff_baker_joko"), &"", "hire baker")
 	near(s.staff.wage_liability_today, 0.0, 0.001, "hiring does not charge today's wages")
 	s.continue_to_next_day()
-	# 05:00: liabilitas terkunci untuk staf on_duty.
-	near(s.staff.wage_liability_today, 150.0 + 180.0, 0.001, "05:00 wage liability = on-duty wages")
-	check(s.staff.cashier_for_lane(s.queue.main_lane().id) != null, "cashier assigned to the main lane")
+	# 05:00: liabilitas terkunci untuk staf on_duty; gaji sama untuk kedua peran
+	# menurut tier lokasi (keputusan maintainer 2026-10-02).
+	var wage: float = s.world.location.staff_daily_wage_kr
+	near(s.staff.wage_liability_today, 2.0 * wage, 0.001, "05:00 wage liability = on-duty wages")
+	var lane_b: QueueLane = s.queue.staff_lanes()[0]
+	check(s.staff.cashier_for_lane(lane_b.id) != null, "the cashier takes the lane next to the player's")
+	check(s.staff.cashier_for_lane(s.queue.main_lane().id) == null, "the main lane stays the player's")
 	# Libur di tengah hari & pecat: gaji hari ini tetap (GDD 3.4, 87.3).
 	run_until(s, 10.0 * 3600.0)
 	s.staff.set_on_duty(&"staff_baker_joko", false)
 	s.staff.fire(&"staff_cashier_budi")
-	near(s.staff.wage_liability_today, 330.0, 0.001, "liability fixed at 05:00")
-	check(s.staff.cashier_for_lane(s.queue.main_lane().id) == null, "fired cashier leaves the lane")
+	near(s.staff.wage_liability_today, 2.0 * wage, 0.001, "liability fixed at 05:00")
+	check(s.staff.cashier_for_lane(lane_b.id) == null, "fired cashier leaves the lane")
 	check(s.queue.is_open(s.queue.main_lane()), "main lane falls back to the player")
 	# Kembali on_duty di tengah hari tidak bekerja/dibayar sampai 05:00 berikutnya.
 	s.staff.set_on_duty(&"staff_baker_joko", true)
 	check(s.staff.working_ids().is_empty(), "rescheduled staff does not start mid-day")
 	var bal: float = s.economy.balance
 	run_day(s, null)
-	near(s.economy.today_total(&"STAFF_WAGE"), -330.0, 0.001, "settlement charges the locked liability once")
+	near(s.economy.today_total(&"STAFF_WAGE"), -2.0 * wage, 0.001, "settlement charges the locked liability once")
 	check(s.economy.balance <= bal, "wages paid")
 	s.enter_after_hours()
 	s.continue_to_next_day()
-	near(s.staff.wage_liability_today, 180.0, 0.001, "next day only the on-duty baker is liable")
+	near(s.staff.wage_liability_today, wage, 0.001, "next day only the on-duty baker is liable")
 	eq(s.staff.working_ids(), [&"staff_baker_joko"], "baker working again")
 	free_sim(s)
 
@@ -481,7 +485,16 @@ func _upgrade() -> void:
 		eq(s.inventory.on_hand, inv, "T%d ingredients kept" % tier)
 		var after_ids: Array = s.equipment.instances.keys()
 		after_ids.sort()
-		eq(after_ids, equip_ids, "T%d every equipment instance kept" % tier)
+		for old_id: Variant in equip_ids:
+			check(after_ids.has(old_id), "T%d equipment instance %d kept" % [tier, int(old_id)])
+		# Instance baru hanya kursi koki untuk slot koki tambahan (GDD 5.1.4).
+		var chairs: int = 0
+		for new_id: Variant in after_ids:
+			if not equip_ids.has(new_id):
+				eq(s.equipment.get_inst(int(new_id)).category(), &"chair", "T%d only staff chairs are added" % tier)
+			if s.equipment.get_inst(int(new_id)).category() == &"chair":
+				chairs += 1
+		eq(chairs, s.world.location.staff_capacity(&"baker"), "T%d one staff chair per baker slot" % tier)
 		near(s.economy.balance, bal - cost, 0.001, "T%d only the upgrade cost is charged" % tier)
 		for d: Variant in s.display.display_ids():
 			if s.display.used(int(d)) > 0:

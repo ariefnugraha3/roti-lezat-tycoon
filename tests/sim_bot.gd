@@ -77,7 +77,7 @@ func _decide() -> void:
 		return
 	# Oven siap: selamatkan dari gosong lebih dulu.
 	for j: ProductionJob in sim.production.sorted_jobs():
-		if j.is_waiting_oven_pickup() and not j.protected:
+		if j.is_waiting_oven_pickup() and not sim.staff.handles(j):
 			p.tap_equipment(j.oven_id)
 			return
 	for j2: ProductionJob in sim.production.sorted_jobs():
@@ -103,13 +103,14 @@ func _decide() -> void:
 		if storage != null:
 			p.tap_equipment(storage.iid)
 			return
-	# Berjaga di kasir saat toko buka.
-	if sim.time.is_open() and not sim.staff.any_cashier_working() and p.manning_lane == &"":
+	# Berjaga di jalur pemain saat toko buka, juga di samping kasir yang bekerja
+	# (GDD 21.2): jalur kedua mempercepat antrean.
+	if sim.time.is_open() and serve_customers and p.manning_lane == &"":
 		p.tap_cashier(sim.queue.main_lane().id, false)
 
 
 func _serve_if_needed() -> bool:
-	if not serve_customers or sim.staff.any_cashier_working():
+	if not serve_customers:
 		return false
 	var lane: QueueLane = sim.queue.main_lane()
 	if lane.service_occupant == &"":
@@ -151,12 +152,29 @@ func _recipe_to_make() -> RecipeDefinition:
 	return best
 
 
+## Di Buku Resep: pesanan diberikan ke koki bila ada yang bertugas (Ask a Baker,
+## GDD 23.3) dengan batch terbesar yang muat; selain itu pemain membuatnya sendiri.
 func _choose_recipe() -> void:
 	if not start_new_batches:
 		return
 	var r: RecipeDefinition = _recipe_to_make()
-	if r != null:
-		sim.player.order_recipe(r.id, batch)
+	if r == null:
+		return
+	if sim.staff.kitchen_staffed() and sim.staff.order_recipe(r.id, _baker_batch(r)) == "":
+		return
+	sim.player.order_recipe(r.id, batch)
+
+
+## Batch terbesar (x5/x3/x1) yang bahannya ada dan hasilnya muat di sisa rak.
+func _baker_batch(r: RecipeDefinition) -> int:
+	var in_flight: int = 0
+	for j: ProductionJob in sim.production.sorted_jobs():
+		in_flight += j.quantity_output
+	var free_display: int = sim.display.total_free_units() - in_flight
+	for b: int in [5, 3, 1]:
+		if sim.inventory.has_for_recipe(r, b) and r.batch_yield * b <= free_display:
+			return b
+	return 1
 
 
 func _fill_slots(iid: int) -> void:
@@ -238,7 +256,7 @@ func _manage() -> void:
 		for st: StaffDefinition in DataRegistry.staff_list():
 			if st.role_id != role or sim.staff.is_employed(st.id):
 				continue
-			if st.tier <= sim.world.location.tier and sim.economy.balance - st.daily_wage_kr * 5.0 > reserve:
+			if sim.economy.balance - sim.staff.daily_wage() * 5.0 > reserve:
 				sim.staff.hire(st.id)
 				break
 

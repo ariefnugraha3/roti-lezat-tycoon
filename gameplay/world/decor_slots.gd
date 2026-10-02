@@ -10,7 +10,9 @@ extends RefCounted
 ##   menghadap area toko lebih dulu, lalu dinding belakang, lalu dari sisi pintu
 ##   depan. Hanya `decor_slots.wall` tempat pertama yang boleh dipakai.
 ## - Meja kasir: satu slot per meja kasir, di ujung yang jauh dari kantong
-##   belanja (lihat counter_frame) dan tidak dipakai tablet RotiFood.
+##   belanja (lihat counter_frame) dan tidak dipakai tablet RotiFood. Meja yang
+##   dipakai dua jalur (Tier 1-2) menaruhnya di ujung luar sisi tablet, karena
+##   kedua ubin lainnya ditempati mesin kasir (lihat lane_frame).
 ##
 ## Setiap slot: {index, floor, pos: Vector3, yaw: float, wall/counter}.
 
@@ -210,6 +212,54 @@ static func counter_frame(f: FloorDefinition, c: Dictionary) -> Dictionary:
 	}
 
 
+## Lane yang dilayani di meja `counter_id`, urut template.
+static func lanes_on(f: FloorDefinition, counter_id: StringName) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for lane: Dictionary in f.lanes:
+		if lane["counter_id"] == counter_id:
+			out.append(lane)
+	return out
+
+
+## Tata letak satu lane di mejanya, dipakai RoomFactory (mesin kasir) dan
+## kantong belanja WorldView: {register: Vector2 (dunia xz), to_customer:
+## Vector2, bag_side: Vector2}. Meja satu lane: mesin kasir di tengah meja dan
+## kantong di bag_side counter_frame, seperti sebelumnya. Meja yang dipakai
+## beberapa lane (Tier 1-2, keputusan maintainer 2026-10-02): mesin kasir di ubin
+## meja lane itu, dan kantong di sisi yang menghadap ubin meja yang kosong,
+## supaya kantong dua lane tidak pernah bertumpuk. Kosong bila lane tidak sah.
+static func lane_frame(f: FloorDefinition, lane: Dictionary) -> Dictionary:
+	var c: Dictionary = f.counter(lane.get("counter_id", &""))
+	var fr: Dictionary = counter_frame(f, c) if not c.is_empty() else {}
+	if fr.is_empty():
+		return {}
+	var sp: Vector2 = GridMath.cell_center(lane["service_point"])
+	var cp: Vector2 = GridMath.cell_center(lane["cashier_point"])
+	var to_customer: Vector2 = (sp - cp).normalized()
+	var shared: Array[Dictionary] = lanes_on(f, c["id"])
+	if shared.size() <= 1:
+		return {"register": fr["center"], "to_customer": to_customer, "bag_side": fr["bag_side"]}
+	var reg: Vector2 = (sp + cp) * 0.5
+	var axis_x: bool = bool(fr["axis_x"])
+	var used: Dictionary = {}
+	for other: Dictionary in shared:
+		var oc: Vector2 = (GridMath.cell_center(other["service_point"]) + GridMath.cell_center(other["cashier_point"])) * 0.5
+		used[GridMath.world_to_cell(oc)] = true
+	var free_sum: float = 0.0
+	var free_n: int = 0
+	for cell: Vector2i in (c["cells"] as Array[Vector2i]):
+		if not used.has(cell):
+			var cc: Vector2 = GridMath.cell_center(cell)
+			free_sum += (cc.x if axis_x else cc.y)
+			free_n += 1
+	var side: Vector2 = fr["bag_side"]
+	if free_n > 0:
+		var toward: float = signf(free_sum / float(free_n) - (reg.x if axis_x else reg.y))
+		if toward != 0.0:
+			side = Vector2(toward, 0.0) if axis_x else Vector2(0.0, toward)
+	return {"register": reg, "to_customer": to_customer, "bag_side": side}
+
+
 ## Satu tempat per meja kasir lantai toko, urut daftar meja di template.
 static func _counter_spots(loc: LocationDefinition) -> Array[Dictionary]:
 	var key: String = _key("counter", loc)
@@ -228,11 +278,16 @@ static func _counter_spots(loc: LocationDefinition) -> Array[Dictionary]:
 			var tablet: Vector2i = c.get("tablet_cell", FloorDefinition.NONE_CELL)
 			# Ujung seberang kantong; bila di sana ada tablet, ujung satunya.
 			var s: Vector2 = -bag_side
-			for _attempt in 2:
-				var high: bool = (s.x if bool(fr["axis_x"]) else s.y) > 0.0
-				if (mx if high else mn) != tablet:
-					break
-				s = -s
+			var shared: Array[Dictionary] = lanes_on(f, c["id"])
+			if shared.size() > 1:
+				# Meja dua jalur: ujung luar sisi yang kosong (tablet bergeser ke dalam).
+				s = (lane_frame(f, shared[0]) as Dictionary).get("bag_side", s)
+			else:
+				for _attempt in 2:
+					var high: bool = (s.x if bool(fr["axis_x"]) else s.y) > 0.0
+					if (mx if high else mn) != tablet:
+						break
+					s = -s
 			var to_customer: Vector2 = fr["to_customer"]
 			var p2: Vector2 = Vector2(fr["center"]) + s * (float(fr["half"]) - COUNTER_END_INSET) + to_customer * COUNTER_FRONT_SHIFT
 			out.append({"index": out.size(), "floor": f.id, "pos": Vector3(p2.x, EquipmentFactory.COUNTER_HEIGHT, p2.y),

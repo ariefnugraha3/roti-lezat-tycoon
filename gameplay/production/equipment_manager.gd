@@ -117,10 +117,10 @@ func _fixture(category: StringName) -> EquipmentInstance:
 	return u[0] if not u.is_empty() else null
 
 
-## Gudang dan Meja Tunggu sepaket dengan bangunan: tidak dijual, tidak bisa
-## disimpan, dan tidak memakai slot alat (GDD 5.1.1, 5.1.3).
+## Gudang, Meja Tunggu, dan kursi koki sepaket dengan bangunan: tidak dijual,
+## tidak bisa disimpan, dan tidak memakai slot alat (GDD 5.1.1, 5.1.3, 5.1.4).
 static func is_fixture(category: StringName) -> bool:
-	return category == &"storage" or category == &"table"
+	return category == &"storage" or category == &"table" or category == &"chair"
 
 
 ## Tier tertinggi alat terpasang per kategori (syarat resep, GDD 61.1).

@@ -36,8 +36,9 @@ func _make_actor() -> void:
 	actor.visual_key = &"player"
 
 
-## Posisi awal: di depan Gudang (dapur).
+## Posisi awal: di depan Gudang (dapur), tidak lagi berjaga di kasir.
 func place_at_start() -> void:
+	manning_lane = &""
 	var storage: EquipmentInstance = sim.equipment.storage_instance()
 	var acc: Dictionary = sim.world.access_of(storage.iid) if storage != null else {}
 	if not acc.is_empty():
@@ -53,8 +54,47 @@ func carried_job() -> ProductionJob:
 	return sim.production.get_job(int(actor.carried.get("job_id", -1)))
 
 
+## Pemain benar-benar berdiri di titik kasir lane itu (GDD 21.4). Posisinya ikut
+## diperiksa: upgrade lokasi dan load memindahkan karakter tanpa perintah, dan
+## jalur pemain hanya terbuka selama ia ada di sana (GDD 21.2).
 func is_manning_lane(lane_id: StringName) -> bool:
-	return manning_lane == lane_id and not actor.has_route()
+	if manning_lane != lane_id or actor.has_route():
+		return false
+	var lane: QueueLane = sim.queue.lane(lane_id)
+	return lane != null and actor.floor_id == lane.floor_id and actor.cell() == lane.cashier_point
+
+
+## Ada perintah pemain (sedang dijalankan atau mengantre) menuju perabot `iid`.
+## Koki tidak menyentuh alat yang dituju pemain (GDD 23.3).
+func has_command_for(iid: int) -> bool:
+	if not current.is_empty() and _targets(current, iid):
+		return true
+	for c: Dictionary in commands:
+		if _targets(c, iid):
+			return true
+	return false
+
+
+static func _targets(cmd: Dictionary, iid: int) -> bool:
+	var t: Variant = cmd.get("target")
+	return (t is int or t is float) and int(t) == iid and not [&"cashier", &"portal"].has(StringName(str(cmd["kind"])))
+
+
+## Ketuk lagi perabot yang sedang dituju: perintah itu dibatalkan dan koki yang
+## tadi mundur kembali mengerjakannya (keputusan maintainer 2026-10-02).
+## Mengembalikan true bila ada perintah yang dibatalkan.
+func cancel_command_for(iid: int) -> bool:
+	var cancelled: bool = false
+	for i in range(commands.size() - 1, -1, -1):
+		if _targets(commands[i], iid):
+			commands.remove_at(i)
+			cancelled = true
+	if not current.is_empty() and _targets(current, iid):
+		current = {}
+		actor.stop()
+		actor.state = &"IDLE"
+		cancelled = true
+	return cancelled
 
 
 # ===========================================================================
@@ -68,6 +108,10 @@ func tap_equipment(iid: int) -> bool:
 	if not sim.tutorial.allows_tap(e.category()):
 		return false
 	var kind: StringName = e.category()
+	# Ketukan kedua pada perabot yang masih dituju membatalkan perintahnya.
+	if cancel_command_for(iid):
+		_feedback_at(&"command_cancelled", iid)
+		return true
 	# Tangan penuh: hanya pengantaran yang cocok yang diterima (GDD 16.5).
 	if commands.is_empty() and current.is_empty() and not actor.carried.is_empty():
 		var t: String = str(actor.carried.get("type", ""))
@@ -79,15 +123,22 @@ func tap_equipment(iid: int) -> bool:
 	return _enqueue({"kind": kind, "target": iid, "from_customer": false})
 
 
+## Pemain selalu menjaga jalur utama; jalur lain milik Asisten Kasir
+## (GDD 21.2, keputusan maintainer 2026-10-02). Mengetuk meja atau pembeli di
+## jalur kasir yang sedang dijaga hanya memberi tahu bahwa kasir melayaninya.
 func tap_cashier(lane_id: StringName, from_customer: bool) -> bool:
 	if not sim.tutorial.allows_tap(&"cashier"):
 		return false
-	if sim.staff.cashier_for_lane(lane_id) != null:
-		_feedback(&"staff_serving", sim.queue.lane(lane_id).floor_id, sim.queue.lane(lane_id).cashier_point)
+	var tapped: QueueLane = sim.queue.lane(lane_id)
+	if tapped == null:
 		return false
-	var lane: QueueLane = sim.queue.lane(lane_id)
-	if lane == null or not lane.main:
+	if not tapped.main and sim.staff.cashier_for_lane(lane_id) != null and from_customer:
+		_feedback(&"staff_serving", tapped.floor_id, tapped.cashier_point)
 		return false
+	var lane: QueueLane = sim.queue.main_lane()
+	if lane == null:
+		return false
+	lane_id = lane.id
 	# Sudah berjaga di meja: ketukan balon langsung membuka popup (GDD 2 langkah 5).
 	if is_manning_lane(lane_id) and current.is_empty():
 		_open_order_popup(lane)
@@ -282,9 +333,6 @@ func _at_mixer(iid: int) -> void:
 			if not actor.carried.is_empty():
 				_feedback_at(&"hands_full", iid)
 				return
-			if j.claimed_by != &"" and j.claimed_by != PLAYER_ID:
-				_feedback_at(&"station_busy", iid)
-				return
 			if sim.production.pickup_dough(j.job_id, PLAYER_ID):
 				actor.carried = {"type": "dough", "job_id": j.job_id, "recipe_id": String(j.recipe_id)}
 				sim.tutorial.on_event(&"dough_picked")
@@ -320,9 +368,6 @@ func _at_oven(iid: int) -> void:
 	if j.is_waiting_oven_pickup():
 		if not actor.carried.is_empty():
 			_feedback_at(&"hands_full", iid)
-			return
-		if j.protected and j.claimed_by != &"":
-			_feedback_at(&"station_busy", iid)
 			return
 		var r: Dictionary = sim.production.pickup_tray(j.job_id, PLAYER_ID)
 		if bool(r.get("burnt", false)):
@@ -426,14 +471,14 @@ func station_markers() -> Dictionary:
 						out[e.iid] = {"mode": &"progress", "value": j.progress(), "burn": 0.0, "state": j.stage}
 					elif j.stage == ProductionJob.ORDERED and j.owner_actor_id == PLAYER_ID:
 						out[e.iid] = {"mode": &"alert", "value": 0.0, "burn": 0.0, "state": j.stage}
-					elif j.stage == ProductionJob.MIX_DONE_WAITING_PICKUP and (j.owner_actor_id == PLAYER_ID or j.claimed_by == &""):
-						out[e.iid] = {"mode": &"alert", "value": 1.0, "burn": 0.0, "state": j.stage}
+					elif j.stage == ProductionJob.MIX_DONE_WAITING_PICKUP:
+						out[e.iid] = _done_marker(j, 0.0)
 			&"oven":
 				if j != null:
 					if j.stage == ProductionJob.BAKING:
 						out[e.iid] = {"mode": &"progress", "value": j.progress(), "burn": 0.0, "state": j.stage}
-					elif j.is_waiting_oven_pickup() and not j.protected:
-						out[e.iid] = {"mode": &"alert", "value": 1.0, "burn": sim.production.burn_progress(j), "state": j.stage}
+					elif j.is_waiting_oven_pickup():
+						out[e.iid] = _done_marker(j, sim.production.burn_progress(j))
 				elif carried != null and carried.stage == ProductionJob.CARRIED_TO_OVEN and e.tier() >= carried.recipe().required_oven_tier:
 					out[e.iid] = {"mode": &"alert", "value": 0.0, "burn": 0.0, "state": &"deliver"}
 			&"display":
@@ -444,6 +489,15 @@ func station_markers() -> Dictionary:
 				if not tm.is_empty():
 					out[e.iid] = tm
 	return out
+
+
+## Alat yang sudah selesai: "!" bila menunggu pemain; bar penuh tanpa "!" bila
+## koki sudah menuju alat itu atau job-nya pesanan dapur yang diurus koki
+## (GDD 2, 23.3), supaya pemain tidak terpancing mengambil alih.
+func _done_marker(j: ProductionJob, burn: float) -> Dictionary:
+	if sim.staff.handles(j) and not has_command_for(j.oven_id if j.is_waiting_oven_pickup() else j.mixer_id):
+		return {"mode": &"progress", "value": 1.0, "burn": 0.0, "state": j.stage}
+	return {"mode": &"alert", "value": 1.0, "burn": burn, "state": j.stage}
 
 
 ## Meja Tunggu: "taruh di sini" saat barang bawaan tidak punya tujuan kosong,

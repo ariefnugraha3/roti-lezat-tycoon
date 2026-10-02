@@ -294,6 +294,8 @@ static func mesh_count(actor: Node) -> int:
 
 
 ## Spec staf dari data/catalog/staff.json; deterministik per staff_id (GDD 31.4).
+## Staf tidak punya tier (keputusan maintainer 2026-10-02): warna celemeknya
+## dari data visual orang itu sendiri.
 static func spec_for_staff(staff_id: String) -> Dictionary:
 	var def: StaffDefinition = DataRegistry.staff(StringName(staff_id))
 	var role: String = "cashier"
@@ -301,7 +303,6 @@ static func spec_for_staff(staff_id: String) -> Dictionary:
 	var visual: Dictionary = {}
 	if def != null:
 		role = String(def.role_id)
-		tier = clampi(def.tier, 1, 5)
 		visual = def.visual
 	var hair_style: String = str(visual.get("hair_style", "pendek"))
 	var hat: String = str(visual.get("hat", "none"))

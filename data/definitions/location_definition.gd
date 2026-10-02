@@ -12,6 +12,9 @@ var slots: Dictionary = {}
 ## wall, counter_prop, floor_prop, floor_overlay.
 var decor_slots: Dictionary = {}
 var staff_capacity_by_role: Dictionary = {}
+## Gaji harian satu staf, kasir maupun koki, di lokasi ini (GDD 3.3, 87;
+## keputusan maintainer 2026-10-02).
+var staff_daily_wage_kr: float = 0.0
 var queue_capacity_physical: int = 0
 var queue_capacity_rotifood: int = 0
 var shared_rotifood_queue: bool = true
@@ -40,6 +43,7 @@ static func from_dict(d: Dictionary) -> LocationDefinition:
 	var sc: Dictionary = d.get("staff_capacity_by_role", {})
 	for k2: Variant in sc.keys():
 		l.staff_capacity_by_role[StringName(str(k2))] = int(sc[k2])
+	l.staff_daily_wage_kr = float(d.get("staff_daily_wage_kr", 0.0))
 	l.queue_capacity_physical = int(d.get("queue_capacity_physical", 0))
 	l.queue_capacity_rotifood = int(d.get("queue_capacity_rotifood", 0))
 	l.shared_rotifood_queue = bool(d.get("shared_rotifood_queue", true))

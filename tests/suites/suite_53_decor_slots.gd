@@ -15,7 +15,6 @@ func tests() -> Array:
 		{"id": "TEST_VIS_DECOR_WORLD", "name": "72.3 placed decorations are drawn, pickable in Decoration Mode, and slot markers answer taps; wall windows and clock face the room", "fn": _world},
 		{"id": "TEST_UI_DECOR_SLOTS", "name": "72.2-72.3 Decoration Mode lights free slots, a tap tries the decoration there and Place hangs it, full types explain the cap, rugs rotate before Place", "fn": _ui},
 		{"id": "ACC_72_BADGES", "name": "72.1 achievement badges hang on a wall spot like wall decorations (sharing the wall cap) and show as medals on the profile card", "fn": _badges},
-		{"id": "ACC_3_CASHIER_PERKS", "name": "3.1 Tier 2 cashiers calm the queue by 8%, Tier 4 by 15% and lift the rating 1.5x per sale", "fn": _cashier_perks},
 	]
 
 
@@ -85,8 +84,19 @@ func _slot_geometry() -> void:
 			var off: Vector2 = Vector2(p2.x, p2.z) - Vector2(fr["center"])
 			var axis_off: float = absf(off.x) if bool(fr["axis_x"]) else absf(off.y)
 			check(axis_off >= 0.25, "%s %s: clear of the register in the middle (%.2f m)" % [loc.id, sd["counter"], axis_off])
-			check(GridMath.world_to_cell(Vector2(p2.x, p2.z)) != Vector2i(c.get("tablet_cell", FloorDefinition.NONE_CELL)),
-				"%s %s: not on the RotiFood tablet" % [loc.id, sd["counter"]])
+			var shared: Array[Dictionary] = DecorSlots.lanes_on(f, c["id"])
+			if shared.size() > 1:
+				# Meja dua jalur (Tier 1-2, keputusan maintainer 2026-10-02): hiasan di
+				# ujung luar ubin tablet, tablet bergeser ke dalam, jauh dari tiap mesin kasir.
+				var lf: Dictionary = DecorSlots.lane_frame(f, shared[0])
+				var tab: Vector2 = GridMath.cell_center(c["tablet_cell"]) - Vector2(lf["bag_side"]) * RoomFactory.TABLET_INSET
+				check(Vector2(p2.x, p2.z).distance_to(tab) >= 0.12, "%s %s: clear of the RotiFood tablet" % [loc.id, sd["counter"]])
+				for ln: Dictionary in shared:
+					var reg: Vector2 = (DecorSlots.lane_frame(f, ln) as Dictionary)["register"]
+					check(Vector2(p2.x, p2.z).distance_to(reg) >= 0.4, "%s %s: clear of lane %s's register" % [loc.id, sd["counter"], ln["id"]])
+			else:
+				check(GridMath.world_to_cell(Vector2(p2.x, p2.z)) != Vector2i(c.get("tablet_cell", FloorDefinition.NONE_CELL)),
+					"%s %s: not on the RotiFood tablet" % [loc.id, sd["counter"]])
 			var bag: Vector2 = Vector2(fr["center"]) + Vector2(fr["bag_side"]) * WorldView.PACK_BAG_SIDE
 			check(bag.distance_to(Vector2(p2.x, p2.z)) >= 0.3 or c.get("tablet_cell", FloorDefinition.NONE_CELL) != FloorDefinition.NONE_CELL,
 				"%s %s: away from the paper bag" % [loc.id, sd["counter"]])
@@ -624,78 +634,3 @@ func _badges() -> void:
 	SaveManager.dir = "user://saves"
 	free_sim(s)
 
-
-# ===========================================================================
-# KASIR TIER 2 & 4
-# ===========================================================================
-
-func _cashier_perks() -> void:
-	var t1: StaffDefinition = DataRegistry.staff(&"staff_cashier_budi")
-	var t2: StaffDefinition = DataRegistry.staff(&"staff_cashier_nadia")
-	var t3: StaffDefinition = DataRegistry.staff(&"staff_cashier_maya")
-	var t4: StaffDefinition = DataRegistry.staff(&"staff_cashier_hendra")
-	var t5: StaffDefinition = DataRegistry.staff(&"staff_cashier_grace")
-	near(t2.special_value("queue_patience_drain_multiplier", 1.0), 0.92, 0.0001, "tier 2: the queue is 8% more patient")
-	near(t4.special_value("queue_patience_drain_multiplier", 1.0), 0.85, 0.0001, "tier 4: the queue is 15% more patient")
-	near(t4.special_value("sale_rating_multiplier", 1.0), 1.5, 0.0001, "tier 4: each sale lifts the rating 1.5x")
-	check(t1.special.is_empty(), "tier 1 unchanged: no perk")
-	near(t3.special_value("queue_patience_drain_multiplier", 1.0), 0.85, 0.0001, "tier 3 unchanged")
-	near(t5.special_value("physical_tip_chance", 0.0), 0.05, 0.0001, "tier 5 unchanged: 5% tips")
-	eq(StaffScreen.perk_lines(t1).size(), 0, "a tier 1 card lists no perk")
-	eq(StaffScreen.perk_lines(t2), PackedStringArray([Tx.t("staff_special_queue", {"percent": 8})]), "a tier 2 card explains the calmer queue")
-	eq(StaffScreen.perk_lines(t4), PackedStringArray([Tx.t("staff_special_queue", {"percent": 15}), Tx.t("staff_special_rating", {"percent": 50})]),
-		"a tier 4 card lists both perks")
-	# Kesabaran antrean: pengurasan dasar dikali perk kasir di lane itu.
-	var s: SimulationRoot = new_sim(301)
-	s.tutorial.skip()
-	s.debug_set_time(s.time.open_time + 60.0)
-	var lane: QueueLane = s.queue.main_lane()
-	check(s.debug_spawn_customer(&"customer_generic"), "a customer arrives")
-	var c: Customer = s.customers.sorted()[0]
-	c.lane_id = lane.id
-	var drain := func() -> float:
-		c.patience = c.patience_max
-		c.stall_time = 0.0
-		s.customers._drain(c, 1.0)
-		return c.patience_max - c.patience
-	var base: float = drain.call()
-	check(base > 0.0, "patience drains while waiting")
-	s.staff.lane_assign[&"staff_cashier_nadia"] = lane.id
-	near(drain.call(), base * 0.92, 0.0001, "a tier 2 cashier's lane drains 8% slower")
-	s.staff.lane_assign.clear()
-	s.staff.lane_assign[&"staff_cashier_hendra"] = lane.id
-	near(drain.call(), base * 0.85, 0.0001, "a tier 4 cashier's lane drains 15% slower")
-	s.staff.lane_assign.clear()
-	free_sim(s)
-	# Rating per penjualan: dua simulasi kembar sampai transaksi pertama.
-	var deltas: Array[float] = []
-	for staffed: bool in [false, true]:
-		var u: SimulationRoot = new_sim(3401)
-		PauseManager.clear_all()
-		var ln: QueueLane = u.queue.main_lane()
-		var bot := SimBot.new(u)
-		var guard: int = 0
-		while guard < 400000 and u.cashier.transaction_for(ln.id).is_empty() and u.is_running():
-			bot.think()
-			u.step(u.tick_seconds)
-			guard += 1
-		var td: Dictionary = u.cashier.transaction_for(ln.id)
-		if td.is_empty():
-			check(false, "a checkout started")
-			free_sim(u)
-			return
-		var cust: Customer = u.customers.customer(td["customer"])
-		for lot: Variant in cust.held:
-			var st: BreadStack = (lot as Dictionary)["stack"]
-			st.bake_quality = 1.0
-			st.freshness_state = &"FRESH"
-		if staffed:
-			u.staff.lane_assign[&"staff_cashier_hendra"] = ln.id
-		u.cashier.transactions.erase(ln.id)
-		var r0: float = u.reputation.physical
-		u.cashier._complete(cust, ln, staffed)
-		deltas.append(u.reputation.physical - r0)
-		u.staff.lane_assign.clear()
-		free_sim(u)
-	check(deltas[0] > 0.0, "a good sale lifts the rating (%.4f)" % deltas[0])
-	near(deltas[1], deltas[0] * 1.5, 0.00001, "a tier 4 cashier's sale lifts it 1.5x as much")

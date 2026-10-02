@@ -61,6 +61,10 @@ func build(settlement: Dictionary) -> Dictionary:
 		"wage_warning": sim.bailout.wage_warning,
 		"campaign": sim.marketing.active.duplicate(),
 		"weather_tomorrow": String(sim.weather.tomorrow),
+		# Tutup lebih awal (GDD 15.5): jam penutupan (detik sejak 00:00, -1 = tutup
+		# biasa) dan bintang rating toko yang hilang.
+		"closed_early_at": float(settlement.get("closed_early_at", -1.0)),
+		"close_early_penalty": float(settlement.get("close_early_penalty", 0.0)),
 	}
 	report["mood"] = _mood(report)
 	report["highlights"] = _highlights(report)
@@ -89,6 +93,9 @@ func _mood(r: Dictionary) -> String:
 func _highlights(r: Dictionary) -> Array:
 	var s: Dictionary = DataRegistry.balance_section("summary")
 	var out: Array = []
+	if float(r.get("closed_early_at", -1.0)) >= 0.0:
+		out.append({"key": "hl_closed_early", "params": {"time": Tx.clock(float(r["closed_early_at"])),
+			"stars": "%.2f" % float(r["close_early_penalty"])}, "icon": "moon"})
 	if sim.bailout.solo_mode and sim.bailout.solo_start_day == sim.time.day:
 		out.append({"key": "hl_solo_day", "params": {}, "icon": "chef"})
 	if sim.reputation.vip_today:
@@ -107,7 +114,7 @@ func _highlights(r: Dictionary) -> Array:
 		var c: Dictionary = sim.staff.contract(sid)
 		if int(c.get("batches_today", 0)) >= int(s["staff_star_min_batches"]):
 			var def: StaffDefinition = DataRegistry.staff(sid)
-			out.append({"key": "hl_staff_star", "params": {"name": def.display_name, "multiplier": "%.2f" % def.work_speed_multiplier}, "icon": "chef"})
+			out.append({"key": "hl_staff_star", "params": {"name": def.display_name, "count": int(c.get("batches_today", 0))}, "icon": "chef"})
 			break
 	if _low_ingredients(int(s["low_ingredient_batches"])):
 		out.append({"key": "hl_low_ingredients", "params": {}, "icon": "box"})

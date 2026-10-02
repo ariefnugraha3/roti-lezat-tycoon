@@ -2,6 +2,13 @@ class_name RecipeBookScreen
 extends UIScreen
 ## Buku Resep (GDD 5.3, 7, 61, 63.2, 92.4). Dibuka dengan mengetuk Storage;
 ## tombol Make hanya membuat job. Semua angka dibaca dari katalog.
+##
+## Tata letak (perbaikan 2026-10-02): hanya daftar resep di kiri yang digulir.
+## Rincian di kanan muat tanpa gulir: judul dengan chip alat, kartu Ingredients
+## dan Details berdampingan, satu baris harga (label, slider, nilai), satu baris
+## reaksi pembeli dan harga referensi, lalu ukuran batch dan tombol Make dalam
+## satu baris. Area rinciannya tetap ScrollContainer sebagai cadangan untuk
+## skala teks besar.
 
 const REACTION_KEYS: Dictionary = {
 	&"VERY_HAPPY": "price_very_happy", &"HAPPY": "price_happy", &"NEUTRAL": "price_neutral",
@@ -62,7 +69,13 @@ func _render_list() -> void:
 		var reason: String = sim.production.make_block_reason(r.id, 1)
 		var b: Button = ProceduralUIFactory.button(Tx.recipe_name(r.id), "primary" if r.id == _selected else ("secondary" if reason == "" else "ghost"))
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(340, 52)
+		# Lebar daftar tetap; nama yang terlalu panjang (skala teks besar) dipotong
+		# dengan elipsis alih-alih melebarkan daftar dan menyempitkan rincian.
+		b.custom_minimum_size = Vector2(0, 52)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.tooltip_text = Tx.recipe_name(r.id)
 		var rid: StringName = r.id
 		b.pressed.connect(func() -> void:
 			_selected = rid
@@ -78,83 +91,180 @@ func _render_detail() -> void:
 		return
 	var head: HBoxContainer = hbox(_detail, 12)
 	var ic := CenterContainer.new()
-	ic.add_child(ProceduralUIFactory.icon("bread", 48, Palette.GOLDEN_CRUST))
+	ic.add_child(ProceduralUIFactory.icon("bread", 40, Palette.GOLDEN_CRUST))
 	head.add_child(ic)
-	lbl(head, Tx.recipe_name(r.id), 26, Palette.UI_WOOD, true)
+	var title: Label = lbl(head, Tx.recipe_name(r.id), 26, Palette.UI_WOOD)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	if _tab == 1:
 		_render_analytics(r)
 		return
-	lbl(_detail, Tx.t("ui_recipe_ingredients"), 18, Palette.UI_WOOD)
+	head.add_child(_chip(Tx.t("ui_recipe_equipment", {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier})))
+	# Rincian lebih lebar dari bahan: barisnya lebih panjang, jadi tidak terlipat
+	# (juga pada skala teks 125%).
+	var cols: HBoxContainer = hbox(_detail, 14)
+	_build_ingredients(r, _card(cols, 0.8))
+	_build_facts(r, _card(cols, 1.2))
+	_detail.add_child(ProceduralUIFactory.dashed_separator())
+	_build_price(r)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 2)
+	_detail.add_child(gap)
+	_build_make(r)
+
+
+## Kartu isi lembut berwarna krem tua (tanpa bayangan) yang mengisi separuh lebar.
+func _card(parent: Control, ratio: float) -> VBoxContainer:
+	var pc := PanelContainer.new()
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.UI_CREAM_DEEP, 0.5), 16, false)
+	sb.content_margin_left = 12.0
+	sb.content_margin_right = 12.0
+	sb.content_margin_top = 8.0
+	sb.content_margin_bottom = 8.0
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pc.size_flags_stretch_ratio = ratio
+	parent.add_child(pc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	pc.add_child(v)
+	return v
+
+
+## Chip kecil di kanan judul (kebutuhan alat).
+func _chip(text: String) -> PanelContainer:
+	var pc := PanelContainer.new()
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.UI_CREAM_DEEP, 14, false)
+	sb.content_margin_left = 12.0
+	sb.content_margin_right = 12.0
+	sb.content_margin_top = 4.0
+	sb.content_margin_bottom = 4.0
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pc.add_child(ProceduralUIFactory.label(text, 14, Palette.UI_WOOD_DEEP))
+	return pc
+
+
+## Bahan sebagai tabel kecil: judul kolom "Have / Need" di kanan, lalu satu
+## baris per bahan dengan angka punya / butuh rata kanan (merah bila kurang).
+func _build_ingredients(r: RecipeDefinition, box: VBoxContainer) -> void:
+	var head: HBoxContainer = hbox(box, 6)
+	var t: Label = lbl(head, Tx.t("ui_recipe_ingredients"), 17, Palette.UI_WOOD)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl(head, Tx.t("ui_recipe_have_need"), 14, Palette.TEXT_MUTED)
 	for ing: StringName in r.ingredients.keys():
 		var need: int = int(r.ingredients[ing]) * _batch
 		var have: int = sim.inventory.count(ing)
-		var row: HBoxContainer = hbox(_detail, 8)
-		row.add_child(ProceduralUIFactory.icon("check" if have >= need else "cross", 18, Palette.SUCCESS if have >= need else Palette.DANGER))
-		lbl(row, "%s — %s" % [Tx.item_name(ing), Tx.t("ui_recipe_have", {"have": have, "need": need})], 16, Palette.TEXT if have >= need else Palette.DANGER)
+		var ink: Color = Palette.TEXT if have >= need else Palette.DANGER
+		var row: HBoxContainer = hbox(box, 6)
+		row.add_child(ProceduralUIFactory.icon("check" if have >= need else "cross", 16, Palette.SUCCESS if have >= need else Palette.DANGER))
+		var n: Label = lbl(row, Tx.item_name(ing), 15, ink)
+		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		n.clip_text = true
+		n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		lbl(row, "%d / %d" % [have, need], 15, ink)
+
+
+## Rincian: hasil & biaya, waktu, umur simpan, dan penggemarnya, masing-masing
+## dengan ikon supaya mudah dipindai.
+func _build_facts(r: RecipeDefinition, box: VBoxContainer) -> void:
+	lbl(box, Tx.t("ui_recipe_details"), 17, Palette.UI_WOOD)
 	var mixer: EquipmentInstance = sim.production.free_mixer_for(r)
 	var oven: EquipmentInstance = sim.production.free_oven_for(r)
 	var mt: int = mixer.tier() if mixer != null else r.required_mixer_tier
 	var ot: int = oven.tier() if oven != null else r.required_oven_tier
 	var oven_def: EquipmentDefinition = DataRegistry.equipment_for(&"oven", ot)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	_detail.add_child(grid)
-	lbl(grid, Tx.t("ui_recipe_yield", {"count": r.batch_yield * _batch}), 16)
-	lbl(grid, Tx.t("ui_recipe_equipment", {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier}), 16)
-	lbl(grid, Tx.t("ui_recipe_mix_time", {"seconds": "%.1f" % DataRegistry.real_seconds(sim.production.mixer_stage_seconds(r, mt, _batch, 1.0))}), 16)
-	lbl(grid, Tx.t("ui_recipe_bake_time", {"seconds": "%.1f" % DataRegistry.real_seconds(sim.production.oven_stage_seconds(r, ot, _batch, 1.0))}), 16)
-	lbl(grid, Tx.t("ui_recipe_burn_grace", {"seconds": "%d" % roundi(DataRegistry.real_seconds(oven_def.burn_grace_seconds()))}), 16)
-	lbl(grid, Tx.t("ui_recipe_cogs", {"cost": Tx.kr(r.unit_cogs_kr())}), 16)
-	lbl(_detail, Tx.t("ui_recipe_expires", {"hours": str(snappedf(r.expired_duration_hours, 0.01))}), 16, Palette.TEXT_MUTED, true)
+	_fact(box, "box", "%s · %s" % [Tx.t("ui_recipe_yield", {"count": r.batch_yield * _batch}), Tx.t("ui_recipe_cogs", {"cost": Tx.kr(r.unit_cogs_kr())})])
+	_fact(box, "clock", "%s · %s · %s" % [
+		Tx.t("ui_recipe_mix_time", {"seconds": "%.1f" % DataRegistry.real_seconds(sim.production.mixer_stage_seconds(r, mt, _batch, 1.0))}),
+		Tx.t("ui_recipe_bake_time", {"seconds": "%.1f" % DataRegistry.real_seconds(sim.production.oven_stage_seconds(r, ot, _batch, 1.0))}),
+		Tx.t("ui_recipe_burn_grace", {"seconds": "%d" % roundi(DataRegistry.real_seconds(oven_def.burn_grace_seconds()))})])
+	_fact(box, "hourglass", Tx.t("ui_recipe_expires", {"hours": str(snappedf(r.expired_duration_hours, 0.01))}))
 	var tags: PackedStringArray = PackedStringArray()
 	for t: StringName in r.customer_tags:
 		tags.append(Tx.t("tag_" + String(t)))
-	lbl(_detail, Tx.t("ui_recipe_tags", {"tags": ", ".join(tags)}), 16, Palette.TEXT_MUTED, true)
-	_detail.add_child(ProceduralUIFactory.dashed_separator())
-	_build_price(r)
-	_detail.add_child(ProceduralUIFactory.dashed_separator())
-	lbl(_detail, Tx.t("ui_recipe_batch"), 18, Palette.UI_WOOD)
-	var brow: HBoxContainer = hbox(_detail, 10)
+	_fact(box, "heart", Tx.t("ui_recipe_tags", {"tags": ", ".join(tags)}))
+
+
+func _fact(box: VBoxContainer, icon_name: String, text: String) -> void:
+	var row: HBoxContainer = hbox(box, 6)
+	var ic: IconCanvas = ProceduralUIFactory.icon(icon_name, 16, Palette.UI_WOOD)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(ic)
+	lbl(row, text, 15, Palette.TEXT, true)
+
+
+## Ukuran batch, tombol "Ask a Baker" (bila ada koki yang direkrut), dan tombol
+## Make dalam satu baris; alasan bila belum bisa dibuat. Koki hanya membuat
+## resep yang dipesan pemain di sini (GDD 3.2, 23.3; keputusan maintainer
+## 2026-10-02).
+func _build_make(r: RecipeDefinition) -> void:
+	var row: HBoxContainer = hbox(_detail, 8)
+	lbl(row, Tx.t("ui_recipe_batch"), 17, Palette.UI_WOOD)
 	for b: int in DataRegistry.bal("production.batch_multipliers"):
 		var bb: Button = ProceduralUIFactory.button("x%d" % b, "primary" if b == _batch else "secondary")
-		bb.custom_minimum_size = Vector2(72, 52)
+		bb.custom_minimum_size = Vector2(64, ProceduralUIFactory.TOUCH_MIN)
 		bb.pressed.connect(func() -> void:
 			_batch = b
 			_render_detail())
-		brow.add_child(bb)
+		row.add_child(bb)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
 	var reason: String = sim.production.make_block_reason(r.id, _batch)
+	var ask_reason: String = ""
+	if not sim.staff.employed_ids(&"baker").is_empty():
+		ask_reason = sim.staff.ask_block_reason(r.id, _batch)
+		var ask: Button = ProceduralUIFactory.icon_text_button("chef", Tx.t("ui_recipe_ask_baker"), "secondary", 22, 17)
+		ask.name = "AskBaker"
+		ask.custom_minimum_size = Vector2(maxf(190.0, ask.custom_minimum_size.x), 52)
+		ask.disabled = ask_reason != ""
+		ask.pressed.connect(_ask)
+		row.add_child(ask)
 	var make: Button = ProceduralUIFactory.button(Tx.t("ui_make"), "primary")
-	make.custom_minimum_size = Vector2(220, 60)
+	make.name = "Make"
+	make.custom_minimum_size = Vector2(170, 52)
 	make.disabled = reason != ""
 	make.pressed.connect(_make)
-	_detail.add_child(make)
+	row.add_child(make)
 	if reason != "":
-		lbl(_detail, Tx.t(reason, {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier}), 16, Palette.DANGER, true)
+		lbl(_detail, Tx.t(reason, {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier}), 15, Palette.DANGER, true)
+	elif ask_reason != "":
+		lbl(_detail, Tx.t(ask_reason), 15, Palette.TEXT_MUTED, true)
 
 
+## Harga: label, slider, dan nilai dalam satu baris; reaksi pembeli dan harga
+## referensi di baris berikutnya.
 func _build_price(r: RecipeDefinition) -> void:
-	lbl(_detail, Tx.t("ui_recipe_price"), 18, Palette.UI_WOOD)
 	var row: HBoxContainer = hbox(_detail, 12)
+	lbl(row, Tx.t("ui_recipe_price"), 17, Palette.UI_WOOD)
 	var sl := HSlider.new()
 	sl.min_value = r.min_price_kr
 	sl.max_value = r.max_price_kr
 	sl.step = r.price_step_kr
 	sl.value = sim.pricing.price_of(r.id)
-	sl.custom_minimum_size = Vector2(360, 48)
+	sl.custom_minimum_size = Vector2(200, 48)
 	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(sl)
 	_price_label = lbl(row, "", 20, Palette.GOLDEN_CRUST)
+	_price_label.custom_minimum_size = Vector2(84, 0)
+	_price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var rrow: HBoxContainer = hbox(_detail, 8)
-	_reaction_icon = ProceduralUIFactory.icon("happy", 26, Palette.GOLD_STAR)
+	_reaction_icon = ProceduralUIFactory.icon("happy", 24, Palette.GOLD_STAR)
 	rrow.add_child(_reaction_icon)
 	_reaction = lbl(rrow, "", 16)
-	lbl(_detail, "%s · %s" % [Tx.t("ui_recipe_default_price", {"price": Tx.kr(r.base_sell_price_kr)}),
-		Tx.t("ui_recipe_price_range", {"min": Tx.kr(r.min_price_kr), "max": Tx.kr(r.max_price_kr)})], 14, Palette.TEXT_MUTED, true)
-	# Hari 1-3 harga terkunci di harga referensi (GDD 63.2).
-	if sim.pricing.prices_locked():
+	_reaction.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Hari 1-3 harga terkunci di harga referensi (GDD 63.2): catatannya mengganti
+	# harga referensi & rentang di baris yang sama, karena keduanya belum berlaku.
+	var locked: bool = sim.pricing.prices_locked()
+	var note: String = Tx.t("ui_recipe_price_locked") if locked else "%s · %s" % [
+		Tx.t("ui_recipe_default_price", {"price": Tx.kr(r.base_sell_price_kr)}),
+		Tx.t("ui_recipe_price_range", {"min": Tx.kr(r.min_price_kr), "max": Tx.kr(r.max_price_kr)})]
+	var ref: Label = lbl(rrow, note, 14, Palette.DANGER if locked else Palette.TEXT_MUTED)
+	ref.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	if locked:
 		sl.editable = false
-		lbl(_detail, Tx.t("ui_recipe_price_locked"), 14, Palette.DANGER, true)
 	sl.value_changed.connect(func(v: float) -> void:
 		sim.pricing.set_price(r.id, v)
 		_update_price(r))
@@ -167,7 +277,7 @@ func _update_price(r: RecipeDefinition) -> void:
 	var label: StringName = DataRegistry.price_reaction_label(sim.pricing.baseline_demand(r.id))
 	_reaction.text = Tx.t(str(REACTION_KEYS.get(label, "price_neutral")))
 	var col: Color = Palette.SUCCESS if label in [&"VERY_HAPPY", &"HAPPY"] else (Palette.TEXT_MUTED if label == &"NEUTRAL" else Palette.DANGER)
-	_reaction_icon.configure(str(REACTION_ICONS.get(label, "bubble")), 26, col)
+	_reaction_icon.configure(str(REACTION_ICONS.get(label, "bubble")), 24, col)
 
 
 func _render_analytics(r: RecipeDefinition) -> void:
@@ -196,6 +306,18 @@ func _make() -> void:
 		_render_detail()
 		return
 	EventBus.sfx.emit(&"ui_confirm", &"")
+	close()
+
+
+## "Ask a Baker": koki yang bertugas mengerjakan seluruh langkahnya.
+func _ask() -> void:
+	var reason: String = sim.staff.order_recipe(_selected, _batch)
+	if reason != "":
+		EventBus.sfx.emit(&"ui_error", &"")
+		_render_detail()
+		return
+	EventBus.sfx.emit(&"ui_confirm", &"")
+	EventBus.notify.emit(2, "ui_baker_order_placed", {"recipe": Tx.recipe_name(_selected), "batch": _batch}, &"chef")
 	close()
 
 

@@ -2,9 +2,10 @@ class_name CashierManager
 extends SimManager
 ## CashierManager — pemilik transaksi di jalur kasir (GDD 21, 98, 103.1).
 ##
-## Lane dengan Asisten Kasir bertugas melayani OTOMATIS. Tanpa asisten, lane
-## utama hanya bergerak selama karakter pemain berdiri di cashier point; pergi
-## berarti progres membeku di tempat, tidak dibatalkan (GDD 2, 21.4).
+## Lane Asisten Kasir melayani OTOMATIS. Lane utama milik pemain dan hanya
+## bergerak selama karakter pemain berdiri di cashier point; pergi berarti
+## progres membeku di tempat, tidak dibatalkan (GDD 2, 21.4). Semua kasir setara
+## (keputusan maintainer 2026-10-02): tanpa tip, tanpa pengali rating.
 ##
 ## Setiap transaksi seluruhnya fase membungkus dan berlangsung `packing_seconds`
 ## (3 dtk) untuk siapa pun yang melayani: roti masuk kantong kertas di meja sejak
@@ -104,7 +105,7 @@ func step(dt: float) -> void:
 			continue
 		var t: Variant = transactions.get(lane.id)
 		if t == null or (t as Dictionary)["customer"] != c.id:
-			var staff_def: StaffDefinition = sim.staff.cashier_def_for_lane(lane.id)
+			var staff_def: StaffDefinition = sim.staff.cashier_for_lane(lane.id)
 			if staff_def != null and sim.staff.cashier_at_post(lane.id):
 				# Asisten melayani otomatis tanpa tap pemain (GDD 21.5).
 				transactions[lane.id] = {
@@ -114,7 +115,9 @@ func step(dt: float) -> void:
 				c.awaiting_tap = false
 				c.state = Customer.BEING_SERVED
 			else:
-				c.awaiting_tap = true
+				# Hanya jalur pemain yang menunggu ketukan; jalur kasir menunggu
+				# kasirnya kembali ke posnya.
+				c.awaiting_tap = lane.main
 			continue
 		var td: Dictionary = t
 		if not _can_progress(lane, td):
@@ -170,17 +173,11 @@ func _complete(c: Customer, lane: QueueLane, by_staff: bool) -> void:
 			all_fresh_prime = false
 	# 3-4. Layanan selesai; roti resmi terjual dan tidak pernah kembali ke rak.
 	c.held.clear()
-	# 5. Tip fisik hanya dari Asisten Kasir Tier 5 (GDD 21.8).
+	# 5. Tidak ada tip fisik: kemampuan "+5% tip" kasir Tier 5 hilang bersama
+	# tier staf (GDD 21.8, keputusan maintainer 2026-10-02).
 	var tip: float = 0.0
-	var staff_def: StaffDefinition = sim.staff.cashier_def_for_lane(lane.id) if by_staff else null
-	if staff_def != null:
-		var chance: float = staff_def.special_value("physical_tip_chance", 0.0)
-		if chance > 0.0 and sim.rng.stream(&"customer_choice_rng").randf() < chance:
-			tip = Money.round_half_up(subtotal * DataRegistry.balf("physical_tip.fraction"))
 	# 6. Ledger.
 	sim.economy.credit(subtotal, &"SALE_PHYSICAL", c.archetype, {"customer": String(c.id), "units": units})
-	if tip > 0.0:
-		sim.economy.credit(tip, &"TIP_PHYSICAL", c.archetype, {"customer": String(c.id)})
 	# 7. Analitik & statistik.
 	for lot3: Variant in sold_lots:
 		var st3: BreadStack = (lot3 as Dictionary)["stack"]
@@ -189,10 +186,9 @@ func _complete(c: Customer, lane: QueueLane, by_staff: bool) -> void:
 		sim.pricing.note_sold_at(st3.recipe_id, p3)
 	sim.statistics.note_physical_sale(units, subtotal + tip)
 	sim.demand.note_units_delivered(units)
-	# 8. Reputasi (GDD 25.2). Kasir Tier 4 melayani dengan ramah: kenaikan rating
-	# dari penjualannya dikali `sale_rating_multiplier` (GDD 3.1); penalti tidak.
+	# 8. Reputasi (GDD 25.2).
 	var ts: float = sim.customers.tier_scale()
-	var gain: float = ts * (staff_def.special_value("sale_rating_multiplier", 1.0) if staff_def != null else 1.0)
+	var gain: float = ts
 	if bad_quality:
 		sim.reputation.physical_event(&"bad_quality_sale", ts)
 	else:

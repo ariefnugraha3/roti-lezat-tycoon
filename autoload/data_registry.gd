@@ -215,6 +215,12 @@ func table_definition() -> EquipmentDefinition:
 	return list[0] if not list.is_empty() else null
 
 
+## Definisi kursi koki, satu-satunya perabot kategori `chair` (GDD 5.1.4).
+func chair_definition() -> EquipmentDefinition:
+	var list: Array[EquipmentDefinition] = equipment_in_category(&"chair")
+	return list[0] if not list.is_empty() else null
+
+
 func equipment_in_category(category: StringName) -> Array[EquipmentDefinition]:
 	var out: Array[EquipmentDefinition] = []
 	for e: EquipmentDefinition in _equipment:
@@ -303,6 +309,12 @@ func player_doze_after_seconds() -> float:
 
 func player_speed_mps() -> float:
 	return float(_staff_raw.get("player_movement_speed_mps", 1.5))
+
+
+## Kecepatan jalan semua staf, kasir maupun koki (keputusan maintainer
+## 2026-10-02: staf setara, tanpa tier).
+func staff_speed_mps() -> float:
+	return float(_staff_raw.get("staff_movement_speed_mps", 1.5))
 
 
 func locations() -> Array[LocationDefinition]:
@@ -680,6 +692,10 @@ func _validate_equipment() -> void:
 				# Meja Tunggu: sepaket bangunan, tanpa batas isi (GDD 5.1.3).
 				if e.for_sale or e.capacity != 0:
 					_err("table %s must not be for sale and has no capacity limit" % e.id)
+			&"chair":
+				# Kursi koki: sepaket bangunan, satu ubin (GDD 5.1.4).
+				if e.for_sale or e.footprint_tiles != Vector2i.ONE:
+					_err("chair %s must be a 1x1 fixture that is not for sale" % e.id)
 			_:
 				_err("equipment %s unknown category %s" % [e.id, e.category_id])
 	for cat: StringName in [&"mixer", &"oven", &"display", &"storage"]:
@@ -688,6 +704,8 @@ func _validate_equipment() -> void:
 				_err("missing equipment %s_t%d" % [cat, t])
 	if equipment_in_category(&"table").size() != 1:
 		_err("exactly one holding table (category table) is required")
+	if equipment_in_category(&"chair").size() != 1:
+		_err("exactly one staff chair (category chair) is required")
 	# Waktu referensi makin cepat tiap tier (GDD 5.1); process_multiplier =
 	# referensi T1 / referensi tier itu (GDD 101.3).
 	for cat: StringName in [&"mixer", &"oven"]:
@@ -747,29 +765,26 @@ func _validate_staff() -> void:
 		_check_text(StringName(s.title_key()), String(s.id))
 		if not [&"cashier", &"baker"].has(s.role_id):
 			_err("staff %s unknown role %s" % [s.id, s.role_id])
-		if s.tier < 1 or s.tier > 5:
-			_err("staff %s tier outside 1..5" % s.id)
-		if s.daily_wage_kr <= 0.0 or s.work_speed_multiplier <= 0.0:
-			_err("staff %s invalid wage/speed" % s.id)
-		if s.auto_retrieve_probability < 0.0 or s.auto_retrieve_probability > 1.0:
-			_err("staff %s auto-retrieve outside 0..1" % s.id)
-		# Kemampuan khusus kasir (GDD 3.1) yang dikenali kode, dengan rentangnya.
-		for k: Variant in s.special.keys():
-			var v: float = float(s.special[k])
-			match str(k):
-				"queue_patience_drain_multiplier":
-					if v <= 0.0 or v > 1.0:
-						_err("staff %s queue patience multiplier outside (0, 1]" % s.id)
-				"sale_rating_multiplier":
-					if v < 1.0:
-						_err("staff %s sale rating multiplier below 1" % s.id)
-				"physical_tip_chance":
-					if v < 0.0 or v > 1.0:
-						_err("staff %s tip chance outside 0..1" % s.id)
-				_:
-					_err("staff %s unknown special %s" % [s.id, k])
-	for k4: String in ["staff_special_queue", "staff_special_rating", "staff_special_tip"]:
-		_check_text(StringName(k4), "staff")
+	if staff_speed_mps() <= 0.0:
+		_err("staff_movement_speed_mps must be > 0")
+	# Staf setara (keputusan maintainer 2026-10-02): field era tier ditolak supaya
+	# tidak ada data yang diam-diam diabaikan.
+	for raw: Variant in _staff_raw.get("items", []):
+		for gone: String in ["tier", "daily_wage_kr", "work_speed_multiplier", "auto_retrieve_probability", "special", "movement_speed_mps"]:
+			if (raw as Dictionary).has(gone):
+				_err("staff %s has the removed field %s" % [(raw as Dictionary).get("id", "?"), gone])
+	# Batas staf per peran tidak boleh melebihi jumlah kursi kasir/koki yang ada:
+	# setiap kasir menjaga satu jalur selain jalur pemain (GDD 3.3, 21.2).
+	for l: LocationDefinition in _locations:
+		var lanes: int = 0
+		for f: FloorDefinition in l.floors:
+			lanes += f.lanes.size()
+		if l.staff_capacity(&"cashier") > lanes - 1:
+			_err("location %s allows more cashiers than non-player lanes" % l.id)
+		if l.staff_capacity(&"cashier") < 0 or l.staff_capacity(&"baker") < 0:
+			_err("location %s has a negative staff capacity" % l.id)
+		if l.staff_daily_wage_kr <= 0.0:
+			_err("location %s needs a staff_daily_wage_kr > 0" % l.id)
 
 
 func _validate_locations() -> void:
@@ -1003,8 +1018,3 @@ func _validate_balance() -> void:
 	_check_text(&"tut_window_shopper", "window_shopper")
 	for k5: String in WINDOW_SHOPPER_LINES:
 		_check_text(StringName(k5), "window_shopper")
-	# Baker berhenti memulai batch yang tidak selesai sebelum batas ini (GDD 23.3).
-	var clock: Dictionary = _balance.get("clock", {})
-	var finish_by: float = float((_balance.get("staff_ai", {}) as Dictionary).get("baker_finish_by_seconds", -1.0))
-	if finish_by <= float(clock.get("open_seconds", 0.0)) or finish_by > float(clock.get("close_seconds", 0.0)):
-		_err("staff_ai.baker_finish_by_seconds must fall inside opening hours")

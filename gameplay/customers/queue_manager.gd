@@ -61,14 +61,49 @@ func main_lane() -> QueueLane:
 	return lanes[0] if not lanes.is_empty() else null
 
 
-## Lane fisik terbuka (GDD 21.2, 57.6): lane dengan Asisten Kasir bertugas,
-## atau lane utama bila tidak ada asisten sama sekali (pemain melayani).
+## Jalur selain jalur pemain, dijaga Asisten Kasir (GDD 21.2), urut template.
+func staff_lanes() -> Array[QueueLane]:
+	var out: Array[QueueLane] = []
+	for l: QueueLane in lanes:
+		if not l.main:
+			out.append(l)
+	return out
+
+
+## Lane fisik terbuka (GDD 21.2, 57.6; keputusan maintainer 2026-10-02): jalur
+## kasir terbuka selama Asisten Kasirnya bertugas; jalur utama milik pemain
+## terbuka selama pemain berjaga di sana, atau bila tidak ada jalur lain yang
+## terbuka (antrean menunggu pemain). Antrean hanya terbentuk di jalur terbuka.
 func is_open(l: QueueLane) -> bool:
 	if l.kind == QueueLane.KIND_ROTIFOOD:
 		return true
-	if sim.staff.cashier_for_lane(l.id) != null:
+	if not l.main:
+		return sim.staff.cashier_for_lane(l.id) != null
+	if sim.player.is_manning_lane(l.id):
 		return true
-	return l.main and not sim.staff.any_cashier_working()
+	for o: QueueLane in lanes:
+		if not o.main and sim.staff.cashier_for_lane(o.id) != null:
+			return false
+	return true
+
+
+## Beban jalur: pembeli yang memegang slot plus yang sedang dilayani.
+func load_of(l: QueueLane) -> int:
+	return l.reservations.size() + (1 if l.service_occupant != &"" else 0)
+
+
+## Pindahkan reservasi aktor ke jalur lain tanpa melepas slot ke kedatangan baru
+## di antaranya (GDD 21.3). false bila jalur tujuan penuh.
+func move_actor(actor_id: StringName, from: QueueLane, to: QueueLane) -> bool:
+	if from == to or to.free_capacity() <= 0 or to.has_actor(actor_id):
+		return false
+	to.reservations.append(actor_id)
+	from.reservations.erase(actor_id)
+	from.line.erase(actor_id)
+	if from.service_occupant == actor_id:
+		from.service_occupant = &""
+	queue_slot_freed.emit()
+	return true
 
 
 func open_physical_lanes() -> Array[QueueLane]:

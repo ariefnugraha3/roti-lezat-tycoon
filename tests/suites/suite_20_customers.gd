@@ -250,10 +250,12 @@ func _lane_choice() -> void:
 	var lanes: Array[QueueLane] = s.queue.lanes
 	var a: QueueLane = lanes[0]
 	var b: QueueLane = lanes[1]
-	# Kasir T1 di A, T5 di B: semua transaksi sama-sama 3 s (GDD 21.4), jadi
-	# yang menentukan hanya jumlah pembeli yang sudah antre dan jarak jalan.
-	s.staff.lane_assign = {"staff_cashier_budi": a.id, "staff_cashier_grace": b.id}
-	eq(s.queue.open_physical_lanes().size(), 2, "both lanes open with a cashier each")
+	check(a.main and not b.main, "lane A is the player's lane, lane B a cashier's")
+	# Pemain berjaga di A, kasir di B: semua transaksi sama-sama 3 s (GDD 21.4),
+	# jadi yang menentukan hanya jumlah pembeli yang sudah antre dan jarak jalan.
+	_man(s, a)
+	s.staff.lane_assign = {"staff_cashier_budi": b.id}
+	eq(s.queue.open_physical_lanes().size(), 2, "both lanes open: the player at A, a cashier at B")
 	var pack: float = DataRegistry.packing_seconds()
 	s.queue.reserve(b, &"q1")
 	var from: Vector2i = s.world.entrance_cell()
@@ -267,26 +269,36 @@ func _lane_choice() -> void:
 	eq(pick.id, a.id if wa + walk_a < wb + walk_b else b.id, "lowest estimated total wait wins, not the shortest line")
 	# Seri: kasir sama, antrean kosong -> antrean pendek, jarak, lalu lane_id.
 	s.queue.release(&"q1")
-	s.staff.lane_assign = {"staff_cashier_budi": a.id, "staff_cashier_sari": b.id}
 	var pick2: QueueLane = s.queue.choose_physical_lane(from, 1000000.0)
 	var da: int = GridMath.manhattan(from, a.slots[0])
 	var db: int = GridMath.manhattan(from, b.slots[0])
 	var want: StringName = a.id if (da < db or (da == db and String(a.id) < String(b.id))) else b.id
 	eq(pick2.id, want, "tie broken by distance then lane_id")
-	# Setelah reserve, pelanggan tidak berpindah lane.
+	# Jalur yang jauh lebih panjang melepas pembeli terdepannya ke jalur terbuka
+	# yang lebih pendek (GDD 21.3, keputusan maintainer 2026-10-02). Reservasi
+	# palsu tidak bisa pindah, jadi pembeli sungguhan yang dipindah.
 	var c: Customer = null
 	s.demand.scripted_walkins.clear()
 	run_until(s, 8.0 * 3600.0 + 10.0)
 	stock(s, &"recipe_plain_loaf", 6)
-	s.staff.lane_assign = {"staff_cashier_budi": a.id, "staff_cashier_grace": b.id}
+	_man(s, a)
+	s.staff.lane_assign = {"staff_cashier_budi": b.id}
 	c = _admit(s, &"customer_generic")
 	if c != null and c.state != Customer.LEAVE_NO_STOCK:
 		var first: StringName = c.lane_id
+		var other: StringName = b.id if first == a.id else a.id
 		s.queue.reserve(s.queue.lane(first), &"late1")
 		s.queue.reserve(s.queue.lane(first), &"late2")
-		s.run_for(3.0)
-		eq(c.lane_id, first, "no lane hopping after reserving")
+		s.customers.rebalance_lanes()
+		eq(c.lane_id, other, "the longer lane hands its customer to the shorter one")
+		eq(s.queue.check_invariants(), "", "queue invariants after the move")
 	free_sim(s)
+
+
+## Pemain berdiri di titik kasir jalur utama (GDD 21.4).
+func _man(s: SimulationRoot, lane: QueueLane) -> void:
+	s.player.actor.place_at(lane.floor_id, lane.cashier_point)
+	s.player.manning_lane = lane.id
 
 
 func _rotifood_atomic() -> void:

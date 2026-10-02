@@ -1,7 +1,19 @@
 class_name StaffManager
 extends SimManager
 ## StaffManager — pemilik kontrak & status tugas staf dan otomasi mereka
-## (GDD 3.1-3.5, 23, 24.6, 49, 87, 98).
+## (GDD 3.1-3.5, 21.5, 23, 49, 87, 98).
+##
+## Keputusan maintainer 2026-10-02: staf setara, tanpa tier maupun kemampuan
+## khusus. Gaji harian ditetapkan tier lokasi, sama untuk kasir dan koki.
+## - Kasir menjaga jalurnya sendiri (jalur selain jalur pemain) dan melayani
+##   pembeli otomatis. Pesanan RotiFood tetap dikemas pemain.
+## - Koki hanya membuat resep yang dipesan pemain ("Ask a Baker" di Buku Resep).
+##   Job pesanan itu milik dapur (KITCHEN_ID), jadi koki mana pun yang bertugas
+##   mengerjakan langkah berikutnya. Koki yang menganggur melanjutkan langkah
+##   pemain yang alatnya sudah selesai: adonan dari mixer ke oven, loyang dari
+##   oven ke rak (Meja Tunggu bila semua rak penuh). Ketukan pemain pada alat itu
+##   membuat koki mundur; membatalkan ketukan itu membuatnya kembali.
+## - Koki yang tidak punya pekerjaan duduk di kursinya (GDD 5.1.4).
 ##
 ## Roster tetap: kandidat sama selalu tersedia, tanpa XP, tanpa biaya rekrut.
 ## Gaji hari itu dikunci pukul 05:00 untuk semua staf on_duty (DailyWageLiability).
@@ -9,12 +21,16 @@ extends SimManager
 const INTERACT_SECONDS: float = 0.3
 ## Jeda evaluasi ulang staf yang menganggur/terblokir (detik simulasi).
 const RETHINK_SECONDS: float = 0.5
+## Pemilik job pesanan "Ask a Baker": dikerjakan koki mana pun yang bertugas.
+const KITCHEN_ID: StringName = &"kitchen"
+## Langkah job yang diklaim koki saat menuju alatnya.
+const CLAIM_TASKS: Array[String] = ["start_mixing", "pickup_dough", "pickup_tray"]
 
-## staff_id -> {employed, on_duty, working, mode, target_recipe, batch, hired_day, batches_today}
+## staff_id -> {employed, on_duty, working, hired_day, batches_today}
 var contracts: Dictionary = {}
 ## staff_id -> SimActor (hanya staf yang sedang bekerja).
 var actors: Dictionary = {}
-## staff_id -> task {type, job_id, iid, phase, wait}
+## staff_id -> task {type, job_id, iid, wait}
 var tasks: Dictionary = {}
 ## staff_id -> lane_id untuk kasir yang bekerja.
 var lane_assign: Dictionary = {}
@@ -29,6 +45,7 @@ func new_game() -> void:
 	actors.clear()
 	tasks.clear()
 	lane_assign.clear()
+	_rethink_at.clear()
 	wage_liability_today = 0.0
 	wage_lines_today.clear()
 
@@ -66,6 +83,11 @@ func capacity(role: StringName) -> int:
 	return sim.world.location.staff_capacity(role)
 
 
+## Gaji harian satu staf di lokasi sekarang, kasir maupun koki (GDD 3.3, 87).
+func daily_wage() -> float:
+	return sim.world.location.staff_daily_wage_kr
+
+
 # ===========================================================================
 # KONTRAK (GDD 3.4, 87)
 # ===========================================================================
@@ -86,7 +108,7 @@ func hire(staff_id: StringName) -> StringName:
 	if employed_ids(def.role_id).size() >= capacity(def.role_id):
 		return &"full"
 	contracts[staff_id] = {"employed": true, "on_duty": not sim.bailout.solo_mode, "working": false,
-		"mode": "auto", "target_recipe": "", "batch": 0, "hired_day": sim.time.day, "batches_today": 0}
+		"hired_day": sim.time.day, "batches_today": 0}
 	sim.statistics.add(&"staff_hired_count", 1)
 	EventBus.staff_state_changed.emit(staff_id)
 	SaveManager.request_autosave("staff_hire")
@@ -121,40 +143,47 @@ func set_on_duty(staff_id: StringName, value: bool) -> StringName:
 	return &""
 
 
-func set_mode(staff_id: StringName, mode: String, target_recipe: StringName) -> void:
-	var c: Dictionary = contract(staff_id)
-	if c.is_empty():
-		return
-	c["mode"] = mode
-	c["target_recipe"] = String(target_recipe)
-	EventBus.staff_state_changed.emit(staff_id)
-
-
-func set_batch(staff_id: StringName, batch: int) -> void:
-	var c: Dictionary = contract(staff_id)
-	if c.is_empty() or not [0, 1, 3, 5].has(batch):
-		return
-	c["batch"] = batch
-
-
 func scheduled_wages() -> float:
-	var t: float = 0.0
+	var n: int = 0
 	for id: StringName in employed_ids():
 		if bool(contract(id)["on_duty"]):
-			t += DataRegistry.staff(id).daily_wage_kr
-	return t
+			n += 1
+	return float(n) * daily_wage()
 
 
 ## Aturan keluar Mode Solo (GDD 49.3): saldo >= gaji terjadwal + batch termurah.
 func can_afford_schedule_with(extra_id: StringName) -> bool:
 	var wages: float = scheduled_wages()
 	if not bool(contract(extra_id).get("on_duty", false)):
-		wages += DataRegistry.staff(extra_id).daily_wage_kr
+		wages += daily_wage()
 	return sim.economy.balance >= wages + sim.bailout.cheapest_producible_batch_cost()
 
 
 func projected_cash_after_wages() -> float:
 	return sim.economy.balance - scheduled_wages()
+
+
+## Save lama dari sebelum batas baru (keputusan maintainer 2026-10-02) bisa
+## mempekerjakan lebih banyak staf dari batas lokasi. Yang paling baru direkrut
+## diberhentikan, tanpa biaya; mengembalikan nama yang diberhentikan.
+func enforce_capacity() -> Array[String]:
+	var out: Array[String] = []
+	for role: StringName in [&"cashier", &"baker"]:
+		var ids: Array[StringName] = employed_ids(role)
+		if ids.size() <= capacity(role):
+			continue
+		ids.sort_custom(func(a: StringName, b: StringName) -> bool:
+			var da: int = int(contract(a).get("hired_day", 0))
+			var db: int = int(contract(b).get("hired_day", 0))
+			if da != db:
+				return da < db
+			return String(a) < String(b))
+		for i in range(capacity(role), ids.size()):
+			out.append(DataRegistry.staff(ids[i]).display_name)
+			# Tanpa autosave: dipanggil di tengah load (SimulationRoot.load_from_save).
+			_stop_working(ids[i])
+			contracts.erase(ids[i])
+	return out
 
 
 # ===========================================================================
@@ -166,32 +195,36 @@ func begin_day() -> void:
 	wage_liability_today = 0.0
 	wage_lines_today.clear()
 	lane_assign.clear()
+	var wage: float = daily_wage()
 	for id: StringName in employed_ids():
 		var c: Dictionary = contract(id)
 		c["batches_today"] = 0
 		c["working"] = bool(c["on_duty"])
 		if bool(c["working"]):
-			var def: StaffDefinition = DataRegistry.staff(id)
-			wage_liability_today += def.daily_wage_kr
-			wage_lines_today.append({"staff_id": String(id), "wage": def.daily_wage_kr})
+			wage_liability_today += wage
+			wage_lines_today.append({"staff_id": String(id), "wage": wage})
 			_spawn(id)
-	_assign_lanes()
+	_assign_lanes(true)
+	if working_ids(&"baker").is_empty():
+		_hand_kitchen_to_player()
 
 
-func _assign_lanes() -> void:
+## Kasir menjaga jalur selain jalur pemain, urut id (GDD 21.2). `snap`: pukul
+## 05:00 kasir langsung muncul di posnya; sesudahnya ia berjalan ke sana.
+func _assign_lanes(snap: bool = false) -> void:
 	lane_assign.clear()
-	var cashiers: Array[StringName] = working_ids(&"cashier")
-	cashiers.sort_custom(func(a: StringName, b: StringName) -> bool:
-		var ta: int = DataRegistry.staff(a).tier
-		var tb: int = DataRegistry.staff(b).tier
-		if ta != tb:
-			return ta > tb
-		return String(a) < String(b))
-	var lanes: Array[QueueLane] = sim.queue.lanes
+	var cashiers: Array = Ids.sort(working_ids(&"cashier"))
+	var lanes: Array[QueueLane] = sim.queue.staff_lanes()
 	for i in mini(cashiers.size(), lanes.size()):
-		lane_assign[cashiers[i]] = lanes[i].id
-		var a: SimActor = actors.get(cashiers[i])
-		if a != null:
+		var sid: StringName = StringName(str(cashiers[i]))
+		lane_assign[sid] = lanes[i].id
+		var a: SimActor = actors.get(sid)
+		if a == null:
+			continue
+		if snap:
+			a.place_at(lanes[i].floor_id, lanes[i].cashier_point)
+			a.facing = Vector2(lanes[i].service_point - lanes[i].cashier_point).normalized()
+		else:
 			a.go_to(sim.world, lanes[i].floor_id, lanes[i].cashier_point)
 
 
@@ -201,17 +234,25 @@ func _spawn(staff_id: StringName) -> void:
 	a.id = staff_id
 	a.kind = &"staff"
 	a.nav_class = FloorGrid.NAV_STAFF
-	a.speed_mps = def.movement_speed_mps
+	a.speed_mps = DataRegistry.staff_speed_mps()
 	a.visual_key = staff_id
-	var storage: EquipmentInstance = sim.equipment.storage_instance()
-	var acc: Dictionary = sim.world.access_of(storage.iid) if storage != null else {}
-	if def.is_baker() and not acc.is_empty():
-		a.place_at(acc["floor"], acc["cell"])
-	else:
-		var lane: QueueLane = sim.queue.main_lane()
-		a.place_at(lane.floor_id, lane.cashier_point)
 	actors[staff_id] = a
 	tasks.erase(staff_id)
+	if def.is_baker():
+		# Koki memulai hari duduk di kursinya (GDD 5.1.4).
+		var chair: EquipmentInstance = _free_chair(staff_id)
+		var acc: Dictionary = sim.world.access_of(chair.iid) if chair != null else {}
+		if not acc.is_empty():
+			a.place_at(acc["floor"], acc["cell"])
+			_sit(staff_id, a, chair)
+			return
+		var storage: EquipmentInstance = sim.equipment.storage_instance()
+		var acc2: Dictionary = sim.world.access_of(storage.iid) if storage != null else {}
+		if not acc2.is_empty():
+			a.place_at(acc2["floor"], acc2["cell"])
+			return
+	var lane: QueueLane = sim.queue.main_lane()
+	a.place_at(lane.floor_id, lane.cashier_point)
 
 
 func _stop_working(staff_id: StringName) -> void:
@@ -222,12 +263,13 @@ func _stop_working(staff_id: StringName) -> void:
 	if a != null:
 		_drop_carried(staff_id, a)
 	_release_claims(staff_id)
-	_hand_over_jobs(staff_id)
 	sim.world.release_all_for(staff_id)
 	actors.erase(staff_id)
 	tasks.erase(staff_id)
 	lane_assign.erase(staff_id)
 	_assign_lanes()
+	if working_ids(&"baker").is_empty():
+		_hand_kitchen_to_player()
 
 
 func _release_claims(staff_id: StringName) -> void:
@@ -236,16 +278,13 @@ func _release_claims(staff_id: StringName) -> void:
 			j.claimed_by = &""
 
 
-## Baker dipecat, diliburkan, atau Mode Solo (GDD 87.2, 49): job yang belum
-## selesai berpindah ke pemain (tanda "!" muncul di alatnya), dan loyang yang
-## terlindung untuknya kembali seperti roll auto-retrieve gagal (GDD 18.8):
-## burn timer berjalan dan pemain diberi alert. Tidak ada job yatim.
-func _hand_over_jobs(staff_id: StringName) -> void:
+## Tidak ada lagi koki yang bertugas (dipecat, libur, Mode Solo, atau tidak ada
+## yang terjadwal pagi ini): job pesanan dapur berpindah ke pemain dan tanda "!"
+## muncul di alatnya, supaya tidak ada job yatim (GDD 87.2, 105 no.11).
+func _hand_kitchen_to_player() -> void:
 	for j: ProductionJob in sim.production.sorted_jobs():
-		if j.owner_actor_id == staff_id:
+		if j.owner_actor_id == KITCHEN_ID:
 			j.owner_actor_id = PlayerTaskManager.PLAYER_ID
-		if j.protected and j.stage_started_by == staff_id:
-			j.protected = false
 			j.claimed_by = &""
 			if j.is_waiting_oven_pickup():
 				sim.alerts.raise_oven(j.oven_id, &"ready")
@@ -278,6 +317,7 @@ func _drop_carried(_staff_id: StringName, a: SimActor) -> void:
 
 
 ## 18:00: staf berhenti mengambil tugas, menyelesaikan serah terima, lalu pulang.
+## Job pesanan dapur yang belum selesai menunggu koki keesokan paginya.
 func end_day() -> void:
 	for id: StringName in working_ids():
 		var a: SimActor = actors.get(id)
@@ -300,14 +340,8 @@ func put_all_off_duty() -> void:
 		EventBus.staff_state_changed.emit(id)
 
 
-func note_batch_completed(owner: StringName) -> void:
-	var c: Dictionary = contract(owner)
-	if not c.is_empty():
-		c["batches_today"] = int(c.get("batches_today", 0)) + 1
-
-
 # ===========================================================================
-# KASIR (GDD 21.5)
+# KASIR (GDD 21.2, 21.5)
 # ===========================================================================
 
 func cashier_for_lane(lane_id: StringName) -> StaffDefinition:
@@ -315,10 +349,6 @@ func cashier_for_lane(lane_id: StringName) -> StaffDefinition:
 		if StringName(str(lane_assign[sid])) == lane_id:
 			return DataRegistry.staff(StringName(str(sid)))
 	return null
-
-
-func cashier_def_for_lane(lane_id: StringName) -> StaffDefinition:
-	return cashier_for_lane(lane_id)
 
 
 func any_cashier_working() -> bool:
@@ -335,7 +365,69 @@ func cashier_at_post(lane_id: StringName) -> bool:
 
 
 # ===========================================================================
-# TICK: gerak kasir & AI baker (GDD 23)
+# KOKI: PESANAN "ASK A BAKER" (GDD 3.2, 23.3)
+# ===========================================================================
+
+func kitchen_staffed() -> bool:
+	return not working_ids(&"baker").is_empty()
+
+
+## "" bila koki boleh disuruh membuat resep ini sekarang; selain itu kunci alasan.
+func ask_block_reason(recipe_id: StringName, batch: int) -> String:
+	if not kitchen_staffed():
+		return "ui_recipe_no_baker"
+	return sim.production.make_block_reason(recipe_id, batch)
+
+
+## Buku Resep, tombol "Ask a Baker": bahan dipotong sekarang dan mixer
+## ditetapkan seperti pesanan pemain, tetapi job-nya milik dapur sehingga koki
+## yang mengerjakan semua langkahnya.
+func order_recipe(recipe_id: StringName, batch: int) -> String:
+	var reason: String = ask_block_reason(recipe_id, batch)
+	if reason != "":
+		return reason
+	var j: ProductionJob = sim.production.create_job(recipe_id, batch, KITCHEN_ID)
+	if j == null:
+		return "ui_recipe_cannot_make"
+	EventBus.staff_state_changed.emit(&"")
+	return ""
+
+
+## Job ini dijamin diurus koki: pesanan dapur selama ada koki bertugas, atau
+## langkah yang sedang dituju seorang koki.
+func handles(j: ProductionJob) -> bool:
+	if j == null:
+		return false
+	if j.claimed_by != &"" and actors.has(j.claimed_by):
+		return true
+	return j.owner_actor_id == KITCHEN_ID and kitchen_staffed()
+
+
+## Koki yang sedang menuju atau mengerjakan alat `iid` (kosong bila tidak ada).
+func baker_heading_to(iid: int) -> StringName:
+	for k: Variant in tasks.keys():
+		var t: Dictionary = tasks[k]
+		if int(t.get("iid", -1)) == iid and CLAIM_TASKS.has(str(t["type"])):
+			return StringName(str(k))
+	return &""
+
+
+## Ringkasan pekerjaan koki untuk layar Staff: &"sitting", &"working",
+## &"walking" (menuju kursi), atau &"" bila tidak bertugas.
+func activity(staff_id: StringName) -> StringName:
+	var a: SimActor = actors.get(staff_id)
+	if a == null:
+		return &""
+	if a.seat_iid >= 0:
+		return &"sitting"
+	var t: Dictionary = tasks.get(staff_id, {})
+	if not t.is_empty() and str(t["type"]) != "sit":
+		return &"working"
+	return &"walking"
+
+
+# ===========================================================================
+# TICK: gerak kasir & koki (GDD 23)
 # ===========================================================================
 
 func step(dt: float) -> void:
@@ -354,8 +446,10 @@ func step(dt: float) -> void:
 				if a.cell() != lane.cashier_point:
 					a.go_to(sim.world, lane.floor_id, lane.cashier_point)
 					_defer_rethink(sid)
+				else:
+					a.facing = Vector2(lane.service_point - lane.cashier_point).normalized()
 		else:
-			_baker_step(sid, a, def, dt)
+			_baker_step(sid, a, dt)
 
 
 ## Staf yang menganggur/terblokir/salah posisi tidak menghitung ulang rute dan
@@ -368,201 +462,280 @@ func _defer_rethink(sid: StringName) -> void:
 	_rethink_at[sid] = sim.time.sim_seconds + RETHINK_SECONDS
 
 
-func _baker_step(sid: StringName, a: SimActor, def: StaffDefinition, dt: float) -> void:
+func _baker_step(sid: StringName, a: SimActor, dt: float) -> void:
 	var task: Dictionary = tasks.get(sid, {})
+	# Ketukan pemain pada alat yang dituju menang: koki mundur ke kursinya
+	# (GDD 23.3, keputusan maintainer 2026-10-02).
+	if not task.is_empty() and CLAIM_TASKS.has(str(task["type"])) and sim.player.has_command_for(int(task["iid"])):
+		_abort(sid, a, task)
+		task = {}
+	# Menuju kursi bisa disela pekerjaan yang baru muncul.
+	if not task.is_empty() and str(task["type"]) == "sit" and a.has_route() and _may_rethink(sid):
+		var better: Dictionary = _choose_task(sid, a)
+		_defer_rethink(sid)
+		if not better.is_empty():
+			_release_seat(sid, a)
+			task = _begin(sid, a, better)
 	if task.is_empty():
 		if not _may_rethink(sid):
 			return
-		task = _choose_task(sid, a, def)
+		_defer_rethink(sid)
+		var next: Dictionary = _choose_task(sid, a)
+		if next.is_empty():
+			if a.seat_iid < 0:
+				_go_sit(sid, a)
+			return
+		_release_seat(sid, a)
+		task = _begin(sid, a, next)
 		if task.is_empty():
-			a.state = &"IDLE"
-			_defer_rethink(sid)
 			return
-		tasks[sid] = task
-		if not _route_to_task(sid, a, task):
-			sim.alerts.raise_staff_blocked(sid, a.floor_id)
-			tasks.erase(sid)
-			_release_task_claim(task)
-			a.state = &"BLOCKED"
-			_defer_rethink(sid)
-			return
-		a.state = &"WALKING"
 	if a.has_route():
 		return
 	task["wait"] = float(task.get("wait", INTERACT_SECONDS)) - dt
 	if float(task["wait"]) > 0.0:
 		a.state = &"INTERACTING"
 		return
-	_finish_task(sid, a, def, task)
 	tasks.erase(sid)
+	_finish_task(sid, a, task)
 
 
-## Prioritas baker (GDD 23.3).
-func _choose_task(sid: StringName, a: SimActor, def: StaffDefinition) -> Dictionary:
-	# 2. Antar barang bawaan.
-	if not a.carried.is_empty():
-		var j: ProductionJob = sim.production.get_job(int(a.carried["job_id"]))
-		if j == null:
-			a.carried = {}
-		elif j.stage == ProductionJob.CARRIED_TO_OVEN:
-			var oven: EquipmentInstance = sim.production.free_oven_for(j.recipe())
-			if oven != null:
-				return {"type": "insert_oven", "job_id": j.job_id, "iid": oven.iid}
-			return {}
-		elif j.stage == ProductionJob.CARRIED_TO_DISPLAY:
-			var disp: int = _display_with_room()
-			if disp >= 0:
-				return {"type": "place_display", "job_id": j.job_id, "iid": disp}
-			return {}
-	# 1. Ambil tray yang auto-retrieve-nya berhasil. Klaim dilepas pukul 18:00;
-	# baker yang memanggangnya mengklaim lagi keesokan harinya (GDD 18.8).
-	for j2: ProductionJob in sim.production.sorted_jobs():
-		if j2.protected and j2.is_waiting_oven_pickup() \
-				and (j2.claimed_by == sid or (j2.claimed_by == &"" and j2.stage_started_by == sid)):
-			j2.claimed_by = sid
-			return {"type": "pickup_tray", "job_id": j2.job_id, "iid": j2.oven_id}
-	# 3. Pindahkan adonan selesai milik baker ke oven kosong.
-	for j3: ProductionJob in sim.production.sorted_jobs():
-		if j3.owner_actor_id == sid and j3.stage == ProductionJob.MIX_DONE_WAITING_PICKUP and (j3.claimed_by == &"" or j3.claimed_by == sid):
-			if sim.production.free_oven_for(j3.recipe()) != null:
-				j3.claimed_by = sid
-				return {"type": "pickup_dough", "job_id": j3.job_id, "iid": j3.mixer_id}
-	# Mulai mixing job milik baker yang sudah dipesan.
-	for j4: ProductionJob in sim.production.sorted_jobs():
-		if j4.owner_actor_id == sid and j4.stage == ProductionJob.ORDERED:
-			return {"type": "start_mixing", "job_id": j4.job_id, "iid": j4.mixer_id}
-	# 4-5. Isi ulang rak: mulai job baru.
-	var plan: Dictionary = _plan_new_job(sid, def)
-	if not plan.is_empty():
-		var storage: EquipmentInstance = sim.equipment.storage_instance()
-		if storage != null:
-			return {"type": "order_job", "recipe": plan["recipe"], "batch": plan["batch"], "iid": storage.iid}
-	return {}
-
-
-func _route_to_task(sid: StringName, a: SimActor, task: Dictionary) -> bool:
-	var acc: Dictionary = sim.world.access_of(int(task["iid"]))
-	if acc.is_empty():
-		return false
-	task["wait"] = INTERACT_SECONDS
-	return a.go_to(sim.world, acc["floor"], acc["cell"])
-
-
-func _release_task_claim(task: Dictionary) -> void:
+## Mulai tugas: klaim langkah job-nya, lalu berjalan ke tile akses alat.
+func _begin(sid: StringName, a: SimActor, task: Dictionary) -> Dictionary:
 	var j: ProductionJob = sim.production.get_job(int(task.get("job_id", -1)))
-	if j != null and task.get("type") == "pickup_dough":
+	if j != null and CLAIM_TASKS.has(str(task["type"])):
+		j.claimed_by = sid
+	var acc: Dictionary = sim.world.access_of(int(task["iid"]))
+	task["wait"] = INTERACT_SECONDS
+	if acc.is_empty() or not a.go_to(sim.world, acc["floor"], acc["cell"]):
+		sim.alerts.raise_staff_blocked(sid, a.floor_id)
+		_release_task_claim(sid, task)
+		a.state = &"BLOCKED"
+		return {}
+	tasks[sid] = task
+	a.state = &"WALKING"
+	return task
+
+
+func _abort(sid: StringName, a: SimActor, task: Dictionary) -> void:
+	_release_task_claim(sid, task)
+	tasks.erase(sid)
+	a.stop()
+	a.state = &"IDLE"
+	_defer_rethink(sid)
+
+
+func _release_task_claim(sid: StringName, task: Dictionary) -> void:
+	var j: ProductionJob = sim.production.get_job(int(task.get("job_id", -1)))
+	if j != null and j.claimed_by == sid:
 		j.claimed_by = &""
 
 
-func _finish_task(sid: StringName, a: SimActor, def: StaffDefinition, task: Dictionary) -> void:
+## Prioritas koki (GDD 23.3): barang bawaan, lalu langkah pesanan dapur (loyang,
+## adonan, mulai aduk), lalu inisiatif pada langkah pemain yang alatnya sudah
+## selesai (loyang, adonan). Alat yang sedang dituju perintah pemain dilewati.
+func _choose_task(sid: StringName, a: SimActor) -> Dictionary:
+	if not a.carried.is_empty():
+		return _deliver_task(a)
+	var jobs: Array[ProductionJob] = sim.production.sorted_jobs()
+	for kitchen: bool in [true, false]:
+		for j: ProductionJob in jobs:
+			if (j.owner_actor_id == KITCHEN_ID) != kitchen or not _free_for(j, sid):
+				continue
+			if j.is_waiting_oven_pickup() and (kitchen or j.stage != ProductionJob.BURNT) \
+					and not sim.player.has_command_for(j.oven_id):
+				return {"type": "pickup_tray", "job_id": j.job_id, "iid": j.oven_id}
+		for j2: ProductionJob in jobs:
+			if (j2.owner_actor_id == KITCHEN_ID) != kitchen or not _free_for(j2, sid):
+				continue
+			if j2.stage == ProductionJob.MIX_DONE_WAITING_PICKUP and sim.production.free_oven_for(j2.recipe()) != null \
+					and not sim.player.has_command_for(j2.mixer_id):
+				return {"type": "pickup_dough", "job_id": j2.job_id, "iid": j2.mixer_id}
+		if kitchen:
+			for j3: ProductionJob in jobs:
+				if j3.owner_actor_id == KITCHEN_ID and j3.stage == ProductionJob.ORDERED and _free_for(j3, sid) \
+						and not sim.player.has_command_for(j3.mixer_id):
+					return {"type": "start_mixing", "job_id": j3.job_id, "iid": j3.mixer_id}
+	return {}
+
+
+## Langkah job ini belum dituju koki lain dan tidak sedang dibawa siapa pun.
+func _free_for(j: ProductionJob, sid: StringName) -> bool:
+	return (j.claimed_by == &"" or j.claimed_by == sid) and j.carrier_id == &""
+
+
+## Antar barang bawaan: adonan ke oven yang bisa menerimanya, loyang ke rak yang
+## masih muat. Tanpa tujuan, barang diparkir di Meja Tunggu (GDD 5.1.3).
+func _deliver_task(a: SimActor) -> Dictionary:
+	var j: ProductionJob = sim.production.get_job(int(a.carried.get("job_id", -1)))
+	if j == null:
+		a.carried = {}
+		return {}
+	var table: EquipmentInstance = sim.equipment.table_instance()
+	var table_iid: int = table.iid if table != null and table.placed else -1
+	if j.stage == ProductionJob.CARRIED_TO_OVEN:
+		var oven: EquipmentInstance = sim.production.free_oven_for(j.recipe())
+		if oven != null:
+			return {"type": "insert_oven", "job_id": j.job_id, "iid": oven.iid}
+	elif j.stage == ProductionJob.CARRIED_TO_DISPLAY:
+		var disp: int = _display_with_room(j.recipe_id)
+		if disp >= 0:
+			return {"type": "place_display", "job_id": j.job_id, "iid": disp}
+	else:
+		a.carried = {}
+		return {}
+	if table_iid >= 0:
+		return {"type": "put_table", "job_id": j.job_id, "iid": table_iid}
+	return {}
+
+
+func _finish_task(sid: StringName, a: SimActor, task: Dictionary) -> void:
 	var jid: int = int(task.get("job_id", -1))
 	a.state = &"IDLE"
 	match str(task["type"]):
-		"order_job":
-			var j: ProductionJob = sim.production.create_job(task["recipe"], int(task["batch"]), sid)
-			if j != null:
-				tasks[sid] = {"type": "start_mixing", "job_id": j.job_id, "iid": j.mixer_id}
-				_route_to_task(sid, a, tasks[sid])
-				EventBus.storage_door.emit(int(task["iid"]), true)
 		"start_mixing":
-			sim.production.start_mixing(jid, sid, def.work_speed_multiplier)
+			sim.production.start_mixing(jid, sid, 1.0)
+			_release_task_claim(sid, task)
 		"pickup_dough":
 			if sim.production.pickup_dough(jid, sid):
-				var j2: ProductionJob = sim.production.get_job(jid)
-				a.carried = {"type": "dough", "job_id": jid, "recipe_id": String(j2.recipe_id)}
+				var j: ProductionJob = sim.production.get_job(jid)
+				a.carried = {"type": "dough", "job_id": jid, "recipe_id": String(j.recipe_id)}
+			_release_task_claim(sid, task)
 		"insert_oven":
-			if sim.production.insert_oven(jid, int(task["iid"]), sid, def.work_speed_multiplier):
+			if sim.production.insert_oven(jid, int(task["iid"]), sid, 1.0):
 				a.carried = {}
 		"pickup_tray":
 			var r: Dictionary = sim.production.pickup_tray(jid, sid)
-			if bool(r.get("ok", false)) and not bool(r.get("burnt", false)):
-				var j3: ProductionJob = sim.production.get_job(jid)
-				a.carried = {"type": "tray", "job_id": jid, "recipe_id": String(j3.recipe_id)}
+			if bool(r.get("ok", false)):
+				sim.alerts.clear_oven(int(task["iid"]))
+				if not bool(r.get("burnt", false)):
+					var j2: ProductionJob = sim.production.get_job(jid)
+					a.carried = {"type": "tray", "job_id": jid, "recipe_id": String(j2.recipe_id)}
+			_release_task_claim(sid, task)
 		"place_display":
-			sim.production.auto_place_tray(jid, int(task["iid"]))
-			var j4: ProductionJob = sim.production.get_job(jid)
-			if j4 == null or j4.carried_units <= 0:
+			_place_on(jid, int(task["iid"]))
+			if sim.production.get_job(jid) == null:
 				a.carried = {}
+				_note_batch(sid)
+		"put_table":
+			if sim.production.put_on_table(jid):
+				a.carried = {}
+		"sit":
+			var chair: EquipmentInstance = sim.equipment.get_inst(int(task["iid"]))
+			if chair != null and chair.placed:
+				_sit(sid, a, chair)
+	_defer_rethink(sid)
 
 
-func _display_with_room() -> int:
+func _note_batch(sid: StringName) -> void:
+	var c: Dictionary = contract(sid)
+	if not c.is_empty():
+		c["batches_today"] = int(c.get("batches_today", 0)) + 1
+
+
+## Rak terpasang pertama yang masih bisa menerima resep ini (GDD 19.3).
+func _display_with_room(recipe_id: StringName) -> int:
 	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
-		if sim.display.free_units(e.iid) > 0:
+		if _room_on(e.iid, recipe_id) > 0:
 			return e.iid
 	return -1
 
 
-## Batch ini selesai dipanggang paling lambat `staff_ai.baker_finish_by_seconds`
-## (GDD 23.3)? Memakai mixer bebas yang akan dipakai, oven paling lambat yang bisa
-## memanggangnya, dan kecepatan baker, supaya dapur kosong saat tutup (GDD 105).
-func finishes_before_cutoff(r: RecipeDefinition, batch: int, speed: float) -> bool:
-	var mixer: EquipmentInstance = sim.production.free_mixer_for(r)
-	if mixer == null:
-		return false
-	var oven_tier: int = 0
-	for o: EquipmentInstance in sim.equipment.placed_list(&"oven"):
-		if o.tier() >= r.required_oven_tier and (oven_tier == 0 or o.tier() < oven_tier):
-			oven_tier = o.tier()
-	if oven_tier == 0:
-		return false
-	var secs: float = sim.production.mixer_stage_seconds(r, mixer.tier(), batch, speed) \
-		+ sim.production.oven_stage_seconds(r, oven_tier, batch, speed)
-	return sim.time.time_seconds + secs * sim.time.ratio <= DataRegistry.balf("staff_ai.baker_finish_by_seconds")
+func _room_on(iid: int, recipe_id: StringName) -> int:
+	var n: int = 0
+	for i in sim.display.slots(iid).size():
+		n += sim.display.slot_room(iid, i, recipe_id)
+	return n
 
 
-## Pilih resep & batch baru (GDD 3.2, 23.3-23.4, 23.7). {} bila tidak ada.
-func _plan_new_job(sid: StringName, def: StaffDefinition) -> Dictionary:
-	var c: Dictionary = contract(sid)
-	var in_flight: int = 0
-	for j: ProductionJob in sim.production.sorted_jobs():
-		# Loyang yang sudah diangkat (dibawa, di pemilih petak, atau di Meja Tunggu)
-		# hanya menyisakan unit yang belum masuk rak.
-		var lifted: bool = j.stage in [ProductionJob.CARRIED_TO_DISPLAY, ProductionJob.PLACEMENT_UI, ProductionJob.TRAY_ON_TABLE]
-		in_flight += j.carried_units if lifted else j.quantity_output
-	var free_display: int = sim.display.total_free_units() - in_flight
-	if free_display <= 0:
-		return {}
-	var candidates: Array[RecipeDefinition] = []
-	if str(c.get("mode", "auto")) == "target":
-		var tr: RecipeDefinition = DataRegistry.recipe(StringName(str(c.get("target_recipe", ""))))
-		if tr != null:
-			candidates.append(tr)
+## Koki menata loyang di rak yang ia datangi: petak berisi resep yang sama
+## lebih dulu, lalu petak kosong (GDD 23.3). Sisa yang tidak muat tetap dibawa.
+func _place_on(job_id: int, iid: int) -> void:
+	var j: ProductionJob = sim.production.get_job(job_id)
+	if j == null or j.stage != ProductionJob.CARRIED_TO_DISPLAY:
+		return
+	var recipe: StringName = j.recipe_id
+	for pass_i in 2:
+		for i in sim.display.slots(iid).size():
+			j = sim.production.get_job(job_id)
+			if j == null:
+				return
+			var units: int = sim.display.slot_units(iid, i)
+			var same: bool = units > 0 and (sim.display.slots(iid)[i] as Dictionary)["recipe"] == recipe
+			if (pass_i == 0 and same) or (pass_i == 1 and units == 0):
+				sim.production.place_from_tray(job_id, iid, i, j.carried_units)
+
+
+# ===========================================================================
+# KURSI KOKI (GDD 5.1.4)
+# ===========================================================================
+
+## Kursi yang belum ditempati koki lain; kursi yang sedang ia duduki atau tuju
+## lebih dulu.
+func _free_chair(sid: StringName) -> EquipmentInstance:
+	var taken: Dictionary = {}
+	for k: Variant in actors.keys():
+		if StringName(str(k)) == sid:
+			continue
+		var other: SimActor = actors[k]
+		if other.seat_iid >= 0:
+			taken[other.seat_iid] = true
+		var t: Dictionary = tasks.get(StringName(str(k)), {})
+		if not t.is_empty() and str(t["type"]) == "sit":
+			taken[int(t["iid"])] = true
+	for e: EquipmentInstance in sim.equipment.placed_list(&"chair"):
+		if not taken.has(e.iid) and not sim.world.access_of(e.iid).is_empty():
+			return e
+	return null
+
+
+func _go_sit(sid: StringName, a: SimActor) -> void:
+	var chair: EquipmentInstance = _free_chair(sid)
+	if chair == null:
+		a.state = &"IDLE"
+		return
+	var acc: Dictionary = sim.world.access_of(chair.iid)
+	if a.floor_id == acc["floor"] and a.cell() == acc["cell"] and not a.has_route():
+		_sit(sid, a, chair)
+		return
+	if a.go_to(sim.world, acc["floor"], acc["cell"]):
+		tasks[sid] = {"type": "sit", "iid": chair.iid, "wait": 0.0}
+		a.state = &"WALKING"
 	else:
-		candidates = DataRegistry.recipes()
-	var stock: Dictionary = sim.display.sellable_by_recipe()
-	var best: RecipeDefinition = null
-	var best_stock: int = 1 << 30
-	for r: RecipeDefinition in candidates:
-		# Cek bahan (murah) lebih dulu; hasilnya sama karena tanpa bahan resep
-		# pasti diblokir make_block_reason.
-		if not sim.inventory.has_for_recipe(r, 1):
-			continue
-		if sim.production.make_block_reason(r.id, 1) != "":
-			continue
-		if r.batch_yield > free_display:
-			continue
-		if not finishes_before_cutoff(r, 1, def.work_speed_multiplier):
-			continue
-		var s: int = int(stock.get(r.id, 0))
-		if s < best_stock:
-			best_stock = s
-			best = r
-	if best == null:
-		return {}
-	# Auto = batch terbesar yang muat; setting manual turun ke batch lebih kecil
-	# bila bahan/rak tidak cukup (GDD 23.7).
-	var options: Array[int] = [1]
-	match int(c.get("batch", 0)):
-		0, 5:
-			options = [5, 3, 1]
-		3:
-			options = [3, 1]
-	for b: int in options:
-		if sim.inventory.has_for_recipe(best, b) and best.batch_yield * b <= free_display \
-				and finishes_before_cutoff(best, b, def.work_speed_multiplier):
-			return {"recipe": best.id, "batch": b}
-	return {}
+		a.state = &"IDLE"
 
+
+func _sit(_sid: StringName, a: SimActor, chair: EquipmentInstance) -> void:
+	var acc: Dictionary = sim.world.access_of(chair.iid)
+	a.seat_iid = chair.iid
+	a.state = &"SITTING"
+	if not acc.is_empty():
+		# Duduk membelakangi sandaran, menghadap tile akses kursi.
+		var seat: Vector2 = GridMath.cell_center(chair.anchor)
+		var to: Vector2 = GridMath.cell_center(acc["cell"]) - seat
+		if to.length_squared() > 0.0001:
+			a.facing = to.normalized()
+
+
+func _release_seat(_sid: StringName, a: SimActor) -> void:
+	a.seat_iid = -1
+
+
+## Kursi dipindah di Mode Dekorasi atau dihapus: koki yang duduk di sana berdiri.
+func on_layout_changed() -> void:
+	for k: Variant in actors.keys():
+		var a: SimActor = actors[k]
+		if a.seat_iid < 0:
+			continue
+		var chair: EquipmentInstance = sim.equipment.get_inst(a.seat_iid)
+		var acc: Dictionary = sim.world.access_of(a.seat_iid) if chair != null and chair.placed else {}
+		if acc.is_empty() or a.floor_id != acc["floor"] or a.cell() != acc["cell"]:
+			a.seat_iid = -1
+			a.state = &"IDLE"
+
+
+# ===========================================================================
+# SAVE
+# ===========================================================================
 
 func capture() -> Dictionary:
 	var cs: Dictionary = {}
@@ -573,10 +746,7 @@ func capture() -> Dictionary:
 		acts[String(k2)] = (actors[k2] as SimActor).to_dict()
 	var ts: Dictionary = {}
 	for k3: Variant in tasks.keys():
-		var t: Dictionary = (tasks[k3] as Dictionary).duplicate()
-		if t.has("recipe"):
-			t["recipe"] = String(t["recipe"])
-		ts[String(k3)] = t
+		ts[String(k3)] = (tasks[k3] as Dictionary).duplicate()
 	var la: Dictionary = {}
 	for k4: Variant in lane_assign.keys():
 		la[String(k4)] = String(lane_assign[k4])
@@ -591,18 +761,21 @@ func restore(d: Dictionary) -> void:
 		if DataRegistry.staff(StringName(str(k))) == null:
 			GameLogger.error("SAVE", "quarantined unknown staff %s" % k)
 			continue
-		contracts[StringName(str(k))] = (cs[k] as Dictionary).duplicate()
+		var c: Dictionary = (cs[k] as Dictionary).duplicate()
+		# Pengaturan kerja koki lama (mode, resep target, batch) sudah tidak ada.
+		for old: String in ["mode", "target_recipe", "batch"]:
+			c.erase(old)
+		contracts[StringName(str(k))] = c
 	var acts: Dictionary = d.get("actors", {})
 	for k2: Variant in acts.keys():
 		var sid: StringName = StringName(str(k2))
-		var def: StaffDefinition = DataRegistry.staff(sid)
-		if def == null:
+		if DataRegistry.staff(sid) == null or not contracts.has(sid):
 			continue
 		var a := SimActor.new()
 		a.id = sid
 		a.kind = &"staff"
 		a.nav_class = FloorGrid.NAV_STAFF
-		a.speed_mps = def.movement_speed_mps
+		a.speed_mps = DataRegistry.staff_speed_mps()
 		a.visual_key = sid
 		a.apply_dict(acts[k2])
 		actors[sid] = a
@@ -613,12 +786,21 @@ func restore(d: Dictionary) -> void:
 	wage_lines_today = d.get("wage_lines_today", [])
 
 
-## Setelah load: tugas dimulai ulang dari state produksi yang otoritatif.
+## Setelah load: tugas dimulai ulang dari state produksi yang otoritatif, kasir
+## kembali ke jalur staf menurut template sekarang, dan klaim lama dilepas.
 func reconstruct() -> void:
 	tasks.clear()
+	for j: ProductionJob in sim.production.sorted_jobs():
+		if j.claimed_by != &"" and j.claimed_by != PlayerTaskManager.PLAYER_ID:
+			j.claimed_by = &""
 	for k: Variant in actors.keys():
 		var a: SimActor = actors[k]
 		a.stop()
 		var c: Vector2i = sim.world.nearest_walkable(a.floor_id, a.cell(), FloorGrid.NAV_STAFF)
 		if c.x >= 0:
 			a.place_at(a.floor_id, c)
+	on_layout_changed()
+	if sim.time.is_running_phase():
+		_assign_lanes()
+		if working_ids(&"baker").is_empty():
+			_hand_kitchen_to_player()

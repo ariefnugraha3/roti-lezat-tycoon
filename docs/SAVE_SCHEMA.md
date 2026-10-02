@@ -4,7 +4,7 @@ This document describes the save format that the code actually writes today. The
 canonical requirements are in GDD v3.1 §34, §77 and §106. Where this document and
 the GDD disagree, the GDD wins and the code must be fixed.
 
-- **Current schema version:** `4` (`data/catalog/balance.json` → `save.schema_version`).
+- **Current schema version:** `5` (`data/catalog/balance.json` → `save.schema_version`).
 - **Writer / reader:** `autoload/save_manager.gd` (`SaveManager`).
 - **Snapshot / restore:** `gameplay/simulation_root.gd` (`capture_save()` / `load_from_save()`).
 - **Golden fixture:** `tests/fixtures/golden_v3_day4.json` (Day 4, 10:00, mid-service).
@@ -44,7 +44,7 @@ Every read goes through `migrate()` and `validate_save()`. The result reports
 between simulation ticks. Critical saves happen on day settlement, the new day,
 location upgrade and focus loss.
 
-## Root shape (schema 4)
+## Root shape (schema 5)
 
 Every key below is present in every save. `REQUIRED_KEYS` in `save_manager.gd` lists
 the ones that validation checks.
@@ -67,7 +67,7 @@ the ones that validation checks.
 | `pricing` | object | Price overrides per recipe. A recipe at its default price has no entry. |
 | `inventory` | object | Ingredient ID to on-hand units. |
 | `display_inventory` | object | Display iid → `{tier, slots: [{recipe, stacks: [BreadStack]}]}`. `BreadStack` follows GDD 19.1: `recipe_id`, `quantity`, `slot_id`, `source_job_id`, `produced_at_game_time`, `bake_quality`, `age_ingame_hours`, `base_expiry_hours`, `freshness_state`, `display_tier`. |
-| `production_jobs` | object | `jobs` (stage, timers, reserved ingredients, owner, mixer/oven iid, `burn_elapsed`, `protected`, `table_age_hours`, `table_seq`, …), `next_job_id`, `next_table_seq`, `completed_today`, `batches_burnt_today`. Dough and trays parked on the Holding Table are jobs in stage `DOUGH_ON_TABLE`/`TRAY_ON_TABLE` (GDD 5.1.3). |
+| `production_jobs` | object | `jobs` (stage, timers, reserved ingredients, owner, mixer/oven iid, `burn_elapsed`, `table_age_hours`, `table_seq`, …; `owner_actor_id` is `player` or `kitchen`), `next_job_id`, `next_table_seq`, `completed_today`, `batches_burnt_today`. Dough and trays parked on the Holding Table are jobs in stage `DOUGH_ON_TABLE`/`TRAY_ON_TABLE` (GDD 5.1.3). |
 | `equipment_states` | object | `items: [{iid, def_id, floor_id, grid_x, grid_y, rotation_quarters, placed, job_id}]`, `next_iid`, `utility_today`. Positions are grid coordinates, never world transforms (GDD 55 appendix no. 9). |
 | `customers` | object | Active customers (state, patience, held lots, targets, `actor`) plus daily counters. Window shoppers (GDD 20.12) carry `window_shopper: true`, `look_cell`, `look_display` and `looks_left`; `next_window_num` and `window_shoppers_today` count them. Older saves without these fields load with no window shoppers. |
 | `queues` | object | Per lane: `reservations`, `line`, `service_occupant`; `highest_occupancy_today`. |
@@ -75,7 +75,7 @@ the ones that validation checks.
 | `demand` | object | Next arrival times, pending pool, remaining Day 1–3 manifest rows, daily counters. `scripted_window_shoppers` and `next_window_shopper_at` schedule window shoppers; when an older save lacks them, the rest of that day has none. |
 | `rotifood_orders` | object | Orders with items, locked unit prices, packed lots, `economy_committed`, driver phase and patience. |
 | `supply_orders` | object | Purchase orders (`items`, `total_cost`, `arrival_game_time`, `state`, `inventory_committed`), `delivery_fifo`, couriers, `market_unlocked`. |
-| `staff` | object | `contracts` (employed, on_duty, working, mode, batch), actors, tasks, `lane_assign`, `wage_liability_today`, `wage_lines_today`. |
+| `staff` | object | `contracts` (employed, on_duty, working, hired_day, batches_today), actors (with `seat_iid` while a baker sits on a staff chair), tasks, `lane_assign`, `wage_liability_today`, `wage_lines_today` (`staff_id`, `wage`). |
 | `ratings` | object | `physical`, `rotifood`, day-start values, pending VIP outcomes. |
 | `weather` | object | `today`, `tomorrow`, rolled multipliers. |
 | `marketing` | object | Active campaign and its remaining days. |
@@ -112,6 +112,7 @@ the ones that validation checks.
 | 1 → 2 | Adds `rng_states` (streams re-derived from the old `master_seed`), `recipe_analytics`, `statistics`. |
 | 2 → 3 | Adds `catalog_versions`, `ui_restore`, `active_floor_id`, `flags.last_freshness_rollover_day` (= day − 1) and `flags.economy_overflowed`. |
 | 3 → 4 | Version bump only. Job fields `table_age_hours`/`table_seq` and `next_table_seq` default to 0/1. A save without a Holding Table gets one created and auto-placed in the kitchen on load (`SimulationRoot._ensure_table`). |
+| 4 → 5 | Staff rework (GDD 3, 23; maintainer decision 2026-10-02). Drops the bakers' `mode`, `target_recipe` and `batch` and the staff `tasks`; jobs owned by a baker become kitchen orders (`owner_actor_id = "kitchen"`), staff claims are cleared and the job field `protected` is dropped. On load, staff above the new limits are dismissed newest hire first (`StaffManager.enforce_capacity`), staff chairs are created and auto-placed (`SimulationRoot._ensure_chairs`), and furniture that now covers a new lane cell, or lost its access tile, is re-placed with its contents (`WorldManager.release_conflicts`). |
 
 A save whose `schema_version` is newer than the game is refused. It is never
 downgraded or overwritten.
