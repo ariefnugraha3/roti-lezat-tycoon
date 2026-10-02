@@ -181,6 +181,18 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   `tab_bar()`, switches through `toggle()`, and HUD values through `chip()`. `IconCanvas`
   draws each icon three times (shadow, outline, fill); only primitives in the icon's
   base colour, or colours registered with `_shade()`, get the outline.
+- HUD (GDD 7): `HUD` refreshes its values 5 times a second, but rebuilds a list of
+  tappable rows (RotiFood orders, floor alerts) only when a signature of its content
+  changes. A button freed between press and release loses the tap. The RotiFood
+  orders panel sits right above the Quick Menu, and `_fit_right_panels` keeps it as
+  wide as the Display Stock panel and moves that panel up only to avoid an overlap.
+  `RotiFoodButton` (`ui/components/rotifood_button.gd`) rings while an order waits to
+  be packed. Its shake and pop run on a `Body` child, so they never fight the button's
+  own press bounce. Quick Menu tiles are sized when the HUD is built, from the longest
+  label at the current text scale (`_quick_tile_size`, `wrap_width`), so a two-line
+  label always fits above the tile's lip. `_place_above_quick` keeps the RotiFood panel,
+  the tutorial hint and the after-hours buttons above the bottom panels whatever
+  their height.
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
   `CharacterFactory`, `RoomFactory`, `DecorFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas` (UI). Their shared

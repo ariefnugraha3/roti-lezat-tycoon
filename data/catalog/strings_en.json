@@ -192,6 +192,8 @@
   "ui_rotifood_waiting": "Waiting for stock",
   "ui_rotifood_new": "New order",
   "ui_rotifood_driver_here": "Driver is waiting!",
+  "ui_rotifood_row_packed": "Packed",
+  "ui_rotifood_more": "+{count} more",
 
   "ui_market_tab_ingredients": "Ingredients",
   "ui_market_tab_equipment": "Equipment",

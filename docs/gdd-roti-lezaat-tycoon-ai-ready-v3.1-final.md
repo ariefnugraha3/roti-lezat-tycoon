@@ -764,6 +764,10 @@ Catatan placement:
 
 * **Layar Pemilihan Karakter**: Muncul sekali saat menekan **New Game**. Dua kartu besar berisi potret chibi Pria dan Wanita yang digambar prosedural; kartu terpilih diberi bingkai emas. Pilihan ikut tersimpan di berkas simpanan.
 * **Main HUD (Layar Utama)**: Menampilkan informasi esensial. Pojok kiri atas untuk Saldo Koin Roti (KR) dan Rating Toko. Pojok kanan atas untuk Jam In-Game dan Meteran Biaya Utilitas (menampilkan akumulasi biaya listrik & gas harian yang sedang berjalan). Bagian kanan layar terdapat Counter Stok Roti: Menampilkan sisa jumlah roti di etalase secara real-time agar pemain tahu mana yang laku dan tidak. Pojok kanan bawah untuk Quick Menu: **Pasar, Karyawan, Iklan, Dekorasi**. Tombol **Pasar** tampil terkunci/nonaktif selama Hari 1–3 dan terbuka permanen setelah onboarding Hari 3 selesai. **Buku Resep sengaja TIDAK ada di sini**—ia dibuka lewat Gudang Penyimpanan di dapur (lihat Seksi 2).    
+  * **Panel Pesanan RotiFood** (keputusan maintainer 2026-10-02): panel sendiri di pojok kanan bawah, **tepat di atas Quick Menu** dan sejajar dengan tepi kanannya. Dulu bagian ini menempel di bawah Counter Stok Roti dan mudah terlewat. Panel memuat tombol RotiFood dan paling banyak tiga baris pesanan; sisanya diringkas menjadi satu baris "+N more". Panel tumbuh ke atas, dan Counter Stok Roti hanya bergeser naik bila keduanya akan bertabrakan. Lebar kedua panel selalu sama.
+  * **Tombol RotiFood berdering** selama ada pesanan yang **belum dikemas**. Mukanya hijau dan lencana merah di pojoknya menghitung pesanan itu. Tombol bergetar seperti ponsel (0,55 detik), membesar sesaat, lalu memancarkan lingkaran gelombang. Dering ini berulang tiap 2,4 detik nyata, dan pesanan baru langsung memicunya. Bila driver sudah di dalam toko menunggu pesanan yang belum dikemas, tombol dan baris pesanannya merah dan dering datang dua kali lebih sering. Pesanan yang sudah dikemas tidak membuatnya berdering. Reduced Motion menghilangkan getar, denyut, dan gelombang; warna dan lencana tetap ada.
+  * Baris pesanan hanya dibangun ulang bila isinya berubah. Tombol yang dibangun ulang di tengah ketukan membuat ketukan itu hilang.
+  * **Ubin Quick Menu** (perbaikan 2026-10-02): semua ubin sama besar dan ikonnya sebaris. Label rata atas, paling banyak dua baris yang dipenggal per kata, dan selalu muat di muka ubin di atas bibirnya. Ukuran ubin dihitung dari label terpanjang pada skala teks yang dipakai (100/125/150%, Seksi 28.5). Dulu label dua baris keluar dari ubin, dan pada 125% kata "Management" terpotong. Petunjuk tutorial dan tombol after-hours di tengah bawah berdiri di atas panel jam dan Quick Menu, mana pun yang lebih tinggi; dulu petunjuk itu menutupi lencana fase di panel jam.
 * **Desain Menu Utama**:  
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).  
   * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal).  
@@ -7199,6 +7203,15 @@ Celetukan pengunjung lihat-lihat (Seksi 20.12), keputusan maintainer 2026-10-01.
 | `window_shopper_line_8` | `My wallet says no. My tummy says yes.` |
 | `window_shopper_line_9` | `I'll come back tomorrow. Probably.` |
 | `window_shopper_line_10` | `Do they sell phone credit here?` |
+
+## **127.20 RotiFood HUD Strings**
+
+Baris panel Pesanan RotiFood (Seksi 7), keputusan maintainer 2026-10-02.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_rotifood_row_packed` | `Packed` |
+| `ui_rotifood_more` | `+{count} more` |
 
 ---
 

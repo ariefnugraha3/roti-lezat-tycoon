@@ -242,6 +242,12 @@ func _camera() -> void:
 	eq(j.stage, ProductionJob.OVERBAKING, "upstairs oven overbaking")
 	var off: Array[Dictionary] = sim.alerts.off_floor_alerts(store)
 	check(not off.is_empty() and int(off[0]["priority"]) == 0, "critical off-floor alert raised")
+	game.hud._refresh_all()
+	var alert_btn: Node = game.hud._alerts_box.get_child(0) if game.hud._alerts_box.get_child_count() > 0 else null
+	check(alert_btn is Button, "the HUD shows the off-floor alert as a button")
+	game.hud._refresh_all()
+	game.hud._refresh_all()
+	check(is_instance_valid(alert_btn) and alert_btn.get_parent() == game.hud._alerts_box, "the alert button survives HUD refreshes, so a tap on it is not lost")
 	for i3 in 5:
 		await runner.get_tree().process_frame
 	eq(rig.active_floor, store, "off-floor alert does not move the camera")
