@@ -138,7 +138,8 @@ func _draw() -> void:
 	for i in TAIL_RADII.size():
 		var t: float = (float(i) + 0.8) / (float(TAIL_RADII.size()) + 0.3)
 		var c: Vector2 = base.lerp(_anchor, t)
-		draw_circle(c, TAIL_RADII[i] + 1.5, Color(Palette.UI_WOOD, 0.35))
+		if not ProceduralUIFactory.flat_style:
+			draw_circle(c, TAIL_RADII[i] + 1.5, Color(Palette.UI_WOOD, 0.35))
 		draw_circle(c, TAIL_RADII[i], Palette.PARCHMENT)
 
 

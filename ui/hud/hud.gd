@@ -389,7 +389,7 @@ func _quick_button(icon_name: String, key: String, cb: Callable) -> Button:
 	v.offset_left = QUICK_PAD.x
 	v.offset_right = -QUICK_PAD.z
 	v.offset_top = QUICK_PAD.y
-	v.offset_bottom = -float(ProceduralUIFactory.LIP) - QUICK_PAD.w
+	v.offset_bottom = -float(ProceduralUIFactory.lip()) - QUICK_PAD.w
 	v.alignment = BoxContainer.ALIGNMENT_BEGIN
 	v.add_theme_constant_override("separation", QUICK_GAP)
 	var ic := CenterContainer.new()
@@ -427,7 +427,7 @@ func _quick_tile_size() -> Vector2:
 	var inner: float = QUICK_BUTTON_SIZE.x - QUICK_PAD.x - QUICK_PAD.z
 	for key: String in QUICK_KEYS:
 		inner = maxf(inner, wrap_width(Tx.t(key), font, fs, QUICK_LINES))
-	var h: float = QUICK_PAD.y + QUICK_BADGE + QUICK_GAP + _quick_caption_height(font, fs) + QUICK_PAD.w + ProceduralUIFactory.LIP
+	var h: float = QUICK_PAD.y + QUICK_BADGE + QUICK_GAP + _quick_caption_height(font, fs) + QUICK_PAD.w + ProceduralUIFactory.lip()
 	return Vector2(ceilf(inner + QUICK_PAD.x + QUICK_PAD.z), maxf(QUICK_BUTTON_SIZE.y, ceilf(h)))
 
 
@@ -579,7 +579,8 @@ func _refresh_all() -> void:
 		sb.content_margin_right = 10.0
 		sb.content_margin_top = 2.0
 		sb.content_margin_bottom = 5.0
-		sb.border_width_bottom = 3
+		if not ProceduralUIFactory.flat_style:
+			sb.border_width_bottom = 3
 		_phase_pill.add_theme_stylebox_override("panel", sb)
 	_weather_icon.configure("rain" if sim.weather.is_rain() else "sun", 30, Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() else Palette.GOLD_STAR)
 	var until: int = sim.weather.days_until_holiday()
@@ -643,7 +644,8 @@ func _refresh_stock() -> void:
 		sb.content_margin_right = 8.0
 		sb.content_margin_top = 0.0
 		sb.content_margin_bottom = 2.0
-		sb.border_width_bottom = 2
+		if not ProceduralUIFactory.flat_style:
+			sb.border_width_bottom = 2
 		count.add_theme_stylebox_override("panel", sb)
 		var cl: Label = ProceduralUIFactory.label(str(stock[rid]), 14, Palette.UI_WOOD_DEEP)
 		cl.add_theme_font_override("font", ProceduralUIFactory.display_font())
@@ -709,7 +711,7 @@ func _order_row(o: DeliveryOrder) -> Button:
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
 	row.offset_left = 12.0
 	row.offset_right = -12.0
-	row.offset_bottom = -float(ProceduralUIFactory.LIP) + 1.0
+	row.offset_bottom = -ProceduralUIFactory.content_lift()
 	row.add_theme_constant_override("separation", 8)
 	var ic: IconCanvas = ProceduralUIFactory.icon("warning" if urgent else ("check" if o.packed else "bag"), 20,
 		ink if urgent else (Palette.SUCCESS if o.packed else Palette.OJOL_GREEN))

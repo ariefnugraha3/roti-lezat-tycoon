@@ -173,7 +173,13 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 - UI: `ModalHost` keeps a stack of `UIScreen`s registered in `ScreenRegistry`. A
   blocking screen pushes a pause reason and cleans up in `on_closed()`. Every visible
   text goes through `Tx.t(key, params)` → `strings_en.json` (GDD 43, 127).
-- UI kit (GDD 130.6): `ProceduralUIFactory` owns every style. `cushion()` builds the
+- UI kit (GDD 130.6): flat since 2026-10-02. With `ProceduralUIFactory.flat_style` on
+  (the release setting), `panel()`, `cushion()` (`_flat_button_box`), badges, chips,
+  popups, `IconCanvas` and the backdrop skip every shadow, lip, gloss, outline,
+  gradient and paper grain, and `lip()`, `press_shift()` and `content_lift()` return 0,
+  so content centres on the face. The rest of this bullet describes the cushion style,
+  which is still in the code behind that flag.
+  `ProceduralUIFactory` owns every style. `cushion()` builds the
   button StyleBoxFlat for a state, `apply_kind()` restyles an existing button (tabs,
   speed buttons), and `button()` adds the `ButtonGloss` overlay and moves custom
   content down with the face while pressed. Screens build popups only through

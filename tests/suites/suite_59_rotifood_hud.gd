@@ -235,7 +235,7 @@ func _quick_labels() -> void:
 			var cap: Label = t.find_child("Caption", true, false) as Label
 			var c: Rect2 = cap.get_global_rect()
 			check(r.size.is_equal_approx(first.size), "%d%%: %s has the shared tile size" % [pct, cap.text])
-			check(c.end.y <= r.end.y - ProceduralUIFactory.LIP + 0.5, "%d%%: %s stays above the tile's lip (%.0f <= %.0f)" % [pct, cap.text, c.end.y, r.end.y - ProceduralUIFactory.LIP])
+			check(c.end.y <= r.end.y - ProceduralUIFactory.lip() + 0.5, "%d%%: %s stays above the tile's lip (%.0f <= %.0f)" % [pct, cap.text, c.end.y, r.end.y - ProceduralUIFactory.lip()])
 			check(c.position.x >= r.position.x and c.end.x <= r.end.x, "%d%%: %s stays inside the tile sideways" % [pct, cap.text])
 			check(cap.get_line_count() <= HUD.QUICK_LINES, "%d%%: %s needs at most two lines, no word is broken (%d)" % [pct, cap.text, cap.get_line_count()])
 			eq(cap.get_visible_line_count(), cap.get_line_count(), "%d%%: every line of %s is shown" % [pct, cap.text])

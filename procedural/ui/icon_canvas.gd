@@ -106,7 +106,8 @@ func _draw() -> void:
 		c = Vector2(s, s) * 0.5
 	_base = icon_color
 	_sil_extra.clear()
-	if outlined and s >= OUTLINE_MIN_SIZE and icon_color.a > 0.05:
+	# Gaya flat (ProceduralUIFactory.flat_style): siluet saja, tanpa bayangan & garis tepi.
+	if outlined and not ProceduralUIFactory.flat_style and s >= OUTLINE_MIN_SIZE and icon_color.a > 0.05:
 		_ow = clampf(s * 0.075, 1.5, 4.0)
 		_pass = PASS_SHADOW
 		_pass_col = Color(0.20, 0.10, 0.04, 0.24 * icon_color.a)
@@ -154,7 +155,7 @@ func _shade(col: Color, amount: float) -> Color:
 
 ## Kilau putih kecil (hanya lintasan siluet, dan tidak di ikon putih).
 func _glint(c: Vector2, s: float, x: float, y: float, r: float) -> void:
-	if _pass != PASS_FILL or _base.get_luminance() > 0.85:
+	if ProceduralUIFactory.flat_style or _pass != PASS_FILL or _base.get_luminance() > 0.85:
 		return
 	draw_circle(c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a))
 

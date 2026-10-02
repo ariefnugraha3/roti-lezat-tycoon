@@ -383,7 +383,7 @@ Identitas visual dan atmosfer game dibangun di atas tiga pilar emosional yang sa
 * **UI Komponen Ramah & Membal**:
   * Seluruh tombol dan panel menggunakan `StyleBoxFlat` dengan sudut membulat tebal (*pill / soft rounded corners* min. 16-24 px) yang memberikan kesan bantalan empuk (*cushiony feel*).
   * Tekstur menu mengadopsi nuansa kertas roti berserat (*parchment paper*) dan papan menu kapur kafe tempo dulu menggunakan noise/gradient generator bawaan Godot.
-  * Anatomi tombol, huruf, popup, tab, dan widget lainnya ditetapkan oleh UI kit "bantal empuk" (Seksi 130.6).
+  * Anatomi tombol, huruf, popup, tab, dan widget lainnya ditetapkan oleh UI kit di Seksi 130.6. **Sejak 2026-10-02 seluruh UI 2D bergaya flat** (keputusan maintainer): bidang warna polos tanpa bayangan, bibir timbul, kilap, gradasi, atau serat kertas. Aturan gaya flat di Seksi 130.6 menggantikan kesan bantalan dan tekstur kertas di atas.
 * **Ikon & Vektor Prosedural**: Ikon in-game (koin emas berkilau, jam dinding kayu, rating bintang mentega, balon pesanan berbentuk awan empuk) digambar langsung dengan fungsi CanvasItem `_draw()`.
 * **Efek Visual Partikel (Visual Juice)**: Partikel uap hangat roti, serpihan gula halus berkilauan saat pesanan sukses, koin emas melompat gembira (+KR), serta asap gosong menggunakan `CPUParticles3D` dan `CPUParticles2D` murni dari script.
 
@@ -7352,9 +7352,22 @@ Implementation must capture/render at least these screenshots for visual QA:
 
 A visual change that breaks readability in any golden scene blocks release.
 
-## **130.6 UI Kit "Bantal Empuk" — CANONICAL**
+## **130.6 UI Kit Flat — CANONICAL**
 
 Keputusan maintainer 2026-09-30 ("percantik UI: setiap tombol, ikon, dan teks"). UI kit ini menjabarkan Seksi 4.3, 7, dan 130.4. Semuanya tetap `StyleBoxFlat` bersudut 16–24 px, gambar `_draw()`, dan tekstur yang dibangkitkan dari kode (`ProceduralUIFactory`, `IconCanvas`). Tidak ada berkas gambar atau font.
+
+**Gaya flat (keputusan maintainer 2026-10-02).** Kit ini semula bergaya "bantal empuk". Atas permintaan maintainer ("benar-benar flat design, tanpa shadow"), seluruh UI 2D kini flat, dan hasilnya disetujui ("sangat cute"). Komponen, warna, tata letak, dan perilaku di bawah tetap berlaku; hanya cara menggambarnya yang berubah:
+
+- **Tanpa kedalaman.** Tidak ada bayangan jatuh, bibir bawah, kilap, gradasi, atau serat kertas. Panel, kartu, popup, pita judul, chip, lencana, dan toast berupa bidang warna polos bersudut membulat tanpa garis tepi. Toast prioritas 0 tetap bertepi merah seragam.
+- **Tombol.** Tombol berwarna (`primary`, `success`, `danger`) polos tanpa garis tepi. Tombol krem (`secondary`) dan `ghost` bergaris tepi tipis seragam 2 px agar tetap terlihat di atas panel krem. Hover sedikit lebih terang dan tekan sedikit lebih gelap. Muka tombol tidak turun saat ditekan, tetapi pantulan squash & stretch (Seksi 7) tetap berlaku. Tombol nonaktif memudar ke krem, dan teks serta ikonnya ikut meredup.
+- **Huruf.** Tanpa garis tepi dan bayangan, termasuk judul, pita, dan teks tombol. Huruf "Roti Lezat" pada logo berwarna cokelat kayu tua.
+- **Ikon.** Siluet polos dengan detail dua warna, tanpa garis tepi, bayangan, dan kilau.
+- **Widget.** Jalur tab, slider, bar, dan kolom isian berwarna polos. Kenop slider putih bercincin madu. Sakelar tanpa bayangan dalam dan tanpa kilau kenop.
+- **Layar pembuka.** Latar krem polos tanpa gradasi dan sinar matahari. Roti, koin, bintang, dan hati tetap melayang, dan taplak gingham tetap ada.
+- **Elemen dunia 3D** (tanda "!", bar progres, bar kesabaran, balon pikiran) tidak termasuk UI kit ini dan tidak berubah.
+- Gaya bantal empuk lama masih bisa dinyalakan di kode (`ProceduralUIFactory.flat_style = false`), tetapi bukan gaya rilis.
+
+Rincian komponen berikut berasal dari gaya bantal empuk. Bibir, bayangan, kilap, garis tepi huruf atau ikon, serat kertas, gradasi, dan sinar yang disebut di dalamnya digantikan oleh aturan gaya flat di atas.
 
 - **Tombol bantal.**
   - Muka warna dengan garis tepi 2 px dan **bibir bawah 6 px** berwarna tua.

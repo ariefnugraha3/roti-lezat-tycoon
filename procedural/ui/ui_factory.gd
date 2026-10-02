@@ -21,6 +21,10 @@ extends RefCounted
 ## chip nilai HUD. Semuanya tetap StyleBoxFlat + gambar `_draw()` + tekstur yang
 ## dibangkitkan piksel demi piksel.
 ##
+## Gaya FLAT (eksperimen maintainer 2026-10-02, `flat_style`): bidang warna
+## polos tanpa bayangan, bibir, kilap, garis tepi teks, bayangan ikon, gradasi,
+## maupun serat kertas. Kit "bantal empuk" tetap tersedia lewat flag itu.
+##
 ## Tata letak selalu memakai container + anchor sehingga benar di 1280x720
 ## lanskap maupun layar ponsel sempit (GDD 12.5).
 
@@ -63,6 +67,31 @@ const POPUP_SIZE: Vector2 = Vector2(760.0, 520.0)
 ## Jarak isi dari tepi kartu popup.
 const POPUP_PAD: int = 18
 
+## Gaya FLAT (eksperimen maintainer 2026-10-02): seluruh UI berupa bidang warna
+## polos bersudut membulat, tanpa bayangan jatuh, bibir timbul, kilap, garis tepi
+## teks, bayangan dan garis tepi ikon, gradasi, maupun serat kertas. Tombol
+## berwarna tanpa garis tepi; tombol krem dan ghost bergaris tepi tipis seragam
+## agar tetap terpisah dari panel krem. false = UI kit "bantal empuk" (GDD
+## 130.6). Dibaca saat UI dibangun, jadi gantinya berlaku untuk layar yang
+## dibangun sesudahnya (tema dan tekstur ter-cache dibuang `clear_caches()`).
+static var flat_style: bool = true
+
+
+## Tebal bibir bawah yang berlaku (0 pada gaya flat).
+static func lip() -> int:
+	return 0 if flat_style else LIP
+
+
+## Seberapa jauh isi tombol turun saat ditekan (0 pada gaya flat).
+static func press_shift() -> int:
+	return 0 if flat_style else PRESS_SHIFT
+
+
+## Jarak isi tombol dari tepi bawahnya agar berada di tengah muka, di atas
+## bibir (0 pada gaya flat).
+static func content_lift() -> float:
+	return 0.0 if flat_style else float(LIP) - 1.0
+
 
 # Cache agar objek berat (Theme, FontVariation, tekstur grabber) dibuat sekali.
 static var _theme_cache: Theme = null
@@ -91,11 +120,13 @@ static func panel(color: Color, radius := 20, shadow := true) -> StyleBoxFlat:
 	sb.set_corner_radius_all(maxi(radius, 0))
 	sb.corner_detail = 10
 	sb.anti_aliasing = true
-	var lip: Color = rim_color(color)
-	sb.border_color = Color(lip, maxf(color.a, 0.85))
+	sb.set_content_margin_all(14.0)
+	if flat_style:
+		return sb
+	var rim: Color = rim_color(color)
+	sb.border_color = Color(rim, maxf(color.a, 0.85))
 	sb.set_border_width_all(2)
 	sb.border_width_bottom = 5
-	sb.set_content_margin_all(14.0)
 	sb.content_margin_bottom = 17.0
 	if shadow:
 		sb.shadow_color = Color(0.24, 0.12, 0.04, 0.26)
@@ -140,8 +171,9 @@ static func card(title_text: String, radius := 22) -> PanelContainer:
 		acc.bg_color = Palette.HONEY
 		acc.set_corner_radius_all(4)
 		acc.anti_aliasing = true
-		acc.border_color = Palette.HONEY_DEEP
-		acc.border_width_bottom = 3
+		if not flat_style:
+			acc.border_color = Palette.HONEY_DEEP
+			acc.border_width_bottom = 3
 		accent.add_theme_stylebox_override("panel", acc)
 		head.add_child(accent)
 
@@ -198,17 +230,19 @@ static func popup(title_text: String, ukuran: Vector2 = POPUP_SIZE) -> Control:
 	var kartu: PanelContainer = PanelContainer.new()
 	kartu.name = "Kartu"
 	var face: StyleBoxFlat = panel(Palette.PANEL, 26, true)
-	face.border_color = Palette.CREAM_LIP
-	face.set_border_width_all(3)
-	face.border_width_bottom = 9
-	face.shadow_color = Color(0.20, 0.09, 0.02, 0.36)
-	face.shadow_size = 24
-	face.shadow_offset = Vector2(0.0, 10.0)
+	if not flat_style:
+		face.border_color = Palette.CREAM_LIP
+		face.set_border_width_all(3)
+		face.border_width_bottom = 9
+		face.shadow_color = Color(0.20, 0.09, 0.02, 0.36)
+		face.shadow_size = 24
+		face.shadow_offset = Vector2(0.0, 10.0)
 	face.set_content_margin_all(6.0)
 	kartu.add_theme_stylebox_override("panel", face)
 	_center_box(kartu, ukuran)
 	root.add_child(kartu)
-	kartu.add_child(paper_grain())
+	if not flat_style:
+		kartu.add_child(paper_grain())
 
 	# Isi yang kelebaran dipotong di sini, BUKAN di kartu: clip_contents pada kartu
 	# ikut memotong bayangannya sendiri (sudut gelap persegi di balik kartu).
@@ -278,16 +312,17 @@ static func ribbon_plate(text: String, size := 26, max_w := 640.0) -> PanelConta
 	sb.content_margin_left = 34.0
 	sb.content_margin_right = 34.0
 	sb.content_margin_top = 5.0
-	sb.content_margin_bottom = 5.0 + float(LIP)
+	sb.content_margin_bottom = 5.0 + float(lip())
 	pc.add_theme_stylebox_override("panel", sb)
 	var l: Label = hero_label(text, size, Palette.FLOUR_WHITE, Palette.HONEY_DEEP, 6, 3)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.clip_text = true
 	l.custom_minimum_size = Vector2(minf(maxf(180.0, _text_width(text, size, true) + 8.0), max_w), 0.0)
 	pc.add_child(l)
-	var gloss: ButtonGloss = ButtonGloss.new()
-	gloss.radius = 22.0
-	pc.add_child(gloss)
+	if not flat_style:
+		var gloss: ButtonGloss = ButtonGloss.new()
+		gloss.radius = 22.0
+		pc.add_child(gloss)
 	pc.set_meta("label", l)
 	return pc
 
@@ -329,8 +364,9 @@ static func parchment_panel() -> PanelContainer:
 	sb.border_color = Color(Palette.UI_WOOD, 0.38)
 	sb.set_border_width_all(3)
 	sb.set_content_margin_all(10.0)
-	sb.shadow_size = 12
-	sb.shadow_offset = Vector2(0.0, 6.0)
+	if not flat_style:
+		sb.shadow_size = 12
+		sb.shadow_offset = Vector2(0.0, 6.0)
 	root.add_theme_stylebox_override("panel", sb)
 
 	# Tema lokal: seluruh Label di dalam nota otomatis memakai rasa mesin tik.
@@ -374,9 +410,10 @@ static func chalkboard_panel() -> PanelContainer:
 	sb.set_border_width_all(14)
 	sb.border_color = Palette.PINE_WOOD
 	sb.set_content_margin_all(8.0)
-	sb.shadow_color = Palette.SHADOW
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0.0, 5.0)
+	if not flat_style:
+		sb.shadow_color = Palette.SHADOW
+		sb.shadow_size = 10
+		sb.shadow_offset = Vector2(0.0, 5.0)
 	root.add_theme_stylebox_override("panel", sb)
 
 	# Tema lokal: tinta kapur untuk seluruh teks di dalam papan.
@@ -429,7 +466,7 @@ static func button(text: String, kind := "primary") -> Button:
 	b.button_down.connect(func() -> void:
 		AudioManager.play(&"ui_tap_soft")
 		ProceduralAnimationSystem.press_bounce(b)
-		ProceduralUIFactory._shift_content(b, PRESS_SHIFT)
+		ProceduralUIFactory._shift_content(b, ProceduralUIFactory.press_shift())
 	)
 	b.button_up.connect(func() -> void:
 		ProceduralUIFactory._shift_content(b, 0)
@@ -440,25 +477,31 @@ static func button(text: String, kind := "primary") -> Button:
 ## Warna tombol per jenis: face (muka), deep (tepi & bibir), ink (teks),
 ## outline (garis tepi teks; alfa 0 = tanpa), gloss (kilap di muka).
 static func kind_colors(kind: String) -> Dictionary:
+	var k: Dictionary
 	match kind:
 		"secondary":
-			return {"face": Palette.UI_CREAM, "deep": Palette.CREAM_LIP, "ink": Palette.UI_WOOD_DEEP,
+			k = {"face": Palette.UI_CREAM, "deep": Palette.CREAM_LIP, "ink": Palette.UI_WOOD_DEEP,
 				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
 		"danger":
-			return {"face": Palette.STRAWBERRY, "deep": Palette.STRAWBERRY_DEEP, "ink": Palette.FLOUR_WHITE,
+			k = {"face": Palette.STRAWBERRY, "deep": Palette.STRAWBERRY_DEEP, "ink": Palette.FLOUR_WHITE,
 				"outline": Palette.STRAWBERRY_DEEP, "gloss": true}
 		"success":
-			return {"face": Palette.MATCHA, "deep": Palette.MATCHA_DEEP, "ink": Palette.FLOUR_WHITE,
+			k = {"face": Palette.MATCHA, "deep": Palette.MATCHA_DEEP, "ink": Palette.FLOUR_WHITE,
 				"outline": Palette.MATCHA_DEEP, "gloss": true}
 		"ghost":
-			return {"face": Color(Palette.UI_CREAM, 0.0), "deep": Color(Palette.UI_WOOD, 0.45), "ink": Palette.UI_WOOD,
+			k = {"face": Color(Palette.UI_CREAM, 0.0), "deep": Color(Palette.UI_WOOD, 0.45), "ink": Palette.UI_WOOD,
 				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
 		"tab":
-			return {"face": Color(Palette.UI_CREAM, 0.0), "deep": Color(Palette.UI_WOOD, 0.0), "ink": Palette.UI_WOOD,
+			k = {"face": Color(Palette.UI_CREAM, 0.0), "deep": Color(Palette.UI_WOOD, 0.0), "ink": Palette.UI_WOOD,
 				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
 		_:
-			return {"face": Palette.HONEY, "deep": Palette.HONEY_DEEP, "ink": Palette.FLOUR_WHITE,
+			k = {"face": Palette.HONEY, "deep": Palette.HONEY_DEEP, "ink": Palette.FLOUR_WHITE,
 				"outline": Palette.HONEY_DEEP, "gloss": true}
+	# Gaya flat: huruf tanpa garis tepi dan muka tanpa kilap.
+	if flat_style:
+		k["outline"] = Color(0.0, 0.0, 0.0, 0.0)
+		k["gloss"] = false
+	return k
 
 
 ## Pasang (ulang) seluruh gaya satu jenis ke tombol yang sudah ada: muka, tepi,
@@ -487,7 +530,7 @@ static func apply_kind(b: Button, kind: String) -> void:
 		var sbx: StyleBoxFlat = cushion(face, deep, radius, "pressed" if st == "hover_pressed" else st, flat)
 		# Tab rata menyisakan ruang bibir supaya teksnya sejajar dengan tab aktif.
 		if kind == "tab":
-			sbx.content_margin_bottom += float(LIP)
+			sbx.content_margin_bottom += float(lip())
 		b.add_theme_stylebox_override(st, sbx)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var gloss: Node = b.get_node_or_null("Gloss")
@@ -522,7 +565,7 @@ static func icon_button(icon_name: String, tooltip: String, kind := "secondary",
 	center.name = "IconBox"
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.offset_bottom = -float(LIP) + 1.0
+	center.offset_bottom = -content_lift()
 	center.add_child(ic)
 	b.add_child(center)
 	# Gambarnya disimpan di meta supaya bisa DIGANTI di tempat (jeda <-> lanjut)
@@ -541,7 +584,7 @@ static func icon_text_button(icon_name: String, text: String, kind := "primary",
 	row.name = "Row"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.offset_bottom = -float(LIP) + 1.0
+	row.offset_bottom = -content_lift()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 8)
 	var ink: Color = k["ink"]
@@ -555,6 +598,16 @@ static func icon_text_button(icon_name: String, text: String, kind := "primary",
 		l.add_theme_constant_override("outline_size", 5)
 	row.add_child(l)
 	b.add_child(row)
+	# Gaya flat: label dan ikon ini anak terpisah, jadi tidak ikut warna nonaktif
+	# tombol. Tanpa garis tepi, putih di muka pucat sulit dibaca; keduanya
+	# meredup selama tombolnya nonaktif.
+	if flat_style:
+		var muted: Color = Color(Palette.TEXT_MUTED, 0.95)
+		b.draw.connect(func() -> void:
+			var want: Color = muted if b.disabled else ink
+			if l.get_theme_color("font_color") != want:
+				l.add_theme_color_override("font_color", want)
+				ic.icon_color = want)
 	b.set_meta("icon", ic)
 	b.set_meta("caption", l)
 	b.custom_minimum_size = Vector2(l.get_combined_minimum_size().x + float(icon_size) + 52.0, TOUCH_MIN)
@@ -586,9 +639,13 @@ static func chip(icon_name: String, tint: Color, text: String, font_size := 20, 
 	sb.content_margin_right = 16.0
 	sb.content_margin_top = 3.0
 	sb.content_margin_bottom = 6.0
-	sb.border_width_bottom = 4
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0.0, 3.0)
+	if flat_style:
+		sb.content_margin_top = 4.0
+		sb.content_margin_bottom = 4.0
+	else:
+		sb.border_width_bottom = 4
+		sb.shadow_size = 6
+		sb.shadow_offset = Vector2(0.0, 3.0)
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.mouse_filter = Control.MOUSE_FILTER_PASS
 	var h: HBoxContainer = HBoxContainer.new()
@@ -676,20 +733,25 @@ static func title(text: String, size := 28) -> Label:
 static func hero_label(text: String, size: int, ink: Color, edge: Color, outline := 8, depth := 5) -> Label:
 	var l: Label = label(text, size, ink)
 	l.add_theme_font_override("font", display_font())
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if flat_style:
+		return l
 	l.add_theme_color_override("font_outline_color", edge)
 	l.add_theme_constant_override("outline_size", outline)
 	l.add_theme_color_override("font_shadow_color", edge)
 	l.add_theme_constant_override("shadow_offset_x", 0)
 	l.add_theme_constant_override("shadow_offset_y", depth)
 	l.add_theme_constant_override("shadow_outline_size", outline)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return l
 
 
 ## Logo judul game (splash & menu): huruf krem tebal bergaris cokelat tua
 ## dengan ekstrusi timbul.
 static func logo(text: String, size := 64) -> Label:
-	var l: Label = hero_label(text, size, Color(1.0, 0.953, 0.843), Palette.UI_WOOD_DEEP,
+	# Gaya flat: tanpa garis tepi, jadi huruf krem akan tenggelam di latar krem;
+	# hurufnya cokelat kayu tua.
+	var ink: Color = Palette.UI_WOOD_DEEP if flat_style else Color(1.0, 0.953, 0.843)
+	var l: Label = hero_label(text, size, ink, Palette.UI_WOOD_DEEP,
 		maxi(8, int(round(float(size) * 0.18))), maxi(5, int(round(float(size) * 0.11))))
 	l.name = "Logo"
 	return l
@@ -792,9 +854,10 @@ static func polaroid(staff_id: String) -> Control:
 	sb.content_margin_right = 12.0
 	sb.content_margin_top = 12.0
 	sb.content_margin_bottom = 18.0
-	sb.shadow_color = Palette.SHADOW
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0.0, 4.0)
+	if not flat_style:
+		sb.shadow_color = Palette.SHADOW
+		sb.shadow_size = 8
+		sb.shadow_offset = Vector2(0.0, 4.0)
 	root.add_theme_stylebox_override("panel", sb)
 
 	var body: VBoxContainer = VBoxContainer.new()
@@ -911,7 +974,7 @@ static func build_theme() -> Theme:
 	t.set_color("font_outline_color", "Button", Color(Palette.HONEY_DEEP, 0.55))
 	t.set_font_size("font_size", "Button", FONT_BODY)
 	t.set_constant("h_separation", "Button", 8)
-	t.set_constant("outline_size", "Button", 5)
+	t.set_constant("outline_size", "Button", 0 if flat_style else 5)
 
 	# --- CheckButton (sakelar) ---
 	for st2: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
@@ -972,7 +1035,8 @@ static func build_theme() -> Theme:
 	# --- LineEdit (nama toko) ---
 	var le: StyleBoxFlat = _inset_box(Palette.FLOUR_WHITE, 18)
 	le.set_border_width_all(2)
-	le.border_width_top = 4
+	if not flat_style:
+		le.border_width_top = 4
 	le.border_color = Palette.CREAM_LIP
 	le.content_margin_left = 16.0
 	le.content_margin_right = 16.0
@@ -981,7 +1045,8 @@ static func build_theme() -> Theme:
 	var le_focus: StyleBoxFlat = le.duplicate()
 	le_focus.border_color = Palette.HONEY
 	le_focus.set_border_width_all(3)
-	le_focus.border_width_top = 4
+	if not flat_style:
+		le_focus.border_width_top = 4
 	t.set_stylebox("normal", "LineEdit", le)
 	t.set_stylebox("focus", "LineEdit", le_focus)
 	t.set_stylebox("read_only", "LineEdit", le)
@@ -996,7 +1061,7 @@ static func build_theme() -> Theme:
 	tip.content_margin_left = 12.0
 	tip.content_margin_right = 12.0
 	tip.content_margin_top = 6.0
-	tip.content_margin_bottom = 9.0
+	tip.content_margin_bottom = 6.0 if flat_style else 9.0
 	t.set_stylebox("panel", "TooltipPanel", tip)
 	t.set_color("font_color", "TooltipLabel", Palette.TEXT)
 	t.set_font_size("font_size", "TooltipLabel", FONT_SMALL + 1)
@@ -1125,11 +1190,12 @@ static func toast_card(text: String, icon_name: String, priority: int) -> PanelC
 	sb.content_margin_left = 8.0
 	sb.content_margin_right = 20.0
 	sb.content_margin_top = 6.0
-	sb.content_margin_bottom = 10.0
+	sb.content_margin_bottom = 6.0 if flat_style else 10.0
 	if priority == 0:
 		sb.border_color = Palette.STRAWBERRY_DEEP
 		sb.set_border_width_all(3)
-		sb.border_width_bottom = 6
+		if not flat_style:
+			sb.border_width_bottom = 6
 	box.add_theme_stylebox_override("panel", sb)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -1156,9 +1222,10 @@ static func badge(icon_name: String, face: Color, tint: Color, diameter := 36) -
 	sb.set_corner_radius_all(diameter)
 	sb.corner_detail = 12
 	sb.anti_aliasing = true
-	sb.border_color = rim_color(face)
-	sb.set_border_width_all(2)
-	sb.border_width_bottom = 4
+	if not flat_style:
+		sb.border_color = rim_color(face)
+		sb.set_border_width_all(2)
+		sb.border_width_bottom = 4
 	sb.set_content_margin_all(0.0)
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.custom_minimum_size = Vector2(float(diameter), float(diameter))
@@ -1280,12 +1347,14 @@ static func rounded_points(rect: Rect2, radius: float, steps: int = 4) -> Packed
 ## turun PRESS_SHIFT px dan bibirnya menipis, jadi tombol terasa benar-benar
 ## tertekan. [param flat] = tanpa bibir & bayangan (ghost, tab tidak aktif).
 static func cushion(face: Color, deep: Color, radius: int = RADIUS_PILL, state: String = "normal", flat: bool = false) -> StyleBoxFlat:
+	if flat_style:
+		return _flat_button_box(face, deep, radius, state)
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.corner_detail = 12
 	sb.anti_aliasing = true
 	sb.set_corner_radius_all(radius)
 	var pressed: bool = state == "pressed"
-	var lip: int = 0 if flat else LIP
+	var lip_px: int = 0 if flat else LIP
 	var f: Color = face
 	var d: Color = deep
 	match state:
@@ -1302,17 +1371,48 @@ static func cushion(face: Color, deep: Color, radius: int = RADIUS_PILL, state: 
 	sb.border_width_left = edge
 	sb.border_width_right = edge
 	sb.border_width_top = edge
-	sb.border_width_bottom = edge + (maxi(lip - PRESS_SHIFT, 0) if pressed else lip)
+	sb.border_width_bottom = edge + (maxi(lip_px - PRESS_SHIFT, 0) if pressed else lip_px)
 	if pressed and not flat:
 		sb.expand_margin_top = -float(PRESS_SHIFT)
 	sb.content_margin_left = 22.0
 	sb.content_margin_right = 22.0
 	sb.content_margin_top = 7.0 + (float(PRESS_SHIFT) if pressed and not flat else 0.0)
-	sb.content_margin_bottom = 7.0 + float(lip) - (float(PRESS_SHIFT) if pressed and not flat else 0.0)
+	sb.content_margin_bottom = 7.0 + float(lip_px) - (float(PRESS_SHIFT) if pressed and not flat else 0.0)
 	if not flat and state != "disabled":
 		sb.shadow_color = Color(0.24, 0.12, 0.04, 0.30 if not pressed else 0.22)
 		sb.shadow_size = 3 if pressed else 7
 		sb.shadow_offset = Vector2(0.0, 2.0 if pressed else 4.0)
+	return sb
+
+
+## Tombol gaya flat: satu bidang warna polos, tanpa bibir, bayangan, atau kilap.
+## Muka berwarna tanpa garis tepi; muka krem atau transparan (secondary, ghost)
+## bergaris tepi tipis seragam agar tetap terlihat di atas panel krem. Hover
+## sedikit lebih terang, tekan sedikit lebih gelap, nonaktif memudar ke krem.
+static func _flat_button_box(face: Color, deep: Color, radius: int, state: String) -> StyleBoxFlat:
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.corner_detail = 12
+	sb.anti_aliasing = true
+	sb.set_corner_radius_all(radius)
+	var f: Color = face
+	var d: Color = deep
+	match state:
+		"hover":
+			f = face.lightened(0.08) if face.a > 0.01 else Color(Palette.UI_CREAM, 0.55)
+		"pressed":
+			f = face.darkened(0.08) if face.a > 0.01 else Color(Palette.UI_CREAM_DEEP, 0.75)
+		"disabled":
+			f = face.lerp(Palette.UI_CREAM_DEEP, 0.62) if face.a > 0.01 else face
+			d = Color(deep.lerp(Palette.CREAM_LIP, 0.6), deep.a * 0.7)
+	sb.bg_color = f
+	var light: bool = face.a <= 0.01 or face.get_luminance() > 0.85
+	if light and d.a > 0.01:
+		sb.border_color = d
+		sb.set_border_width_all(EDGE)
+	sb.content_margin_left = 22.0
+	sb.content_margin_right = 22.0
+	sb.content_margin_top = 7.0
+	sb.content_margin_bottom = 7.0
 	return sb
 
 
@@ -1335,6 +1435,8 @@ static func _inset_box(face: Color, radius: int) -> StyleBoxFlat:
 	sb.set_corner_radius_all(radius)
 	sb.corner_detail = 8
 	sb.anti_aliasing = true
+	if flat_style:
+		return sb
 	sb.border_color = Color(Palette.CREAM_LIP, 0.9)
 	sb.border_width_top = 3
 	sb.border_width_left = 1
@@ -1350,6 +1452,8 @@ static func _fill_box(face: Color, radius: int) -> StyleBoxFlat:
 	sb.set_corner_radius_all(radius)
 	sb.corner_detail = 8
 	sb.anti_aliasing = true
+	if flat_style:
+		return sb
 	sb.border_color = face.lightened(0.42)
 	sb.border_width_top = 4
 	sb.border_blend = true
@@ -1430,6 +1534,19 @@ static func _grabber_texture(highlight: bool) -> ImageTexture:
 		for x in d:
 			var p: Vector2 = Vector2(float(x) - mid, float(y) - mid)
 			var dist: float = p.length()
+			if flat_style:
+				# Kenop flat: cincin madu, muka putih, titik madu; tanpa bayangan & kilap.
+				var fc: Color = Color(0.0, 0.0, 0.0, 0.0)
+				if dist <= r_out + 0.5:
+					var fa: float = clampf(r_out + 0.5 - dist, 0.0, 1.0)
+					var fcol: Color = rim
+					if dist <= r_face:
+						fcol = face
+						if dist <= r_dot:
+							fcol = Palette.HONEY if not highlight else Palette.HONEY.lightened(0.12)
+					fc = Color(fcol.r, fcol.g, fcol.b, fa)
+				img.set_pixel(x, y, fc)
+				continue
 			# Bayangan lembut di bawah kenop.
 			var sh: float = clampf((r_out + 3.0 * float(k) - Vector2(p.x, p.y - 2.5 * float(k)).length()) / (3.0 * float(k)), 0.0, 1.0)
 			var col: Color = Color(0.24, 0.12, 0.04, 0.28 * sh)
@@ -1488,24 +1605,25 @@ static func _switch_texture(on: bool, disabled: bool) -> ImageTexture:
 			var col: Color = Color(0.0, 0.0, 0.0, 0.0)
 			if dist <= r + 0.5:
 				var a: float = clampf(r + 0.5 - dist, 0.0, 1.0)
-				var c: Color = rim
+				var c: Color = track if flat_style else rim
 				if dist <= r - 2.0 * float(k):
 					c = track
-					# Bayangan dalam di bagian atas jalur.
-					if py < cy - (r - 6.0 * float(k)):
+					# Bayangan dalam di bagian atas jalur (bukan gaya flat).
+					if not flat_style and py < cy - (r - 6.0 * float(k)):
 						c = track.darkened(0.08)
 				col = Color(c.r, c.g, c.b, a)
-			var kd: float = Vector2(px - knob_x, py - cy + 1.0 * float(k)).length()
+			var kd: float = Vector2(px - knob_x, py - cy + (0.0 if flat_style else 1.0 * float(k))).length()
 			var shd: float = Vector2(px - knob_x, py - cy - 1.5 * float(k)).length()
-			if shd <= knob_r + 2.0 * float(k):
+			if not flat_style and shd <= knob_r + 2.0 * float(k):
 				col = col.blend(Color(0.24, 0.12, 0.04, 0.22 * clampf((knob_r + 2.0 * float(k) - shd) / (2.0 * float(k)), 0.0, 1.0)))
 			if kd <= knob_r + 0.5:
 				var ka: float = clampf(knob_r + 0.5 - kd, 0.0, 1.0)
-				var kc: Color = rim
+				var kc: Color = Palette.FLOUR_WHITE if flat_style else rim
 				if kd <= knob_r - 1.6 * float(k):
 					kc = Palette.FLOUR_WHITE
-					var hl: float = clampf(1.0 - Vector2(px - knob_x + knob_r * 0.3, py - cy + knob_r * 0.45).length() / (knob_r * 0.5), 0.0, 1.0)
-					kc = kc.lerp(Color.WHITE, hl * 0.6)
+					if not flat_style:
+						var hl: float = clampf(1.0 - Vector2(px - knob_x + knob_r * 0.3, py - cy + knob_r * 0.45).length() / (knob_r * 0.5), 0.0, 1.0)
+						kc = kc.lerp(Color.WHITE, hl * 0.6)
 				col = col.blend(Color(kc.r, kc.g, kc.b, ka))
 			img.set_pixel(x, y, col)
 	var tex: ImageTexture = ImageTexture.create_from_image(img)
@@ -1589,7 +1707,7 @@ class ButtonGloss extends Control:
 		resized.connect(queue_redraw)
 
 	func _draw() -> void:
-		if not enabled or size.x < 16.0 or size.y < 16.0:
+		if not enabled or ProceduralUIFactory.flat_style or size.x < 16.0 or size.y < 16.0:
 			return
 		var b: BaseButton = get_parent() as BaseButton
 		var down: bool = false
@@ -1599,9 +1717,9 @@ class ButtonGloss extends Control:
 			var mode: int = b.get_draw_mode()
 			down = mode == BaseButton.DRAW_PRESSED or mode == BaseButton.DRAW_HOVER_PRESSED
 		var edge: float = float(ProceduralUIFactory.EDGE)
-		var lip: float = float(ProceduralUIFactory.LIP)
+		var lip_px: float = float(ProceduralUIFactory.LIP)
 		var top: float = edge + 2.0 + (float(ProceduralUIFactory.PRESS_SHIFT) if down else 0.0)
-		var face_h: float = size.y - edge * 2.0 - lip
+		var face_h: float = size.y - edge * 2.0 - lip_px
 		var h: float = maxf(face_h * 0.42, 6.0)
 		var inset: float = minf(radius * 0.62, size.x * 0.24)
 		var r: Rect2 = Rect2(inset, top, size.x - inset * 2.0, h)
@@ -1630,7 +1748,7 @@ class CozyTabs extends PanelContainer:
 		size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		var sb: StyleBoxFlat = ProceduralUIFactory._inset_box(Palette.UI_CREAM_DEEP, 26)
 		sb.set_content_margin_all(4.0)
-		sb.content_margin_top = 5.0
+		sb.content_margin_top = 4.0 if ProceduralUIFactory.flat_style else 5.0
 		add_theme_stylebox_override("panel", sb)
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
@@ -1703,20 +1821,24 @@ class CozyBackdrop extends Control:
 		var h: float = size.y
 		if w < 2.0 or h < 2.0:
 			return
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0.0), Vector2(w, h), Vector2(0.0, h)]),
-			PackedColorArray([TOP, TOP, BOTTOM, BOTTOM]))
-		# Sinar matahari sore dari atas tengah, berputar sangat pelan.
-		var c: Vector2 = Vector2(w * 0.5, h * 0.30)
-		var reach: float = Vector2(w, h).length()
-		var rays: int = 18
-		for i in rays:
-			if i % 2 == 1:
-				continue
-			var a0: float = _t * 0.05 + TAU * float(i) / float(rays)
-			var a1: float = a0 + TAU / float(rays)
-			draw_polygon(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * reach, c + Vector2(cos(a1), sin(a1)) * reach]),
-				PackedColorArray([Color(1.0, 1.0, 1.0, 0.22), Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.0)]))
-		draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35))
+		if ProceduralUIFactory.flat_style:
+			# Gaya flat: satu warna krem polos, tanpa gradasi dan sinar matahari.
+			draw_rect(Rect2(0.0, 0.0, w, h), TOP.lerp(BOTTOM, 0.35))
+		else:
+			draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0.0), Vector2(w, h), Vector2(0.0, h)]),
+				PackedColorArray([TOP, TOP, BOTTOM, BOTTOM]))
+			# Sinar matahari sore dari atas tengah, berputar sangat pelan.
+			var c: Vector2 = Vector2(w * 0.5, h * 0.30)
+			var reach: float = Vector2(w, h).length()
+			var rays: int = 18
+			for i in rays:
+				if i % 2 == 1:
+					continue
+				var a0: float = _t * 0.05 + TAU * float(i) / float(rays)
+				var a1: float = a0 + TAU / float(rays)
+				draw_polygon(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * reach, c + Vector2(cos(a1), sin(a1)) * reach]),
+					PackedColorArray([Color(1.0, 1.0, 1.0, 0.22), Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.0)]))
+			draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35))
 		# Taplak gingham bergelombang di tepi bawah.
 		var band: float = minf(96.0, h * 0.14)
 		var top_y: float = h - band
@@ -1745,7 +1867,8 @@ class CozyBackdrop extends Control:
 		while x2 < w + scallop:
 			draw_circle(Vector2(x2, top_y), scallop * 0.62, Palette.GINGHAM_B)
 			x2 += scallop * 1.1
-		draw_rect(Rect2(0.0, top_y - 3.0, w, 3.0), Color(Palette.UI_WOOD, 0.10))
+		if not ProceduralUIFactory.flat_style:
+			draw_rect(Rect2(0.0, top_y - 3.0, w, 3.0), Color(Palette.UI_WOOD, 0.10))
 
 
 ## Bar kapasitas gudang: jalur membulat + isian berwarna + teks "N / M".
@@ -1795,8 +1918,9 @@ class PantryBar extends Control:
 		var txt: String = "%d / %d" % [value, max_value]
 		var baseline: float = r.size.y * 0.5 + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5
 		var tint: Color = Palette.TEXT if k < 0.5 else Palette.FLOUR_WHITE
-		draw_string(f, Vector2(0.0, baseline + 1.0), txt, HORIZONTAL_ALIGNMENT_CENTER,
-			r.size.x, fs, Color(0.0, 0.0, 0.0, 0.15))
+		if not ProceduralUIFactory.flat_style:
+			draw_string(f, Vector2(0.0, baseline + 1.0), txt, HORIZONTAL_ALIGNMENT_CENTER,
+				r.size.x, fs, Color(0.0, 0.0, 0.0, 0.15))
 		draw_string(f, Vector2(0.0, baseline), txt, HORIZONTAL_ALIGNMENT_CENTER,
 			r.size.x, fs, tint)
 
@@ -1875,7 +1999,8 @@ class ChalkDust extends Control:
 		if r.size.x < 40.0 or r.size.y < 40.0:
 			return
 		var dust: Color = Color(Palette.CHALK_WHITE, 0.055)
-		for i in 5:
+		# Sapuan kapur adalah tekstur; gaya flat tanpa tekstur.
+		for i in (0 if ProceduralUIFactory.flat_style else 5):
 			var y: float = r.size.y * (0.16 + 0.17 * float(i))
 			var x: float = r.size.x * (0.28 + 0.14 * float(i % 3))
 			draw_arc(Vector2(x, y), r.size.x * 0.30, PI * 0.15, PI * 0.85, 18, dust, 7.0, true)
