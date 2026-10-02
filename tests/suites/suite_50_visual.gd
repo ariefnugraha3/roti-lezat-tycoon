@@ -16,6 +16,7 @@ func tests() -> Array:
 		{"id": "ACC_31_HAIR_CLEAR", "name": "hair and hats never cover the eyes or brows", "fn": _hair_clear},
 		{"id": "ACC_31_DETERMINISM", "name": "the same customer seed builds the same character; seeds vary", "fn": _determinism},
 		{"id": "ACC_31_EXPRESSIONS", "name": "expressions reshape eyes, brows and mouth; carry pose holds items", "fn": _expressions},
+		{"id": "ACC_4_WALK_SMOOTH", "name": "4.2 walking takes calm steps (at most 3.6 a second, set by the on-screen speed), starts and stops without snapping, and stops stepping during a pause", "fn": _walk_smooth},
 	]
 
 
@@ -205,3 +206,66 @@ func _boxes(ch: Node3D) -> String:
 	for mi: MeshInstance3D in _meshes(ch):
 		parts.append("%s:%s:%d" % [mi.name, str(mi.get_meta("aabb")), int(mi.get_meta("tris"))])
 	return "|".join(parts)
+
+
+## Langkah tenang dan halus (perbaikan 2026-10-01: dulu ~12 langkah per detik).
+func _walk_smooth() -> void:
+	# Irama dari kecepatan nyata di layar, dengan batas.
+	near(ProceduralAnimationSystem.walk_steps_per_second(3.0), ProceduralAnimationSystem.WALK_STEPS_MAX, 0.001, "the player's 3 m/s caps at the calm maximum")
+	near(ProceduralAnimationSystem.walk_steps_per_second(1.4), 2.0, 0.001, "1.4 m/s takes 2 steps a second")
+	near(ProceduralAnimationSystem.walk_steps_per_second(0.2), ProceduralAnimationSystem.WALK_STEPS_MIN, 0.001, "a slow shuffle still steps at the minimum")
+	check(ProceduralAnimationSystem.WALK_STEPS_MAX <= 4.0, "never more than 4 steps a second")
+	# ActorView sungguhan: aktor pemain berjalan 3 m/detik nyata selama 2 detik.
+	var a := SimActor.new()
+	a.id = &"walker"
+	a.pos = Vector2(1.0, 1.0)
+	var v := ActorView.new()
+	runner.add_child(v)
+	v.bind(&"walker", "walker", CharacterFactory.spec_for_player("pria"))
+	v.sync(a, 0.016, true)
+	var leg: Node3D = CharacterFactory.part(v.model, "LegL")
+	var rest: float = leg.rotation.x
+	var dt: float = 1.0 / 60.0
+	a.moving = true
+	var phase_turns: float = 0.0
+	var last_phase: float = 0.0
+	var max_jump: float = 0.0
+	var prev: float = leg.rotation.x
+	var full_at: float = -1.0
+	for i in 120:
+		a.pos += Vector2(3.0 * dt, 0.0)
+		v.sync(a, dt, true)
+		var ph: float = v._walk_phase
+		phase_turns += fposmod(ph - last_phase, TAU)
+		last_phase = ph
+		max_jump = maxf(max_jump, absf(leg.rotation.x - prev))
+		prev = leg.rotation.x
+		if full_at < 0.0 and v.walk_weight() >= 0.999:
+			full_at = float(i + 1) * dt
+	var steps_per_s: float = phase_turns / PI / 2.0
+	check(steps_per_s > 2.5 and steps_per_s <= ProceduralAnimationSystem.WALK_STEPS_MAX + 0.05, "calm cadence while walking (%.2f steps/s)" % steps_per_s)
+	check(full_at > 0.1 and full_at < 0.5, "steps blend in within a fraction of a second (%.2f s)" % full_at)
+	check(max_jump < 0.12, "the leg never snaps between frames (max %.3f rad)" % max_jump)
+	# Berhenti: kaki kembali lurus pelan-pelan, tidak patah.
+	a.moving = false
+	max_jump = 0.0
+	var rest_at: float = -1.0
+	for j in 60:
+		v.sync(a, dt, true)
+		max_jump = maxf(max_jump, absf(leg.rotation.x - prev))
+		prev = leg.rotation.x
+		if rest_at < 0.0 and v.walk_weight() <= 0.0:
+			rest_at = float(j + 1) * dt
+	check(rest_at > 0.05 and rest_at < 0.5, "steps blend out within a fraction of a second (%.2f s)" % rest_at)
+	check(max_jump < 0.12, "stopping eases the leg back (max %.3f rad per frame)" % max_jump)
+	near(leg.rotation.x, rest, 0.001, "the leg is back at rest")
+	# Pause: aktor masih punya rute tetapi tidak bergerak -> tidak melangkah di tempat.
+	a.moving = true
+	for k in 30:
+		a.pos += Vector2(3.0 * dt, 0.0)
+		v.sync(a, dt, true)
+	for k2 in 60:
+		v.sync(a, dt, true)
+	check(v.walk_weight() <= 0.0, "a paused walker stops stepping instead of walking on the spot")
+	v.queue_free()
+	await runner.get_tree().process_frame

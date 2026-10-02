@@ -49,22 +49,38 @@ const META_TWEEN_DOOR: String = "rlt_tween_door"
 # GDD 4.2 — parameter jalan (gelombang sinus)
 # ---------------------------------------------------------------------------
 
-## Frekuensi dasar langkah dalam radian/detik pada speed = 1.0.
+## Frekuensi dasar langkah dalam radian/detik pada speed = 1.0 (hanya untuk
+## pemanggil lama `walk()`; aktor di dunia memakai `walk_cycle()`).
 const WALK_FREQ: float = 5.6
+## Irama langkah aktor di dunia (perbaikan 2026-10-01): langkah per detik NYATA
+## = kecepatan model di layar / panjang langkah, dibatasi supaya tidak pernah
+## tergopoh-gopoh (dulu ~12 langkah/detik) dan tetap hidup saat pelan. Pada
+## kecepatan 2x/3x iramanya tertahan di batas atas; kaki sedikit meluncur,
+## tetapi langkahnya tetap tenang.
+const WALK_STEP_LENGTH: float = 0.7
+const WALK_STEPS_MIN: float = 1.6
+const WALK_STEPS_MAX: float = 3.6
+## Laju peralihan diam <-> jalan (bobot per detik): mulai dan berhenti melangkah
+## dalam ~0,2 detik, tanpa pose yang patah.
+const WALK_BLEND_RATE: float = 5.5
 ## Amplitudo ayunan lengan (radian).
-const WALK_ARM_SWING: float = 0.52
+const WALK_ARM_SWING: float = 0.45
 ## Amplitudo ayunan kaki (radian).
-const WALK_LEG_SWING: float = 0.68
+const WALK_LEG_SWING: float = 0.60
 ## Tinggi pantulan badan tiap langkah (meter).
-const WALK_BOB: float = 0.030
+const WALK_BOB: float = 0.022
 ## Amplitudo anggukan kepala ceria (radian).
-const WALK_HEAD_NOD: float = 0.10
+const WALK_HEAD_NOD: float = 0.05
 ## Kemiringan kepala kiri-kanan mengikuti langkah (radian).
-const WALK_HEAD_TILT: float = 0.055
+const WALK_HEAD_TILT: float = 0.045
 ## Goyangan badan kiri-kanan (radian).
-const WALK_SWAY: float = 0.045
+const WALK_SWAY: float = 0.035
 ## Ayunan celemek yang menyusul gerak badan (radian).
-const WALK_APRON_SWAY: float = 0.038
+const WALK_APRON_SWAY: float = 0.032
+## Keterlambatan fase lengan dan celemek di belakang kaki (radian): gerak susulan
+## yang membuat langkah terasa luwes, bukan kaku serempak.
+const WALK_ARM_LAG: float = 0.28
+const WALK_APRON_LAG: float = 0.6
 ## Pengali gerak susulan topi koki terhadap kemiringan kepala.
 const HAT_FOLLOW_THROUGH: float = 1.35
 ## Batas bawah pengali amplitudo agar aktor sangat lambat tetap terlihat hidup.
@@ -232,59 +248,71 @@ const FLOAT_TEXT_Z: int = 120
 # Animasi per-frame (stateless)
 # ---------------------------------------------------------------------------
 
-## Ayunan langkah berbasis gelombang sinus (GDD 4.2).
-## `t` = waktu akumulatif detik, `speed` = pengali kecepatan jalan aktor.
-## Dipanggil tiap frame; seluruh pose dihitung ulang dari `t` sehingga aman
-## dipanggil dari mana pun tanpa menyimpan state.
+## Ayunan langkah berbasis gelombang sinus (GDD 4.2), versi stateless untuk
+## pemanggil lama dan tes: `t` = waktu akumulatif detik, `speed` = pengali.
+## Aktor di dunia memakai `walk_cycle()` dengan fase dan bobot milik ActorView.
 static func walk(actor: Node3D, t: float, speed: float) -> void:
+	var rate: float = maxf(speed, 0.15)
+	walk_cycle(actor, t * WALK_FREQ * rate, clampf(rate, WALK_AMP_MIN, 1.0))
+
+
+## Langkah kaki per detik nyata untuk model yang bergerak `speed_real` m/detik
+## di layar (lihat WALK_STEP_LENGTH).
+static func walk_steps_per_second(speed_real: float) -> float:
+	return clampf(speed_real / WALK_STEP_LENGTH, WALK_STEPS_MIN, WALK_STEPS_MAX)
+
+
+## Pose satu titik siklus langkah (GDD 4.2). `phase` (radian) maju terus-menerus
+## (pi per langkah), jadi perubahan kecepatan tidak membuat pose melompat.
+## `weight` 0..1 membaurkan dari pose diam ke langkah penuh, sehingga mulai dan
+## berhenti berjalan tidak patah. Semua gerak berupa kurva mulus: kaki = sin,
+## pantulan badan = kosinus dua kali per siklus (tertinggi saat kaki lurus di
+## bawah badan), lengan dan celemek menyusul sedikit di belakang kaki.
+static func walk_cycle(actor: Node3D, phase: float, weight: float) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return
-
-	var rate: float = maxf(speed, 0.15)
-	var phase: float = t * WALK_FREQ * rate
+	var w: float = clampf(weight, 0.0, 1.0)
 	var swing: float = sin(phase)
-	var bounce: float = absf(sin(phase))
-	var amp: float = clampf(rate, WALK_AMP_MIN, WALK_AMP_MAX)
+	var arm_swing: float = sin(phase - WALK_ARM_LAG)
+	var lift: float = 0.5 + 0.5 * cos(phase * 2.0)
 
 	# Kaki berlawanan fase satu sama lain.
 	var leg_l: Node3D = _part(actor, "LegL")
 	if leg_l != null:
-		leg_l.rotation.x = _rest_rot(leg_l).x + swing * WALK_LEG_SWING * amp
+		leg_l.rotation.x = _rest_rot(leg_l).x + swing * WALK_LEG_SWING * w
 	var leg_r: Node3D = _part(actor, "LegR")
 	if leg_r != null:
-		leg_r.rotation.x = _rest_rot(leg_r).x - swing * WALK_LEG_SWING * amp
+		leg_r.rotation.x = _rest_rot(leg_r).x - swing * WALK_LEG_SWING * w
 
 	# Lengan berlawanan fase terhadap kaki di sisi yang sama.
 	var arm_l: Node3D = _part(actor, "ArmL")
 	if arm_l != null:
-		arm_l.rotation.x = _rest_rot(arm_l).x - swing * WALK_ARM_SWING * amp * _swing_of(arm_l)
+		arm_l.rotation.x = _rest_rot(arm_l).x - arm_swing * WALK_ARM_SWING * w * _swing_of(arm_l)
 	var arm_r: Node3D = _part(actor, "ArmR")
 	if arm_r != null:
-		arm_r.rotation.x = _rest_rot(arm_r).x + swing * WALK_ARM_SWING * amp * _swing_of(arm_r)
+		arm_r.rotation.x = _rest_rot(arm_r).x + arm_swing * WALK_ARM_SWING * w * _swing_of(arm_r)
 
-	# Badan memantul dua kali per siklus langkah dan sedikit bergoyang.
+	# Badan naik saat kaki lurus di bawahnya, turun saat melangkah lebar.
 	var body: Node3D = _part(actor, "Body")
 	if body != null:
-		var body_rest: Vector3 = _rest_pos(body)
-		body.position.y = body_rest.y + bounce * WALK_BOB * amp
-		body.rotation.z = _rest_rot(body).z + swing * WALK_SWAY * amp
+		body.position.y = _rest_pos(body).y + lift * WALK_BOB * w
+		body.rotation.z = _rest_rot(body).z + swing * WALK_SWAY * w
 
-	# Anggukan kepala ceria: dua kali lebih cepat dari ayunan kaki.
-	var head_dy: float = bounce * WALK_BOB * 1.25 * amp
-	var head_roll: float = -swing * WALK_HEAD_TILT * amp
+	# Kepala ikut naik-turun dan mengangguk pelan sedikit di belakang badan.
+	var head_dy: float = lift * WALK_BOB * 1.1 * w
+	var head_roll: float = -arm_swing * WALK_HEAD_TILT * w
 	var head: Node3D = _part(actor, "Head")
 	if head != null:
-		var head_rest: Vector3 = _rest_pos(head)
 		var head_rot: Vector3 = _rest_rot(head)
-		head.position.y = head_rest.y + head_dy
-		head.rotation.x = head_rot.x + sin(phase * 2.0) * WALK_HEAD_NOD * amp
+		head.position.y = _rest_pos(head).y + head_dy
+		head.rotation.x = head_rot.x + sin(phase * 2.0 - 0.6) * WALK_HEAD_NOD * w
 		head.rotation.z = head_rot.z + head_roll
 	_follow_head(actor, head_dy, head_roll * HAT_FOLLOW_THROUGH)
 
 	# Celemek ikut berayun menyusul badan (GDD 4.1 -- kesan kain empuk).
 	var apron: Node3D = _part(actor, "Apron")
 	if apron != null:
-		apron.rotation.z = _rest_rot(apron).z + swing * WALK_APRON_SWAY * amp
+		apron.rotation.z = _rest_rot(apron).z + sin(phase - WALK_APRON_LAG) * WALK_APRON_SWAY * w
 
 
 ## Napas tenang saat aktor berdiri diam. Juga mengembalikan tangan & kaki ke pose

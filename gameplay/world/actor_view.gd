@@ -59,6 +59,11 @@ var _gesture: int = GESTURE_NONE
 var _cloth: Node3D = null
 var _zs: Array[Node3D] = []
 var _z_timer: float = 0.0
+## Langkah (GDD 4.2): fase siklus yang maju terus, bobot jalan 0..1 yang
+## dilunakkan, dan kecepatan model di layar (meter/detik nyata, dilunakkan).
+var _walk_phase: float = 0.0
+var _walk_w: float = 0.0
+var _vis_speed: float = 0.0
 
 
 func _init() -> void:
@@ -91,6 +96,9 @@ func reset_for_pool() -> void:
 	if _thought != null:
 		_thought.visible = false
 	_t = 0.0
+	_walk_phase = 0.0
+	_walk_w = 0.0
+	_vis_speed = 0.0
 	_idle_enabled = false
 	_busy = true
 	_action = &""
@@ -101,7 +109,10 @@ func reset_for_pool() -> void:
 func sync(a: SimActor, delta: float, animate: bool) -> void:
 	_t += delta
 	var target := Vector3(a.pos.x, 0.0, a.pos.y)
-	global_position = target if global_position.distance_to(target) > 1.5 else global_position.lerp(target, minf(1.0, delta * 18.0))
+	var before: Vector3 = global_position
+	var jumped: bool = global_position.distance_to(target) > 1.5
+	global_position = target if jumped else global_position.lerp(target, minf(1.0, delta * 18.0))
+	_update_walk(a, before, jumped, delta)
 	if a.facing.length_squared() > 0.0001:
 		# Wajah karakter menghadap -Z (CharacterFactory.FRONT).
 		var want: float = atan2(-a.facing.x, -a.facing.y)
@@ -111,8 +122,8 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 	_update_idle(a, delta)
 	if _action == &"pack" and not a.moving:
 		ProceduralAnimationSystem.pack(model, _t, _pack_p, _pack_n)
-	elif a.moving:
-		ProceduralAnimationSystem.walk(model, _t, a.speed_mps * 4.5)
+	elif _walk_w > 0.0:
+		ProceduralAnimationSystem.walk_cycle(model, _walk_phase, _walk_w)
 	else:
 		ProceduralAnimationSystem.idle_bob(model, _t)
 		if _looking:
@@ -130,6 +141,31 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 # ===========================================================================
 # GERAK MENGANGGUR (GDD 31.6) & AKSI
 # ===========================================================================
+
+## Irama langkah dari kecepatan model DI LAYAR (GDD 4.2, perbaikan 2026-10-01).
+## Dulu irama = kecepatan simulasi x 4,5 sehingga pemain melangkah ~12 kali per
+## detik. Kini langkah per detik mengikuti kecepatan nyata (termasuk kecepatan
+## 2x/3x dan pause) dengan batas atas yang tenang; fase maju terus tanpa
+## melompat, dan bobotnya naik-turun dalam ~0,2 detik saat mulai dan berhenti.
+## Saat game di-pause aktor yang sedang berjalan berhenti melangkah perlahan.
+func _update_walk(a: SimActor, before: Vector3, jumped: bool, delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var moved: float = 0.0 if jumped else Vector2(global_position.x - before.x, global_position.z - before.z).length()
+	_vis_speed = lerpf(_vis_speed, moved / delta, minf(1.0, delta * 10.0))
+	var walking: bool = a.moving and _vis_speed > 0.15
+	_walk_w = move_toward(_walk_w, 1.0 if walking else 0.0, delta * ProceduralAnimationSystem.WALK_BLEND_RATE)
+	if _walk_w > 0.0:
+		var steps: float = ProceduralAnimationSystem.walk_steps_per_second(_vis_speed)
+		_walk_phase = fposmod(_walk_phase + delta * PI * steps, TAU)
+	else:
+		_walk_phase = 0.0
+
+
+## Bobot langkah saat ini (0 = diam, 1 = berjalan penuh).
+func walk_weight() -> float:
+	return _walk_w
+
 
 ## Aktifkan gerak menganggur (pemain & staf). Pelanggan tidak pernah memakainya.
 func set_idle_enabled(on: bool) -> void:
