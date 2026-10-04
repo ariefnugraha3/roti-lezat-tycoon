@@ -1192,16 +1192,19 @@ static func _divider_register(parent: Node3D, index: int, pos: Vector3, trim: Co
 	# Laci uang: mukanya sedikit menjorok keluar di sisi kasir.
 	_box(reg, Vector3(0.19, 0.050, 0.016), shell.darkened(0.16), Vector3(0.0, 0.045, -0.094))
 	_box(reg, Vector3(0.070, 0.014, 0.014), trim, Vector3(0.0, 0.045, -0.104))
-	# Tiga tombol besar di permukaan atas badan.
+	# Tiga tombol besar di separuh badan yang dekat kasir, di depan layar.
 	for i in 3:
-		_box(reg, Vector3(0.040, 0.012, 0.034), trim, Vector3(-0.058 + float(i) * 0.058, 0.136, 0.030))
+		_box(reg, Vector3(0.040, 0.012, 0.034), trim, Vector3(-0.058 + float(i) * 0.058, 0.136, -0.045))
 
-	# Layar dimiringkan 18 derajat: mukanya (-Z lokal) condong ke atas, pas
-	# dibaca kasir yang berdiri di sisi dapur.
-	_box(reg, Vector3(0.050, 0.075, 0.030), shell.darkened(0.10), Vector3(0.0, 0.155, -0.040), Vector3(18.0, 0.0, 0.0))
-	var panel: MeshInstance3D = _slab(reg, Vector3(0.160, 0.105, 0.014), 0.008, DARK_GLASS, Vector3(0.0, 0.215, -0.052), Vector3(18.0, 0.0, 0.0))
+	# Layar berdiri di separuh belakang (sisi pembeli, +Z) dan dimiringkan 18
+	# derajat: mukanya (-Z lokal) condong ke atas, pas dibaca kasir dari balik
+	# tombol. Punggungnya bertutup krem agar dari sisi pembeli terbaca sebagai
+	# belakang monitor, bukan layar mati.
+	_box(reg, Vector3(0.050, 0.075, 0.030), shell.darkened(0.10), Vector3(0.0, 0.155, 0.052), Vector3(18.0, 0.0, 0.0))
+	var panel: MeshInstance3D = _slab(reg, Vector3(0.160, 0.105, 0.014), 0.008, DARK_GLASS, Vector3(0.0, 0.215, 0.040), Vector3(18.0, 0.0, 0.0))
 	var screen: MeshInstance3D = _box(panel, Vector3(0.130, 0.082, 0.004), Palette.PASTEL_MINT, Vector3(0.0, 0.0, -0.009))
 	_set_glow(screen, Palette.PASTEL_MINT, 0.6)
+	_box(panel, Vector3(0.136, 0.084, 0.006), shell.darkened(0.06), Vector3(0.0, 0.0, 0.009))
 	return reg
 
 
