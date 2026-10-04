@@ -13,3 +13,4 @@ static func clear_all() -> void:
 	MeshBuilder.clear_materials()
 	CharacterFactory.clear_caches()
 	DecorFactory.clear_caches()
+	BreadArt.clear_cache()

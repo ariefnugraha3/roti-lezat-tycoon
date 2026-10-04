@@ -4,6 +4,8 @@ extends UIScreen
 ## tombol Make hanya membuat job. Semua angka dibaca dari katalog.
 ##
 ## Tata letak (perbaikan 2026-10-02): hanya daftar resep di kiri yang digulir.
+## Setiap resep bergambar roti flat (BreadArt, keputusan maintainer 2026-10-04):
+## kecil di baris daftar, besar di samping judul rincian.
 ## Rincian di kanan muat tanpa gulir: judul dengan chip alat, kartu Ingredients
 ## dan Details berdampingan, satu baris harga (label, slider, nilai), satu baris
 ## reaksi pembeli dan harga referensi, lalu ukuran batch dan tombol Make dalam
@@ -18,6 +20,12 @@ const REACTION_ICONS: Dictionary = {
 	&"VERY_HAPPY": "heart", &"HAPPY": "happy", &"NEUTRAL": "bubble",
 	&"UNHAPPY": "sad", &"VERY_UNHAPPY": "angry", &"REFUSE": "cross",
 }
+## Sisi gambar roti (BreadArt) di baris daftar dan di samping judul rincian (px).
+## Di atas skala teks 100% rincian hampir tidak bersisa ruang, jadi gambar judul
+## mengecil setinggi judulnya supaya rincian tetap muat tanpa gulir.
+const LIST_ART: float = 46.0
+const HERO_ART: float = 96.0
+const HERO_ART_LARGE_TEXT: float = 44.0
 
 var _selected: StringName = &""
 var _batch: int = 1
@@ -66,22 +74,43 @@ func _render_list() -> void:
 		if r.category_id != last_cat:
 			last_cat = r.category_id
 			lbl(_list, "Tier %d" % r.required_mixer_tier, 14, Palette.TEXT_MUTED)
-		var reason: String = sim.production.make_block_reason(r.id, 1)
-		var b: Button = ProceduralUIFactory.button(Tx.recipe_name(r.id), "primary" if r.id == _selected else ("secondary" if reason == "" else "ghost"))
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		# Lebar daftar tetap; nama yang terlalu panjang (skala teks besar) dipotong
-		# dengan elipsis alih-alih melebarkan daftar dan menyempitkan rincian.
-		b.custom_minimum_size = Vector2(0, 52)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.tooltip_text = Tx.recipe_name(r.id)
-		var rid: StringName = r.id
-		b.pressed.connect(func() -> void:
-			_selected = rid
-			_render_list()
-			_render_detail())
-		_list.add_child(b)
+		_list.add_child(_row(r))
+
+
+## Satu baris daftar: gambar roti flat (keputusan maintainer 2026-10-04) lalu
+## namanya. Lebar daftar tetap; nama yang terlalu panjang (skala teks besar)
+## dipotong dengan elipsis alih-alih melebarkan daftar dan menyempitkan rincian.
+func _row(r: RecipeDefinition) -> Button:
+	var reason: String = sim.production.make_block_reason(r.id, 1)
+	var kind: String = "primary" if r.id == _selected else ("secondary" if reason == "" else "ghost")
+	var b: Button = ProceduralUIFactory.button("", kind)
+	b.name = String(r.id)
+	b.custom_minimum_size = Vector2(0, 56)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.tooltip_text = Tx.recipe_name(r.id)
+	var ink: Color = ProceduralUIFactory.kind_colors(kind)["ink"]
+	var row := HBoxContainer.new()
+	row.name = "Row"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 6.0
+	row.offset_right = -14.0
+	row.offset_bottom = -ProceduralUIFactory.content_lift()
+	row.add_theme_constant_override("separation", 8)
+	b.add_child(row)
+	row.add_child(BreadArt.for_recipe(r.id, LIST_ART))
+	var n: Label = ProceduralUIFactory.label(Tx.recipe_name(r.id), ProceduralUIFactory.FONT_BODY, ink)
+	n.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.clip_text = true
+	n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(n)
+	var rid: StringName = r.id
+	b.pressed.connect(func() -> void:
+		_selected = rid
+		_render_list()
+		_render_detail())
+	return b
 
 
 func _render_detail() -> void:
@@ -90,9 +119,7 @@ func _render_detail() -> void:
 	if r == null:
 		return
 	var head: HBoxContainer = hbox(_detail, 12)
-	var ic := CenterContainer.new()
-	ic.add_child(ProceduralUIFactory.icon("bread", 40, Palette.GOLDEN_CRUST))
-	head.add_child(ic)
+	head.add_child(BreadArt.for_recipe(r.id, HERO_ART if ProceduralUIFactory.text_scale <= 1.0 else HERO_ART_LARGE_TEXT))
 	var title: Label = lbl(head, Tx.recipe_name(r.id), 26, Palette.UI_WOOD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true

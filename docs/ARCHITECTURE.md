@@ -218,8 +218,10 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   their height.
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
   `CharacterFactory`, `RoomFactory`, `DecorFactory` (meshes); `ProceduralAnimationSystem`, `FX`
-  (animation and particles); `ProceduralUIFactory`, `IconCanvas` (UI). Their shared
-  caches are released by `ProceduralCaches.clear_all()` on exit.
+  (animation and particles); `ProceduralUIFactory`, `IconCanvas`, `BreadArt` (UI). Their shared
+  caches are released by `ProceduralCaches.clear_all()` on exit. `BreadArt` builds each
+  recipe picture once per `visual_profile_id` as a list of solid shapes in unit space
+  (`shapes()`), so tests can check them, and scales that list in `_draw()`.
 - Characters (GDD 31, 130.2): `CharacterFactory` places one `Node3D` pivot per animated
   segment (`Body` with `Apron`, `ArmL`, `ArmR`; `Head` with `Face`; `LegL`, `LegR`) and
   stitches every static shape of a segment into a single vertex-coloured mesh with
