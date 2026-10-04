@@ -193,6 +193,8 @@ func migrate(data: Dictionary) -> Dictionary:
 				d = _migrate_v3_to_v4(d)
 			4:
 				d = _migrate_v4_to_v5(d)
+			5:
+				d = _migrate_v5_to_v6(d)
 			_:
 				return {"ok": false, "error": "no migrator from v%d" % v}
 		v = int(d["schema_version"])
@@ -265,6 +267,82 @@ func _migrate_v4_to_v5(d: Dictionary) -> Dictionary:
 		jd.erase("protected")
 	d["schema_version"] = 5
 	return d
+
+
+## Calon yang dihapus dari roster (keputusan maintainer 2026-10-04, GDD 3.5).
+const RETIRED_STAFF: Dictionary = {
+	"cashier": ["staff_cashier_nadia", "staff_cashier_rian", "staff_cashier_lili", "staff_cashier_maya",
+		"staff_cashier_reza", "staff_cashier_dewi", "staff_cashier_hendra", "staff_cashier_citra",
+		"staff_cashier_kenji", "staff_cashier_grace"],
+	"baker": ["staff_baker_bagus", "staff_baker_rina", "staff_baker_doni", "staff_baker_aris",
+		"staff_baker_tari", "staff_baker_gilang", "staff_baker_sophie", "staff_baker_danu",
+		"staff_baker_pierre", "staff_baker_alistair"],
+}
+
+
+## v5: roster masih 15 kasir + 15 koki. Staf rekrutan yang dihapus dari roster
+## menjadi calon tersisa berperan sama yang belum direkrut (urut katalog), yang
+## paling awal direkrut lebih dulu; ID-nya diganti di seluruh save (kontrak,
+## aktor, jalur, klaim job, baris gaji). Yang tidak kebagian calon pasti di atas
+## batas staf mana pun, jadi diberhentikan di sini tanpa biaya.
+func _migrate_v5_to_v6(d: Dictionary) -> Dictionary:
+	var staff: Dictionary = d.get("staff", {})
+	var contracts: Dictionary = staff.get("contracts", {})
+	var rename: Dictionary = {}
+	var dropped: Array[String] = []
+	for role: String in RETIRED_STAFF.keys():
+		var retired: Array = RETIRED_STAFF[role]
+		var hired: Array = []
+		for k: Variant in contracts.keys():
+			if retired.has(str(k)):
+				hired.append(str(k))
+		hired.sort_custom(func(a: String, b: String) -> bool:
+			var da: int = int((contracts[a] as Dictionary).get("hired_day", 0)) if contracts[a] is Dictionary else 0
+			var db: int = int((contracts[b] as Dictionary).get("hired_day", 0)) if contracts[b] is Dictionary else 0
+			if da != db:
+				return da < db
+			return a < b)
+		var free: Array[String] = []
+		for s: StaffDefinition in DataRegistry.staff_list():
+			if String(s.role_id) == role and not contracts.has(String(s.id)):
+				free.append(String(s.id))
+		for i in hired.size():
+			if i < free.size():
+				rename[hired[i]] = free[i]
+			else:
+				dropped.append(hired[i])
+	for gone: String in dropped:
+		for part: String in ["contracts", "actors", "tasks", "lane_assign"]:
+			(staff.get(part, {}) as Dictionary).erase(gone)
+	if not rename.is_empty():
+		d = _renamed(d, rename) as Dictionary
+		var moved := PackedStringArray()
+		for k2: Variant in rename.keys():
+			moved.append("%s -> %s" % [k2, rename[k2]])
+		GameLogger.important("SAVE", "roster cut: %s" % ", ".join(moved))
+	if not dropped.is_empty():
+		GameLogger.important("SAVE", "roster cut, over every staff limit, dismissed: %s" % ", ".join(dropped))
+	d["schema_version"] = 6
+	return d
+
+
+## Salinan `v` dengan setiap kunci dan nilai teks yang persis sama dengan kunci
+## `rename` diganti nilainya.
+static func _renamed(v: Variant, rename: Dictionary) -> Variant:
+	if v is Dictionary:
+		var out: Dictionary = {}
+		for k: Variant in (v as Dictionary).keys():
+			var nk: Variant = rename.get(k, k) if k is String else k
+			out[nk] = _renamed((v as Dictionary)[k], rename)
+		return out
+	if v is Array:
+		var arr: Array = []
+		for item: Variant in v:
+			arr.append(_renamed(item, rename))
+		return arr
+	if v is String:
+		return rename.get(v, v)
+	return v
 
 
 # ===========================================================================

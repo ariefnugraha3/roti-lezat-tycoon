@@ -10,7 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "the player falls asleep when the last quiet-shop thought ends (45 s), never under a bubble", "fn": _doze_after_thoughts},
 		{"id": "ACC_21_PACK_CHOREOGRAPHY", "name": "packing reads as open bag, bread hops in one by one, ribbon, offer; cashier and customer hands follow", "fn": _pack_choreography},
 		{"id": "ACC_18_BATCH_DURATION", "name": "x3/x5 batches multiply ingredients and yield but only stretch durations by 20%/40%", "fn": _batch_duration},
-		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face every 7.5 s; staff doze at 12.5 s, the player at 45 s", "fn": _idle_gestures},
+		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face every 7.5 s; staff never doze, the player dozes at 45 s", "fn": _idle_gestures},
 		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear every 10 s only while the open shop has no customers", "fn": _thoughts},
 	]
 
@@ -97,18 +97,17 @@ func _batch_duration() -> void:
 func _idle_gestures() -> void:
 	PauseManager.clear_all()
 	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
-	var staff_doze: float = DataRegistry.balf("presentation.staff_doze_after_seconds")
 	var player_doze: float = DataRegistry.player_doze_after_seconds()
 	near(every, 7.5, 0.0001, "a face wipe every 7.5 s (GDD 31.6)")
-	near(staff_doze, 12.5, 0.0001, "staff doze after 12.5 s (GDD 31.6)")
 	near(player_doze, 45.0, 0.0001, "the player dozes when the last thought ends: 40 s + 5 s")
-	# Staf: ambang tidur bawaan.
+	check(not (DataRegistry.bal("presentation") as Dictionary).has("staff_doze_after_seconds"), "there is no staff doze threshold any more")
+	# Staf: tanpa ambang tidur (keputusan maintainer 2026-10-04).
 	var v := ActorView.new()
 	runner.add_child(v)
 	v.bind(&"staff_cashier_budi", "staff|idle_test", CharacterFactory.spec_for_player("pria"))
 	v.set_idle_enabled(true)
 	v.set_busy(false)
-	near(v.doze_after(), staff_doze, 0.0001, "views use the staff threshold unless told otherwise")
+	check(is_inf(v.doze_after()), "views never doze unless told otherwise")
 	var a := SimActor.new()
 	_run_view(v, a, every - 0.2)
 	eq(v.gesture(), ActorView.GESTURE_NONE, "nothing special before 7.5 s")
@@ -124,13 +123,20 @@ func _idle_gestures() -> void:
 	eq(v.gesture(), ActorView.GESTURE_NONE, "wipe ends after the gesture")
 	check(not (cloth as Node3D).visible, "cloth is put away")
 	eq(v.model.get_meta("mood"), "senang", "normal face again")
-	_run_view(v, a, staff_doze - v.idle_seconds() + 0.2)
-	eq(v.gesture(), ActorView.GESTURE_DOZE, "staff doze at 12.5 s")
-	eq(v.model.get_meta("mood"), "ngantuk", "sleepy face")
-	var head: Node3D = CharacterFactory.part(v.model, "Head")
-	_run_view(v, a, 2.0)
-	check(head.rotation.x < -0.05, "head droops forward")
-	check(v.find_child("SleepZ", true, false) != null, "floating Z letters appear")
+	# Staf yang lama diam hanya mengelap wajah, tiap 7,5 detik, tanpa pernah tertidur.
+	var staff_wipes: int = 0
+	var staff_dozed: bool = false
+	var was: int = v.gesture()
+	while v.idle_seconds() < 118.0:
+		_run_view(v, a, 0.1)
+		var g0: int = v.gesture()
+		if g0 == ActorView.GESTURE_WIPE and was != ActorView.GESTURE_WIPE:
+			staff_wipes += 1
+		staff_dozed = staff_dozed or g0 == ActorView.GESTURE_DOZE
+		was = g0
+	check(not staff_dozed and v.model.get_meta("mood") != "ngantuk", "staff never doze, even after almost two minutes")
+	eq(staff_wipes, 14, "they keep wiping their face every 7.5 s instead (15 to 112.5 s)")
+	check(v.find_child("SleepZ", true, false) == null, "no Z letters over staff")
 	# Game di-pause: timer berhenti.
 	var before: float = v.idle_seconds()
 	PauseManager.push(&"test_idle")

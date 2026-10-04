@@ -70,6 +70,10 @@ var _thought_layer: CanvasLayer = null
 var _thought_bubble: ThoughtBubble = null
 ## customer_id -> gelembung celetukan pengunjung lihat-lihat (GDD 20.12).
 var _shopper_bubbles: Dictionary = {}
+## staff_id -> gelembung celetukan staf yang menganggur (GDD 31.8), dan
+## staff_id -> {day, count, slot, line}: celetukan hari ini (tidak disimpan).
+var _staff_bubbles: Dictionary = {}
+var _staff_said: Dictionary = {}
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
 ## Barang yang sedang dipegang di Decoration Mode (GDD 72.2): {kind
@@ -337,6 +341,7 @@ func _process(delta: float) -> void:
 	_sync_actors(delta)
 	_update_thoughts(delta)
 	_update_shopper_lines()
+	_update_staff_lines(delta)
 	_marker_timer -= delta
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ
@@ -380,6 +385,10 @@ func _sync_actors(delta: float) -> void:
 		if sv0 != null:
 			sv0.set_idle_enabled(true)
 			sv0.set_busy(_staff_busy(StringName(str(sid)), a))
+			# Gerak menganggur bergiliran (GDD 31.6), digeser per urutan roster supaya
+			# dua staf yang sama-sama diam tidak bergerak kembar.
+			var sdef: StaffDefinition = DataRegistry.staff(StringName(str(sid)))
+			sv0.set_idle_gestures(ActorView.staff_gestures(), staff_index(StringName(str(sid))), sdef != null and sdef.is_baker())
 			sv0.set_action(&"pack" if packers.has(a.id) else &"")
 			_apply_pack(sv0, packers.get(a.id))
 			sv0.set_seat(_seat_of(a))
@@ -706,6 +715,110 @@ static func shopper_line_key(c: Customer) -> String:
 
 func shopper_bubble(customer_id: StringName) -> ThoughtBubble:
 	return _shopper_bubbles.get(customer_id)
+
+
+## Celetukan staf yang menganggur (keputusan maintainer 2026-10-04, GDD 31.8,
+## 127.24). Seorang staf berceletuk paling sering sekali tiap
+## `staff_line_every_seconds` detik nyata, dan hanya setelah ia diam paling
+## sedikit `staff_line_first_seconds`: gelembung satu kalimat muncul di atas
+## kepalanya. Yang pertama tiap hari menghitung hari kerjanya; sisanya
+## bergiliran dari kalimat umum, kalimat perannya, dan kalimat khasnya. Murni
+## presentasi: tanpa RNG simulasi, tidak disimpan, tidak menangkap ketukan, dan
+## disembunyikan di Decoration Mode atau bila ia di lantai lain.
+func _update_staff_lines(delta: float) -> void:
+	var live: Dictionary = {}
+	var paused: bool = PauseManager.is_paused()
+	for sid: Variant in sim.staff.actors.keys():
+		var id := StringName(str(sid))
+		var v: ActorView = views.get((sim.staff.actors[sid] as SimActor).id)
+		if v == null:
+			continue
+		var said: Dictionary = _staff_said.get(id, {})
+		if int(said.get("day", -1)) != sim.time.day:
+			said = {"day": sim.time.day, "count": 0, "wait": staff_line_first_wait(staff_index(id)), "left": 0.0, "line": {}}
+			_staff_said[id] = said
+		var step: float = 0.0 if paused else delta
+		said["wait"] = float(said["wait"]) + step
+		if float(said["left"]) > 0.0:
+			# Begitu sibuk, gelembungnya langsung hilang.
+			said["left"] = 0.0 if v.idle_seconds() <= 0.0 else float(said["left"]) - step
+		elif staff_line_due(float(said["wait"]), v.idle_seconds()):
+			var day_n: int = sim.time.day - int(sim.staff.contract(id).get("hired_day", sim.time.day))
+			said["line"] = staff_line(id, int(said["count"]), day_n, sim.time.day)
+			said["count"] = int(said["count"]) + 1
+			said["left"] = DataRegistry.balf("presentation.thought_show_seconds")
+			said["wait"] = 0.0
+		if float(said["left"]) <= 0.0 or decoration_mode or not v.visible:
+			continue
+		live[id] = true
+		var b: ThoughtBubble = _staff_bubbles.get(id)
+		if b == null:
+			b = ThoughtBubble.new()
+			b.name = "StaffLine"
+			_thought_layer.add_child(b)
+			_staff_bubbles[id] = b
+		var line: Dictionary = said["line"]
+		b.show_key(str(line["key"]), line["params"])
+		b.point_at(camera_rig.world_to_screen(v.head_anchor() + Vector3(0.0, THOUGHT_ANCHOR_GAP, 0.0)))
+	for id2: Variant in _staff_bubbles.keys():
+		if live.has(id2):
+			continue
+		var b2: ThoughtBubble = _staff_bubbles[id2]
+		if sim.staff.actors.has(id2):
+			b2.hide_bubble()
+		else:
+			b2.queue_free()
+			_staff_bubbles.erase(id2)
+
+
+## Jeda awal hari staf ke-`index` (urutan roster): kalimat pertamanya jatuh
+## tempo setelah `index` x `staff_line_stagger_seconds` (modulo periode), supaya
+## staf tidak berceletuk bersamaan (GDD 31.8).
+static func staff_line_first_wait(index: int) -> float:
+	var every: float = DataRegistry.balf("presentation.staff_line_every_seconds")
+	return every - fposmod(float(index) * DataRegistry.balf("presentation.staff_line_stagger_seconds"), every)
+
+
+## true bila staf yang sudah `wait` detik nyata sejak celetukan terakhirnya dan
+## sedang diam `idle` detik boleh berceletuk sekarang.
+static func staff_line_due(wait: float, idle: float) -> bool:
+	return wait >= DataRegistry.balf("presentation.staff_line_every_seconds") 		and idle >= DataRegistry.balf("presentation.staff_line_first_seconds")
+
+
+## Kalimat celetukan ke-`count` hari ini (0 = pertama) dari staf `sid` di hari
+## kerjanya yang ke-`day_n`: {key, params}. Yang pertama menghitung hari kerja;
+## sisanya bergiliran tanpa berulang dalam sehari, mulai dari tempat yang
+## berbeda tiap staf dan tiap hari.
+static func staff_line(sid: StringName, count: int, day_n: int, game_day: int) -> Dictionary:
+	if count <= 0:
+		if day_n <= 1:
+			return {"key": DataRegistry.STAFF_LINE_FIRST_DAY, "params": {}}
+		return {"key": DataRegistry.STAFF_LINE_DAY_N, "params": {"n": day_n}}
+	var pool: Array[String] = staff_line_pool(sid)
+	return {"key": pool[posmod(staff_index(sid) * 5 + game_day * 3 + count - 1, pool.size())], "params": {}}
+
+
+## Kalimat yang bisa diucapkan staf `sid`: umum, perannya, lalu kalimat khasnya.
+static func staff_line_pool(sid: StringName) -> Array[String]:
+	var pool: Array[String] = DataRegistry.STAFF_LINES.duplicate()
+	var def: StaffDefinition = DataRegistry.staff(sid)
+	if def != null:
+		pool.append_array(DataRegistry.STAFF_LINES_BAKER if def.is_baker() else DataRegistry.STAFF_LINES_CASHIER)
+		pool.append(DataRegistry.staff_personal_line(sid))
+	return pool
+
+
+## Urutan staf `sid` di roster (0..), atau 0 bila tidak dikenal.
+static func staff_index(sid: StringName) -> int:
+	var list: Array[StaffDefinition] = DataRegistry.staff_list()
+	for i in list.size():
+		if list[i].id == sid:
+			return i
+	return 0
+
+
+func staff_bubble(staff_id: StringName) -> ThoughtBubble:
+	return _staff_bubbles.get(staff_id)
 
 
 ## Toko buka tanpa pembeli di dalam dan tanpa pesanan RotiFood aktif (GDD 31.7).

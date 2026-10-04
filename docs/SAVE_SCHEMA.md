@@ -44,7 +44,7 @@ Every read goes through `migrate()` and `validate_save()`. The result reports
 between simulation ticks. Critical saves happen on day settlement, the new day,
 location upgrade and focus loss.
 
-## Root shape (schema 5)
+## Root shape (schema 6)
 
 Every key below is present in every save. `REQUIRED_KEYS` in `save_manager.gd` lists
 the ones that validation checks.
@@ -113,6 +113,8 @@ the ones that validation checks.
 | 2 → 3 | Adds `catalog_versions`, `ui_restore`, `active_floor_id`, `flags.last_freshness_rollover_day` (= day − 1) and `flags.economy_overflowed`. |
 | 3 → 4 | Version bump only. Job fields `table_age_hours`/`table_seq` and `next_table_seq` default to 0/1. A save without a Holding Table gets one created and auto-placed in the kitchen on load (`SimulationRoot._ensure_table`). |
 | 4 → 5 | Staff rework (GDD 3, 23; maintainer decision 2026-10-02). Drops the bakers' `mode`, `target_recipe` and `batch` and the staff `tasks`; jobs owned by a baker become kitchen orders (`owner_actor_id = "kitchen"`), staff claims are cleared and the job field `protected` is dropped. On load, staff above the new limits are dismissed newest hire first (`StaffManager.enforce_capacity`), staff chairs are created and auto-placed (`SimulationRoot._ensure_chairs`), and furniture that now covers a new lane cell, or lost its access tile, is re-placed with its contents (`WorldManager.release_conflicts`). |
+
+| 5 → 6 | Roster cut (GDD 3.5, 106; maintainer decision 2026-10-04): five cashier and five baker candidates remain. Every hired candidate who was removed becomes the first remaining candidate of the same role who is not hired yet (catalog order, earliest hire first; `SaveManager.RETIRED_STAFF`). The ID is renamed everywhere in the save (contracts, staff actors, lane assignments, job claims, wage lines). A removed hire with no free candidate left is dismissed without cost, since it would be over every staff limit. |
 
 A save whose `schema_version` is newer than the game is refused. It is never
 downgraded or overwritten.

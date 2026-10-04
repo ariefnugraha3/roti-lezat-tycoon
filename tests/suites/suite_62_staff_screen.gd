@@ -50,12 +50,12 @@ func _employ(sim: SimulationRoot, id: StringName) -> void:
 func _no_side_scroll() -> void:
 	var game: GameRoot = await _boot()
 	var sim: SimulationRoot = game.sim
-	# Kasir bertier 4 (dua kemampuan khusus) dan baker bertier 5 dengan mode Target
-	# Recipe: rincian terpanjang di tab Your Team.
-	_employ(sim, &"staff_cashier_hendra")
-	_employ(sim, &"staff_baker_alistair")
-	sim.staff.contracts[&"staff_baker_alistair"]["mode"] = "target"
-	sim.staff.contracts[&"staff_baker_alistair"]["target_recipe"] = "recipe_truffle_bun"
+	# Kasir dan koki dengan bio terpanjang di tab Your Team; koki membawa
+	# pengaturan kerja lama yang harus diabaikan.
+	_employ(sim, &"staff_cashier_budi")
+	_employ(sim, &"staff_baker_ani")
+	sim.staff.contracts[&"staff_baker_ani"]["mode"] = "target"
+	sim.staff.contracts[&"staff_baker_ani"]["target_recipe"] = "recipe_truffle_bun"
 	var was_scale: float = ProceduralUIFactory.text_scale
 	for pct: int in [100, 125]:
 		ProceduralUIFactory.text_scale = float(pct) / 100.0
@@ -83,9 +83,11 @@ func _no_side_scroll() -> void:
 				worst_x = maxf(worst_x, need.x - area.size.x)
 			check(worst_y <= 0.5, "%d%%, tab %d: every detail fits without scrolling (worst %s by %.0f px)" % [pct, tab, worst_id, maxf(worst_y, 0.0)])
 			check(worst_x <= 0.5, "%d%%, tab %d: no detail is wider than its area (%.0f px)" % [pct, tab, maxf(worst_x, 0.0)])
-			if tab == 1:
-				var list_area: Control = st._list.get_parent() as Control
-				check(st._list.get_combined_minimum_size().y > list_area.size.y, "%d%%: the long applicant list is the part that scrolls, downwards" % pct)
+			# Roster ringkas (keputusan maintainer 2026-10-04): daftarnya bisa muat
+			# tanpa gulir, tetapi tetap satu-satunya bagian yang boleh digulir, ke bawah.
+			var list_area: ScrollContainer = st._list.get_parent() as ScrollContainer
+			check(list_area != null and list_area.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED,
+				"%d%%, tab %d: the staff list is the part that scrolls, downwards" % [pct, tab])
 	ProceduralUIFactory.text_scale = was_scale
 	await _finish(game)
 

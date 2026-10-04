@@ -238,10 +238,16 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   customer's `receive` pose, so hands and bag share the `pack_phases` beats. It also tells each player/staff
   `ActorView` whether it is busy, and drives the player's `ThoughtBubble`
   (`ui/components/thought_bubble.gd`, screen space) from the real-time "open shop, no
-  customers" timer. `ActorView` owns the idle timer (a face wipe every 7.5 s, then dozing
-  with floating "Z": staff at 12.5 s, the player at `DataRegistry.player_doze_after_seconds`,
-  when the last thought ends); both timers use real seconds and stop while the game is
-  paused. In Decoration Mode `WorldView` hides station markers and draws the held
+  customers" timer. `ActorView` owns the idle timer (a gesture every 7.5 s: the player
+  wipes the face, staff take turns through `staff_idle_gestures` via
+  `set_idle_gestures`; only the player dozes with floating "Z", at
+  `DataRegistry.player_doze_after_seconds`, when the last thought ends). The teacup
+  and coin are children of the `ActorView`, placed at the right hand each frame
+  (`_update_props`), and notes, steam and flour puffs float like the "Z"
+  (`_update_floaters`). Both timers use real seconds and stop while the game is
+  paused. `WorldView._update_staff_lines` shows idle staff's lines (GDD 31.8) in one
+  `ThoughtBubble` per staff member: at most one line a minute each, and only after a
+  few seconds of idling. In Decoration Mode `WorldView` hides station markers and draws the held
   item at its candidate spot (`hold`/`release_hold`, GDD 72.2): the real model is
   re-posed (or a temporary one is built for an item in storage), lifted, re-applied
   after every rebuild, and put back on Cancel; the simulation layout changes only when

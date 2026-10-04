@@ -6,11 +6,14 @@ extends Node3D
 ## `reset_for_pool()` sebelum dipakai ulang (GDD 91.2, 115.2).
 ##
 ## Pemain & staf juga punya gerak menganggur murni visual (GDD 31.6): setiap
-## `idle_wipe_every_seconds` detik NYATA tanpa aktivitas mereka mengelap wajah
-## dengan kain lap, sampai ambang tidurnya tercapai lalu terkantuk-kantuk. Staf
-## tertidur setelah `staff_doze_after_seconds`; pemain baru saat gelembung pikiran
-## terakhir hilang (`DataRegistry.player_doze_after_seconds`, diatur WorldView).
-## Timer tidak berjalan saat game di-pause dan tidak pernah memengaruhi simulasi.
+## `idle_wipe_every_seconds` detik NYATA tanpa aktivitas mereka memainkan satu
+## gerakan. Pemain selalu mengelap wajah dengan kain lap; staf bergiliran
+## mengelap wajah, meregangkan badan, bersenandung, minum teh, dan gerak khas
+## perannya (keputusan maintainer 2026-10-04, `set_idle_gestures`). Hanya pemain
+## yang bisa terkantuk-kantuk, saat gelembung pikiran terakhir hilang
+## (`DataRegistry.player_doze_after_seconds`, diatur WorldView); staf tidak
+## pernah tertidur. Timer tidak berjalan saat game di-pause dan tidak pernah
+## memengaruhi simulasi.
 
 const PATIENCE_Y: float = 1.08
 const BUBBLE_Y: float = 1.30
@@ -19,9 +22,22 @@ const TURN_SPEED: float = 10.0
 const GESTURE_NONE: int = 0
 const GESTURE_WIPE: int = 1
 const GESTURE_DOZE: int = 2
-## Huruf "Z" kantuk: jarak antar-kemunculan, umur, jumlah maksimum sekaligus.
-const Z_EVERY: float = 1.5
-const Z_LIFE: float = 2.0
+const GESTURE_STRETCH: int = 3
+const GESTURE_HUM: int = 4
+const GESTURE_TEA: int = 5
+## Gerak khas peran: kasir melempar koin, koki menepuk tepung dari celemek.
+const GESTURE_ROLE: int = 6
+## Nama gerakan di data (`presentation.staff_idle_gestures`) -> konstanta.
+const GESTURE_IDS: Dictionary = {
+	"wipe": GESTURE_WIPE, "stretch": GESTURE_STRETCH, "hum": GESTURE_HUM, "tea": GESTURE_TEA, "role": GESTURE_ROLE,
+}
+## Benda melayang dari gerak menganggur: jarak antar-kemunculan dan umur
+## (detik), serta skala puncaknya. Batas jumlah sekaligus per aktor.
+const FLOAT_EVERY: Dictionary = {"z": 1.5, "note": 0.55, "steam": 0.32, "flour": 0.24}
+const FLOAT_LIFE: Dictionary = {"z": 2.0, "note": 1.6, "steam": 1.1, "flour": 0.7}
+const FLOAT_SCALE: Dictionary = {"note": 1.5, "steam": 2.2, "flour": 1.8}
+const FLOATER_MAX: int = 6
+## Huruf "Z" kantuk: jumlah maksimum sekaligus.
 const Z_MAX: int = 3
 ## Titik lahir huruf "Z": sedikit ke samping, tepat di atas puncak kepala/topi.
 const Z_SIDE: float = 0.12
@@ -52,13 +68,25 @@ var _receive_k: float = 0.0
 var _looking: bool = false
 ## Tidur ditahan sementara (pemain: rangkaian pikiran toko sepi belum selesai, GDD 31.6).
 var _doze_blocked: bool = false
-## Ambang tidur aktor ini (detik nyata); < 0 = ambang staf.
-var _doze_after: float = -1.0
+## Ambang tidur aktor ini (detik nyata); INF = tidak pernah tertidur (staf).
+var _doze_after: float = INF
 var _idle_real: float = 0.0
 var _gesture: int = GESTURE_NONE
 var _cloth: Node3D = null
-var _zs: Array[Node3D] = []
-var _z_timer: float = 0.0
+## Cangkir teh & koin kasir: anak ActorView yang ditempatkan di tangan kanan
+## tiap frame (bukan anak lengan, supaya tetap tegak / bebas melambung).
+var _cup: Node3D = null
+var _coin: Node3D = null
+## Gerakan yang dipakai bergiliran tiap tanda (pemain: lap wajah saja), geseran
+## urutannya (staf: urutan roster), dan apakah ia koki (gerak khas perannya).
+var _rotation: Array[int] = [GESTURE_WIPE]
+var _rotation_offset: int = 0
+var _baker: bool = false
+## Benda melayang yang sedang hidup ("z", "note", "steam", "flour").
+var _floaters: Array[Node3D] = []
+var _float_timer: float = 0.0
+var _float_count: int = 0
+static var _staff_rotation: Array[int] = []
 ## Langkah (GDD 4.2): fase siklus yang maju terus, bobot jalan 0..1 yang
 ## dilunakkan, dan kecepatan model di layar (meter/detik nyata, dilunakkan).
 var _walk_phase: float = 0.0
@@ -127,11 +155,7 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 	_update_idle(a, delta)
 	if _seat != Vector3.INF:
 		ProceduralAnimationSystem.idle_bob(model, _t)
-		match _gesture:
-			GESTURE_WIPE:
-				ProceduralAnimationSystem.wipe_face(model, _wipe_progress(), _t)
-			GESTURE_DOZE:
-				ProceduralAnimationSystem.doze(model, _t)
+		_play_gesture()
 		ProceduralAnimationSystem.sit(model, _t, _seat.y, _gesture == GESTURE_NONE)
 	elif _action == &"pack" and not a.moving:
 		ProceduralAnimationSystem.pack(model, _t, _pack_p, _pack_n)
@@ -143,12 +167,9 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 			ProceduralAnimationSystem.look_around(model, _t)
 		if _receive_k > 0.0:
 			ProceduralAnimationSystem.receive(model, _t, _receive_k)
-		match _gesture:
-			GESTURE_WIPE:
-				ProceduralAnimationSystem.wipe_face(model, _wipe_progress(), _t)
-			GESTURE_DOZE:
-				ProceduralAnimationSystem.doze(model, _t)
-	_update_zs(delta)
+		_play_gesture()
+	_update_props()
+	_update_floaters(delta)
 
 
 # ===========================================================================
@@ -200,6 +221,35 @@ func set_idle_enabled(on: bool) -> void:
 	_idle_enabled = on
 
 
+## Gerak menganggur staf (GDD 31.6): `gestures` dimainkan bergiliran, satu per
+## tanda `idle_wipe_every_seconds`, mulai dari urutan ke-`offset`; `baker`
+## memilih gerak khas koki (menepuk tepung) alih-alih kasir (melempar koin).
+func set_idle_gestures(gestures: Array[int], offset: int, baker: bool) -> void:
+	_rotation = gestures
+	_rotation_offset = offset
+	_baker = baker
+
+
+## Urutan gerak menganggur staf dari data (`presentation.staff_idle_gestures`).
+static func staff_gestures() -> Array[int]:
+	if _staff_rotation.is_empty():
+		for g: Variant in DataRegistry.bal("presentation.staff_idle_gestures"):
+			_staff_rotation.append(int(GESTURE_IDS.get(str(g), GESTURE_WIPE)))
+	return _staff_rotation
+
+
+## Lama satu gerakan (detik nyata): lap wajah memakai `wipe_gesture_seconds`,
+## gerakan staf lainnya `staff_gesture_seconds`.
+static func gesture_seconds(g: int) -> float:
+	if g == GESTURE_WIPE:
+		return DataRegistry.balf("presentation.wipe_gesture_seconds")
+	var durations: Dictionary = DataRegistry.bal("presentation.staff_gesture_seconds")
+	for key: Variant in GESTURE_IDS.keys():
+		if int(GESTURE_IDS[key]) == g:
+			return float(durations.get(key, 1.0))
+	return 1.0
+
+
 ## Apakah aktor sedang mengerjakan sesuatu (dihitung WorldView dari state sim).
 func set_busy(busy: bool) -> void:
 	_busy = busy
@@ -224,13 +274,14 @@ func set_doze_blocked(on: bool) -> void:
 	_doze_blocked = on
 
 
-## Ambang tidur khusus aktor ini (pemain, GDD 31.6); < 0 memakai ambang staf.
+## Ambang tidur aktor ini (pemain, GDD 31.6). Tanpa ambang (staf) ia tidak
+## pernah tertidur.
 func set_doze_after(seconds: float) -> void:
 	_doze_after = seconds
 
 
 func doze_after() -> float:
-	return _doze_after if _doze_after >= 0.0 else DataRegistry.balf("presentation.staff_doze_after_seconds")
+	return _doze_after
 
 
 ## Pembeli mengulurkan tangan menerima kantong (0..1). Saat kembali ke 0, lengan
@@ -281,20 +332,30 @@ func head_top() -> float:
 	return (head.position.y + box.end.y) * model.scale.y
 
 
+## Titik dunia tepat di puncak kepala, juga saat duduk (model terangkat ke
+## bantal kursi); dipakai gelembung pikiran dan celetukan.
+func head_anchor() -> Vector3:
+	var lift: float = model.position.y if model != null and is_instance_valid(model) else 0.0
+	return global_position + Vector3(0.0, lift + head_top(), 0.0)
+
+
 func idle_seconds() -> float:
 	return _idle_real
 
 
 ## Gerak menganggur untuk lama menganggur `idle_seconds` (detik nyata, GDD 31.6):
-## tidur sejak `doze_at`, sebelumnya mengelap wajah di tiap kelipatan
-## `idle_wipe_every_seconds` selama `wipe_gesture_seconds`.
-static func gesture_for(idle_seconds_value: float, doze_at: float) -> int:
+## tidur sejak `doze_at`; sebelumnya di tiap kelipatan `idle_wipe_every_seconds`
+## gerakan berikutnya dari `rotation` (mulai urutan ke-`offset`) selama
+## gesture_seconds() gerakan itu.
+static func gesture_for(idle_seconds_value: float, doze_at: float, rotation: Array[int] = [GESTURE_WIPE], offset: int = 0) -> int:
 	if idle_seconds_value >= doze_at:
 		return GESTURE_DOZE
 	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
-	if idle_seconds_value >= every and fposmod(idle_seconds_value, every) < DataRegistry.balf("presentation.wipe_gesture_seconds"):
-		return GESTURE_WIPE
-	return GESTURE_NONE
+	if idle_seconds_value < every or rotation.is_empty():
+		return GESTURE_NONE
+	var n: int = int(floor(idle_seconds_value / every))
+	var g: int = rotation[posmod(n - 1 + offset, rotation.size())]
+	return g if fposmod(idle_seconds_value, every) < gesture_seconds(g) else GESTURE_NONE
 
 
 func _update_idle(a: SimActor, delta: float) -> void:
@@ -304,12 +365,34 @@ func _update_idle(a: SimActor, delta: float) -> void:
 		_idle_real = 0.0
 	elif not PauseManager.is_paused():
 		_idle_real += delta
-	_set_gesture(gesture_for(_idle_real, INF if _doze_blocked else doze_after()))
+	_set_gesture(gesture_for(_idle_real, INF if _doze_blocked else doze_after(), _rotation, _rotation_offset))
 
 
-func _wipe_progress() -> float:
+## Progres gerakan yang sedang dimainkan (0..1).
+func _gesture_progress() -> float:
 	var every: float = DataRegistry.balf("presentation.idle_wipe_every_seconds")
-	return clampf(fposmod(_idle_real, every) / DataRegistry.balf("presentation.wipe_gesture_seconds"), 0.0, 1.0)
+	return clampf(fposmod(_idle_real, every) / gesture_seconds(_gesture), 0.0, 1.0)
+
+
+## Pose gerakan yang sedang dimainkan, dipanggil setelah idle_bob() tiap frame.
+func _play_gesture() -> void:
+	var k: float = _gesture_progress()
+	match _gesture:
+		GESTURE_WIPE:
+			ProceduralAnimationSystem.wipe_face(model, k, _t)
+		GESTURE_DOZE:
+			ProceduralAnimationSystem.doze(model, _t)
+		GESTURE_STRETCH:
+			ProceduralAnimationSystem.stretch(model, k, _t)
+		GESTURE_HUM:
+			ProceduralAnimationSystem.hum(model, k, _t)
+		GESTURE_TEA:
+			ProceduralAnimationSystem.sip_tea(model, k, _t)
+		GESTURE_ROLE:
+			if _baker:
+				ProceduralAnimationSystem.pat_flour(model, k, _t)
+			else:
+				ProceduralAnimationSystem.toss_coin(model, k, _t)
 
 
 func _set_gesture(g: int) -> void:
@@ -322,12 +405,17 @@ func _set_gesture(g: int) -> void:
 	if had != GESTURE_NONE:
 		ProceduralAnimationSystem.end_pose(model)
 	_show_cloth(g == GESTURE_WIPE)
+	_show_cup(g == GESTURE_TEA)
+	_show_coin(g == GESTURE_ROLE and not _baker)
+	_float_timer = 0.15
 	match g:
-		GESTURE_WIPE:
+		GESTURE_WIPE, GESTURE_STRETCH, GESTURE_TEA:
 			CharacterFactory.set_expression(model, "lega")
+		GESTURE_HUM, GESTURE_ROLE:
+			CharacterFactory.set_expression(model, "senang")
 		GESTURE_DOZE:
 			CharacterFactory.set_expression(model, "ngantuk")
-			_z_timer = 0.3
+			_float_timer = 0.3
 		_:
 			CharacterFactory.set_expression(model, _base_mood())
 
@@ -349,38 +437,156 @@ func _show_cloth(on: bool) -> void:
 		_cloth.visible = on
 
 
-## Huruf "Z" melayang naik dari atas kepala selama terkantuk-kantuk.
-func _update_zs(delta: float) -> void:
-	if _gesture == GESTURE_DOZE and visible and not PauseManager.is_paused():
-		_z_timer -= delta
-		if _z_timer <= 0.0 and _zs.size() < Z_MAX:
-			_z_timer = Z_EVERY
-			var z: MeshInstance3D = CharacterFactory.sleep_z()
-			z.set_meta("age", 0.0)
-			z.set_meta("origin", Vector3(Z_SIDE, head_top() + Z_GAP, 0.0))
-			add_child(z)
-			z.position = z.get_meta("origin")
-			z.scale = Vector3.ONE * 0.001
-			_zs.append(z)
-	for i in range(_zs.size() - 1, -1, -1):
-		var zn: Node3D = _zs[i]
-		var age: float = float(zn.get_meta("age")) + (0.0 if PauseManager.is_paused() else delta)
-		zn.set_meta("age", age)
-		var k: float = age / Z_LIFE
-		if k >= 1.0 or _gesture != GESTURE_DOZE:
-			zn.queue_free()
-			_zs.remove_at(i)
+func _show_cup(on: bool) -> void:
+	if on and (_cup == null or not is_instance_valid(_cup)):
+		_cup = CharacterFactory.tea_cup()
+		add_child(_cup)
+	if _cup != null and is_instance_valid(_cup):
+		_cup.visible = on
+
+
+func _show_coin(on: bool) -> void:
+	if on and (_coin == null or not is_instance_valid(_coin)):
+		_coin = CharacterFactory.toss_coin()
+		add_child(_coin)
+	if _coin != null and is_instance_valid(_coin):
+		_coin.visible = on
+
+
+## Titik telapak tangan `arm_name` di dunia (ujung lengan).
+func _hand_world(arm_name: String) -> Vector3:
+	var arm: Node3D = CharacterFactory.part(model, arm_name) if model != null else null
+	if arm == null or not arm.is_inside_tree():
+		return global_position + Vector3(0.0, 0.4, 0.0)
+	return arm.global_transform * Vector3(0.0, -CharacterFactory.ARM_LENGTH - 0.02, 0.0)
+
+
+## Arah hadap karakter di dunia (wajahnya menghadap -Z lokal).
+func _forward() -> Vector3:
+	return (global_basis * Vector3(0.0, 0.0, -1.0)).normalized()
+
+
+## Cangkir tetap tegak di tangan kanan dan miring ke mulut saat diseruput;
+## koin berputar melambung di atas telapak (GDD 31.6).
+func _update_props() -> void:
+	if model == null or not is_inside_tree():
+		return
+	var k: float = _gesture_progress()
+	var yaw := Basis(Vector3.UP, global_rotation.y)
+	var s: float = model.scale.y
+	# Di depan telapak menurut arah hadap badan (bukan sumbu lengan, yang ikut
+	# berputar saat lengan terangkat).
+	var front: Vector3 = _forward() * 0.035 * s
+	if _cup != null and is_instance_valid(_cup) and _cup.visible:
+		var cup_basis: Basis = (yaw * Basis(Vector3.RIGHT, ProceduralAnimationSystem.cup_tilt(k))).scaled(model.scale)
+		_cup.global_transform = Transform3D(cup_basis, _hand_world("ArmR") + front - Vector3(0.0, 0.035 * s, 0.0))
+	if _coin != null and is_instance_valid(_coin) and _coin.visible:
+		var coin_basis: Basis = (yaw * Basis(Vector3.RIGHT, k * TAU * 3.0)).scaled(model.scale)
+		var lift: Vector3 = Vector3.UP * ProceduralAnimationSystem.coin_height(k) * s
+		_coin.global_transform = Transform3D(coin_basis, _hand_world("ArmR") + front + Vector3(0.0, 0.02 * s, 0.0) + lift)
+
+
+## Tinggi puncak kepala di ruang ActorView, juga saat duduk (model terangkat).
+func _head_y() -> float:
+	return (model.position.y if model != null and is_instance_valid(model) else 0.0) + head_top()
+
+
+## Jenis benda melayang untuk gerakan yang sedang dimainkan, atau "".
+func _floater_kind() -> String:
+	match _gesture:
+		GESTURE_DOZE:
+			return "z"
+		GESTURE_HUM:
+			return "note"
+		GESTURE_TEA:
+			return "steam" if ProceduralAnimationSystem.tea_hold(_gesture_progress()) > 0.5 else ""
+		GESTURE_ROLE:
+			return "flour" if _baker else ""
+	return ""
+
+
+## Benda kecil yang melayang dari gerak menganggur: huruf "Z" saat terkantuk,
+## not musik saat bersenandung, uap dari cangkir teh, dan debu tepung dari
+## celemek. Masing-masing naik, membesar-mengecil, lalu hilang; huruf "Z" hilang
+## begitu kantuknya selesai.
+func _update_floaters(delta: float) -> void:
+	var step: float = 0.0 if PauseManager.is_paused() else delta
+	var kind: String = _floater_kind()
+	if kind != "" and visible and step > 0.0:
+		_float_timer -= step
+		var cap: int = Z_MAX if kind == "z" else FLOATER_MAX
+		if _float_timer <= 0.0 and _floaters.size() < cap:
+			_float_timer = float(FLOAT_EVERY[kind])
+			_spawn_floater(kind)
+	for i in range(_floaters.size() - 1, -1, -1):
+		var f: Node3D = _floaters[i]
+		var fk: String = str(f.get_meta("kind"))
+		var age: float = float(f.get_meta("age")) + step
+		f.set_meta("age", age)
+		var k: float = age / float(FLOAT_LIFE[fk])
+		if k >= 1.0 or (fk == "z" and _gesture != GESTURE_DOZE):
+			f.queue_free()
+			_floaters.remove_at(i)
 			continue
-		var origin: Vector3 = zn.get_meta("origin")
-		zn.position = origin + Vector3(0.10 * k + 0.02 * sin(k * 6.0), 0.30 * k, 0.0)
-		zn.scale = Vector3.ONE * maxf(sin(PI * k) * (0.7 + 0.5 * k) * Z_SCALE, 0.001)
+		var origin: Vector3 = f.get_meta("origin")
+		var drift: Vector3 = f.get_meta("drift")
+		match fk:
+			"z":
+				f.position = origin + Vector3(0.10 * k + 0.02 * sin(k * 6.0), 0.30 * k, 0.0)
+				f.scale = Vector3.ONE * maxf(sin(PI * k) * (0.7 + 0.5 * k) * Z_SCALE, 0.001)
+			"note":
+				f.position = origin + Vector3(drift.x * k + 0.025 * sin(k * 9.0), 0.26 * k, 0.0)
+				f.scale = Vector3.ONE * maxf(sin(PI * minf(k * 1.4, 1.0)) * float(FLOAT_SCALE[fk]), 0.001)
+			"steam":
+				f.position = origin + Vector3(0.012 * sin(k * 7.0 + drift.x * 40.0), 0.12 * k, 0.0)
+				f.scale = Vector3.ONE * maxf((0.5 + 0.8 * k) * (1.0 - k) * float(FLOAT_SCALE[fk]), 0.001)
+			"flour":
+				f.position = origin + drift * k + Vector3(0.0, 0.05 * k, 0.0)
+				f.scale = Vector3.ONE * maxf((1.0 - k) * float(FLOAT_SCALE[fk]), 0.001)
+
+
+func _spawn_floater(kind: String) -> void:
+	_float_count += 1
+	var side: float = 1.0 if _float_count % 2 == 0 else -1.0
+	var node: MeshInstance3D
+	var origin: Vector3
+	var drift := Vector3.ZERO
+	match kind:
+		"z":
+			node = CharacterFactory.sleep_z()
+			origin = Vector3(Z_SIDE, _head_y() + Z_GAP, 0.0)
+		"note":
+			node = CharacterFactory.music_note(_float_count)
+			origin = Vector3(0.11 * side, _head_y() + 0.02, 0.0)
+			drift = Vector3(0.05 * side, 0.0, 0.0)
+		"steam":
+			node = CharacterFactory.puff()
+			origin = to_local(_cup.global_position) + Vector3(0.0, 0.08 * model.scale.y, 0.0) if _cup != null and is_instance_valid(_cup) else Vector3(0.0, 0.5, -0.1)
+			drift = Vector3(0.01 * side, 0.0, 0.0)
+		_:
+			node = CharacterFactory.puff()
+			origin = to_local(_hand_world("ArmR" if side > 0.0 else "ArmL"))
+			drift = Vector3(0.06 * side, 0.02, -0.05)
+	node.set_meta("kind", kind)
+	node.set_meta("age", 0.0)
+	node.set_meta("origin", origin)
+	node.set_meta("drift", drift)
+	add_child(node)
+	node.position = origin
+	node.scale = Vector3.ONE * 0.001
+	_floaters.append(node)
 
 
 func _clear_idle_fx() -> void:
-	for z: Node3D in _zs:
-		if is_instance_valid(z):
-			z.queue_free()
-	_zs.clear()
+	for f: Node3D in _floaters:
+		if is_instance_valid(f):
+			f.queue_free()
+	_floaters.clear()
+	for prop: Node3D in [_cup, _coin]:
+		if prop != null and is_instance_valid(prop):
+			prop.queue_free()
+	_cup = null
+	_coin = null
 	_cloth = null
 	_gesture = GESTURE_NONE
 	_idle_real = 0.0

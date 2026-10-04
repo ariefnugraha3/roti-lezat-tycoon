@@ -455,7 +455,7 @@ func _save_v5() -> void:
 	check(bool(m.get("ok", false)), "a v4 save migrates")
 	if not bool(m.get("ok", false)):
 		return
-	eq(int((m["data"] as Dictionary)["schema_version"]), 5, "to schema 5")
+	eq(int((m["data"] as Dictionary)["schema_version"]), SaveManager.current_schema_version(), "to the current schema")
 	var mj: Dictionary = {}
 	for jd: Variant in ((m["data"] as Dictionary)["production_jobs"] as Dictionary)["jobs"]:
 		if int((jd as Dictionary)["job_id"]) == 77:

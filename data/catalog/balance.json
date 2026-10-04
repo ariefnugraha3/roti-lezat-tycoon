@@ -150,12 +150,16 @@
   "packing_seconds": 3.0
  },
  "presentation": {
-  "_gdd": "31.6, 31.7",
+  "_gdd": "31.6, 31.7, 31.8",
   "idle_wipe_every_seconds": 7.5,
-  "staff_doze_after_seconds": 12.5,
   "wipe_gesture_seconds": 1.2,
   "thought_after_seconds": [10.0, 20.0, 30.0, 40.0],
-  "thought_show_seconds": 5.0
+  "thought_show_seconds": 5.0,
+  "staff_line_first_seconds": 6.0,
+  "staff_line_every_seconds": 60.0,
+  "staff_line_stagger_seconds": 7.0,
+  "staff_idle_gestures": ["wipe", "stretch", "hum", "tea", "role"],
+  "staff_gesture_seconds": {"stretch": 1.8, "hum": 3.0, "tea": 3.2, "role": 2.2}
  },
  "supply": {
   "_gdd": "5.2.3, 129",
@@ -176,7 +180,7 @@
  },
  "save": {
   "_gdd": "34.3, 106",
-  "schema_version": 5,
+  "schema_version": 6,
   "autosave_debounce_seconds": 5.0,
   "profile_count": 3
  },

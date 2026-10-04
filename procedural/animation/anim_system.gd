@@ -559,6 +559,222 @@ static func look_around(actor: Node3D, t: float) -> void:
 		arm.rotation.z = lerpf(_rest_rot(arm).z, LOOK_CHIN_ROLL, chin)
 
 
+# ---------------------------------------------------------------------------
+# GDD 31.6 — gerak menganggur staf yang bergiliran (keputusan maintainer 2026-10-04)
+# ---------------------------------------------------------------------------
+
+## Meregangkan badan: kedua lengan naik hampir tegak ke atas kepala dan sedikit
+## melebar, badan terangkat dan condong ke belakang, kepala mendongak, dengan
+## getar kecil di puncak regangan (radian, meter, rad/detik).
+const STRETCH_ARM_PITCH: float = 2.95
+const STRETCH_ARM_OUT: float = 0.55
+const STRETCH_LIFT: float = 0.024
+const STRETCH_LEAN: float = 0.09
+const STRETCH_HEAD_UP: float = 0.20
+const STRETCH_SHIVER: float = 0.035
+const STRETCH_SHIVER_FREQ: float = 26.0
+## Bersenandung: badan bergoyang kiri-kanan mengikuti irama, kepala miring
+## menyusul dan mengangguk tiap ketukan, kedua lengan berayun ke samping.
+const HUM_FREQ: float = 5.2
+const HUM_SWAY: float = 0.07
+const HUM_HEAD_ROLL: float = 0.12
+const HUM_NOD: float = 0.06
+const HUM_ARM_SWING: float = 0.20
+const HUM_ARM_LIFT: float = 0.30
+const HUM_BOUNCE: float = 0.006
+## Minum teh: cangkir di tangan kanan dibawa ke depan dada lalu ke mulut untuk
+## diseruput sambil kepala mendongak; tangan kiri menopang di bawahnya.
+const TEA_HOLD_PITCH: float = 1.10
+const TEA_SIP_PITCH: float = 1.95
+const TEA_ARM_IN: float = 0.42
+const TEA_LEFT_PITCH: float = 0.95
+const TEA_LEFT_IN: float = 0.35
+const TEA_HEAD_BACK: float = 0.12
+const TEA_CUP_TILT: float = 0.70
+## Melempar koin (kasir): tangan kanan di depan dada, sedikit ke samping supaya
+## koin melambung di sisi wajah, menyentak ke atas saat melempar lalu turun
+## sedikit saat menangkap; kepala mengikuti koin. Tinggi lemparan (meter).
+const COIN_ARM_PITCH: float = 1.10
+const COIN_ARM_OUT: float = 0.15
+const COIN_FLICK: float = 0.40
+const COIN_CATCH_DIP: float = 0.12
+const COIN_HEIGHT: float = 0.40
+const COIN_HEAD_UP: float = 0.26
+## Menepuk tepung dari celemek (koki): kedua tangan bergantian menepuk depan
+## celemek, badan sedikit membungkuk, kepala menunduk melihat celemek.
+const PAT_ARM_PITCH: float = 0.62
+const PAT_ARM_IN: float = 0.26
+const PAT_FREQ: float = 13.0
+const PAT_AMP: float = 0.16
+const PAT_LEAN: float = 0.06
+const PAT_HEAD_DOWN: float = 0.18
+
+
+## Meregangkan badan (GDD 31.6, staf). `k` 0..1 sepanjang gerakan. Semua gerak
+## staf di bawah dipanggil setelah idle_bob() tiap frame (saat duduk: sebelum
+## sit(), yang lalu membiarkan lengannya).
+static func stretch(actor: Node3D, k: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var up: float = _envelope(k, 0.0, 0.32, 0.72, 1.0)
+	var shiver: float = sin(t * STRETCH_SHIVER_FREQ) * STRETCH_SHIVER * _envelope(k, 0.30, 0.42, 0.60, 0.70)
+	for a in 2:
+		var arm: Node3D = _part(actor, "ArmL" if a == 0 else "ArmR")
+		if arm == null:
+			continue
+		var rest: Vector3 = _rest_rot(arm)
+		var dir: float = -1.0 if a == 0 else 1.0
+		arm.rotation = Vector3(lerpf(rest.x, STRETCH_ARM_PITCH, up) + shiver * dir, rest.y, lerpf(rest.z, STRETCH_ARM_OUT * dir, up))
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.position.y += STRETCH_LIFT * up
+		body.rotation.x = _rest_rot(body).x + STRETCH_LEAN * up
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.position.y += STRETCH_LIFT * up
+		head.rotation.x = _rest_rot(head).x + STRETCH_HEAD_UP * up
+	_neck_follow(actor)
+	_sync_head_attachments(actor)
+
+
+## Bersenandung sambil bergoyang mengikuti irama (GDD 31.6, staf); not musik
+## yang melayang diatur ActorView. `k` 0..1 sepanjang gerakan.
+static func hum(actor: Node3D, k: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var w: float = _envelope(k, 0.0, 0.12, 0.86, 1.0)
+	var beat: float = sin(t * HUM_FREQ)
+	var bounce: float = absf(beat) * HUM_BOUNCE * w
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.rotation.z = _rest_rot(body).z + beat * HUM_SWAY * w
+		body.position.y += bounce
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		var hr: Vector3 = _rest_rot(head)
+		head.rotation.z = hr.z + sin(t * HUM_FREQ - 0.5) * HUM_HEAD_ROLL * w
+		head.rotation.x = hr.x + absf(beat) * HUM_NOD * w
+		head.position.y += bounce
+	for a in 2:
+		var arm: Node3D = _part(actor, "ArmL" if a == 0 else "ArmR")
+		if arm != null:
+			var rest: Vector3 = _rest_rot(arm)
+			arm.rotation = Vector3(rest.x + HUM_ARM_LIFT * w, rest.y, rest.z + beat * HUM_ARM_SWING * w)
+	_neck_follow(actor)
+	_sync_head_attachments(actor)
+
+
+## Minum teh hangat (GDD 31.6, staf): cangkirnya (ActorView) mengikuti tangan
+## kanan dan miring sebesar cup_tilt(). `k` 0..1 sepanjang gerakan.
+static func sip_tea(actor: Node3D, k: float, _t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var hold: float = tea_hold(k)
+	var sip: float = sip_amount(k)
+	var arm_r: Node3D = _part(actor, "ArmR")
+	if arm_r != null:
+		var rest: Vector3 = _rest_rot(arm_r)
+		arm_r.rotation = Vector3(lerpf(rest.x, TEA_HOLD_PITCH, hold) + (TEA_SIP_PITCH - TEA_HOLD_PITCH) * sip,
+			rest.y, lerpf(rest.z, -TEA_ARM_IN, hold))
+	var arm_l: Node3D = _part(actor, "ArmL")
+	if arm_l != null:
+		var rest_l: Vector3 = _rest_rot(arm_l)
+		arm_l.rotation = Vector3(lerpf(rest_l.x, TEA_LEFT_PITCH, hold), rest_l.y, lerpf(rest_l.z, TEA_LEFT_IN, hold))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x + TEA_HEAD_BACK * sip
+	_sync_head_attachments(actor)
+
+
+## Cangkir terangkat dari pangkuan/samping badan ke depan dada (0..1).
+static func tea_hold(k: float) -> float:
+	return _envelope(k, 0.0, 0.18, 0.84, 1.0)
+
+
+## Seberapa jauh teh sedang diseruput (0..1) pada progres `k`.
+static func sip_amount(k: float) -> float:
+	return _envelope(k, 0.30, 0.42, 0.62, 0.74)
+
+
+## Kemiringan cangkir ke arah mulut (radian) pada progres `k`.
+static func cup_tilt(k: float) -> float:
+	return sip_amount(k) * TEA_CUP_TILT
+
+
+## Melempar lalu menangkap koin (gerak khas kasir, GDD 31.6); koinnya
+## (ActorView) melambung setinggi coin_height(). `k` 0..1 sepanjang gerakan.
+static func toss_coin(actor: Node3D, k: float, _t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var hold: float = _envelope(k, 0.0, 0.14, 0.86, 1.0)
+	var flick: float = sin(clampf((k - 0.16) / 0.10, 0.0, 1.0) * PI)
+	var dip: float = sin(clampf((k - 0.66) / 0.12, 0.0, 1.0) * PI)
+	var arm: Node3D = _part(actor, "ArmR")
+	if arm != null:
+		var rest: Vector3 = _rest_rot(arm)
+		arm.rotation = Vector3(lerpf(rest.x, COIN_ARM_PITCH, hold) + COIN_FLICK * flick - COIN_CATCH_DIP * dip,
+			rest.y, lerpf(rest.z, COIN_ARM_OUT, hold))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x + COIN_HEAD_UP * coin_height(k) / COIN_HEIGHT
+	_sync_head_attachments(actor)
+
+
+## Tinggi koin di atas telapak (meter) pada progres `k`: melambung di antara
+## sentakan lempar dan tangkapan.
+static func coin_height(k: float) -> float:
+	return sin(clampf((k - 0.22) / 0.46, 0.0, 1.0) * PI) * COIN_HEIGHT
+
+
+## Menepuk-nepuk tepung dari celemek (gerak khas koki, GDD 31.6); debu
+## tepungnya diatur ActorView. `k` 0..1 sepanjang gerakan.
+static func pat_flour(actor: Node3D, k: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var w: float = _envelope(k, 0.0, 0.12, 0.86, 1.0)
+	for a in 2:
+		var arm: Node3D = _part(actor, "ArmL" if a == 0 else "ArmR")
+		if arm == null:
+			continue
+		var rest: Vector3 = _rest_rot(arm)
+		var dir: float = -1.0 if a == 0 else 1.0
+		arm.rotation = Vector3(lerpf(rest.x, PAT_ARM_PITCH, w) + sin(t * PAT_FREQ + float(a) * PI) * PAT_AMP * w,
+			rest.y, lerpf(rest.z, -PAT_ARM_IN * dir, w))
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.rotation.x = _rest_rot(body).x - PAT_LEAN * w
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x - PAT_HEAD_DOWN * w
+	_neck_follow(actor)
+	_sync_head_attachments(actor)
+
+
+## Bobot masuk-keluar sebuah gerakan: naik di [a, b], penuh, lalu turun di [c, d].
+static func _envelope(k: float, a: float, b: float, c: float, d: float) -> float:
+	return smoothstep(a, b, k) * (1.0 - smoothstep(c, d, k))
+
+
+## Kepala bukan anak badan: setelah badan dimiringkan, kepala digeser supaya
+## tetap menempel di leher (sumbu y menambah geseran yang sudah ada).
+static func _neck_follow(actor: Node3D) -> void:
+	var body: Node3D = _part(actor, "Body")
+	var head: Node3D = _part(actor, "Head")
+	if body == null or head == null:
+		return
+	var hp: Vector3 = _rest_pos(head)
+	var offset: Vector3 = hp - _rest_pos(body)
+	var delta: Vector3 = Basis.from_euler(body.rotation - _rest_rot(body)) * offset - offset
+	head.position = Vector3(hp.x + delta.x, head.position.y + delta.y, hp.z + delta.z)
+
+
+## Wajah & topi yang dirakit sebagai saudara Head ikut geseran dan miring kepala.
+static func _sync_head_attachments(actor: Node3D) -> void:
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		_follow_head(actor, head.position.y - _rest_pos(head).y, (head.rotation.z - _rest_rot(head).z) * HAT_FOLLOW_THROUGH)
+
+
 ## Sudut ayunan kaki ke depan saat duduk (rad) dan ayunan kecil kaki yang
 ## menjuntai; pinggul sedikit di atas bantal; lengan bertumpu di pangkuan.
 const SIT_LEG_ANGLE: float = 1.22
@@ -570,7 +786,7 @@ const SIT_ARM_ANGLE: float = 0.55
 ## Duduk di kursi koki (GDD 5.1.4): seluruh model diturunkan supaya pinggulnya
 ## tepat di atas bantal (`seat_y`, meter dunia dari lantai), kedua kaki terayun
 ## ke depan dan menjuntai pelan seperti anak kecil di kursi tinggi, dan tangan
-## bertumpu di pangkuan (kecuali `arms` false, saat lap wajah atau terkantuk).
+## bertumpu di pangkuan (kecuali `arms` false, saat gerak menganggur).
 ## Dipanggil setelah idle_bob() tiap frame.
 static func sit(actor: Node3D, t: float, seat_y: float, arms: bool = true) -> void:
 	if actor == null or not is_instance_valid(actor):
@@ -603,7 +819,7 @@ static func stand_up(actor: Node3D) -> void:
 
 
 ## Kembalikan lengan, kepala & badan ke pose istirahat setelah gerakan khusus (pack,
-## wipe_face, doze, look_around) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
+## gerak menganggur, look_around) berakhir; walk()/idle_bob() hanya mengatur sumbu X lengan.
 static func end_pose(actor: Node3D) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return

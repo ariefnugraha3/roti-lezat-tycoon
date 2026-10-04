@@ -582,6 +582,85 @@ static func wipe_cloth() -> MeshInstance3D:
 	return mb.commit("WipeCloth")
 
 
+## Cangkir teh untuk gerak "minum teh" staf (GDD 31.6): cangkir putih tepung
+## bergaris stroberi berisi teh karamel, bertelinga di kanan. Pusatnya di dasar
+## cangkir; sengaja montok ala properti chibi supaya terbaca di zoom gameplay.
+static func tea_cup() -> MeshInstance3D:
+	var mb := MeshBuilder.new()
+	mb.cylinder(Transform3D(Basis(), Vector3(0.0, 0.035, 0.0)), 0.070, 0.040, 0.031, Palette.FLOUR_WHITE, 12)
+	mb.cylinder(Transform3D(Basis(), Vector3(0.0, 0.068, 0.0)), 0.004, 0.036, 0.036, Palette.CARAMEL, 12, true, false)
+	mb.torus(Transform3D(Basis(), Vector3(0.0, 0.050, 0.0)), 0.0375, 0.0050, Palette.PASTEL_STRAWBERRY, 12, 4)
+	# Telinga cangkir: setengah cincin di bidang XY, menonjol ke +X.
+	mb.torus(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.043, 0.035, 0.0)), 0.017, 0.0055, Palette.FLOUR_WHITE, 8, 4,
+		0.0, PI)
+	var cup: MeshInstance3D = mb.commit("TeaCup")
+	cup.visible = false
+	return cup
+
+
+## Koin emas kecil untuk gerak khas kasir, dilempar lalu ditangkap (GDD 31.6).
+## Cakram pipih di bidang XY lokal supaya berputar terbalik-balik di udara.
+static func toss_coin() -> MeshInstance3D:
+	var mb := MeshBuilder.new()
+	mb.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO), 0.008, 0.030, 0.030, Palette.GOLD_STAR, 14)
+	mb.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO), 0.0095, 0.018, 0.018, Palette.GOLD_STAR.darkened(0.18), 12)
+	var coin: MeshInstance3D = mb.commit("TossCoin", MeshBuilder.SATIN)
+	coin.visible = false
+	return coin
+
+
+static var _note_meshes: Array[ArrayMesh] = []
+static var _puff_mesh: ArrayMesh = null
+
+
+## Not musik mungil (geometri, bukan teks) yang melayang saat staf bersenandung
+## (GDD 31.6). Tiga warna pastel tua bergantian (`variant`), selalu menghadap kamera.
+static func music_note(variant: int) -> MeshInstance3D:
+	if _note_meshes.is_empty():
+		for col: Color in [Palette.STRAWBERRY_DEEP, Palette.MATCHA_DEEP, Palette.HONEY_DEEP]:
+			var mb := MeshBuilder.new()
+			var head := PackedVector2Array()
+			for i in 12:
+				var a: float = TAU * float(i) / 12.0
+				var v := Vector2(cos(a) * 0.020, sin(a) * 0.014).rotated(0.45)
+				head.append(v + Vector2(-0.006, -0.036))
+			mb.polygon(Transform3D(), head, col)
+			mb.polygon(Transform3D(), PackedVector2Array([Vector2(0.009, -0.034), Vector2(0.016, -0.034),
+				Vector2(0.016, 0.040), Vector2(0.009, 0.040)]), col)
+			mb.polygon(Transform3D(), PackedVector2Array([Vector2(0.009, 0.040), Vector2(0.016, 0.040),
+				Vector2(0.040, 0.016), Vector2(0.036, 0.008)]), col)
+			var tmp: MeshInstance3D = mb.commit("Note", MeshBuilder.SIGN)
+			_note_meshes.append(tmp.mesh as ArrayMesh)
+			tmp.free()
+	var mi := MeshInstance3D.new()
+	mi.name = "MusicNote"
+	mi.mesh = _note_meshes[posmod(variant, _note_meshes.size())]
+	mi.material_override = MeshBuilder.material(MeshBuilder.SIGN)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## Kepulan bulat putih hangat: uap teh atau debu tepung yang ditepuk dari
+## celemek (GDD 31.6). Selalu menghadap kamera.
+static func puff() -> MeshInstance3D:
+	if _puff_mesh == null:
+		var mb := MeshBuilder.new()
+		var ring := PackedVector2Array()
+		for i in 12:
+			var a: float = TAU * float(i) / 12.0
+			ring.append(Vector2(cos(a), sin(a)) * 0.016)
+		mb.polygon(Transform3D(), ring, Palette.FLOUR_WHITE.lerp(Palette.GOLDEN_HOUR, 0.15))
+		var tmp: MeshInstance3D = mb.commit("Puff", MeshBuilder.SIGN)
+		_puff_mesh = tmp.mesh as ArrayMesh
+		tmp.free()
+	var mi := MeshInstance3D.new()
+	mi.name = "Puff"
+	mi.mesh = _puff_mesh
+	mi.material_override = MeshBuilder.material(MeshBuilder.SIGN)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
 static var _z_mesh: ArrayMesh = null
 
 
@@ -612,6 +691,8 @@ static func sleep_z() -> MeshInstance3D:
 
 static func clear_caches() -> void:
 	_z_mesh = null
+	_note_meshes.clear()
+	_puff_mesh = null
 
 
 ## Cari bagian karakter ("Head", "Body", "ArmL", ..., "Apron") dengan aman.

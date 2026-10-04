@@ -26,6 +26,33 @@ const WINDOW_SHOPPER_LINES: Array[String] = [
 	"window_shopper_line_5", "window_shopper_line_6", "window_shopper_line_7", "window_shopper_line_8",
 	"window_shopper_line_9", "window_shopper_line_10",
 ]
+## Calon staf per peran paling banyak (keputusan maintainer 2026-10-04, GDD 3.5).
+const STAFF_CANDIDATES_PER_ROLE: int = 5
+## Gerak menganggur staf yang dikenal (GDD 31.6, `presentation.staff_idle_gestures`).
+const IDLE_GESTURES: Array[String] = ["wipe", "stretch", "hum", "tea", "role"]
+## Celetukan staf yang menganggur (GDD 31.8, 127.24): kalimat pembuka hari, lalu
+## kalimat umum, kalimat per peran, dan satu kalimat khas tiap staf
+## (`<staff_id>_line`, lihat staff_personal_line).
+const STAFF_LINE_FIRST_DAY: String = "staff_line_first_day"
+const STAFF_LINE_DAY_N: String = "staff_line_day_n"
+const STAFF_LINES: Array[String] = [
+	"staff_line_happy", "staff_line_raise", "staff_line_own_bakery", "staff_line_cat",
+	"staff_line_dinner", "staff_line_tired_happy", "staff_line_smell", "staff_line_no_snacking",
+	"staff_line_mom", "staff_line_rain_or_shine", "staff_line_boss", "staff_line_payday",
+	"staff_line_radio_song", "staff_line_weekend", "staff_line_crumbs", "staff_line_regulars",
+	"staff_line_knead_pun", "staff_line_stretch",
+	"staff_line_good_day", "staff_line_bike_home", "staff_line_compliment", "staff_line_new_recipe",
+	"staff_line_tummy", "staff_line_plants", "staff_line_diary", "staff_line_karaoke",
+	"staff_line_lottery", "staff_line_comfy_shoes", "staff_line_friends", "staff_line_butter",
+]
+const STAFF_LINES_CASHIER: Array[String] = [
+	"staff_line_cashier_cardio", "staff_line_cashier_next", "staff_line_cashier_prices", "staff_line_cashier_kaching",
+	"staff_line_cashier_smile", "staff_line_cashier_bags", "staff_line_cashier_umbrella", "staff_line_cashier_drawer",
+]
+const STAFF_LINES_BAKER: Array[String] = [
+	"staff_line_baker_rest", "staff_line_baker_arms", "staff_line_baker_flour", "staff_line_baker_batch",
+	"staff_line_baker_oven_friend", "staff_line_baker_pillow", "staff_line_baker_secret", "staff_line_baker_golden",
+]
 const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
 	"locations.json", "weather.json", "marketing.json", "opening.json", "balance.json",
@@ -305,6 +332,11 @@ func real_seconds(sim_seconds: float) -> float:
 func player_doze_after_seconds() -> float:
 	var after: Array = bal("presentation.thought_after_seconds")
 	return float(after[after.size() - 1]) + balf("presentation.thought_show_seconds")
+
+
+## Kunci kalimat khas staf `staff_id` (GDD 31.8, 127.24).
+static func staff_personal_line(staff_id: StringName) -> String:
+	return String(staff_id) + "_line"
 
 
 func player_speed_mps() -> float:
@@ -759,12 +791,25 @@ func _validate_customers() -> void:
 
 func _validate_staff() -> void:
 	var seen: Dictionary = {}
+	var per_role: Dictionary = {&"cashier": 0, &"baker": 0}
 	for s: StaffDefinition in _staff:
 		_check_id(s.id, seen, "staff")
 		_check_text(s.id, String(s.id))
 		_check_text(StringName(s.title_key()), String(s.id))
+		_check_text(StringName(staff_personal_line(s.id)), String(s.id))
 		if not [&"cashier", &"baker"].has(s.role_id):
 			_err("staff %s unknown role %s" % [s.id, s.role_id])
+		else:
+			per_role[s.role_id] = int(per_role[s.role_id]) + 1
+	# Roster ringkas (keputusan maintainer 2026-10-04, GDD 3.5): paling banyak
+	# STAFF_CANDIDATES_PER_ROLE calon per peran, dan cukup untuk batas staf
+	# terbesar di lokasi mana pun.
+	for role: StringName in per_role.keys():
+		var most: int = 0
+		for l2: LocationDefinition in _locations:
+			most = maxi(most, l2.staff_capacity(role))
+		if int(per_role[role]) > STAFF_CANDIDATES_PER_ROLE or int(per_role[role]) < most:
+			_err("staff roster needs %d to %d %s candidates, has %d" % [most, STAFF_CANDIDATES_PER_ROLE, role, per_role[role]])
 	if staff_speed_mps() <= 0.0:
 		_err("staff_movement_speed_mps must be > 0")
 	# Staf setara (keputusan maintainer 2026-10-02): field era tier ditolak supaya
@@ -976,9 +1021,27 @@ func _validate_balance() -> void:
 	var p: Dictionary = _balance.get("presentation", {})
 	var wipe_every: float = float(p.get("idle_wipe_every_seconds", 0.0))
 	var wipe_len: float = float(p.get("wipe_gesture_seconds", 0.0))
-	var staff_doze: float = float(p.get("staff_doze_after_seconds", 0.0))
-	if wipe_len <= 0.0 or wipe_every <= wipe_len or staff_doze <= wipe_every + wipe_len:
-		_err("presentation: each face wipe must end before the next one and before staff doze off")
+	if wipe_len <= 0.0 or wipe_every <= wipe_len:
+		_err("presentation: each face wipe must end before the next one")
+	# Celetukan staf (GDD 31.8): satu gelembung selesai sebelum yang berikutnya.
+	if float(p.get("staff_line_first_seconds", 0.0)) <= 0.0 or float(p.get("staff_line_stagger_seconds", -1.0)) < 0.0 \
+			or float(p.get("staff_line_every_seconds", 0.0)) <= float(p.get("thought_show_seconds", 0.0)):
+		_err("presentation: staff lines need a positive first delay, a stagger >= 0, and a period longer than a bubble")
+	for k6: String in STAFF_LINES + STAFF_LINES_CASHIER + STAFF_LINES_BAKER + [STAFF_LINE_FIRST_DAY, STAFF_LINE_DAY_N]:
+		_check_text(StringName(k6), "staff lines")
+	# Gerak menganggur staf (GDD 31.6): gerakan dikenal, masing-masing selesai
+	# sebelum tanda berikutnya.
+	var gestures: Array = p.get("staff_idle_gestures", [])
+	var gesture_secs: Dictionary = p.get("staff_gesture_seconds", {})
+	if gestures.is_empty():
+		_err("presentation.staff_idle_gestures must list at least one gesture")
+	for g: Variant in gestures:
+		var gid: String = str(g)
+		var dur: float = wipe_len if gid == "wipe" else float(gesture_secs.get(gid, 0.0))
+		if not IDLE_GESTURES.has(gid):
+			_err("presentation.staff_idle_gestures has the unknown gesture %s" % gid)
+		elif dur <= 0.0 or dur >= wipe_every:
+			_err("presentation: staff gesture %s must last more than 0 s and less than idle_wipe_every_seconds" % gid)
 	var thoughts: Array = p.get("thought_after_seconds", [])
 	if thoughts.size() != THOUGHT_KEYS.size():
 		_err("presentation.thought_after_seconds needs %d entries" % THOUGHT_KEYS.size())

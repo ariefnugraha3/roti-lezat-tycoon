@@ -121,6 +121,12 @@ func _fill(world: WorldView) -> void:
 			var z: MeshInstance3D = CharacterFactory.sleep_z()
 			v.add_child(z)
 			z.position = Vector3(0.1, 1.3, 0.0)
+			# Properti gerak menganggur staf (GDD 31.6): cangkir, koin, not, kepulan.
+			for prop: MeshInstance3D in [CharacterFactory.tea_cup(), CharacterFactory.toss_coin(),
+					CharacterFactory.music_note(0), CharacterFactory.puff()]:
+				prop.visible = true
+				v.add_child(prop)
+				prop.position = Vector3(-0.1, 0.6, 0.0)
 	# Partikel (GDD 4.1): uap, kilau gula, asap gosong, keringat.
 	var fx_root := Node3D.new()
 	_place(fx_root, 1.0)

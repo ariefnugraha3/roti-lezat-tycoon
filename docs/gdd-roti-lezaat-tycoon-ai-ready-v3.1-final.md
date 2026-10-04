@@ -230,6 +230,8 @@ Gaji mengikuti tier toko saat liabilitas dikunci pukul 05:00 (Seksi 87.3), jadi 
 
 Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan menghangatkan hati (*cozy & wholesome*), serta ciri visual prosedural tersendiri. Sejak 2026-10-02 roster tidak bertier: semua kasir sama kemampuannya, begitu pula semua koki, dan cerita mereka murni kepribadian (Seksi 3, 3.3).
 
+**Roster ringkas (keputusan maintainer 2026-10-04).** Dulu ada 15 calon kasir dan 15 calon koki, terlalu banyak untuk dipilih. Kini roster berisi paling banyak **5 calon kasir dan 5 calon koki** (`DataRegistry.STAFF_CANDIDATES_PER_ROLE`), dipilih supaya siluet kepala, warna kulit, dan kepribadiannya beragam. Calon lain dihapus dari katalog. Save lama yang sudah merekrut calon yang dihapus memindahkannya ke calon tersisa berperan sama (Seksi 106).
+
 #### **A. Roster Kandidat Asisten Kasir**
 
 | Nama Staf | Profil Kepribadian & Keunikan | Ciri Visual Prosedural |
@@ -237,16 +239,6 @@ Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan me
 | **Budi** | Mahasiswa baru yang rajin; sering grogi saat menghitung koin kembalian tapi selalu tersenyum tulus. | Kacamata bulat besar, celemek katun putih polos, rambut belah samping rapi. |
 | **Sari** | Gadis ramah tetangga toko; suka menyapa pembeli dengan suara riang ceria ala kartun Minggu pagi. | Kuncir kuda ganda, pita rambut kuning mentega, celemek putih bergaris tipis. |
 | **Dimas** | Terlalu asyik bercerita cuaca dengan pelanggan sampai kadang lupa menekan tombol konfirmasi kasir. | Topi pet kasir miring ke samping, celemek putih gading, ekspresi cengengesan. |
-| **Nadia** | Mantan kasir minimarket; terbiasa menyusun struk transaksi dengan sangat rapi dan teliti. | Rambut bob pendek rapi, celemek hijau mint pastel, senyum profesional ramah. |
-| **Rian** | Pemuda aktif yang gesit; tanggap melayani arus pejalan kaki jam pulang sekolah. | Rambut spike pendek, celemek hijau mint, gelang karet oranye sporty. |
-| **Lili** | Pembawaannya tenang dan sabar; selalu bersenandung pelan sambil membungkus pesanan. | Jepit rambut stroberi imut, celemek hijau mint lembut, pipi merona merah muda. |
-| **Maya** | Memiliki keahlian komunikasi persuasif; mampu meredakan emosi pekerja kantor yang terburu-buru. | Bando motif kotak-kotak (*gingham*), celemek cokelat karamel, pin senyum. |
-| **Reza** | Jari-jemarinya lihai menari di atas tuts mesin kasir dengan akurasi hitungan tanpa celah. | Jam tangan vintage era 2000-an, celemek karamel berkantong dobel, tatapan fokus. |
-| **Dewi** | Ingatannya tajam luar biasa; selalu hafal nama dan jenis roti favorit para pelanggan setia toko. | Rambut panjang dikepang rapi, celemek cokelat karamel, buku catatan mini di saku. |
-| **Hendra** | Ahli psikologi konsumen; obrolan hangatnya membuat setiap pembeli pulang tersenyum. | Kemeja berkerah rapi di balik celemek biru navy elegan, kacamata bingkai emas. |
-| **Citra** | Sangat tenang dan berwibawa; sanggup melayani antrean 20 orang tanpa sedikit pun terlihat panik. | Sanggul rambut modern elegan, celemek navy bergaris emas tipis, senyuman anggun. |
-| **Kenji** | Kasir berdisiplin tinggi; terkenal dengan keramahan membungkuk sopan. | Rambut cepak rapi, celemek biru navy, pita leher dasi kupu-kupu merah marun. |
-| **Grace** | "Duta Senyum Nasional"; aura ramahnya membuat setiap pembeli pulang berseri-seri. | Celemek sutra emas berbordir logo toko, anting mutiara kecil, rambut pirang ikal. |
 | **Tejo** | Kasir legendaris era toserba 90-an; sanggup menghitung kembalian secepat kilat bahkan sambil merem. | Kumis tipis retro nostalgia, celemek emas koki kepala, pena terselip di telinga. |
 | **Luna** | Bintang idola lokal yang magang santai di toko roti; kehadirannya membuat kasir selalu ramai gembira. | Rambut ombre pastel manis, bando telinga kelinci empuk, celemek emas bertabur pin bintang. |
 
@@ -258,19 +250,9 @@ Setiap pelamar memiliki identitas unik, cerita latar belakang yang jenaka dan me
 | :--- | :--- | :--- |
 | **Joko** | Kuat mengaduk adonan tepung berat berjam-jam; tapi sering melamun saat oven berdenting. | Tubuh agak gempal berisi, celemek putih tebal bertabur bubuk tepung putih. |
 | **Ani** | Suka mencicipi selai sebelum dioles ke roti; sangat antusias belajar aneka teknik memanggang. | Topi koki miring menggemaskan, celemek putih polos, hidung bertotol tepung. |
-| **Bagus** | Terbiasa membantu ibunya membuat kue goreng di rumah; langkah kakinya cepat saat mondar-mandir. | Celemek putih pendek, lengan baju dilipat tinggi, senyum polos bersemangat. |
 | **Fajar** | Menguasai teknik menggulung adonan croissant dengan ketebalan yang merata sempurna. | Celemek oranye pastel, sarung tangan kain tahan panas, bandana koki oranye. |
-| **Rina** | Sangat disiplin menimbang gramasi ragi dan mentega; jarang sekali membuat adonan bantat. | Kacamata frame bulat tipis, celemek oranye pastel berenda, rambut dikuncir rapi. |
-| **Doni** | Tidak mudah patah arang; sigap membersihkan meja dapur setiap selesai mengocok telur. | Celemek oranye cerah, handuk kecil tersampir di pundak, ekspresi ramah fokus. |
-| **Aris** | "Si Raja Ragi"; ahli fermentasi roti tawar dan baguette berkulit renyah dengan remah selembut spons. | Topi koki silinder sedang, celemek cokelat kopi pekat, kumis melingkar rapi. |
-| **Tari** | Gerakannya anggun dan luwes dalam memanggang Cinnamon Roll dan Danish pastry yang wangi semerbak. | Celemek cokelat kopi bermotif renda bunga, rambut disanggul rapi dengan tusuk konde kayu. |
-| **Gilang** | Tangan dingin spesialis roti sobek manis; adonannya selalu mengembang cantik dalam cuaca apa pun. | Celemek cokelat kopi, sarung tangan oven tebal motif gingham, tatapan tenang berpengalaman. |
-| **Sophie** | Baker Prancis lulusan Eropa klasik; ahli melipat pastry mentega ratusan lapis tipis yang renyah berkilau. | Topi toque koki tinggi Prancis, celemek marun elegan bergaris emas, syal leher merah. |
-| **Danu** | Maestro roti sehat artisan; menguasai seni fermentasi ragi alami Sourdough dan olahan gandum utuh. | Jenggot koki terpangkas rapi, celemek marun pekat berkantong alat pisau roti kayu. |
 | **Aoi** | Perfeksionis asal Kyoto; mampu memanggang puluhan lembar krep tipis Matcha Mille Crepes tanpa cela. | Bandana hachimaki hitam-putih khas chef Jepang, celemek marun, gerakan tangan presisi. |
-| **Pierre** | Maestro pastry dunia; roti buatannya mengembang selembut awan surga dan selalu ludes diburu pecinta roti. | Topi koki menjulang tinggi dengan sulaman benang emas, celemek emas koki agung, medali kuliner. |
 | **Mawar** | Nenek sakti pembawa buku resep rahasia keluarga; punya cerita untuk setiap roti yang ia buat. | Kacamata rantai emas vintage, celemek emas rajut berhias sulaman mawar merah, aura keibuan hangat. |
-| **Alistair** | Alkemis kuliner modern; spesialis mengolah jamur truffle dan butter artisan menjadi roti termahal di kota. | Jas koki hitam beraksen emas mewah, sarung tangan satin putih, tatapan tajam visioner. |
 
 ## **Perilaku Konsumen**
 
@@ -459,7 +441,7 @@ Keputusan maintainer 2026-10-02. Kursi pinus mungil berbantal gingham tempat Asi
 * **Sepaket bangunan**: satu kursi per slot koki lokasi (`staff_chair`, jejak 1 × 1 ubin, Seksi 60): satu di Tier 1–3, dua di Tier 4–5. Gratis, tidak dijual di Pasar, tidak bisa disimpan (Put Away), dan tidak memakai slot alat.
 * **Bisa dipindah**: seperti Gudang dan Meja Tunggu, kursi boleh digeser dan diputar di Mode Dekorasi, hanya di zona dapur. Koki duduk menghadap tile aksesnya, membelakangi sandaran.
 * **Otomatis**: New Game menempatkan kursi di dapur, upgrade ke Tier 4 menambah kursi kedua, dan save lama mendapat kursinya saat dimuat (Seksi 106).
-* **Perilaku**: koki yang menganggur berjalan ke kursi bebas lalu duduk, kakinya menjuntai seperti anak di kursi tinggi, dan tetap terkantuk-kantuk bila lama menganggur (Seksi 31.6). Pukul 05:00 koki muncul sudah duduk di kursinya. Begitu ada pekerjaan (pesanan atau inisiatif, Seksi 3.2) ia berdiri. Bila kursinya dipindah, ia berdiri lalu duduk lagi di tempat barunya.
+* **Perilaku**: koki yang menganggur berjalan ke kursi bebas lalu duduk, kakinya menjuntai seperti anak di kursi tinggi. Selama menganggur ia mengelap wajah dan sesekali berceletuk, tetapi tidak pernah tertidur (Seksi 31.6, 31.8; keputusan maintainer 2026-10-04). Pukul 05:00 koki muncul sudah duduk di kursinya. Begitu ada pekerjaan (pesanan atau inisiatif, Seksi 3.2) ia berdiri. Bila kursinya dipindah, ia berdiri lalu duduk lagi di tempat barunya.
 
 ## **5.2 Sistem Bahan Baku (Fixed Price Ingredients)**
 
@@ -3003,14 +2985,22 @@ Karakter pemain dan staf yang **tidak melakukan apa pun** memainkan gerak mengan
 
 | Lama menganggur (detik nyata) | Gerak |
 | :--- | :--- |
-| **Setiap 7,5 detik** (7,5, 15, 22,5, …) | Mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±1,2 detik) dengan wajah lega, lalu kain disimpan lagi. Berulang selama belum tertidur. |
-| **Staf: 12,5 detik. Pemain: 45 detik**, tepat saat gelembung pikiran keempat (Seksi 31.7) hilang, di fase mana pun | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
+| **Setiap 7,5 detik** (7,5, 15, 22,5, …) | Staf: gerakan berikutnya dari gilirannya (lihat **Gerak staf** di bawah). Pemain: mengelap wajah dengan kain lap: lengan kanan terangkat ke pipi memegang kain lap putih bergaris merah muda, mengusap beberapa kali (±1,2 detik) dengan wajah lega, lalu kain disimpan lagi. Berulang selama belum tertidur. |
+| **Pemain: 45 detik**, tepat saat gelembung pikiran keempat (Seksi 31.7) hilang, di fase mana pun | Terkantuk-kantuk: mata nyaris terpejam, kepala pelan-pelan menunduk lalu tersentak bangun, badan sedikit merosot, dan huruf "Z" prosedural (geometri, bukan teks) melayang dari atas kepala. Berlanjut sampai ada aktivitas. |
 
+- **Gerak staf (keputusan maintainer 2026-10-04).** Staf tidak pernah tertidur. Di setiap tanda 7,5 detik mereka memainkan gerakan berikutnya dari giliran `staff_idle_gestures`, berulang tanpa batas:
+  1. **Mengelap wajah** dengan kain lap, seperti pemain.
+  2. **Meregangkan badan**: kedua lengan naik membentuk V, badan sedikit terangkat dan condong ke belakang, kepala mendongak, mata terpejam lega, dengan getar kecil di puncak regangan.
+  3. **Bersenandung**: badan bergoyang kiri-kanan mengikuti irama, kepala miring dan mengangguk, lengan berayun, dan not musik pastel (geometri, bukan teks) melayang dari atas kepala.
+  4. **Minum teh**: cangkir putih bergaris stroberi di tangan kanan dibawa ke depan dada lalu ke mulut, kepala sedikit mendongak saat menyeruput, dan uap tipis mengepul dari cangkir.
+  5. **Gerak khas peran**: kasir melempar koin emas kecil yang berputar setinggi kepala lalu menangkapnya; koki menepuk-nepuk tepung dari celemeknya sampai debu tepung beterbangan.
+
+  Lama tiap gerakan ada di `staff_gesture_seconds` (lap wajah: `wipe_gesture_seconds`); semuanya selesai sebelum tanda berikutnya. Urutan awal tiap staf digeser sesuai urutan roster, supaya dua staf yang sama-sama diam tidak bergerak kembar. Koki yang duduk memainkan gerakan yang sama di kursinya tanpa berdiri. Properti dan benda melayangnya berbagi material yang sudah ada dan dipanaskan di `ShaderWarmup`. Sesekali staf juga berceletuk (Seksi 31.8).
 - **Tidak melakukan apa pun** = tidak berjalan, tidak berinteraksi dengan perabot, tidak membawa barang, tidak punya perintah dalam antrean, dan (untuk kasir atau pemain yang berjaga di meja) tidak sedang melayani transaksi. Berjaga di meja kasir tanpa pembeli termasuk menganggur. Asisten Dapur tanpa tugas termasuk menganggur.
 - Timer memakai **detik nyata** (tidak ikut 2×/3×), berhenti saat game di-pause, dan kembali ke nol begitu ada aktivitas; pose dan ekspresi langsung kembali normal.
 - Pelanggan, driver, dan kurir tidak memakai gerak menganggur.
 - **Tidur pemain — CANONICAL:** ambang tidur pemain = saat gelembung pikiran terakhir hilang, yaitu `thought_after_seconds` terakhir + `thought_show_seconds` (40 + 5 = 45 detik), dan berlaku juga di persiapan walau tidak ada gelembung. Ia tidak pernah tertidur saat gelembung pikiran sedang tampil. Selama toko buka dan sepi, ia baru boleh tertidur pada detik ke-45 toko sepi, tepat saat gelembung terakhir hilang, dan tetap harus sudah menganggur 45 detik. Selama tidurnya ditahan, lap wajah tetap berulang tiap 7,5 detik. Pemain yang sudah tertidur sejak persiapan terbangun begitu toko buka dalam keadaan sepi, lalu rangkaian pikirannya berjalan dulu. Staf tidak terpengaruh.
-- Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation` (`idle_wipe_every_seconds`, `staff_doze_after_seconds`, `wipe_gesture_seconds`, `thought_after_seconds`, `thought_show_seconds`).
+- Murni presentasi: tidak memengaruhi simulasi, save, ataupun determinisme. Ambang waktunya TUNABLE di `balance.json` bagian `presentation` (`idle_wipe_every_seconds`, `wipe_gesture_seconds`, `staff_idle_gestures`, `staff_gesture_seconds`, `thought_after_seconds`, `thought_show_seconds`, dan kunci celetukan staf `staff_line_*`, Seksi 31.8).
 
 ## **31.7 Player Thought Bubbles (Toko Sepi)**
 
@@ -3028,6 +3018,18 @@ Selama **toko buka (08:00–18:00)** dan **sama sekali tidak ada pelanggan**, ba
 - Timer memakai detik nyata, berhenti saat pause, dan tidak berjalan sebelum toko buka atau setelah toko tutup.
 - Gelembung digambar di ruang layar (panel krem bersudut membulat, teks Inggris dari katalog string, tiga lingkaran kecil menunjuk ke kepala), tidak menangkap ketukan, dan disembunyikan selama Decoration Mode atau bila pemain berada di lantai lain.
 - Murni presentasi: tidak memengaruhi simulasi, save, maupun rating.
+
+## **31.8 Staff Idle Lines (Celetukan Staf)**
+
+Keputusan maintainer 2026-10-04. Staf yang menganggur (definisi Seksi 31.6) sesekali mengucapkan satu kalimat dalam gelembung yang sama dengan gelembung pikiran pemain (Seksi 31.7). Teksnya bahasa Inggris dari Seksi 127.24.
+
+- Seorang staf berceletuk **paling sering sekali tiap `staff_line_every_seconds` (60 detik nyata)**, dihitung dari awal celetukan sebelumnya, dan hanya bila ia sudah diam paling sedikit `staff_line_first_seconds` (6 detik). Maintainer meminta 60 detik pada 2026-10-04 supaya tidak terlalu sering; semula 30 detik.
+- Kalimat pertama hari itu jatuh tempo setelah geseran staf = urutan roster × `staff_line_stagger_seconds` (7 detik), modulo 60 detik, supaya staf tidak berceletuk bersamaan.
+- Setiap gelembung tampil `thought_show_seconds` (5 detik).
+- Kalimat pertama tiap hari menghitung hari kerjanya sejak direkrut: di hari pertama `staff_line_first_day`, sesudahnya `staff_line_day_n` dengan `{n}` = hari ke berapa.
+- Sisanya bergiliran tanpa berulang dalam sehari, dari kalimat umum, kalimat perannya (kasir atau koki), dan satu kalimat khas tiap staf (`<staff_id>_line`). Urutannya mulai dari tempat yang berbeda untuk tiap staf dan tiap hari.
+- Begitu staf sibuk, gelembungnya langsung hilang dan hitungan diamnya kembali ke nol; jeda 60 detiknya tetap berjalan. Timer memakai detik nyata dan berhenti saat pause. Gelembung disembunyikan selama Decoration Mode atau bila staf berada di lantai lain, dan tidak menangkap ketukan.
+- Murni presentasi: tanpa RNG simulasi dan tidak disimpan, jadi tidak memengaruhi simulasi, save, maupun rating. Hitungan kalimat hari itu mulai dari awal setelah load.
 
 ---
 
@@ -4934,9 +4936,11 @@ Floor: `floor_1` (lantai dasar/toko; satu-satunya floor untuk Tier 1, 4, 5) dan 
 `customer_school_child`, `customer_office_worker`, `customer_bulk_buyer`, `customer_snob`, `customer_indecisive`, `customer_critic`, `customer_generic`, `driver_rotifood`, `courier_supply`.
 
 ## **78.7 Staff (roster Seksi 3.5)**
-Asisten Kasir: `staff_cashier_budi`, `staff_cashier_sari`, `staff_cashier_dimas`, `staff_cashier_nadia`, `staff_cashier_rian`, `staff_cashier_lili`, `staff_cashier_maya`, `staff_cashier_reza`, `staff_cashier_dewi`, `staff_cashier_hendra`, `staff_cashier_citra`, `staff_cashier_kenji`, `staff_cashier_grace`, `staff_cashier_tejo`, `staff_cashier_luna`.
+Asisten Kasir: `staff_cashier_budi`, `staff_cashier_sari`, `staff_cashier_dimas`, `staff_cashier_tejo`, `staff_cashier_luna`.
 
-Asisten Dapur: `staff_baker_joko`, `staff_baker_ani`, `staff_baker_bagus`, `staff_baker_fajar`, `staff_baker_rina`, `staff_baker_doni`, `staff_baker_aris`, `staff_baker_tari`, `staff_baker_gilang`, `staff_baker_sophie`, `staff_baker_danu`, `staff_baker_aoi`, `staff_baker_pierre`, `staff_baker_mawar`, `staff_baker_alistair`.
+Asisten Dapur: `staff_baker_joko`, `staff_baker_ani`, `staff_baker_fajar`, `staff_baker_aoi`, `staff_baker_mawar`.
+
+ID calon yang dihapus pada 2026-10-04 (roster ringkas, Seksi 3.5) tidak dipakai lagi; save lama memetakannya ke calon tersisa (Seksi 106).
 
 ## **78.8 Marketing Campaigns (Seksi 8.1)**
 `campaign_flyer_t1`, `campaign_street_banner_t2`, `campaign_radio_magazine_t3`, `campaign_influencer_t4`, `campaign_food_festival_t5`.
@@ -6081,7 +6085,7 @@ Minimum root shape:
 
 ```json
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "game_version": "1.0.0",
   "catalog_versions": { "catalog_schema_version": 1, "content_version": 1 },
   "created_at": "2026-09-25T10:00:00Z",
@@ -6141,6 +6145,8 @@ Minimum root shape:
 Schema 4 adds the Holding Table (Section 5.1.3): job stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`, job fields `table_age_hours` and `table_seq`, and `production_jobs.next_table_seq`. The v3 → v4 migrator only bumps the version; a save without a table gets one created and auto-placed in the kitchen on load.
 
 Schema 5 follows the staff rework (maintainer decision 2026-10-02, Sections 3.1–3.3, 23). The v4 → v5 migrator drops the bakers' old work settings (`mode`, `target_recipe`, `batch`) and the staff `tasks`, turns jobs owned by a baker into kitchen orders (`owner_actor_id = "kitchen"`), clears staff claims, and drops the job field `protected`. On load: staff above the new limits are dismissed, newest hire first; staff chairs are created and auto-placed (Section 5.1.4); and furniture whose footprint now covers a queue slot, service or cashier point, or drop-off of the new lane templates (Section 57), or that lost its access tile, is re-placed with its contents. Customers left in a lane are rebalanced on the first tick.
+
+Schema 6 follows the roster cut (maintainer decision 2026-10-04, Section 3.5). The v5 → v6 migrator moves every hired candidate who was removed from the roster to the first remaining candidate of the same role who is not hired yet (catalog order, earliest hire first), renaming the ID everywhere in the save: contracts, staff actors, lane assignments, job claims and wage lines. A removed hire with no free candidate left would be over every staff limit, so it is dismissed without cost.
 
 The actual project must include a version-controlled **golden save fixture** under `tests/fixtures/` that loads successfully and is used by migration/regression tests. Transient pooled-node IDs, cached mesh references, signal connections, UI animation progress, and ephemeral pathfinding routes must never be serialized.
 
@@ -6941,33 +6947,13 @@ Role: `Cashier Assistant` dan `Kitchen Assistant` (`ui_staff_role_cashier`, `ui_
 | `staff_cashier_budi` | `A diligent first-year student. He gets flustered counting change, but his smile is always genuine.` |
 | `staff_cashier_sari` | `The friendly girl next door who greets every customer like a Sunday-morning cartoon host.` |
 | `staff_cashier_dimas` | `Loves chatting about the weather so much that he sometimes forgets to press Confirm.` |
-| `staff_cashier_nadia` | `A former minimarket cashier who keeps every receipt neat and precise.` |
-| `staff_cashier_rian` | `Quick on his feet and always ready for the after-school rush.` |
-| `staff_cashier_lili` | `Calm and patient; she hums softly while she packs every order.` |
-| `staff_cashier_maya` | `A persuasive talker who can soothe even the most hurried office worker.` |
-| `staff_cashier_reza` | `His fingers dance across the register keys without a single mistake.` |
-| `staff_cashier_dewi` | `Remembers every regular's name and favorite bread.` |
-| `staff_cashier_hendra` | `A shopper-psychology expert whose warm chat sends every customer home smiling.` |
-| `staff_cashier_citra` | `Calm and composed, she can handle a queue of twenty without breaking a sweat.` |
-| `staff_cashier_kenji` | `Disciplined and courteous, famous for his polite little bow.` |
-| `staff_cashier_grace` | `The "Ambassador of Smiles". Customers leave her counter beaming.` |
 | `staff_cashier_tejo` | `A legendary 90s department-store cashier who can count change with his eyes closed.` |
 | `staff_cashier_luna` | `A local idol on a relaxed side job; the counter is always buzzing when she's around.` |
 | `staff_baker_joko` | `Can knead heavy dough for hours, but tends to daydream when the oven dings.` |
 | `staff_baker_ani` | `Always tastes the jam before spreading it, and loves learning new baking tricks.` |
-| `staff_baker_bagus` | `Grew up helping his mother fry snacks at home; always quick on his feet.` |
 | `staff_baker_fajar` | `Rolls croissant dough to a perfectly even thickness.` |
-| `staff_baker_rina` | `Weighs yeast and butter with great discipline; her dough rarely falls flat.` |
-| `staff_baker_doni` | `Never gives up, and always wipes the counter after whisking eggs.` |
-| `staff_baker_aris` | `The "Yeast King", a fermentation expert for soft loaves and crusty baguettes.` |
-| `staff_baker_tari` | `Graceful and nimble, known for fragrant cinnamon rolls and Danish pastries.` |
-| `staff_baker_gilang` | `A pull-apart bread specialist whose dough rises beautifully in any weather.` |
-| `staff_baker_sophie` | `A classically trained French baker who folds hundreds of buttery layers.` |
-| `staff_baker_danu` | `A healthy-artisan maestro of natural sourdough and whole grains.` |
 | `staff_baker_aoi` | `A perfectionist from Kyoto who stacks flawless matcha mille crepes.` |
-| `staff_baker_pierre` | `A world-class pastry maestro whose bread is as soft as a cloud.` |
 | `staff_baker_mawar` | `A grandmother with a secret family recipe book and a story for every loaf.` |
-| `staff_baker_alistair` | `A modern culinary alchemist who turns truffle and artisan butter into the city's finest bread.` |
 
 ## **127.9 Daily Summary, HUD & Market Strings**
 
@@ -7258,6 +7244,71 @@ Perombakan asisten (Seksi 3.1–3.3, 5.1.4, 16.4, 23), keputusan maintainer 2026
 | `ui_upgrade_staff` | `Cashiers: {cashiers} · Bakers: {bakers} · Wage: {wage} per day each` |
 | `ui_summary_wage_line` | `{name} ({role})` |
 | `staff_chair` | `Staff Chair` |
+
+## **127.24 Staff Idle Lines**
+
+Celetukan staf yang menganggur (Seksi 31.8), keputusan maintainer 2026-10-04. Enam kalimat umum pertama dan dua kalimat hari kerja adalah terjemahan contoh dari maintainer; sisanya dengan nada yang sama. Dua puluh kalimat terakhir (12 umum, 4 kasir, 4 koki) ditambahkan atas permintaan maintainer pada hari yang sama. `{n}` = hari kerja ke berapa sejak direkrut. Kunci `<staff_id>_line` adalah kalimat khas satu staf.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `staff_line_first_day` | `Whoa, my first day! I hope I don't let anyone down.` |
+| `staff_line_day_n` | `Whoa, day {n} working here!` |
+| `staff_line_happy` | `I really love working here!` |
+| `staff_line_raise` | `I wonder when I'll get a raise...` |
+| `staff_line_own_bakery` | `Will I have my own bakery someday?` |
+| `staff_line_cat` | `I wonder what my cat is doing at home.` |
+| `staff_line_dinner` | `What should I get for dinner after work?` |
+| `staff_line_tired_happy` | `Tired... but happy!` |
+| `staff_line_smell` | `The smell of fresh bread never gets old.` |
+| `staff_line_no_snacking` | `Note to self: do NOT eat the display bread.` |
+| `staff_line_mom` | `I should call my mom tonight. She'd love this place.` |
+| `staff_line_rain_or_shine` | `Rain or shine, warm bread makes everything better.` |
+| `staff_line_boss` | `The boss works so hard. I want to be just like that!` |
+| `staff_line_payday` | `Payday, payday, please come soon~` |
+| `staff_line_radio_song` | `That song from the radio is stuck in my head again.` |
+| `staff_line_weekend` | `Maybe I'll try baking at home this weekend.` |
+| `staff_line_crumbs` | `Crumbs on my apron again... oh well!` |
+| `staff_line_regulars` | `I hope our regulars stop by today.` |
+| `staff_line_knead_pun` | `I knead a vacation. Get it? Knead?` |
+| `staff_line_stretch` | `Stretch... and smile! Okay, ready again.` |
+| `staff_line_cashier_cardio` | `Counting change is my cardio.` |
+| `staff_line_cashier_next` | `Next customer, please! ...Anyone?` |
+| `staff_line_cashier_prices` | `I know every price by heart. Try me!` |
+| `staff_line_cashier_kaching` | `Ka-ching! Best sound in the world.` |
+| `staff_line_baker_rest` | `Knead, fold, rest... I could use a rest too.` |
+| `staff_line_baker_arms` | `All this kneading is giving me super strong arms!` |
+| `staff_line_baker_flour` | `Is there flour on my nose again?` |
+| `staff_line_baker_batch` | `Something smells like a perfect batch!` |
+| `staff_cashier_budi_line` | `Okay Budi, count the change slowly. You can do it!` |
+| `staff_cashier_sari_line` | `Good morning, everyone~! Hehe, just practicing my greeting.` |
+| `staff_cashier_dimas_line` | `Lovely weather today, isn't it? ...Oh, nobody's here.` |
+| `staff_cashier_tejo_line` | `Back in the 90s, I counted change with my eyes closed!` |
+| `staff_cashier_luna_line` | `Should I sing a little song for the next customer?` |
+| `staff_baker_joko_line` | `Mmm... I was daydreaming about bread again.` |
+| `staff_baker_ani_line` | `Just one tiny taste of jam... for quality control!` |
+| `staff_baker_fajar_line` | `Perfectly even croissant layers... that's the dream.` |
+| `staff_baker_aoi_line` | `Every crepe must be perfect. Every single one.` |
+| `staff_baker_mawar_line` | `This kitchen reminds me of my grandmother's. So cozy.` |
+| `staff_line_good_day` | `Something tells me today is going to be a good day.` |
+| `staff_line_bike_home` | `I hope it doesn't rain on my bike ride home.` |
+| `staff_line_compliment` | `A customer said my smile was nice yesterday. Hehe!` |
+| `staff_line_new_recipe` | `I wonder what new recipe the boss will try next.` |
+| `staff_line_tummy` | `My tummy just growled. Did anyone hear that?` |
+| `staff_line_plants` | `I should water my plants when I get home.` |
+| `staff_line_diary` | `Dear diary, the bread smelled amazing today. Again.` |
+| `staff_line_karaoke` | `Karaoke after work? Maybe just one song...` |
+| `staff_line_lottery` | `If I win the lottery, I'd still come to work. Probably.` |
+| `staff_line_comfy_shoes` | `New shoes, comfy feet, happy me!` |
+| `staff_line_friends` | `My friends think working at a bakery is so cool.` |
+| `staff_line_butter` | `Deep breath... smells like butter and happiness.` |
+| `staff_line_cashier_smile` | `Smile check! Ready for the next customer.` |
+| `staff_line_cashier_bags` | `I folded these paper bags perfectly. Look at them!` |
+| `staff_line_cashier_umbrella` | `I hope the lady with the polka-dot umbrella comes by today.` |
+| `staff_line_cashier_drawer` | `Shiny coins, tidy drawer, happy cashier.` |
+| `staff_line_baker_oven_friend` | `The oven is my best friend. Don't tell the mixer.` |
+| `staff_line_baker_pillow` | `This dough is softer than my pillow.` |
+| `staff_line_baker_secret` | `My secret ingredient? A pinch of love.` |
+| `staff_line_baker_golden` | `Golden crust, fluffy inside. Perfection!` |
 
 ---
 

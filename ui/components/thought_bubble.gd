@@ -17,6 +17,7 @@ var _panel: PanelContainer = null
 var _label: Label = null
 var _style: StyleBoxFlat = null
 var _key: String = ""
+var _params: Dictionary = {}
 var _anchor: Vector2 = Vector2.ZERO
 var _tween: Tween = null
 
@@ -63,15 +64,17 @@ func is_showing() -> bool:
 	return visible and _key != ""
 
 
-## Tampilkan pikiran `key` (teks dari katalog string). Pikiran baru muncul
-## dengan pop kecil; memanggil ulang dengan kunci yang sama tidak berbuat apa-apa.
-func show_key(key: String) -> void:
-	if key == _key and visible:
+## Tampilkan pikiran `key` (teks dari katalog string, dengan `params`). Pikiran
+## baru muncul dengan pop kecil; memanggil ulang dengan kunci dan parameter yang
+## sama tidak berbuat apa-apa.
+func show_key(key: String, params: Dictionary = {}) -> void:
+	if key == _key and params == _params and visible:
 		return
 	_key = key
+	_params = params
 	# Baris dibungkus manual agar ukuran panel selalu pasti (autowrap Label
 	# belum punya lebar saat pertama kali diukur).
-	_label.text = _wrap(Tx.t(key), _label.get_theme_font("font"), _label.get_theme_font_size("font_size"), MAX_TEXT_WIDTH)
+	_label.text = _wrap(Tx.t(key, params), _label.get_theme_font("font"), _label.get_theme_font_size("font_size"), MAX_TEXT_WIDTH)
 	_panel.reset_size()
 	visible = true
 	_fade_to(1.0)
