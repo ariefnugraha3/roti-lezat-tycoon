@@ -16,6 +16,7 @@ func tests() -> Array:
 		{"id": "ACC_81_SPEED", "name": "81.7/81.8 speed, menu pause, smart speed safety", "fn": _speed},
 		{"id": "ACC_81_RECIPES", "name": "81.9/81.10 no unlock flags, batch revenue", "fn": _recipes},
 		{"id": "ACC_81_IN_USE", "name": "81.14 in-use furniture cannot move", "fn": _in_use},
+		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 while the shop is not open a shelf holding bread moves and turns with its bread; while open it stays IN_USE; Put Away and replace still refuse it", "fn": _stocked_shelf},
 		{"id": "ACC_16_COMMANDS", "name": "16.4 retargeting mixes equipment, cashier and portal taps", "fn": _mixed_taps},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
@@ -322,6 +323,67 @@ func _in_use() -> void:
 	eq(s.equipment.place(mixer.iid, mixer.floor_id, mixer.anchor + Vector2i(0, 1), mixer.rotation), &"in_use", "in-use furniture cannot move (GDD 81.14)")
 	eq(s.equipment.put_away(mixer.iid), &"in_use", "in-use furniture cannot be stored")
 	free_sim(s)
+
+
+## Rak berisi roti boleh dipindah dan diputar selama toko tidak buka, dan
+## rotinya ikut pindah (keputusan maintainer 2026-10-04, GDD 72). Saat buka ia
+## tetap IN_USE; simpan dan ganti tetap menolaknya (GDD 5.1.2).
+func _stocked_shelf() -> void:
+	var s: SimulationRoot = new_sim(102)
+	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	stock(s, &"recipe_plain_loaf", 6, 0, disp.iid)
+	check(s.display.used(disp.iid) > 0, "the shelf holds bread")
+	var bread: String = JSON.stringify(s.display.capture())
+	eq(s.time.phase, TimeManager.PREPARATION, "the shop is still preparing")
+	check(s.equipment.is_in_use(disp.iid), "a shelf holding bread still counts as in use")
+	check(not s.equipment.move_blocked(disp.iid), "but before opening it may move")
+	var spot: Dictionary = _shelf_spot(s, disp, false)
+	check(not spot.is_empty(), "the shelf has another free spot")
+	if spot.is_empty():
+		free_sim(s)
+		return
+	eq(s.equipment.place(disp.iid, disp.floor_id, spot["anchor"], spot["rot"]), &"", "Place moves the shelf holding bread before opening")
+	eq(disp.anchor, spot["anchor"], "the shelf stands at its new spot")
+	eq(JSON.stringify(s.display.capture()), bread, "its bread moved with it: same slots, units, age and quality")
+	check(not s.world.access_of(disp.iid).is_empty() and s.world.layout_valid(), "the new layout keeps its access tile and paths")
+	eq(s.equipment.put_away(disp.iid), &"in_use", "a shelf holding bread still cannot be put away")
+	# Toko buka: rak berisi roti kembali IN_USE.
+	run_until(s, s.time.open_time + 1.0)
+	check(s.time.is_open() and s.display.used(disp.iid) > 0, "the shop is open and the shelf still holds bread")
+	check(s.equipment.move_blocked(disp.iid), "while open a shelf holding bread cannot move")
+	var spot2: Dictionary = _shelf_spot(s, disp, false)
+	check(not spot2.is_empty(), "there is still another free spot")
+	if not spot2.is_empty():
+		eq(s.equipment.place(disp.iid, disp.floor_id, spot2["anchor"], spot2["rot"]), &"in_use", "and Place refuses it")
+	# Sesudah tutup: boleh pindah dan berputar lagi; ganti alat tetap ditolak.
+	s.time.set_phase(TimeManager.AFTER_HOURS)
+	bread = JSON.stringify(s.display.capture())
+	check(not s.equipment.move_blocked(disp.iid), "after closing it may move again")
+	var turn: Dictionary = _shelf_spot(s, disp, true)
+	check(not turn.is_empty(), "the shelf has a free spot facing another way")
+	if not turn.is_empty():
+		eq(s.equipment.place(disp.iid, disp.floor_id, turn["anchor"], turn["rot"]), &"", "after closing it may turn too")
+		eq(disp.rotation, int(turn["rot"]), "the shelf faces its new way")
+		eq(JSON.stringify(s.display.capture()), bread, "with its bread untouched")
+	var r: Dictionary = s.equipment.buy_replace(DataRegistry.equipment_for(&"display", 1).id, disp.iid)
+	eq(str(r.get("reason", "")), "in_use", "a shelf holding bread cannot be replaced (GDD 5.1.2)")
+	free_sim(s)
+
+
+## Tempat sah lain untuk rak `e` di lantainya: {anchor, rot}; `turn` meminta
+## putaran yang berbeda, selain itu jangkar yang berbeda dengan putaran sama.
+func _shelf_spot(s: SimulationRoot, e: EquipmentInstance, turn: bool) -> Dictionary:
+	var fg: FloorGrid = s.world.grid(e.floor_id)
+	for r in 4:
+		var rot: int = (e.rotation + r) % 4
+		if (rot != e.rotation) != turn:
+			continue
+		for z in fg.size.y:
+			for x in fg.size.x:
+				var a := Vector2i(x, z)
+				if (a != e.anchor or turn) and s.world.validate_placement(e, e.floor_id, a, rot) == &"":
+					return {"anchor": a, "rot": rot}
+	return {}
 
 
 func _effect_limit() -> void:

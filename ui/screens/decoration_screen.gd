@@ -12,7 +12,8 @@ extends UIScreen
 ## jejaknya putih bila sah, merah bersilang beserta alasannya bila tidak. Tata
 ## letak simulasi baru berubah saat Place diketuk; Cancel, Back, atau klik
 ## kanan mengembalikan barang ke tempat semula. Perabot IN_USE tidak dapat
-## diangkat. Ubin yang harus tetap kosong (jalur, antrean, titik layanan, akses
+## diangkat, kecuali rak berisi roti selama toko tidak buka: rotinya ikut
+## pindah (EquipmentManager.move_blocked). Ubin yang harus tetap kosong (jalur, antrean, titik layanan, akses
 ## perabot, leher botol) diarsir merah selama mode ini (GDD 17.4 "preview merah
 ## dan tampilkan alasan"). Decor Shop hanya aktif after-hours.
 ##
@@ -501,14 +502,15 @@ func _buy(deco_id: StringName) -> void:
 # MEMEGANG BARANG (GDD 72.2, seperti The Sims)
 # ===========================================================================
 
-## Angkat alat `iid`. Alat yang sedang dipakai tidak bisa diangkat. Alat yang
-## belum terpasang muncul di tempat sah terdekat dari tengah layar, seperti
-## barang baru di The Sims; bila kategorinya sudah penuh, ia tetap disimpan.
+## Angkat alat `iid`. Alat yang sedang dipakai tidak bisa diangkat (rak berisi
+## roti bisa, selama toko tidak buka). Alat yang belum terpasang muncul di
+## tempat sah terdekat dari tengah layar, seperti barang baru di The Sims; bila
+## kategorinya sudah penuh, ia tetap disimpan.
 func _hold_equipment(iid: int) -> void:
 	var e: EquipmentInstance = sim.equipment.get_inst(iid)
 	if e == null:
 		return
-	if e.placed and sim.equipment.is_in_use(iid):
+	if e.placed and sim.equipment.move_blocked(iid):
 		_refresh_all()
 		_set_status(&"in_use", false)
 		return
@@ -789,7 +791,7 @@ func _spawn() -> void:
 
 ## Toolbar mengikuti barang yang dipegang: Rotate untuk alat dan karpet, Put Away
 ## hanya untuk yang sudah terpasang dan boleh disimpan (Gudang & Meja Tunggu
-## tidak).
+## tidak, rak yang masih berisi roti juga tidak).
 func _update_toolbar_content() -> void:
 	_toolbar.visible = has_selection() and not _drag_active
 	if not has_selection():
@@ -798,7 +800,7 @@ func _update_toolbar_content() -> void:
 		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
 		_tb_name.text = Tx.item_name(e.def_id)
 		_tb_rotate.visible = true
-		_tb_store.visible = e.placed and not EquipmentManager.is_fixture(e.category())
+		_tb_store.visible = e.placed and not EquipmentManager.is_fixture(e.category()) and not sim.equipment.is_in_use(e.iid)
 	else:
 		var o: Dictionary = sim.decoration.item(_sel_decor)
 		_tb_name.text = Tx.t(String(sim.decoration.def_of(o).localization_key))
@@ -1037,7 +1039,7 @@ func _on_world_press(pos: Vector2) -> bool:
 	var p: Dictionary = game.world.pick(pos)
 	match p.get("kind", &""):
 		&"equipment":
-			if p.has("cell") or sim.equipment.is_in_use(int(p["iid"])):
+			if p.has("cell") or sim.equipment.move_blocked(int(p["iid"])):
 				return false
 			_press_pick = p
 			return true

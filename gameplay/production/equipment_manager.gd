@@ -133,12 +133,24 @@ func best_tier(category: StringName) -> int:
 
 ## Alat sedang dipakai: berisi job, roti, atau tray (GDD 5.1.2, 72).
 func is_in_use(iid: int) -> bool:
+	return _in_use(iid, true)
+
+
+## Alat tidak boleh dipindah atau diputar di Decoration Mode (GDD 72). Sama
+## dengan is_in_use, kecuali roti di rak display: selama toko tidak buka, rak
+## yang berisi roti boleh dipindah dan rotinya ikut pindah (keputusan
+## maintainer 2026-10-04). Simpan, ganti, dan jual tetap memakai is_in_use.
+func move_blocked(iid: int) -> bool:
+	return _in_use(iid, sim.time.is_open())
+
+
+func _in_use(iid: int, bread_counts: bool) -> bool:
 	var e: EquipmentInstance = get_inst(iid)
 	if e == null:
 		return false
 	if e.job_id >= 0:
 		return true
-	if e.category() == &"display" and sim.display.used(iid) > 0:
+	if bread_counts and e.category() == &"display" and sim.display.used(iid) > 0:
 		return true
 	if sim.world.is_use_point_reserved_for(iid):
 		return true
@@ -248,7 +260,7 @@ func place(iid: int, floor_id: StringName, anchor: Vector2i, rotation: int) -> S
 	var e: EquipmentInstance = get_inst(iid)
 	if e == null:
 		return &"invalid"
-	if e.placed and is_in_use(iid):
+	if e.placed and move_blocked(iid):
 		return &"in_use"
 	if not e.placed and placed_count(e.category()) >= slot_limit(e.category()) and not is_fixture(e.category()):
 		return &"slots_full"

@@ -13,6 +13,7 @@ func tests() -> Array:
 		{"id": "ACC_72_DECOR_DRAG", "name": "72.2 dragging furniture moves it tile by tile under the finger, the shop changes only on Place, and Cancel or Back puts it back", "fn": _drag},
 		{"id": "ACC_72_DECOR_TAP_THROUGH", "name": "72.2 while holding, a tap lands on the floor under the finger (also behind other furniture), never picks another piece and never drops the held one; dragging the floor pans the camera", "fn": _tap_through},
 		{"id": "ACC_72_DECOR_NEW_ITEM", "name": "72.2 an item from the tray appears on a free spot on screen and stays in storage until placed; Done places a validly held item", "fn": _new_item},
+		{"id": "ACC_72_DECOR_STOCKED_SHELF", "name": "72.2 before opening, dragging a shelf that holds bread lifts it with its bread and Place moves both, with Put Away hidden; while open the shelf is not picked up and IN_USE shows", "fn": _stocked_shelf},
 	]
 
 
@@ -125,6 +126,19 @@ func _body_point(world: WorldView, iid: int) -> Vector2:
 func _shift(world: WorldView, p: Vector2, d: Vector2i) -> Vector2:
 	var g: Vector3 = world.camera_rig.screen_to_ground(p)
 	return world.camera_rig.world_to_screen(g + Vector3(float(d.x), 0.0, float(d.y)) * GridMath.WORLD_METERS_PER_TILE)
+
+
+## Jumlah model roti di petak-petak rak `iid` (anak node "SlotN" modelnya).
+func _bread_on(world: WorldView, iid: int) -> int:
+	var node: Node3D = world.furniture.get(iid)
+	if node == null:
+		return 0
+	var n: int = 0
+	for slot: Node in node.find_children("Slot*", "", true, false):
+		for c: Node in slot.get_children():
+			if not c.is_queued_for_deletion():
+				n += 1
+	return n
 
 
 ## Perabot yang badannya bisa ditekan di layar dan muat digeser satu ubin:
@@ -306,4 +320,65 @@ func _new_item() -> void:
 	check(e.placed and e.anchor == spot, "Done puts the held item down where it was shown")
 	check(not game.modals.is_open(&"decoration"), "and closes Decoration Mode")
 	check(node == null or not is_instance_valid(node) or node.is_queued_for_deletion(), "the preview model is gone")
+	await _finish(game)
+
+
+## Rak berisi roti diangkat dan dipindah bersama rotinya selama toko belum buka
+## (keputusan maintainer 2026-10-04, GDD 72). Saat buka ia tetap IN_USE.
+func _stocked_shelf() -> void:
+	var game: GameRoot = await _boot("Stocked Shelf Bakery")
+	var sim: SimulationRoot = game.sim
+	var disp: EquipmentInstance = sim.equipment.placed_list(&"display")[0]
+	stock(sim, &"recipe_plain_loaf", 6, 0, disp.iid)
+	var bread: String = JSON.stringify(sim.display.capture())
+	var deco: DecorationScreen = await _open(game)
+	var world: WorldView = game.world
+	world._update_bread()
+	check(_bread_on(world, disp.iid) > 0, "the shelf shows its bread")
+	var d: Vector2i = Vector2i.ZERO
+	for dd: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if d == Vector2i.ZERO and sim.world.validate_placement(disp, disp.floor_id, disp.anchor + dd, disp.rotation) == &"":
+			d = dd
+	var from: Vector2 = _body_point(world, disp.iid)
+	check(d != Vector2i.ZERO and int(world.pick(from).get("iid", -1)) == disp.iid, "the shelf is on screen and fits one tile over")
+	if d == Vector2i.ZERO:
+		await _finish(game)
+		return
+	var a0: Vector2i = disp.anchor
+	# 1. Sebelum buka: seret badan rak, rak terangkat bersama rotinya.
+	_drag_gesture(from, _shift(world, from, d))
+	await runner.get_tree().process_frame
+	eq(world.lifted_iid(), disp.iid, "before opening, dragging the shelf holding bread picks it up")
+	eq(Vector2i(world.held()["cell"]), a0 + d, "it follows the finger by one tile")
+	check(world.hold_node() == world.furniture.get(disp.iid) and _bread_on(world, disp.iid) > 0,
+		"the lifted model is the shelf itself, with its bread on it")
+	check(deco._tb_place.visible and deco._tb_rotate.visible and not deco._tb_store.visible,
+		"Place and Rotate show, Put Away hides while it holds bread")
+	deco._tb_place.pressed.emit()
+	await runner.get_tree().process_frame
+	eq(disp.anchor, a0 + d, "Place moves the shelf")
+	eq(JSON.stringify(sim.display.capture()), bread, "its bread is unchanged")
+	world._update_bread()
+	var shown: int = _bread_on(world, disp.iid)
+	check(shown > 0, "the shelf shows its bread at the new spot")
+	var node: Node3D = world.furniture.get(disp.iid)
+	var box: AABB = (world._aabbs[disp.iid]["aabb"] as AABB).grow(0.02)
+	var inside: bool = shown > 0
+	for slot: Node in node.find_children("Slot*", "", true, false):
+		for b: Node in slot.get_children():
+			var p: Vector3 = node.get_parent().to_local((b as Node3D).global_position)
+			inside = inside and p.x >= box.position.x and p.x <= box.end.x and p.z >= box.position.z and p.z <= box.end.z
+	check(inside, "and that bread sits on the shelf's new tiles")
+	# 2. Saat buka: rak berisi roti tidak terangkat, alasannya tampil.
+	sim.time.phase = TimeManager.OPEN
+	from = _body_point(world, disp.iid)
+	_tap(from)
+	await runner.get_tree().process_frame
+	check(not deco.has_selection() and world.lifted_iid() == -1, "while open a tap does not pick up a shelf holding bread")
+	eq(deco._status.text, Tx.t("ui_feedback_in_use"), "the hint says it is in use")
+	_drag_gesture(from, _shift(world, from, -d))
+	await runner.get_tree().process_frame
+	check(not deco.has_selection(), "and a drag does not pick it up either")
+	eq(disp.anchor, a0 + d, "the shelf stays put")
+	sim.time.phase = TimeManager.PREPARATION
 	await _finish(game)
