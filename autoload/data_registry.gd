@@ -30,6 +30,14 @@ const WINDOW_SHOPPER_LINES: Array[String] = [
 const STAFF_CANDIDATES_PER_ROLE: int = 5
 ## Gerak menganggur staf yang dikenal (GDD 31.6, `presentation.staff_idle_gestures`).
 const IDLE_GESTURES: Array[String] = ["wipe", "stretch", "hum", "tea", "role"]
+## Kejutan kosmetik yang dikenal (GDD 31.9, `presentation.surprise_kinds`) dan
+## kalimat gelembungnya (GDD 127.25).
+const SURPRISE_KINDS: Array[String] = ["cat", "kid_chase", "lurah", "mascot", "busker", "tourists", "butterfly", "sparrow"]
+const SURPRISE_LINES: Array[String] = [
+	"surprise_cat_meow", "surprise_kid_whee", "surprise_kid_sorry", "surprise_mom_call", "surprise_mom_sorry",
+	"surprise_lurah_hello", "surprise_mascot_hello", "surprise_busker_thanks", "surprise_tourist_cheese",
+	"surprise_tourist_cute", "surprise_sparrow_tweet",
+]
 ## Celetukan staf yang menganggur (GDD 31.8, 127.24): kalimat pembuka hari, lalu
 ## kalimat umum, kalimat per peran, dan satu kalimat khas tiap staf
 ## (`<staff_id>_line`, lihat staff_personal_line).
@@ -1042,6 +1050,23 @@ func _validate_balance() -> void:
 			_err("presentation.staff_idle_gestures has the unknown gesture %s" % gid)
 		elif dur <= 0.0 or dur >= wipe_every:
 			_err("presentation: staff gesture %s must last more than 0 s and less than idle_wipe_every_seconds" % gid)
+	# Kejutan kosmetik (GDD 31.9): dikenal, cukup banyak supaya kejutan kemarin
+	# bisa dilewati, dan jendela jamnya di dalam jam buka.
+	var s_kinds: Array = p.get("surprise_kinds", [])
+	var s_per: Array = p.get("surprise_per_day", [])
+	var s_hours: Array = p.get("surprise_hours", [])
+	for sk: Variant in s_kinds:
+		if not SURPRISE_KINDS.has(str(sk)):
+			_err("presentation.surprise_kinds has the unknown kind %s" % sk)
+	if s_per.size() != 2 or int(s_per[0]) < 1 or int(s_per[1]) < int(s_per[0]) or s_kinds.size() < 2 * int(s_per[1]):
+		_err("presentation.surprise_per_day must be [min, max] with 1 <= min <= max and at least 2 x max kinds")
+	var clock: Dictionary = _balance.get("clock", {})
+	var open_h: float = float(clock.get("open_seconds", 0.0)) / 3600.0
+	var close_h: float = float(clock.get("close_seconds", 0.0)) / 3600.0
+	if s_hours.size() != 2 or float(s_hours[0]) < open_h or float(s_hours[1]) <= float(s_hours[0]) or float(s_hours[1]) > close_h:
+		_err("presentation.surprise_hours must be a rising [from, to] window inside opening hours")
+	for k7: String in SURPRISE_LINES:
+		_check_text(StringName(k7), "surprises")
 	var thoughts: Array = p.get("thought_after_seconds", [])
 	if thoughts.size() != THOUGHT_KEYS.size():
 		_err("presentation.thought_after_seconds needs %d entries" % THOUGHT_KEYS.size())

@@ -750,6 +750,96 @@ static func pat_flour(actor: Node3D, k: float, t: float) -> void:
 	_sync_head_attachments(actor)
 
 
+# ---------------------------------------------------------------------------
+# GDD 31.9 — pose pemeran kejutan kosmetik (keputusan maintainer 2026-10-04)
+# ---------------------------------------------------------------------------
+
+## Melambai: tangan kanan terangkat tinggi di samping kepala dan bergoyang.
+const WAVE_ROLL: float = 2.55
+const WAVE_SWING: float = 0.35
+const WAVE_FREQ: float = 9.0
+## Membungkuk minta maaf atau berterima kasih (radian).
+const BOW_LEAN: float = 0.42
+const BOW_HEAD: float = 0.30
+## Memetik ukulele: tangan kiri memegang leher, tangan kanan memetik di depan badan.
+const STRUM_FREQ: float = 13.0
+const STRUM_AMP: float = 0.20
+
+
+## Melambai dengan tangan kanan (`w` 0..1 bobot pose); dipanggil setelah sync.
+static func wave(actor: Node3D, w: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var arm: Node3D = _part(actor, "ArmR")
+	if arm != null:
+		var rest: Vector3 = _rest_rot(arm)
+		arm.rotation = Vector3(lerpf(rest.x, 0.25, w), rest.y, lerpf(rest.z, WAVE_ROLL + sin(t * WAVE_FREQ) * WAVE_SWING, w))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.z = _rest_rot(head).z - 0.10 * w
+	_sync_head_attachments(actor)
+
+
+## Membungkuk sekali sepanjang `k` 0..1: badan dan kepala menunduk lalu tegak lagi.
+static func bow(actor: Node3D, k: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var b: float = _envelope(k, 0.0, 0.30, 0.70, 1.0)
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.rotation.x = _rest_rot(body).x - BOW_LEAN * b
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x - BOW_HEAD * b
+	for side: String in ["ArmL", "ArmR"]:
+		var arm: Node3D = _part(actor, side)
+		if arm != null:
+			arm.rotation.x = _rest_rot(arm).x - 0.15 * b
+	_neck_follow(actor)
+	_sync_head_attachments(actor)
+
+
+## Memetik ukulele (`w` 0..1): ukulelenya ditempatkan pemanggil di depan dada.
+static func strum(actor: Node3D, w: float, t: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var arm_l: Node3D = _part(actor, "ArmL")
+	if arm_l != null:
+		var rl: Vector3 = _rest_rot(arm_l)
+		arm_l.rotation = Vector3(lerpf(rl.x, 1.05, w), rl.y, lerpf(rl.z, -0.40, w))
+	var arm_r: Node3D = _part(actor, "ArmR")
+	if arm_r != null:
+		var rr: Vector3 = _rest_rot(arm_r)
+		arm_r.rotation = Vector3(lerpf(rr.x, 0.80, w) + sin(t * STRUM_FREQ) * STRUM_AMP * w, rr.y, lerpf(rr.z, -0.45, w))
+	var body: Node3D = _part(actor, "Body")
+	if body != null:
+		body.rotation.z = _rest_rot(body).z + sin(t * 2.6) * 0.05 * w
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x + absf(sin(t * 5.2)) * 0.07 * w
+	_neck_follow(actor)
+	_sync_head_attachments(actor)
+
+
+## Memotret: kedua tangan mengangkat kamera (properti "kamera" di tangan kanan)
+## ke depan wajah (`w` 0..1).
+static func photo(actor: Node3D, w: float) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	var arm_r: Node3D = _part(actor, "ArmR")
+	if arm_r != null:
+		var rr: Vector3 = _rest_rot(arm_r)
+		arm_r.rotation = Vector3(lerpf(rr.x, 1.75, w), rr.y, lerpf(rr.z, -0.42, w))
+	var arm_l: Node3D = _part(actor, "ArmL")
+	if arm_l != null:
+		var rl: Vector3 = _rest_rot(arm_l)
+		arm_l.rotation = Vector3(lerpf(rl.x, 1.55, w), rl.y, lerpf(rl.z, 0.45, w))
+	var head: Node3D = _part(actor, "Head")
+	if head != null:
+		head.rotation.x = _rest_rot(head).x - 0.05 * w
+	_sync_head_attachments(actor)
+
+
 ## Bobot masuk-keluar sebuah gerakan: naik di [a, b], penuh, lalu turun di [c, d].
 static func _envelope(k: float, a: float, b: float, c: float, d: float) -> float:
 	return smoothstep(a, b, k) * (1.0 - smoothstep(c, d, k))

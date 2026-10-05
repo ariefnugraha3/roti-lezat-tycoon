@@ -74,6 +74,8 @@ var _shopper_bubbles: Dictionary = {}
 ## staff_id -> {day, count, slot, line}: celetukan hari ini (tidak disimpan).
 var _staff_bubbles: Dictionary = {}
 var _staff_said: Dictionary = {}
+## Kejutan kosmetik di toko (GDD 31.9).
+var surprises: SurpriseDirector = null
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
 ## Barang yang sedang dipegang di Decoration Mode (GDD 72.2): {kind
@@ -124,6 +126,9 @@ func setup(s: SimulationRoot) -> void:
 	add_child(_thought_layer)
 	_thought_bubble = ThoughtBubble.new()
 	_thought_layer.add_child(_thought_bubble)
+	surprises = SurpriseDirector.new()
+	add_child(surprises)
+	surprises.setup(sim, self)
 	sim.world.layout_changed.connect(rebuild_furniture)
 	EventBus.location_changed.connect(func(_id: StringName) -> void: _on_location_changed())
 	EventBus.storage_door.connect(_on_storage_door)
@@ -149,6 +154,8 @@ func _on_location_changed() -> void:
 
 
 func rebuild_all() -> void:
+	if surprises != null:
+		surprises.abort()
 	for f: Variant in floors.values():
 		(f as Node3D).queue_free()
 	floors.clear()
@@ -342,6 +349,7 @@ func _process(delta: float) -> void:
 	_update_thoughts(delta)
 	_update_shopper_lines()
 	_update_staff_lines(delta)
+	surprises.update(delta)
 	_marker_timer -= delta
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ

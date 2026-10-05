@@ -150,7 +150,7 @@
   "packing_seconds": 3.0
  },
  "presentation": {
-  "_gdd": "31.6, 31.7, 31.8",
+  "_gdd": "31.6, 31.7, 31.8, 31.9",
   "idle_wipe_every_seconds": 7.5,
   "wipe_gesture_seconds": 1.2,
   "thought_after_seconds": [10.0, 20.0, 30.0, 40.0],
@@ -159,7 +159,10 @@
   "staff_line_every_seconds": 60.0,
   "staff_line_stagger_seconds": 7.0,
   "staff_idle_gestures": ["wipe", "stretch", "hum", "tea", "role"],
-  "staff_gesture_seconds": {"stretch": 1.8, "hum": 3.0, "tea": 3.2, "role": 2.2}
+  "staff_gesture_seconds": {"stretch": 1.8, "hum": 3.0, "tea": 3.2, "role": 2.2},
+  "surprise_kinds": ["cat", "kid_chase", "lurah", "mascot", "busker", "tourists", "butterfly", "sparrow"],
+  "surprise_per_day": [2, 3],
+  "surprise_hours": [8.5, 16.5]
  },
  "supply": {
   "_gdd": "5.2.3, 129",

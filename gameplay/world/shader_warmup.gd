@@ -121,6 +121,12 @@ func _fill(world: WorldView) -> void:
 			var z: MeshInstance3D = CharacterFactory.sleep_z()
 			v.add_child(z)
 			z.position = Vector3(0.1, 1.3, 0.0)
+			# Kejutan kosmetik (GDD 31.9): hewan, maskot, ukulele, hati, remah.
+			for critter: Node3D in [CritterFactory.cat(), CritterFactory.sparrow(), CritterFactory.butterfly(),
+					CritterFactory.bread_mascot(), CritterFactory.ukulele(), CritterFactory.heart(), CritterFactory.crumb()]:
+				critter.visible = true
+				v.add_child(critter)
+				critter.position = Vector3(0.1, 0.4, 0.0)
 			# Properti gerak menganggur staf (GDD 31.6): cangkir, koin, not, kepulan.
 			for prop: MeshInstance3D in [CharacterFactory.tea_cup(), CharacterFactory.toss_coin(),
 					CharacterFactory.music_note(0), CharacterFactory.puff()]:

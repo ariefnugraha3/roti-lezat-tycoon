@@ -3031,6 +3031,40 @@ Keputusan maintainer 2026-10-04. Staf yang menganggur (definisi Seksi 31.6) sese
 - Begitu staf sibuk, gelembungnya langsung hilang dan hitungan diamnya kembali ke nol; jeda 60 detiknya tetap berjalan. Timer memakai detik nyata dan berhenti saat pause. Gelembung disembunyikan selama Decoration Mode atau bila staf berada di lantai lain, dan tidak menangkap ketukan.
 - Murni presentasi: tanpa RNG simulasi dan tidak disimpan, jadi tidak memengaruhi simulasi, save, maupun rating. Hitungan kalimat hari itu mulai dari awal setelah load.
 
+## **31.9 Surprise Moments (Kejutan di Toko)**
+
+Keputusan maintainer 2026-10-04. Supaya hari-hari tidak membosankan, sesekali sebuah adegan kecil lewat di toko. Adegan ini **murni tontonan**: tidak membeli, tidak menjual, dan tidak pernah mengubah stok, antrean, pesanan, rating, maupun uang. Maintainer meminta paling sedikit enam jenis dan paling sedikit dua kejutan sehari yang tidak terlalu berulang, lalu memilih kedelapan jenis berikut.
+
+| Kejutan (`kind`) | Adegan | Kalimat (Seksi 127.25) |
+| :--- | :--- | :--- |
+| `cat` | Kucing oren masuk, mengendus rak roti, duduk, mengeong (hati kecil melayang), menjilat kaki depannya, lalu pergi. | `surprise_cat_meow` |
+| `kid_chase` | Anak kecil berlari masuk dan dua kali mengitari rak; ibunya menyusul sambil memanggil, lalu keduanya minta maaf sambil membungkuk dan pulang. | `surprise_kid_whee`, `surprise_mom_call`, `surprise_kid_sorry`, `surprise_mom_sorry` |
+| `lurah` | Pak Lurah mampir tanpa koper dan amplop bantuan (Seksi 49), menyapa sambil melambai, melompat kecil, lalu pamit. | `surprise_lurah_hello` |
+| `mascot` | Orang berkostum roti tawar raksasa (muka remah tersenyum, sarung tangan putih) masuk, menyapa, menari dengan kedua tangan di atas, melambai, lalu keluar. | `surprise_mascot_hello` |
+| `busker` | Pengamen bertopi berdiri dekat pintu memetik ukulele dengan not musik melayang, berterima kasih sambil membungkuk, lalu pergi. | `surprise_busker_thanks` |
+| `tourists` | Dua turis masuk; satu memotret rak roti dengan kilatan kamera, yang lain kegirangan melompat, lalu keduanya keluar. | `surprise_tourist_cheese`, `surprise_tourist_cute` |
+| `butterfly` | Kupu-kupu pastel terbang masuk lewat pintu, berputar di atas rak, hinggap sebentar, lalu terbang keluar. | — |
+| `sparrow` | Burung pipit terbang masuk, mematuk remah roti di dekat rak, melompat, berkicau, lalu terbang keluar. | `surprise_sparrow_tweet` |
+
+**Jadwal.**
+
+- Tiap hari ada `presentation.surprise_per_day` = 2–3 kejutan pada jam acak di dalam `presentation.surprise_hours` (08:30–16:30). Jendela itu dibagi rata per kejutan dan tiap kejutan jatuh di bagiannya sendiri (15–85% bagian itu), jadi dua kejutan berjarak paling sedikit sekitar 48 menit in-game.
+- Kejutan dipilih dari yang paling lama tidak tampil (seri diundi), dan kejutan kemarin tidak tampil lagi hari ini. Akibatnya kedelapan kejutan tampil dalam setiap empat hari berturut-turut. Urutan dalam sehari diacak.
+- Jadwalnya deterministik dari master seed dan nomor hari lewat `RandomNumberGenerator` sendiri, bukan stream RNG simulasi (Seksi 116), jadi sama setelah load. Tidak ada yang disimpan; load di tengah hari melewati kejutan yang jamnya sudah lewat lebih dari 1,5 jam in-game.
+
+**Kapan tampil.**
+
+- Kejutan mulai begitu jamnya tiba, asalkan toko buka, game tidak di-pause, bukan Decoration Mode, dan kamera menampilkan lantai toko. Kejutan yang tertahan lebih dari 1,5 jam in-game (`SurpriseDirector.LATE_SECONDS`, misalnya pemain lama di lantai dapur) dibatalkan supaya kejutan tidak tampil beruntun.
+- Hanya satu kejutan pada satu waktu. Adegan berjalan dalam detik nyata (tidak ikut 2×/3×), berhenti saat pause, dan disembunyikan selama Decoration Mode. Toko tutup, termasuk Close Early (Seksi 15.5), langsung mengakhiri adegan.
+- Para pemeran berbicara bergantian: kalimat baru menunggu sampai gelembung pemeran lain hilang. Gelembungnya sama dengan gelembung pikiran (Seksi 31.7), tidak menangkap ketukan, dan tampil 1,3–3 detik.
+- Pak Lurah, maskot, dan pengamen menghadap kamera, karena pemainlah penontonnya. Turis memotret dari ubin yang membuat wajah dan kameranya terlihat.
+
+**Teknis.**
+
+- `SurpriseDirector` (`gameplay/world/surprise_director.gd`, anak `WorldView`) memerankan adegan dengan `ActorView` dan model sementara yang tidak didaftarkan ke simulasi. Rutenya hanya membaca graf navigasi publik (`FloorGrid.NAV_PUBLIC`), dan pemerannya boleh menembus pelanggan.
+- Kucing, pipit, kupu-kupu, maskot, ukulele, hati, dan remah dibuat `CritterFactory` (`procedural/meshes/critter_factory.gd`) dari MeshBuilder berwarna verteks. Semuanya memakai material bersama yang sudah ada, jadi tidak menambah kombinasi shader, dan dipanaskan di `ShaderWarmup`.
+- Murni presentasi (`ACC_31_SURPRISE_COSMETIC`): hari dengan kejutan yang terus diputar berjalan persis sama dengan hari tanpa kejutan.
+
 ---
 
 # **32. Procedural Furniture & Environment Specification**
@@ -6387,6 +6421,8 @@ Persist independent deterministic state for exactly these streams (owner: `RNGMa
 
 Arrival and choice use separate streams, so rearranging the display never changes who arrives next. Gameplay-significant outcomes may not consume `cosmetic_rng` or `audio_rng`. Adding a particle/sound variant must not alter tomorrow's weather or customer schedule.
 
+Presentation that lives only in the view layer consumes no stream at all, because a headless run has no view and must stay identical. Surprise moments (Section 31.9) seed their own `RandomNumberGenerator` from the master seed and the day, and staff idle lines (Section 31.8) use no randomness.
+
 ---
 
 # **117. Logging & Error Handling Convention**
@@ -7309,6 +7345,24 @@ Celetukan staf yang menganggur (Seksi 31.8), keputusan maintainer 2026-10-04. En
 | `staff_line_baker_pillow` | `This dough is softer than my pillow.` |
 | `staff_line_baker_secret` | `My secret ingredient? A pinch of love.` |
 | `staff_line_baker_golden` | `Golden crust, fluffy inside. Perfection!` |
+
+## **127.25 Surprise Moment Lines**
+
+Kalimat para pemeran kejutan di toko (Seksi 31.9), keputusan maintainer 2026-10-04. Kupu-kupu tidak berbicara.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `surprise_cat_meow` | `Meow~` |
+| `surprise_kid_whee` | `Wheee! Catch me if you can!` |
+| `surprise_mom_call` | `Hey! Come back here!` |
+| `surprise_kid_sorry` | `Sorry...` |
+| `surprise_mom_sorry` | `So sorry for the fuss!` |
+| `surprise_lurah_hello` | `Keep up the good work!` |
+| `surprise_mascot_hello` | `Fresh bread, fresh smiles!` |
+| `surprise_busker_thanks` | `Thank you, thank you!` |
+| `surprise_tourist_cheese` | `Say cheese!` |
+| `surprise_tourist_cute` | `So cute!` |
+| `surprise_sparrow_tweet` | `Tweet tweet!` |
 
 ---
 

@@ -247,7 +247,12 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   (`_update_floaters`). Both timers use real seconds and stop while the game is
   paused. `WorldView._update_staff_lines` shows idle staff's lines (GDD 31.8) in one
   `ThoughtBubble` per staff member: at most one line a minute each, and only after a
-  few seconds of idling. In Decoration Mode `WorldView` hides station markers and draws the held
+  few seconds of idling. `SurpriseDirector` (`gameplay/world/surprise_director.gd`, a
+  child of `WorldView`) plays the shop's surprise moments (GDD 31.9) with temporary
+  `ActorView`s and `CritterFactory` models (`procedural/meshes/critter_factory.gd`)
+  driven by unregistered `SimActor`s: routes only read the public nav graph, the
+  schedule comes from a local `RandomNumberGenerator` seeded from the master seed and
+  day, and nothing is saved. In Decoration Mode `WorldView` hides station markers and draws the held
   item at its candidate spot (`hold`/`release_hold`, GDD 72.2): the real model is
   re-posed (or a temporary one is built for an item in storage), lifted, re-applied
   after every rebuild, and put back on Cancel; the simulation layout changes only when

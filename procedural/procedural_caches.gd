@@ -14,3 +14,4 @@ static func clear_all() -> void:
 	CharacterFactory.clear_caches()
 	DecorFactory.clear_caches()
 	BreadArt.clear_cache()
+	CritterFactory.clear_caches()
