@@ -66,17 +66,22 @@ const DEFAULT_SPECULAR: float = 0.5
 ## Pasangan tanda +/- untuk iterasi sisi, rusuk, dan sudut pada rounded_slab().
 const SIGNS: Array[float] = [1.0, -1.0]
 
+## Pengali warna verteks kilau sorotan tutorial (`flash_material`).
+const FLASH_BOOST: float = 2.2
+
 ## Material bantu Decoration Mode yang dipakai bersama (arsiran ubin, jejak
 ## penempatan). Satu instans seumur proses: material baru per tampilan membuat
 ## shader-nya dibuang dan dikompilasi ulang setiap kali (lihat MaterialKeep).
 static var _overlay_mat: StandardMaterial3D = null
 static var _tint_mats: Dictionary = {}
+static var _flash_mat: StandardMaterial3D = null
 static var _shared_boxes: Dictionary = {}
 
 
 static func clear_caches() -> void:
 	_overlay_mat = null
 	_tint_mats.clear()
+	_flash_mat = null
 	_shared_boxes.clear()
 
 
@@ -478,6 +483,17 @@ static func tint_material(color: Color) -> StandardMaterial3D:
 	if not _tint_mats.has(key):
 		_tint_mats[key] = _flat_overlay(color)
 	return _tint_mats[key]
+
+
+## Kilau sorotan tutorial (GDD 27.5): dipasang sebagai `material_overlay` pada
+## model yang harus diketuk, lalu alfanya dikedipkan. Flag-nya sama persis
+## dengan arsiran ubin (tidak ada kombinasi shader baru); warna verteks model
+## dikalikan `FLASH_BOOST` sehingga kilaunya nyaris putih. Satu instans sendiri
+## supaya kedipnya tidak ikut mengubah arsiran ubin.
+static func flash_material() -> StandardMaterial3D:
+	if _flash_mat == null:
+		_flash_mat = _flat_overlay(Color(FLASH_BOOST, FLASH_BOOST, FLASH_BOOST, 0.0))
+	return _flash_mat
 
 
 static func _flat_overlay(color: Color) -> StandardMaterial3D:

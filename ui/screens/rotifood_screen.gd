@@ -2,8 +2,9 @@ class_name RotiFoodScreen
 extends UIScreen
 ## Pesanan RotiFood (GDD 3.6.A, 22). Popup yang sama dibuka dari panel HUD dan
 ## dari tablet di meja. Item yang stoknya kurang ditandai merah dengan ikon
-## silang; tombol Pack tidak pernah mati tanpa alasan. Tidak menuntut karakter
-## berdiri di meja kasir.
+## silang; tombol Pack tidak pernah mati tanpa alasan. Pesanan yang belum
+## dikemas bisa ditolak (Reject, GDD 22.10) setelah konfirmasi yang menyebut
+## penalti bintangnya. Tidak menuntut karakter berdiri di meja kasir.
 
 var _list: VBoxContainer = null
 var _detail: VBoxContainer = null
@@ -66,12 +67,30 @@ func _render() -> void:
 		return
 	if not short.is_empty():
 		lbl(_detail, Tx.t("ui_rotifood_missing"), 16, Palette.DANGER, true)
-	var pack: Button = btn(_detail, Tx.t("ui_rotifood_pack"), "primary", func() -> void:
+	var actions: HBoxContainer = hbox(_detail, 12)
+	var pack: Button = btn(actions, Tx.t("ui_rotifood_pack"), "primary", func() -> void:
 		if sim.rotifood.pack(_selected):
 			EventBus.sfx.emit(&"ui_confirm", &"")
 		else:
 			EventBus.sfx.emit(&"ui_error", &"")
 		_render())
+	pack.name = "Pack"
 	pack.custom_minimum_size = Vector2(220, 60)
 	pack.disabled = not short.is_empty()
+	var reject: Button = btn(actions, Tx.t("ui_rotifood_reject"), "secondary", _ask_reject)
+	reject.name = "Reject"
+	reject.custom_minimum_size = Vector2(180, 60)
+	reject.visible = sim.rotifood.can_reject(o2.order_id)
 	lbl(_detail, Tx.t("tut_rotifood"), 14, Palette.TEXT_MUTED, true)
+
+
+## Menolak menurunkan RotiFood Stars, jadi tanya dulu. Setelah ditolak, pesanan
+## aktif berikutnya yang terpilih.
+func _ask_reject() -> void:
+	var oid: int = _selected
+	var stars: String = "%.2f" % absf(float((DataRegistry.bal("rating.rotifood_events") as Dictionary)["order_rejected"]))
+	host.confirm(Tx.t("ui_rotifood_reject_confirm", {"id": oid, "stars": stars}), func() -> void:
+		if sim.rotifood.reject(oid):
+			var left: Array[DeliveryOrder] = sim.rotifood.active_orders()
+			_selected = left[0].order_id if not left.is_empty() else -1
+		_render())

@@ -11,6 +11,8 @@ var orders: Dictionary = {}
 var next_order_id: int = 1
 var completed_today: int = 0
 var cancelled_today: int = 0
+## Pesanan yang ditolak pemain hari ini (GDD 22.10); tidak ikut `cancelled_today`.
+var rejected_today: int = 0
 var received_today: int = 0
 var tips_today: float = 0.0
 
@@ -24,6 +26,7 @@ func new_game() -> void:
 func reset_day() -> void:
 	completed_today = 0
 	cancelled_today = 0
+	rejected_today = 0
 	received_today = 0
 	tips_today = 0.0
 	for k: Variant in orders.keys():
@@ -204,6 +207,38 @@ func pack(order_id: int) -> bool:
 	o.state = DeliveryOrder.PACKED_WAITING_DRIVER
 	EventBus.sfx.emit(&"rotifood_pack_done", sim.world.store_floor())
 	sim.tutorial.on_event(&"rotifood_packed")
+	return true
+
+
+# ===========================================================================
+# TOLAK PESANAN (GDD 22.10)
+# ===========================================================================
+
+## Pesanan yang belum dikemas boleh ditolak pemain, juga saat driver-nya sudah
+## menunggu di toko (keputusan maintainer 2026-10-06).
+func can_reject(order_id: int) -> bool:
+	var o: DeliveryOrder = order(order_id)
+	return o != null and o.is_active() and not o.packed and not o.economy_committed
+
+
+## Tolak pesanan: batal seketika tanpa pendapatan, driver yang sudah datang
+## langsung pergi, dan RotiFood Stars turun `rating.rotifood_events.order_rejected`,
+## lebih ringan daripada pesanan yang batal karena driver menyerah (GDD 22.8).
+func reject(order_id: int) -> bool:
+	if not can_reject(order_id):
+		return false
+	var o: DeliveryOrder = order(order_id)
+	o.cancel_reason = &"rejected"
+	o.state = DeliveryOrder.CANCELLED
+	o.rating_delta = float((DataRegistry.bal("rating.rotifood_events") as Dictionary)["order_rejected"])
+	sim.reputation.rotifood_event(o.rating_delta)
+	rejected_today += 1
+	sim.statistics.add(&"total_rotifood_orders_rejected", 1)
+	if o.driver != null:
+		_driver_leave(o)
+	else:
+		o.driver_phase = &"gone"
+	GameLogger.info("ROTIFOOD", "order %d rejected (%+.2f stars)" % [o.order_id, o.rating_delta])
 	return true
 
 
@@ -465,7 +500,8 @@ func capture() -> Dictionary:
 	for i: Variant in ids:
 		list.append((orders[i] as DeliveryOrder).to_dict())
 	return {"next_order_id": next_order_id, "orders": list, "completed_today": completed_today,
-		"cancelled_today": cancelled_today, "received_today": received_today, "tips_today": tips_today}
+		"cancelled_today": cancelled_today, "rejected_today": rejected_today, "received_today": received_today,
+		"tips_today": tips_today}
 
 
 func restore(d: Dictionary) -> void:
@@ -473,6 +509,7 @@ func restore(d: Dictionary) -> void:
 	next_order_id = int(d.get("next_order_id", 1))
 	completed_today = int(d.get("completed_today", 0))
 	cancelled_today = int(d.get("cancelled_today", 0))
+	rejected_today = int(d.get("rejected_today", 0))
 	received_today = int(d.get("received_today", 0))
 	tips_today = float(d.get("tips_today", 0.0))
 	for item: Variant in d.get("orders", []):

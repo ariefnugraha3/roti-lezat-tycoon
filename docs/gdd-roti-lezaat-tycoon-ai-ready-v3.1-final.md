@@ -281,7 +281,7 @@ Meskipun bernuansa retro-cozy tahun 2000, dunia *Roti Lezat Tycoon* berlatar di 
 1. **Notifikasi Masuk (Chime Alert)**: Tablet digital di samping kasir berdering dengan nada ceria (*ting-ting-ting!*). Balon pesanan digital muncul di atas tablet, menampilkan icon kantong kemasan, daftar roti yang dipesan warga kota, dan *Preparation Timer* (misal: 60 - 90 detik).
 2. **Pengemasan Roti (Packing & Bagging)**: Pemain mengklik pesanan untuk mengemas roti dari stok etalase display ke dalam kantong kardus cokelat berpita manis (*Procedural Paper Bag*). Roti yang dikemas langsung mengurangi stok display toko.
 
-   *Bentuk ketukannya sama persis dengan pembeli fisik:* ketuk balon → **popup pesanan** memperlihatkan daftar roti beserta sisa stok etalase untuk tiap butirnya → satu tombol menyelesaikan langkah itu. Balonnya bisa diketuk di dua tempat yang sama-sama membuka popup yang sama: panel "Pesanan RotiFood" di HUD, dan tanda "!" yang mengambang di atas tablet di ujung meja kasir. Roti yang kurang ditandai merah di dalam popup, jadi pemain tahu resep mana yang harus dipanggang lebih dulu—tombolnya tidak pernah mati tanpa alasan.
+   *Bentuk ketukannya sama persis dengan pembeli fisik:* ketuk balon → **popup pesanan** memperlihatkan daftar roti beserta sisa stok etalase untuk tiap butirnya → satu tombol menyelesaikan langkah itu. Balonnya bisa diketuk di dua tempat yang sama-sama membuka popup yang sama: panel "Pesanan RotiFood" di HUD, dan tanda "!" yang mengambang di atas tablet di ujung meja kasir. Roti yang kurang ditandai merah di dalam popup, jadi pemain tahu resep mana yang harus dipanggang lebih dulu—tombolnya tidak pernah mati tanpa alasan. Pesanan yang tidak sanggup dipenuhi bisa ditolak dengan tombol **Reject Order** di samping tombol kemas; menolak menurunkan RotiFood Stars sedikit, lebih ringan daripada membiarkan driver menyerah (keputusan maintainer 2026-10-06, Seksi 22.10).
 
    Berbeda dari pembeli fisik, pesanan aplikasi **tidak menuntut karakter berdiri di meja kasir**: yang bekerja di sini tablet, bukan mesin kasir. Asisten Kasir dan koki **tidak pernah** mengemas pesanan RotiFood; setiap pesanan menunggu OK dari pemain (keputusan maintainer 2026-10-02).
 3. **Kedatangan Driver Ojol**: Karakter chibi Driver Ojek Online tiba di toko dengan langkah riang membawa nomor pesanan digital di ponsel pintarnya.
@@ -295,6 +295,7 @@ Meskipun bernuansa retro-cozy tahun 2000, dunia *Roti Lezat Tycoon* berlatar di 
 * **Rating Terpisah**: Kinerja pengantaran online dinilai secara independen melalui skor bintang aplikasi (1.0 hingga 5.0 bintang emas).
 * **Instant Handover & Tip Bonus**: Jika pesanan sudah terbungkus rapi di meja sebelum driver tiba (waktu tunggu driver < 3 detik), toko diganjar skor bintang 5 sempurna serta peluang mendapatkan **Tip Koin Tambahan (+10% hingga +25% KR)**.
 * **Batal Otomatis (Order Expired / Cancelled)**: Jika batas waktu penyiapan habis karena toko kehabisan stok roti atau pemain terlambat mengemas, pesanan akan dibatalkan otomatis oleh sistem aplikasi. Akibatnya: reputasi RotiFood turun -0.2 bintang dan driver meninggalkan toko dengan animasi kecewa (*sweat drop*).
+* **Tolak Pesanan (Reject Order)**: Pemain boleh menolak pesanan yang belum dikemas, juga saat driver-nya sudah menunggu. Pesanan batal seketika, driver langsung pergi, dan reputasi RotiFood turun sedikit, -0.05 bintang (keputusan maintainer 2026-10-06, Seksi 22.10).
 * **Tingkat Order Masuk**: Semakin tinggi bintang toko di RotiFood, semakin deras order online yang masuk setiap jamnya (hingga lonjakan +80% frekuensi order harian).
 
 #### **D. Sinergi Dinamis Cuaca Hujan (Rainy Weather Delivery Surge)**
@@ -408,14 +409,15 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
 - **Waktu:** tab Equipment dan Store Upgrade hanya aktif **after-hours** (setelah Daily Summary). Di waktu lain keduanya tampil read-only dengan label `Available after closing`. Dengan begitu tidak ada alat yang diganti saat masih berisi job, dan keputusan investasi jatuh di momen perencanaan yang sama dengan staf dan iklan.
 - **Katalog:** Mixer, Oven, dan Display Tier 1–5 dengan harga Seksi 5.1. Gudang dan meja tidak dijual (Seksi 5.1.1, 32.2).
 - **Gerbang tier lokasi** (keputusan maintainer 2026-09-29): Pasar hanya menjual alat dengan tier ≤ tier lokasi. Garasi menjual Tier 1, Ruko sampai Tier 2, dan seterusnya, sehingga setiap upgrade lokasi membuka alat dan resep tier berikutnya. Beli maupun Replace di atas tier lokasi ditolak (`tier_locked`), dan kartunya tampil terkunci dengan `ui_equipment_tier_locked` (Seksi 127.14). Alat yang sudah dimiliki tidak terpengaruh. Footprint tetap harus muat (Seksi 60).
-- **Kartu alat** menampilkan:
+- **Baris alat** (dulu kartu; sejak perbaikan 2026-10-07 satu baris tabel papan kapur per alat, Seksi 7) menampilkan:
   - nama English (Seksi 127.7) dan tier;
   - waktu referensi atau kapasitas;
   - utility (Seksi 86) dan footprint (Seksi 60);
   - harga;
-  - daftar resep yang membutuhkan tier tersebut (Seksi 61.5).
+  - daftar resep yang membutuhkan tier tersebut (Seksi 61.5);
+  - satu aksi: **Buy** (slot masih ada), **Replace** (slot penuh), tulisan kunci tier, atau **Owned ×N** bila semua alat terpasang sudah alat yang sama persis. Jumlah alat yang sudah dimiliki tertulis hijau di bawah aksinya.
 - **Slot:** jumlah alat terpasang per kategori tidak boleh melebihi slot lokasi (Seksi 6). Alat yang baru dibeli masuk `unplaced_owned_furniture`, lalu Decoration Mode terbuka otomatis untuk menempatkannya.
-- **Replace:** bila semua slot kategori itu penuh, pembelian menawarkan Replace. Pemain memilih alat terpasang yang diganti, dan alat lama pindah ke `unplaced_owned_furniture` (tidak hilang).
+- **Replace:** bila semua slot kategori itu penuh, pembelian menawarkan Replace. Pemain memilih alat terpasang yang diganti, dan alat lama pindah ke `unplaced_owned_furniture` (tidak hilang). Bila calonnya lebih dari satu, dialog pilihan (`ReplacePicker`, overlay di atas Pasar) menampilkan satu tombol per alat terpasang; alat yang sedang dipakai (`IN_USE`) tampil abu-abu. Alat yang sama persis dengan yang dibeli tidak pernah ditawarkan untuk diganti, karena menggantinya hanya membuang uang. Bila jejak alat baru tidak muat di tempat lama, ia menunggu di `unplaced_owned_furniture` dan Decoration Mode terbuka untuk menempatkannya.
 - **Sell:** alat yang tidak terpasang dapat dijual kembali seharga **50%** harga beli (half-up ke KR utuh). Alat Tier 1 bernilai 0. Ledger: `EQUIPMENT_SALE`.
 - Alat yang masih berisi job, roti, atau tray (`IN_USE`, Seksi 72) tidak dapat diganti maupun dijual.
 - Konfirmasi pembelian mahal mengikuti setting Seksi 75.3.
@@ -749,7 +751,12 @@ Catatan placement:
   * Baris pesanan hanya dibangun ulang bila isinya berubah. Tombol yang dibangun ulang di tengah ketukan membuat ketukan itu hilang.
   * **Ubin Quick Menu** (perbaikan 2026-10-02): semua ubin sama besar dan ikonnya sebaris. Label rata atas, paling banyak dua baris yang dipenggal per kata, dan selalu muat di muka ubin di atas bibirnya. Ukuran ubin dihitung dari label terpanjang pada skala teks yang dipakai (100/125/150%, Seksi 28.5). Dulu label dua baris keluar dari ubin, dan pada 125% kata "Management" terpotong. Petunjuk tutorial dan tombol after-hours di tengah bawah berdiri di atas panel jam dan Quick Menu, mana pun yang lebih tinggi; dulu petunjuk itu menutupi lencana fase di panel jam.
 * **Desain Menu Utama**:  
-  * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).  
+  * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).
+    **Tabel bahan (perbaikan 2026-10-07).** Dulu daftar bahan tidak lurus: kolom harga, stok, dan tombol bergeser mengikuti panjang nama dan harga, dan teks stok menempel di bagian atas baris. Kini bahan tampil sebagai tabel kapur dengan header tetap **Ingredient · Price · In Storage · Amount** di atas garis putus-putus, lalu baris yang digulir di bawahnya, dikelompokkan per kategori (judul kategori berkapur kuning). Setiap baris memuat nama bahan dengan satuannya di bawahnya (`per sachet`), harga rata kanan, stok gudang di tengah kolomnya (bila ada kiriman, di bawahnya tertulis `+5 arriving 13:00`), lalu tombol −, jumlah, +, dan **Max** di posisi yang sama pada setiap baris. Semua kolom selain nama berlebar tetap, dihitung dari teks terpanjang pada skala teks yang dipakai (100/125/150%). Nama yang terlalu panjang dipotong dengan elipsis. Baris berselang-seling sedikit lebih terang (rata, tanpa bayangan), jumlah yang dipilih berkapur kuning, dan tombol Max kini berwarna krem seperti tombol − dan + supaya terbaca di papan gelap. Scrollbar selalu tampil supaya header dan baris tetap selebar. Tes: `ACC_7_MARKET_TABLE`.
+    **Tab Equipment dan Store Upgrade (perbaikan 2026-10-07).** Keduanya kini memakai papan kapur dan gaya tabel yang sama. Dulu tab Equipment berisi kartu besar (hanya satu-dua alat terlihat), dengan info yang tidak rata dan tombol yang membingungkan, misalnya "Buy for 0 KR" dan "Replace" dengan alat yang sama. Tab Store Upgrade dulu membuat popup memanjang.
+    - *Equipment*: satu bagian per kategori (Mixers, Ovens, Displays), dengan judul berkapur kuning dan catatan `{placed}/{slots} placed · {stored} stored`. Setiap bagian punya judul kolom: **Equipment · Mix Time / Bake Time / Holds · Utility · Size · Price** dan kolom aksi. Setiap baris memuat label tier (T1–T5), nama, dan resep yang dibuka di bawah nama. Angka-angkanya berada di kolom yang lurus untuk semua kategori, dan setiap baris punya tepat satu aksi (Seksi 5.1.2). Baris alat di atas tier toko dipudarkan dengan tulisan kunci merah muda. Alat tersimpan tampil paling atas dengan **Sell Value**, **Place**, dan **Sell**.
+    - *Store Upgrade*: satu tabel perbandingan **Current location → Next location** dengan baris Mixers, Ovens, Display shelves, Checkout lanes, Cashier Assistants, Kitchen Assistants, Storage, Equipment for sale, dan Staff wage. Nilai yang bertambah ditulis kapur kuning beserta selisihnya (mis. `3  (+1)`). Tombol Upgrade dan alasannya bila belum bisa (mis. `Not enough KR`) ada di bawah papan. Tabel muat tanpa gulir pada skala teks 100%; pada skala yang lebih besar barisnya digulir supaya popup tidak memanjang. Di tier tertinggi hanya kolom lokasi sekarang yang tampil, dengan `ui_upgrade_max`.
+    - Tes: `ACC_7_MARKET_EQUIPMENT_TABLE`, `ACC_7_MARKET_UPGRADE_TABLE`, `ACC_5_EQUIPMENT_REPLACE_PICK`.  
   * Buku Menu & Harga: Desain seperti buku resep, terdapat slider untuk mengatur harga jual yang memicu munculnya emoji prediksi reaksi pelanggan (misal: marah jika mahal). **Hanya daftar resep di kiri yang digulir** (keputusan maintainer 2026-10-02); rincian di kanan muat tanpa gulir pada skala teks 100% dan 125%, untuk setiap resep dan ukuran batch. Urutannya: judul dengan chip kebutuhan alat; kartu **Ingredients** (tabel nama dan "Have / Need") dan **Details** (hasil batch & biaya, waktu mix/bake/burn, umur simpan, penggemar) berdampingan; satu baris harga (label, slider, nilai); satu baris reaksi pembeli dengan harga referensi & rentang di kanan, yang pada Hari 1–3 diganti catatan harga terkunci; lalu ukuran batch, tombol **Ask a Baker** (hanya bila ada koki yang direkrut; Seksi 3.2), dan tombol Make dalam satu baris, dengan alasan bila belum bisa dibuat. Nama resep yang terlalu panjang di daftar dipotong dengan elipsis supaya lebar daftar tetap.
     **Gambar roti (keputusan maintainer 2026-10-04).** Setiap resep tampil dengan gambarnya, bukan nama saja: gambar kecil di kiri nama pada setiap baris daftar, dan gambar besar di samping judul rincian. Pada skala teks di atas 100%, gambar judul mengecil setinggi judulnya supaya rincian tetap muat tanpa gulir. Gambarnya flat, cute, dan hangat (Seksi 4.1, 130.6): satu gambar per `visual_profile_id` resep yang senada dengan roti 3D di rak (bentuk, warna panggang, dan topping), digambar dengan `_draw()` dari bidang warna polos tanpa garis tepi, bayangan, kilap, atau gradasi. Roti tidak berwajah. Roti duduk di atas alas renda (doily) pastel yang warnanya mengikuti rasa resepnya, dan gambar besar mendapat dua garis uap hangat. Kode: `BreadArt` (`procedural/ui/bread_art.gd`); tes `ACC_7_RECIPE_ART`.  
   * Manajemen Karyawan: Menampilkan daftar staf dalam bentuk ID Card atau Polaroid (nama, jabatan, gaji harian). **Tidak pernah digulir ke samping** (keputusan maintainer 2026-10-02). Di atas: kapasitas per peran, gaji per orang di toko ini, dan proyeksi kas. Di kiri ada daftar karyawan per peran (Cashier Assistant, Kitchen Assistant): ikon peran, nama, lalu gaji untuk pelamar atau status tugas untuk tim. Hanya daftar ini yang digulir, ke bawah. Di kanan ada rincian orang yang dipilih, muat tanpa gulir pada skala teks 100% dan 125%: kartu Polaroid, bio, tugas perannya, kegiatannya sekarang (melayani di meja, sibuk di dapur, atau beristirahat di kursi), dan tombol aksinya (Hire dengan alasan bila belum bisa; atau status tugas, libur/jadwal, dan Dismiss). Staf tidak punya bintang tier atau kemampuan khusus, dan koki tidak punya pengaturan kerja (Seksi 3.2).  
@@ -847,6 +854,7 @@ Reputasi digital toko di platform **RotiFood** diukur secara independen melalui 
 | Pesanan siap dalam batas waktu normal | **±0** |
 | Driver menunggu >10 detik | **−0.1 ⭐** |
 | Pesanan dibatalkan karena stok habis / overtime | **−0.2 ⭐** |
+| Pemain menolak pesanan (*Reject Order*, Seksi 22.10) | **−0.05 ⭐** |
 | Kualitas roti prima (baru matang sempurna) | **+0.05 ⭐ bonus** |
 
 * **Efek Bintang RotiFood**: Semakin tinggi bintang RotiFood, semakin deras frekuensi order online yang masuk setiap harinya. Toko dengan rating 4.5 ⭐ ke atas mendapatkan **badge "Toko Terpercaya"** yang meningkatkan volume order harian hingga +80%.
@@ -2359,7 +2367,18 @@ Hari 1–3 memakai manifest Seksi 20.3 dengan `prep_window` tetap 90 simulation-
 - Patience habis atau deadline lewat: order `EXPIRED`, −0.2 ⭐. Driver pergi, dan tas yang sudah dikemas kembali ke display secara atomik.
 - Bonus kualitas prima +0.05 ⭐ bila semua unit `FRESH` dan `bake_quality ≥ 0.95` saat dikemas.
 - Order yang gagal karena pending admission kedaluwarsa (Seksi 67), atau dibatalkan oleh penutupan 18:00 (Seksi 104), tidak mengurangi rating.
+- Order yang ditolak pemain: −0.05 ⭐ (Seksi 22.10).
 - Tip Instant Handover: peluang 50%, besar `round_half_up(subtotal × U(0.10, 0.25))`, dicatat sebagai `TIP_ROTIFOOD`.
+
+## **22.10 Tolak Pesanan (Reject Order)**
+
+Keputusan maintainer 2026-10-06. Pemain boleh menolak pesanan RotiFood yang **belum dikemas**, termasuk saat driver-nya sudah menunggu di toko. Pesanan yang sudah dikemas tidak bisa ditolak.
+
+- Popup pesanan (Seksi 3.6.A) menampilkan tombol **Reject Order** di samping **Pack Order** untuk pesanan yang belum dikemas, juga saat stoknya kurang.
+- Ketukannya membuka dialog konfirmasi (overlay, Seksi 28.2) yang menyebut biaya bintangnya (`ui_rotifood_reject_confirm`). **Cancel** tidak mengubah apa pun. Setelah menolak, popup memilih pesanan aktif berikutnya.
+- Pesanan yang ditolak langsung `CANCELLED` dengan `cancel_reason` `rejected`. Tidak ada pendapatan, dan stok tidak tersentuh karena belum dipotong (Seksi 22.3). Driver yang sudah di toko langsung pergi tanpa animasi kecewa dan slot antreannya kosong; driver yang belum datang tidak pernah datang.
+- RotiFood Stars turun `rating.rotifood_events.order_rejected` = **−0.05 ⭐**, sekali per pesanan. Ini lebih ringan daripada −0.2 bila driver menyerah (Seksi 22.8), jadi menolak pesanan yang tidak sanggup dipenuhi selalu lebih baik daripada membiarkannya kedaluwarsa. `DataRegistry` menolak katalog yang membuat penalti tolak tidak lebih ringan. Rating toko fisik tidak berubah.
+- Hitungannya terpisah dari pesanan batal: `rejected_today` (disimpan bersama pesanan, Seksi 106), baris **Deliveries Rejected** di Daily Summary bila ada (`delivery_rejected`, Seksi 46.2), dan statistik seumur hidup `total_rotifood_orders_rejected` (Seksi 92.2). Teksnya di Seksi 127.26.
 
 ---
 
@@ -2596,6 +2615,7 @@ Gunakan nilai eksplisit sumber untuk event yang sudah ditentukan:
 - normal ready ±0
 - driver wait >10s -0.1
 - cancel -0.2
+- reject (pemain menolak, Seksi 22.10) -0.05
 - fresh quality bonus +0.05
 
 ## **25.4 Demand Multiplier Pipeline**
@@ -2723,7 +2743,8 @@ Pemain harus belajar:
 ## **27.5 Tutorial Blocking**
 
 - Hard-block hanya saat perlu mencegah pemain membuat state invalid.
-- Highlight target dengan pulse lembut.
+- **Target berkedip terang** (keputusan maintainer 2026-10-06, menggantikan "pulse lembut", supaya pemain tahu apa yang harus diketuk). Model alat atau perabot yang diminta langkah tutorial berkedip putih terang kira-kira sekali per detik (`WorldView.BLINK_PERIOD`, puncak `BLINK_PEAK`), dan cincin emas di lantai tetap berdenyut di bawahnya. Sasarannya Storage, Mixer, Oven, rak Display, meja kasir jalur utama (`cashier`), atau tablet RotiFood (`tablet`). Kedipnya pindah bersama langkah tutorial dan berhenti saat petunjuknya selesai; model yang dibangun ulang tetap berkedip. Dengan Reduced Motion, model menyala tetap tanpa kedip (`BLINK_STEADY`).
+- Kilaunya `material_overlay` bersama (`ProceduralMeshFactory.flash_material()`) dengan shader yang sama persis dengan arsiran ubin, jadi tidak ada kombinasi shader baru (Seksi 89.5). Sampelnya dipanaskan di `ShaderWarmup`.
 - Tutorial bubble tidak menutupi target.
 
 ## **27.6 Skip / Replay**
@@ -3681,6 +3702,7 @@ ending_balance
 physical_customer_count
 delivery_completed
 delivery_cancelled
+delivery_rejected
 bread_sold
 bread_leftover
 rating_start/end
@@ -5307,7 +5329,7 @@ Ini mencegah exploit menggunakan staff sebagian hari lalu meliburkan sebelum set
 
 # **88. Tutorial Day 1–3 — Canonical Event Timeline**
 
-Semua player-facing tutorial text berikut ditampilkan dalam **English**. Tutorial menggunakan contextual highlight; game pause ketika tutorial modal aktif.
+Semua player-facing tutorial text berikut ditampilkan dalam **English**. Tutorial menggunakan contextual highlight: alat yang harus diketuk berkedip terang (Seksi 27.5); game pause ketika tutorial modal aktif.
 
 ## **88.1 Day 1 — Production + Manual Cashier**
 
@@ -5592,6 +5614,7 @@ total_customers_lost_patience
 total_rotifood_orders_received
 total_rotifood_orders_completed
 total_rotifood_orders_expired
+total_rotifood_orders_rejected
 total_supply_orders
 bailout_count
 staff_hired_count
@@ -7276,8 +7299,6 @@ Perombakan asisten (Seksi 3.1–3.3, 5.1.4, 16.4, 23), keputusan maintainer 2026
 | `ui_staff_activity_working` | `Busy in the kitchen` |
 | `ui_staff_activity_resting` | `Resting in the staff chair` |
 | `ui_feedback_command_cancelled` | `Cancelled` |
-| `ui_upgrade_detail` | `{mixers} Mixers · {ovens} Ovens · {displays} Displays · {cashiers} Checkout lanes` |
-| `ui_upgrade_staff` | `Cashiers: {cashiers} · Bakers: {bakers} · Wage: {wage} per day each` |
 | `ui_summary_wage_line` | `{name} ({role})` |
 | `staff_chair` | `Staff Chair` |
 
@@ -7363,6 +7384,68 @@ Kalimat para pemeran kejutan di toko (Seksi 31.9), keputusan maintainer 2026-10-
 | `surprise_tourist_cheese` | `Say cheese!` |
 | `surprise_tourist_cute` | `So cute!` |
 | `surprise_sparrow_tweet` | `Tweet tweet!` |
+
+## **127.26 RotiFood Reject Strings**
+
+Tolak pesanan RotiFood (Seksi 22.10), keputusan maintainer 2026-10-06. `{stars}` = besar penalti dengan dua desimal.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_rotifood_reject` | `Reject Order` |
+| `ui_rotifood_reject_confirm` | `Reject RotiFood order #{id}? It is cancelled right away and no driver will pick it up. Your RotiFood rating drops by {stars} stars.` |
+| `ui_summary_deliveries_rejected` | `Deliveries Rejected` |
+| `ui_stat_total_rotifood_orders_rejected` | `RotiFood orders rejected` |
+
+## **127.27 Ingredient Market Table Strings**
+
+Header dan sel tabel bahan Pasar (Seksi 7), perbaikan 2026-10-07. Menggantikan `ui_market_stock`, `ui_market_in_transit`, dan `ui_market_eta`. `{unit}` = teks satuan bahan (mis. `portion (kg)`).
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_market_col_ingredient` | `Ingredient` |
+| `ui_market_col_price` | `Price` |
+| `ui_market_col_stock` | `In Storage` |
+| `ui_market_col_amount` | `Amount` |
+| `ui_market_per_unit` | `per {unit}` |
+| `ui_market_arriving` | `+{count} arriving {time}` |
+
+## **127.28 Equipment & Store Upgrade Table Strings**
+
+Tabel tab Equipment dan Store Upgrade di Pasar (Seksi 5.1.2, 6, 7), perbaikan 2026-10-07. String ini menggantikan `ui_equipment_buy`, `ui_equipment_owned`, `ui_equipment_reference`, `ui_equipment_capacity`, `ui_equipment_utility`, `ui_equipment_footprint`, `ui_upgrade_detail`, `ui_upgrade_staff`, dan `ui_upgrade_storage`. `{cost}` dan `{wage}` = jumlah KR yang sudah diformat.
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `ui_equipment_buy_short` | `Buy` |
+| `ui_equipment_sell_short` | `Sell` |
+| `ui_equipment_section` | `{placed}/{slots} placed · {stored} stored` |
+| `ui_equipment_col_item` | `Equipment` |
+| `ui_equipment_col_mix` | `Mix Time` |
+| `ui_equipment_col_bake` | `Bake Time` |
+| `ui_equipment_col_holds` | `Holds` |
+| `ui_equipment_col_utility` | `Utility` |
+| `ui_equipment_col_size` | `Size` |
+| `ui_equipment_col_price` | `Price` |
+| `ui_equipment_col_sell` | `Sell Value` |
+| `ui_equipment_seconds` | `{seconds} s` |
+| `ui_equipment_holds` | `{count} breads` |
+| `ui_equipment_slots` | `{slots} slots` |
+| `ui_equipment_power` | `{cost}/h` |
+| `ui_equipment_size` | `{w} × {h}` |
+| `ui_equipment_owned_count` | `Owned ×{count}` |
+| `ui_equipment_no_slot` | `No free slot` |
+| `ui_equipment_replace_note` | `Buy {item} for {price}. The one you replace goes to storage, so nothing is lost.` |
+| `ui_upgrade_row_mixers` | `Mixers` |
+| `ui_upgrade_row_ovens` | `Ovens` |
+| `ui_upgrade_row_displays` | `Display shelves` |
+| `ui_upgrade_row_lanes` | `Checkout lanes` |
+| `ui_upgrade_row_cashiers` | `Cashier Assistants` |
+| `ui_upgrade_row_bakers` | `Kitchen Assistants` |
+| `ui_upgrade_row_storage` | `Storage` |
+| `ui_upgrade_row_equipment` | `Equipment for sale` |
+| `ui_upgrade_row_wage` | `Staff wage` |
+| `ui_upgrade_storage_value` | `{capacity} units` |
+| `ui_upgrade_equipment_value` | `Up to Tier {tier}` |
+| `ui_upgrade_wage_value` | `{wage} per day each` |
 
 ---
 
@@ -7515,6 +7598,7 @@ Keputusan maintainer 2026-09-30 ("percantik UI: setiap tombol, ikon, dan teks").
 - **Ikon.** Siluet polos dengan detail dua warna, tanpa garis tepi, bayangan, dan kilau.
 - **Gambar roti Buku Resep** (keputusan maintainer 2026-10-04). Gambar beberapa warna polos per resep di atas alas renda pastel. Setiap bentuk hanya satu warna buram, tanpa garis tepi, bayangan, kilap, atau gradasi (Seksi 7).
 - **Widget.** Jalur tab, slider, bar, dan kolom isian berwarna polos. Kenop slider putih bercincin madu. Sakelar tanpa bayangan dalam dan tanpa kilau kenop.
+- **Scrollbar** (keputusan maintainer 2026-10-07). Di setiap menu yang bisa digulir, scrollbar berdiri `SCROLLBAR_GAP` (10 px) dari isinya dan tidak menempel di daftar. Jarak ini diatur sekali di tema bersama (`scrollbar_v_separation` dan `scrollbar_h_separation` pada ScrollContainer), jadi berlaku untuk semua menu. Judul kolom di luar area gulir menyisakan lebar batang plus jarak ini supaya tetap lurus dengan barisnya. Tes: `ACC_130_SCROLLBAR_GAP`.
 - **Layar pembuka.** Latar krem polos tanpa gradasi dan sinar matahari. Roti, koin, bintang, dan hati tetap melayang, dan taplak gingham tetap ada.
 - **Elemen dunia 3D** (tanda "!", bar progres, bar kesabaran, balon pikiran) tidak termasuk UI kit ini dan tidak berubah.
 - Gaya bantal empuk lama masih bisa dinyalakan di kode (`ProceduralUIFactory.flat_style = false`), tetapi bukan gaya rilis.

@@ -33,6 +33,12 @@ const PICK_SLOT_PX: float = 56.0
 ## Ayunan bandul jam dinding dekorasi: kecepatan sudut (rad/s) dan simpangan (rad).
 const SWING_SPEED: float = 3.2
 const SWING_ANGLE: float = 0.2
+## Kedip sorotan tutorial (GDD 27.5, keputusan maintainer 2026-10-06): satu
+## kedip terang tiap `BLINK_PERIOD` detik nyata, alfa kilau paling tinggi
+## `BLINK_PEAK`; dengan Reduced Motion kilaunya menyala tetap `BLINK_STEADY`.
+const BLINK_PERIOD: float = 0.9
+const BLINK_PEAK: float = 0.7
+const BLINK_STEADY: float = 0.35
 
 var sim: SimulationRoot = null
 var camera_rig: CameraRig = null
@@ -53,6 +59,13 @@ var _bread_timer: float = 0.0
 var _rain: Node = null
 var _rain_layer: CanvasLayer = null
 var _highlight: Node3D = null
+## Sasaran kedip tutorial: jenis & iid dari prompt, node yang sedang berkedip,
+## dan mesh-mesh yang diberi kilau (GDD 27.5).
+var _blink_kind: StringName = &""
+var _blink_iid: int = -1
+var _blink_root: Node3D = null
+var _blink_meshes: Array[MeshInstance3D] = []
+var _blink_t: float = 0.0
 var _ghosts: Node3D = null
 ## Overlay ubin Decoration Mode (ubin wajib kosong & area salah).
 var _tile_overlay: Node3D = null
@@ -360,6 +373,7 @@ func _process(delta: float) -> void:
 		_update_bread()
 		_update_table()
 	_animate_stations(delta)
+	_update_blink(delta)
 	_animate_lift()
 	_animate_swing()
 
@@ -1493,6 +1507,11 @@ func highlight(kind: StringName, iid: int) -> void:
 	if _highlight != null and is_instance_valid(_highlight):
 		_highlight.queue_free()
 	_highlight = null
+	_clear_blink()
+	_blink_kind = kind
+	_blink_iid = iid
+	_blink_t = 0.0
+	_update_blink(0.0)
 	var pos := Vector3.INF
 	var floor_id: StringName = &""
 	if iid >= 0 and furniture.has(iid):
@@ -1512,6 +1531,74 @@ func highlight(kind: StringName, iid: int) -> void:
 		var tw := _highlight.create_tween().set_loops()
 		tw.tween_property(_highlight, "scale", Vector3(1.25, 1.0, 1.25), 0.6)
 		tw.tween_property(_highlight, "scale", Vector3.ONE, 0.6)
+
+
+## Model yang harus diketuk pada langkah tutorial saat ini: alatnya, meja kasir
+## jalur utama ("cashier"), atau tablet RotiFood ("tablet"); null bila tidak ada.
+func blink_target() -> Node3D:
+	if _blink_iid >= 0:
+		return furniture.get(_blink_iid)
+	if _blink_kind != &"cashier" and _blink_kind != &"tablet":
+		return null
+	if _blink_root != null and is_instance_valid(_blink_root) and _blink_root.is_inside_tree():
+		return _blink_root
+	var lane: QueueLane = sim.queue.main_lane()
+	if _blink_kind == &"tablet":
+		var store: Node3D = floors.get(sim.world.store_floor())
+		return store.find_child("Tablet", false, false) as Node3D if store != null else null
+	if lane == null or not floors.has(lane.floor_id):
+		return null
+	return (floors[lane.floor_id] as Node3D).find_child("Counter_%s" % lane.counter_id, false, false) as Node3D
+
+
+## Mesh yang sedang diberi kilau kedip tutorial (salinan, untuk tes).
+func blinking_meshes() -> Array[MeshInstance3D]:
+	var out: Array[MeshInstance3D] = []
+	for mi: MeshInstance3D in _blink_meshes:
+		if is_instance_valid(mi):
+			out.append(mi)
+	return out
+
+
+## Alfa kilau pada detik `t` sejak sorotan mulai: naik-turun mulus dari 0 ke
+## `BLINK_PEAK` setiap `BLINK_PERIOD`; tetap `BLINK_STEADY` dengan Reduced Motion.
+static func blink_alpha(t: float, reduced: bool) -> float:
+	if reduced:
+		return BLINK_STEADY
+	return BLINK_PEAK * (0.5 - 0.5 * cos(TAU * t / BLINK_PERIOD))
+
+
+## Kedip sorotan tutorial: model sasarannya digambar sekali lagi dengan
+## `ProceduralMeshFactory.flash_material()` yang alfanya naik-turun. Bila model
+## dibangun ulang (furnitur, upgrade lokasi), kilaunya dipasang ulang.
+func _update_blink(delta: float) -> void:
+	var root: Node3D = blink_target()
+	if root != _blink_root or (root != null and _blink_meshes.is_empty()):
+		_clear_blink()
+		_blink_root = root
+		if root != null:
+			for n: Node in [root] + root.find_children("*", "MeshInstance3D", true, false):
+				var mi: MeshInstance3D = n as MeshInstance3D
+				var mat: StandardMaterial3D = ProceduralMeshFactory.material_of(mi) if mi != null else null
+				# Papan nama/billboard menghadap kamera; kilau biasa akan miring.
+				if mi == null or (mat != null and mat.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED):
+					continue
+				mi.material_overlay = ProceduralMeshFactory.flash_material()
+				_blink_meshes.append(mi)
+	if _blink_root == null:
+		return
+	_blink_t += delta
+	var c: Color = ProceduralMeshFactory.flash_material().albedo_color
+	c.a = blink_alpha(_blink_t, SettingsManager.reduced_motion())
+	ProceduralMeshFactory.flash_material().albedo_color = c
+
+
+func _clear_blink() -> void:
+	for mi: MeshInstance3D in _blink_meshes:
+		if is_instance_valid(mi) and mi.material_overlay == ProceduralMeshFactory.flash_material():
+			mi.material_overlay = null
+	_blink_meshes.clear()
+	_blink_root = null
 
 
 func show_ghost(cells: Array[Vector2i], floor_id: StringName, valid: bool) -> void:

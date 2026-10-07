@@ -89,7 +89,7 @@
   "price_acceptance_divisor": 1.25
  },
  "rating": {
-  "_gdd": "25.1, 25.2, 25.3, 9.2",
+  "_gdd": "25.1, 25.2, 25.3, 9.2, 22.10",
   "min": 1.0,
   "max": 5.0,
   "start_physical": 3.0,
@@ -111,6 +111,7 @@
    "normal_ready": 0.0,
    "driver_wait_long": -0.10,
    "order_cancelled": -0.20,
+   "order_rejected": -0.05,
    "fresh_quality_bonus": 0.05
   },
   "trusted_badge_stars": 4.5,

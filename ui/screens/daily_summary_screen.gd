@@ -91,6 +91,8 @@ func build() -> void:
 	_line(sc, Tx.t("ui_summary_customers"), str(r.get("physical_customer_count", 0)))
 	_line(sc, Tx.t("ui_summary_deliveries_done"), str(r.get("delivery_completed", 0)))
 	_line(sc, Tx.t("ui_summary_deliveries_cancelled"), str(r.get("delivery_cancelled", 0)))
+	if int(r.get("delivery_rejected", 0)) > 0:
+		_line(sc, Tx.t("ui_summary_deliveries_rejected"), str(r["delivery_rejected"]))
 	_line(sc, Tx.t("ui_summary_bread_sold"), str(r.get("bread_sold", 0)))
 	_line(sc, Tx.t("ui_summary_bread_left"), str(r.get("bread_leftover", 0)))
 	if float(r.get("waste_cost", 0.0)) > 0.0:

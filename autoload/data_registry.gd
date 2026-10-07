@@ -1026,6 +1026,12 @@ func _validate_balance() -> void:
 		_err("cashier.packing_seconds must be positive")
 	if float((_balance.get("clock", {}) as Dictionary).get("sim_seconds_per_real_second", 0.0)) <= 0.0:
 		_err("clock.sim_seconds_per_real_second must be positive")
+	# Tolak pesanan RotiFood (GDD 22.10, 25.3): penalti ringan, lebih ringan
+	# daripada pesanan yang batal karena driver menyerah.
+	var rf_events: Dictionary = (_balance.get("rating", {}) as Dictionary).get("rotifood_events", {})
+	var rejected: float = float(rf_events.get("order_rejected", 0.0))
+	if rejected >= 0.0 or rejected <= float(rf_events.get("order_cancelled", 0.0)):
+		_err("rating.rotifood_events.order_rejected must be a penalty lighter than order_cancelled")
 	var p: Dictionary = _balance.get("presentation", {})
 	var wipe_every: float = float(p.get("idle_wipe_every_seconds", 0.0))
 	var wipe_len: float = float(p.get("wipe_gesture_seconds", 0.0))

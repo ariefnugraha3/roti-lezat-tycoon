@@ -48,6 +48,7 @@ func build(settlement: Dictionary) -> Dictionary:
 		"customers_entered": sim.customers.entered_today,
 		"delivery_completed": sim.rotifood.completed_today,
 		"delivery_cancelled": sim.rotifood.cancelled_today,
+		"delivery_rejected": sim.rotifood.rejected_today,
 		"bread_sold": int(sim.statistics.today.get("bread_sold", 0)),
 		"bread_leftover": sim.display.total_sellable(),
 		"rating_start": sim.reputation.day_start_physical,

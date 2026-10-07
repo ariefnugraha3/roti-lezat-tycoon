@@ -134,7 +134,10 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   or beside a display, lets them look, and walks them out. They step aside when a buyer
   heads for their tile. Nothing a buyer does depends on them.
 - **RotiFood** (GDD 22): orders never reserve stock. `pack` takes every item or
-  none. Handover credits the sale once (`economy_committed`).
+  none. Handover credits the sale once (`economy_committed`). `reject` (GDD 22.10)
+  cancels an unpacked order at the player's request, sends any driver away and
+  applies `rating.rotifood_events.order_rejected`; the popup asks first through
+  `ModalHost.confirm`.
 - **Supply** (GDD 5.2.3, 70): daytime purchases pay immediately and arrive 3 in-game
   hours later. Stock commits when the courier drops the package, with one courier at
   the staging point at a time. After-hours purchases commit instantly.
@@ -247,7 +250,11 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   (`_update_floaters`). Both timers use real seconds and stop while the game is
   paused. `WorldView._update_staff_lines` shows idle staff's lines (GDD 31.8) in one
   `ThoughtBubble` per staff member: at most one line a minute each, and only after a
-  few seconds of idling. `SurpriseDirector` (`gameplay/world/surprise_director.gd`, a
+  few seconds of idling. `WorldView.highlight` marks the tutorial target (GDD 27.5):
+  besides the gold floor ring, every mesh of the target model gets
+  `ProceduralMeshFactory.flash_material()` as `material_overlay`, and `_update_blink`
+  pulses its alpha each frame (steady with Reduced Motion) and re-applies it when the
+  model is rebuilt. `SurpriseDirector` (`gameplay/world/surprise_director.gd`, a
   child of `WorldView`) plays the shop's surprise moments (GDD 31.9) with temporary
   `ActorView`s and `CritterFactory` models (`procedural/meshes/critter_factory.gd`)
   driven by unregistered `SimActor`s: routes only read the public nav graph, the

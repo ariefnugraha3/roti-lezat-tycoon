@@ -66,6 +66,9 @@ const PANTRY_FULL: float = 0.92
 const POPUP_SIZE: Vector2 = Vector2(760.0, 520.0)
 ## Jarak isi dari tepi kartu popup.
 const POPUP_PAD: int = 18
+## Jarak antara isi yang digulir dan scrollbar-nya (px), supaya scrollbar
+## tidak menempel di daftar (keputusan maintainer 2026-10-07).
+const SCROLLBAR_GAP: int = 10
 
 ## Gaya FLAT (eksperimen maintainer 2026-10-02): seluruh UI berupa bidang warna
 ## polos bersudut membulat, tanpa bayangan jatuh, bibir timbul, kilap, garis tepi
@@ -938,6 +941,8 @@ static func build_theme() -> Theme:
 	t.set_stylebox("panel", "Panel", panel(Palette.PANEL, RADIUS_PANEL, true))
 	t.set_stylebox("panel", "PanelContainer", panel(Palette.PANEL, RADIUS_PANEL, true))
 	t.set_stylebox("panel", "ScrollContainer", StyleBoxEmpty.new())
+	t.set_constant("scrollbar_v_separation", "ScrollContainer", SCROLLBAR_GAP)
+	t.set_constant("scrollbar_h_separation", "ScrollContainer", SCROLLBAR_GAP)
 
 	# --- Button (bantal madu, GDD 7) ---
 	var k: Dictionary = kind_colors("primary")

@@ -8,7 +8,8 @@ const STAT_KEYS: Array[String] = [
 	"highest_balance", "total_bread_produced", "total_bread_sold", "total_bread_wasted",
 	"total_bread_burned", "total_customers_served", "total_customers_left_no_purchase",
 	"total_customers_lost_patience", "total_rotifood_orders_received",
-	"total_rotifood_orders_completed", "total_rotifood_orders_expired", "total_supply_orders",
+	"total_rotifood_orders_completed", "total_rotifood_orders_expired", "total_rotifood_orders_rejected",
+	"total_supply_orders",
 	"bailout_count", "staff_hired_count", "location_upgrades_count",
 ]
 const RECORD_KEYS: Array[String] = [

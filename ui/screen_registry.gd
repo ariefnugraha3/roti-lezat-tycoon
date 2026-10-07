@@ -22,6 +22,7 @@ static func register_all(host: ModalHost) -> void:
 	host.register(&"customer_order", func() -> UIScreen: return CustomerOrderScreen.new())
 	host.register(&"rotifood", func() -> UIScreen: return RotiFoodScreen.new())
 	host.register(&"market", func() -> UIScreen: return MarketScreen.new())
+	host.register(&"replace_picker", func() -> UIScreen: return ReplacePicker.new())
 	host.register(&"staff", func() -> UIScreen: return StaffScreen.new())
 	host.register(&"marketing", func() -> UIScreen: return MarketingScreen.new())
 	host.register(&"decoration", func() -> UIScreen: return DecorationScreen.new())

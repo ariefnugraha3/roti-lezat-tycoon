@@ -73,7 +73,7 @@ the ones that validation checks.
 | `queues` | object | Per lane: `reservations`, `line`, `service_occupant`; `highest_occupancy_today`. |
 | `cashier` | object | In-progress transactions per lane (`customer`, `duration`, `elapsed`, `manual`, `confirmed`). |
 | `demand` | object | Next arrival times, pending pool, remaining Day 1–3 manifest rows, daily counters. `scripted_window_shoppers` and `next_window_shopper_at` schedule window shoppers; when an older save lacks them, the rest of that day has none. |
-| `rotifood_orders` | object | Orders with items, locked unit prices, packed lots, `economy_committed`, driver phase and patience. |
+| `rotifood_orders` | object | Orders with items, locked unit prices, packed lots, `economy_committed`, driver phase and patience, plus daily counters. An order the player rejected (GDD 22.10) is `CANCELLED` with `cancel_reason` `rejected` and counts in `rejected_today`; older saves without it load with 0. |
 | `supply_orders` | object | Purchase orders (`items`, `total_cost`, `arrival_game_time`, `state`, `inventory_committed`), `delivery_fifo`, couriers, `market_unlocked`. |
 | `staff` | object | `contracts` (employed, on_duty, working, hired_day, batches_today), actors (with `seat_iid` while a baker sits on a staff chair), tasks, `lane_assign`, `wage_liability_today`, `wage_lines_today` (`staff_id`, `wage`). |
 | `ratings` | object | `physical`, `rotifood`, day-start values, pending VIP outcomes. |

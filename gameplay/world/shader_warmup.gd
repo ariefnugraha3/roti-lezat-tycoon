@@ -72,6 +72,11 @@ func _fill(world: WorldView) -> void:
 		_place(EquipmentFactory.build_storage(t))
 	_place(EquipmentFactory.build_holding_table())
 	_place(EquipmentFactory.build_staff_chair())
+	# Kilau kedip sorotan tutorial (GDD 27.5) di atas satu alat.
+	var lit: Node3D = EquipmentFactory.build_mixer(1)
+	_place(lit)
+	for n: Node in lit.find_children("*", "MeshInstance3D", true, false):
+		(n as MeshInstance3D).material_overlay = ProceduralMeshFactory.flash_material()
 	var profile: String = _any_profile()
 	_place(EquipmentFactory.dough_bowl(), 1.0)
 	_place(EquipmentFactory.bread_tray(profile, 1.0, &"FRESH"), 1.0)
