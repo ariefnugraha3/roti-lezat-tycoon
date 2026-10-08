@@ -21,7 +21,8 @@ const EDGE: float = 12.0
 const CALLOUT_TEXT_W: float = 380.0
 const PERIOD: float = 0.9
 
-## [{targets: Callable -> Array (Control atau Rect2), key: String, next: bool}]
+## [{targets: Callable -> Array (Control atau Rect2), key: String, next: bool,
+##   enter: Callable (opsional, dipanggil saat langkah dimulai, mis. pindah tab)}]
 var _steps: Array[Dictionary] = []
 var _i: int = 0
 var _blockers: Array[ColorRect] = []
@@ -164,6 +165,9 @@ func _build() -> void:
 
 func _show_step() -> void:
 	var s: Dictionary = _steps[_i]
+	var enter: Variant = s.get("enter")
+	if enter is Callable and (enter as Callable).is_valid():
+		(enter as Callable).call()
 	var has_next: bool = bool(s.get("next", true))
 	var last: bool = _i == _steps.size() - 1
 	_text.text = Tx.t(str(s["key"]))

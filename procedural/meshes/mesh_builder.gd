@@ -245,6 +245,44 @@ func polygon(xf: Transform3D, pts: PackedVector2Array, color: Color,
 		_tri(c, ring[k], ring[(k + 1) % ring.size()])
 
 
+## Segi empat datar a-b-c-d (berurutan keliling) satu warna, menghadap `normal`.
+## Dipakai bidang lebar seperti atap dan jalan.
+func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, normal: Vector3, color: Color) -> void:
+	quad_colors(a, b, c, d, normal, [color, color, color, color])
+
+
+## Seperti quad(), dengan warna per sudut (a, b, c, d) untuk gradasi.
+func quad_colors(a: Vector3, b: Vector3, c: Vector3, d: Vector3, normal: Vector3, colors: Array) -> void:
+	var ia: int = _vert(a, normal, colors[0])
+	var ib: int = _vert(b, normal, colors[1])
+	var ic: int = _vert(c, normal, colors[2])
+	var id: int = _vert(d, normal, colors[3])
+	_tri(ia, ib, ic)
+	_tri(ia, ic, id)
+
+
+## Segitiga datar menghadap `normal` (ujung atap pelana).
+func triangle(a: Vector3, b: Vector3, c: Vector3, normal: Vector3, color: Color) -> void:
+	_tri(_vert(a, normal, color), _vert(b, normal, color), _vert(c, normal, color))
+
+
+## Warna verteks memudar ke `to` menurut jarak datar dari `center`: utuh sampai
+## `start` meter, lalu naik linear sampai `max_t` pada `end` dan sesudahnya.
+## Kejauhan lingkungan luar toko menyatu dengan warna latar (GDD 32.5).
+func fade_to(center: Vector3, start: float, end: float, to: Color, max_t: float) -> void:
+	for k in _v.size():
+		var p: Vector3 = _v[k]
+		var dist: float = Vector2(p.x - center.x, p.z - center.z).length()
+		var t: float = clampf((dist - start) / maxf(end - start, 0.001), 0.0, 1.0) * max_t
+		if t > 0.0:
+			_c[k] = _c[k].lerp(to, t)
+
+
+## Semua verteks yang sudah dirakit (untuk tes).
+func vertices() -> PackedVector3Array:
+	return _v
+
+
 ## Cakram datar menghadap +Y dengan gradasi pusat -> tepi (bayangan kaki).
 func disc(xf: Transform3D, radius: float, center_color: Color, rim_color: Color, segs: int) -> void:
 	var nb: Basis = xf.basis.inverse().transposed()

@@ -70,6 +70,10 @@ var _ghosts: Node3D = null
 ## Overlay ubin Decoration Mode (ubin wajib kosong & area salah).
 var _tile_overlay: Node3D = null
 var _env: WorldEnvironment = null
+## Lingkungan di luar toko (GDD 32.5), atau null bila tier ini belum punya.
+var _neighborhood: Node3D = null
+## Lokasi yang lingkungannya sedang terpasang.
+var _neighborhood_loc: StringName = &""
 var _t: float = 0.0
 var _smoke: Dictionary = {}
 var decoration_mode: bool = false
@@ -184,6 +188,18 @@ func rebuild_all() -> void:
 		var pend: Node3D = node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
 		if pend != null:
 			_room_swing.append(pend)
+	# Jalan dan rumah-rumah di sekitar toko, sesuai tier lokasinya (GDD 32.5).
+	# Hanya dibangun ulang saat lokasinya berganti, tidak setiap ganti dekorasi.
+	if _neighborhood_loc != sim.world.location.id:
+		if _neighborhood != null:
+			_neighborhood.queue_free()
+			_neighborhood = null
+		_neighborhood_loc = sim.world.location.id
+		for fd2: FloorDefinition in sim.world.location.floors:
+			if fd2.id == sim.world.location.store_floor():
+				_neighborhood = NeighborhoodFactory.build(sim.world.location, fd2)
+		if _neighborhood != null:
+			add_child(_neighborhood)
 	rebuild_furniture()
 	_apply_weather()
 	_apply_brightness()
@@ -1021,6 +1037,8 @@ func _on_camera_floor_changed(_floor_id: StringName) -> void:
 func _apply_floor_visibility() -> void:
 	for fid: Variant in floors.keys():
 		(floors[fid] as Node3D).visible = StringName(str(fid)) == camera_rig.active_floor
+	if _neighborhood != null:
+		NeighborhoodFactory.show_for_floor(_neighborhood, sim.world.location, camera_rig.active_floor)
 	if _slot_markers != null:
 		_slot_markers.visible = camera_rig.active_floor == sim.world.location.store_floor()
 
@@ -1535,10 +1553,20 @@ func highlight(kind: StringName, iid: int) -> void:
 
 ## Meja kasir jalur utama (jalur pemain), atau null.
 func main_counter() -> Node3D:
-	var lane: QueueLane = sim.queue.main_lane()
+	return counter_of(sim.queue.main_lane())
+
+
+## Meja kasir sebuah jalur, atau null.
+func counter_of(lane: QueueLane) -> Node3D:
 	if lane == null or not floors.has(lane.floor_id):
 		return null
 	return (floors[lane.floor_id] as Node3D).find_child("Counter_%s" % lane.counter_id, false, false) as Node3D
+
+
+## Pintu tangga di lantai yang sedang tampil (lokasi bertingkat), atau null.
+func portal_node() -> Node3D:
+	var root: Node3D = floors.get(camera_rig.active_floor)
+	return root.find_child("Portal", false, false) as Node3D if root != null else null
 
 
 ## Kotak layar (koordinat kanvas) yang menutupi semua mesh terlihat dari
@@ -1565,6 +1593,11 @@ func screen_rect_of(nodes: Array, min_size: Vector2 = Vector2.ZERO) -> Rect2:
 		return Rect2()
 	var grow := Vector2(maxf(0.0, min_size.x - r.size.x), maxf(0.0, min_size.y - r.size.y)) * 0.5
 	return r.grow_individual(grow.x, grow.y, grow.x, grow.y)
+
+
+## Lingkungan di luar toko (GDD 32.5), atau null bila tier ini belum punya.
+func neighborhood() -> Node3D:
+	return _neighborhood
 
 
 ## Model yang harus diketuk pada langkah tutorial saat ini: alatnya, meja kasir

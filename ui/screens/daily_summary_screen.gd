@@ -16,6 +16,7 @@ const MOOD_ICONS: Dictionary = {
 ## Tur sorotan tutorial Hari 1 pada tombol Manage Staff (GDD 88.1), atau null.
 var _tour: CoachMarks = null
 var _staff_btn: Button = null
+var _market_btn: Button = null
 
 
 ## Nota harian hanya tertutup lewat tombolnya sendiri, supaya hari tidak pernah macet tanpa tombol lanjut.
@@ -130,12 +131,13 @@ func build() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	# Market dan Staff membawa pemain ke after-hours: nota ditutup sendiri dulu
 	# (keep_open), lalu tombol lanjut ada di HUD (GDD 11.5-11.6).
-	btn(row, Tx.t("ui_summary_open_market"), "secondary", func() -> void:
+	_market_btn = btn(row, Tx.t("ui_summary_open_market"), "secondary", func() -> void:
 		sim.enter_after_hours()
 		if sim.supply.market_unlocked:
 			_leave_to(&"market")
 		else:
 			EventBus.notify.emit(2, "ui_market_locked", {}, &"cart"))
+	_market_btn.name = "OpenMarket"
 	_staff_btn = btn(row, Tx.t("ui_summary_manage_staff"), "secondary", func() -> void:
 		sim.enter_after_hours()
 		_leave_to(&"staff"))
@@ -160,11 +162,22 @@ func build() -> void:
 func _on_tutorial_step(_s: StringName) -> void:
 	if sim == null or tour() != null or is_queued_for_deletion():
 		return
-	if not sim.tutorial.summary_tour() or bool(sim.tutorial.prompt.get("modal", false)):
+	if bool(sim.tutorial.prompt.get("modal", false)):
+		return
+	var target: Button = null
+	var key: String = ""
+	if sim.tutorial.summary_tour():
+		target = _staff_btn
+		key = "tut_close_summary"
+	elif sim.tutorial.market_summary_tour():
+		# Pasar baru terbuka (GDD 88.3, 88.4): sorot Open Market.
+		target = _market_btn
+		key = "tut_close_market"
+	if target == null:
 		return
 	_tour = CoachMarks.new()
 	add_child(_tour)
-	_tour.setup([{"targets": func() -> Array: return [_staff_btn], "key": "tut_close_summary", "next": false}])
+	_tour.setup([{"targets": func() -> Array: return [target], "key": key, "next": false}])
 
 
 func tour() -> CoachMarks:

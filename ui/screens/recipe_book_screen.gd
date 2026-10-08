@@ -73,6 +73,27 @@ func build() -> void:
 	var tour: StringName = sim.tutorial.recipe_tour()
 	if tour != &"":
 		_start_tour.call_deferred(tour)
+	else:
+		_start_tips.call_deferred()
+
+
+## Tur sekali (GDD 88.4): slider harga begitu harga boleh diatur, dan Ask a Baker
+## begitu ada Kitchen Assistant.
+func _start_tips() -> void:
+	if is_queued_for_deletion():
+		return
+	var steps: Array[Dictionary] = []
+	if not sim.pricing.prices_locked() and sim.tutorial.screen_tour(&"pricing"):
+		sim.tutorial.mark_tour(&"pricing")
+		steps.append({"targets": _tour_nodes.bind(["PriceRow", "PriceNote"]), "key": "tut_pricing", "next": true})
+	if not sim.staff.employed_ids(&"baker").is_empty() and sim.tutorial.screen_tour(&"ask_baker"):
+		sim.tutorial.mark_tour(&"ask_baker")
+		steps.append({"targets": _tour_nodes.bind(["AskBaker"]), "key": "tut_ask_baker", "next": true})
+	if steps.is_empty():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup(steps)
 
 
 ## Tur sorotan tutorial (GDD 88.1). Sasarannya dicari ulang tiap frame lewat

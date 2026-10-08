@@ -220,7 +220,7 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   the tutorial hint and the after-hours buttons above the bottom panels whatever
   their height.
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
-  `CharacterFactory`, `RoomFactory`, `DecorFactory` (meshes); `ProceduralAnimationSystem`, `FX`
+  `CharacterFactory`, `RoomFactory`, `DecorFactory`, `NeighborhoodFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas`, `BreadArt` (UI). Their shared
   caches are released by `ProceduralCaches.clear_all()` on exit. `BreadArt` builds each
   recipe picture once per `visual_profile_id` as a list of solid shapes in unit space
@@ -271,7 +271,13 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   `DailySummaryScreen` spotlights Manage Staff once its tip is closed, and
   `StaffScreen` and `MarketingScreen` report `*_opened`/`*_closed` and run their
   own `CoachMarks` tours while their step is active (`TutorialManager.staff_tour`,
-  `marketing_tour`). `SimBot` plays the same steps through the sim API (it re-places a shelf
+  `marketing_tour`). Later features are introduced once, on first contact (GDD
+  88.4): `TutorialManager` raises spotlights from sim events (store open, day
+  start, a Food Vlogger entering, a stack going stale with its shelf as
+  `target_iid`, an achievement, Pak Lurah's visit), and screens ask
+  `TutorialManager.screen_tour(id)` before running their own one-off tour, then
+  `mark_tour(id)`. A `CoachMarks` step may carry an `enter` callable, which the
+  Market tour uses to switch tabs. `SimBot` plays the same steps through the sim API (it re-places a shelf
   where it stands, parks the second tray on the holding table, and closes tips
   that pause the game like a player). `WorldView.highlight` marks the tutorial target (GDD 27.5):
   besides the gold floor ring, every mesh of the target model gets
@@ -303,6 +309,25 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   placed copies share meshes), swings the pendulums, makes decorations pickable, and
   shows the wall/counter slot markers the screen taps (`show_slot_markers`,
   `slot_at_screen`).
+- The neighbourhood outside the shop (GDD 32.5) is drawn by `NeighborhoodFactory`
+  (`procedural/meshes/neighborhood_factory.gd`). It builds the Tier 1 kampung street,
+  the Tier 2 shophouse street, the Tier 3 city avenue, the Tier 4 premium district
+  and the Tier 5 heritage city square as one vertex-coloured `MeshBuilder` mesh with
+  the shared matte material (`Street`). A location with an upper floor also gets
+  `OwnBuilding`, the shop's own ground floor. Tiers without a street (`has_street`)
+  get `null` and keep the plain background. `WorldView` builds it in `rebuild_all`
+  only when the location changes, so a decoration change does not rebuild it.
+  `_apply_floor_visibility` calls `show_for_floor`: on the shop floor the street
+  stands at street level. From a floor above it drops `STOREY` per level
+  (`floor_level` reads the number in `floor_N`) and shows `OwnBuilding` under the
+  room. An unknown floor hides it. Nothing in it is pickable and the simulation
+  never sees it. Vertex colours fade into
+  `Palette.BG` with distance (`MeshBuilder.fade_to`, radii from `fade_radii`, further
+  out for a bigger floor), so long pieces such as the road are cut into `PIECE`-long
+  strips. Objects in front of and beside the shop stay low or
+  far enough that the locked camera always sees the whole floor on screen.
+  `ACC_32_NEIGHBORHOOD_CLEAR` projects every triangle along the camera ray, for every
+  floor and its drop, to prove it.
 - Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
   `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
   `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.

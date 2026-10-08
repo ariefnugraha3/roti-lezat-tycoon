@@ -371,7 +371,7 @@ func age_all(hours: float, _overnight: bool) -> void:
 				var before: StringName = st.freshness_state
 				st.refresh_state()
 				if before != st.freshness_state:
-					sim.tutorial.on_freshness_changed(st.freshness_state)
+					sim.tutorial.on_freshness_changed(st.freshness_state, int(iid))
 
 
 ## Rollover 18:00 -> 05:00 (GDD 19.7.3). Tepat sekali per hari, dijaga

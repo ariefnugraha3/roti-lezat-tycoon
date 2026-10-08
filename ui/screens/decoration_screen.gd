@@ -111,6 +111,8 @@ var _overlay_floor: StringName = &""
 var _done_btn: Button = null
 var _tut: PanelContainer = null
 var _tut_label: Label = null
+## Tip menaruh alat baru sedang tampil (GDD 88.4).
+var _new_item_tip: bool = false
 
 
 func _init() -> void:
@@ -150,6 +152,11 @@ func build() -> void:
 	if pre >= 0:
 		_hold_equipment(pre)
 		_focus_pending = has_selection()
+		# Alat baru dari Market: jelaskan cara menaruhnya, sekali (GDD 88.4).
+		var e: EquipmentInstance = sim.equipment.get_inst(pre)
+		if e != null and not e.placed and has_selection() and sim.tutorial.screen_tour(&"place_equipment"):
+			sim.tutorial.mark_tour(&"place_equipment")
+			_new_item_tip = true
 	_refresh_all()
 	_refresh_overlay()
 	sim.tutorial.on_event(&"decor_opened")
@@ -234,6 +241,9 @@ func _refresh_tutorial() -> void:
 	var p: Dictionary = sim.tutorial.prompt
 	var key: String = str(p.get("key", ""))
 	var show_tip: bool = bool(p.get("guided", false)) and key in ["tut_decor_move", "tut_decor_done"]
+	if not show_tip and _new_item_tip:
+		key = "tut_place_equipment"
+		show_tip = true
 	_tut.visible = show_tip
 	if show_tip:
 		_tut_label.text = Tx.t(key)
@@ -690,6 +700,9 @@ func _place() -> void:
 		return
 	EventBus.sfx.emit(&"bread_place_display", _cand_floor)
 	_drop_hold()
+	if _new_item_tip:
+		_new_item_tip = false
+		_refresh_tutorial()
 	_refresh_overlay()
 	_refresh_all()
 
@@ -901,6 +914,9 @@ func _place_toolbar() -> void:
 	var sz: Vector2 = _toolbar.panel.get_combined_minimum_size()
 	_toolbar.panel.size = sz
 	var top_limit: float = _top.get_global_rect().end.y + EDGE_PX
+	# Balon tutorial di bawah bilah atas juga tidak boleh tertutup toolbar.
+	if _tut != null and _tut.visible:
+		top_limit = maxf(top_limit, _tut.get_global_rect().end.y + EDGE_PX)
 	var bottom_limit: float = _bottom.get_global_rect().position.y - EDGE_PX
 	var anchor: Vector2 = _toolbar_anchor()
 	var pos: Vector2
@@ -910,6 +926,12 @@ func _place_toolbar() -> void:
 	else:
 		pos = Vector2(anchor.x - sz.x * 0.5, anchor.y - ActionBar.TAIL_H - sz.y)
 		pos.x = clampf(pos.x, EDGE_PX, maxf(EDGE_PX, view.x - sz.x - EDGE_PX))
+		# Tidak muat di atas barang (bilah atas atau balon tutorial): di bawahnya,
+		# supaya toolbar tidak menutupi barang yang sedang dipegang.
+		if pos.y < top_limit:
+			var held: Rect2 = game.world.screen_rect_of([game.world.hold_node()])
+			if held.has_area() and held.end.y + EDGE_PX + sz.y <= bottom_limit:
+				pos.y = held.end.y + EDGE_PX
 		pos.y = clampf(pos.y, top_limit, maxf(top_limit, bottom_limit - sz.y - ActionBar.TAIL_H))
 		# Ekor hanya bila toolbar benar-benar berada tepat di atas titiknya.
 		var tip_y: float = pos.y + sz.y + ActionBar.TAIL_H

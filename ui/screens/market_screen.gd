@@ -26,6 +26,8 @@ const COMPARE_ROW_H: float = 30.0
 const STAT_HEADERS: Dictionary = {&"mixer": "ui_equipment_col_mix", &"oven": "ui_equipment_col_bake", &"display": "ui_equipment_col_holds"}
 
 var _tab: int = 0
+var _tabs: ProceduralUIFactory.CozyTabs = null
+var _tour: CoachMarks = null
 var _body: VBoxContainer = null
 var _qty: Dictionary = {}
 var _total: Label = null
@@ -35,14 +37,60 @@ var _cap: Label = null
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_market"), Vector2(1180, 660))
 	_tab = int(params.get("tab", 0))
-	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_market_tab_ingredients"), Tx.t("ui_market_tab_equipment"),
+	var touring: bool = sim.supply.market_unlocked and sim.tutorial.screen_tour(&"market")
+	if touring:
+		_tab = 0
+	_tabs = ProceduralUIFactory.tab_bar([Tx.t("ui_market_tab_ingredients"), Tx.t("ui_market_tab_equipment"),
 		Tx.t("ui_market_tab_upgrade")], _tab, func(idx: int) -> void:
 			_tab = idx
-			_render()))
+			_render())
+	body.add_child(_tabs)
 	_body = VBoxContainer.new()
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(_body)
 	_render()
+	if touring:
+		sim.tutorial.mark_tour(&"market")
+		_start_tour.call_deferred()
+
+
+## Tur Market sekali (GDD 88.4): bahan, membeli, alat, lalu pindah lokasi. Tiap
+## langkah membuka tabnya sendiri; sasaran dicari ulang lewat nama tiap frame.
+func _start_tour() -> void:
+	if is_queued_for_deletion():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([
+		{"enter": _show_tab.bind(0), "targets": _named.bind(["IngredientRows"]), "key": "tut_market_ingredients", "next": true},
+		{"enter": _show_tab.bind(0), "targets": _named.bind(["BuyRow", "DeliveryNote"]), "key": "tut_market_buy", "next": true},
+		{"enter": _show_tab.bind(1), "targets": _named.bind(["EquipmentRows"]), "key": "tut_market_equipment", "next": true},
+		{"enter": _show_tab.bind(2), "targets": _named.bind(["UpgradeRows", "Upgrade"]), "key": "tut_market_upgrade", "next": true},
+	])
+
+
+func _show_tab(idx: int) -> void:
+	if _tab == idx:
+		return
+	_tab = idx
+	_tabs.select(idx)
+	_render()
+
+
+## Node bernama di layar ini (yang terlihat saja); ScrollContainer daftar dipakai
+## utuh supaya sorotannya selebar tabel.
+func _named(names: Array) -> Array:
+	var out: Array = []
+	for n: Variant in names:
+		var c: Node = find_child(str(n), true, false)
+		if c == null:
+			continue
+		out.append(c.get_parent() if c.get_parent() is ScrollContainer else c)
+	return out
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
 
 
 func _render() -> void:
@@ -105,12 +153,14 @@ func _render_ingredients() -> void:
 		["ui_market_col_stock", float(widths["stock"]), HORIZONTAL_ALIGNMENT_CENTER],
 		["ui_market_col_amount", amount_w, HORIZONTAL_ALIGNMENT_CENTER]]))
 	var foot: HBoxContainer = hbox(_body, 14)
+	foot.name = "BuyRow"
 	_cap = lbl(foot, "", 16)
 	_total = lbl(foot, "", 20, Palette.GOLDEN_CRUST)
 	_total.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var buy: Button = btn(foot, Tx.t("ui_market_buy"), "primary", _buy)
 	buy.custom_minimum_size = Vector2(200, 56)
-	lbl(_body, Tx.t("ui_market_after_hours_note") if sim.time.is_after_hours() else Tx.t("ui_market_delivery_note"), 14, Palette.TEXT_MUTED, true)
+	var note: Label = lbl(_body, Tx.t("ui_market_after_hours_note") if sim.time.is_after_hours() else Tx.t("ui_market_delivery_note"), 14, Palette.TEXT_MUTED, true)
+	note.name = "DeliveryNote"
 	_update_totals()
 
 

@@ -89,7 +89,54 @@ func _targets(target: StringName) -> Array:
 			for b: ThoughtBubble in world.surprises.bubbles_showing():
 				cast.append(b.panel_rect())
 			return cast
+		&"speed_row":
+			return [hud.speed_row()] if hud != null else []
+		&"close_early":
+			return [hud.close_early_button()] if hud != null else []
+		&"weather":
+			return [hud.weather_icon()] if hud != null else []
+		&"holiday":
+			return [hud.holiday_label()] if hud != null else []
+		&"floors":
+			return [hud.floor_buttons()] if hud != null else []
+		&"solo":
+			return [hud.solo_label()] if hud != null else []
+		&"decor_button":
+			return [hud.decoration_button()] if hud != null else []
+		&"portal":
+			return [world.screen_rect_of([world.portal_node()], MIN_WORLD_HOLE)] if world != null else []
+		&"cashier_staff":
+			return _cashier_rects(world)
+		&"critic":
+			return _actor_rects(world, _critic())
+		&"shelf":
+			var iid: int = int(params.get("target_iid", -1))
+			if world == null or iid < 0:
+				return []
+			return [world.screen_rect_of([world.furniture.get(iid)], MIN_WORLD_HOLE)]
 	return []
+
+
+## Kasir staf yang sedang bertugas dan meja jalurnya (GDD 21.2).
+func _cashier_rects(world: WorldView) -> Array:
+	if world == null:
+		return []
+	var out: Array = []
+	for sid: Variant in sim.staff.lane_assign.keys():
+		var a: SimActor = sim.staff.actors.get(sid)
+		var nodes: Array = [world.counter_of(sim.queue.lane(StringName(str(sim.staff.lane_assign[sid]))))]
+		if a != null:
+			nodes.append(world.views.get(a.id))
+		out.append(world.screen_rect_of(nodes, MIN_WORLD_HOLE))
+	return out
+
+
+## Food Vlogger yang sedang di toko, atau null.
+func _critic() -> Customer:
+	for c: Customer in sim.customers.sorted():
+		if c.is_critic:
+			return c
+	return null
 
 
 ## Model pelanggan `c` di layar, beserta gelembung celetukannya bila ada.

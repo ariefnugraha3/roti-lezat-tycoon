@@ -20,6 +20,13 @@ extends SimManager
 ## Tip lain tetap muncul sekali saat kondisinya tercapai; tip non-modal menunggu
 ## sampai urutan terpandu selesai. Pengunjung lihat-lihat pertama yang pulang,
 ## kejutan pertama, dan pesanan RotiFood pertama mendapat sorotan sekali.
+##
+## Fitur lanjutan diperkenalkan sekali saat pertama dijumpai (keputusan
+## maintainer 2026-10-08, GDD 88.4): sorotan yang mem-pause game untuk
+## kecepatan dan Close Early, hujan, hari libur, toko bertingkat, kasir staf,
+## Food Vlogger, roti basi, badge, dan Solo Mode (`SPOTLIGHTS`), serta tur sekali
+## di dalam layar untuk Market, harga, Ask a Baker, popup RotiFood, buang roti,
+## dan menaruh alat baru (`screen_tour`).
 
 ## Langkah terpandu -> [kunci prompt, sasaran sorotan, sorotan layar (opsional)].
 ## Langkah dengan sorotan layar (`SPOTLIGHTS`) mem-pause game seperti tip modal.
@@ -111,7 +118,18 @@ const SPOTLIGHTS: Dictionary = {
 	&"window_shopper": [["tut_window_shopper", &"window_shopper"]],
 	&"surprise": [["tut_surprise", &"surprise"]],
 	&"rotifood_order": [["tut_rotifood_first", &"rotifood_order"]],
+	&"speed_close": [["tut_speed", &"speed_row"], ["tut_close_early", &"close_early"]],
+	&"weather_rain": [["tut_weather_rain", &"weather"]],
+	&"holiday": [["tut_holiday", &"holiday"]],
+	&"floors": [["tut_floors", &"floors"], ["tut_floor_stairs", &"portal"]],
+	&"cashier_staff": [["tut_cashier_staff", &"cashier_staff"]],
+	&"critic": [["tut_critic", &"critic"]],
+	&"stale": [["tut_stale", &"shelf"]],
+	&"badge": [["tut_badge", &"decor_button"]],
+	&"solo": [["tut_solo", &"solo"]],
 }
+## Tur sekali di dalam layar (GDD 88.4); tercatat di `done` sebagai "tour_<id>".
+const SCREEN_TOURS: Array[StringName] = [&"market", &"pricing", &"ask_baker", &"rotifood_popup", &"discard", &"place_equipment"]
 ## Tip lama yang isinya sudah diajarkan langkah terpandu ini, jadi tidak tampil lagi.
 const COVERS: Dictionary = {
 	&"serve_wait": ["tut_patience"],
@@ -203,6 +221,23 @@ func marketing_tour() -> bool:
 	return guided_step == &"marketing_tour"
 
 
+## Daily Summary menyorot Open Market begitu Pasar terbuka, sampai tur Market
+## pernah tampil (GDD 88.3).
+func market_summary_tour() -> bool:
+	return guided_step == &"" and sim.supply.market_unlocked and screen_tour(&"market")
+
+
+## Tur sekali di dalam layar `id` (GDD 88.4): true bila bantuan tutorial menyala
+## dan tur itu belum pernah tampil. Layarnya sendiri memeriksa apakah sasarannya
+## ada, lalu memanggil `mark_tour`.
+func screen_tour(id: StringName) -> bool:
+	return hints_enabled() and not done.has("tour_" + String(id))
+
+
+func mark_tour(id: StringName) -> void:
+	done["tour_" + String(id)] = true
+
+
 ## Langkah sorotan `kind`: [[kunci teks, sasaran], ...].
 static func spotlight_steps(kind: StringName) -> Array:
 	return SPOTLIGHTS.get(kind, [])
@@ -226,7 +261,7 @@ func allows_tap(kind: StringName) -> bool:
 	return true
 
 
-func _show(key: String, modal: bool, highlight_kind: StringName = &"", once_key: String = "", spotlight: StringName = &"") -> void:
+func _show(key: String, modal: bool, highlight_kind: StringName = &"", once_key: String = "", spotlight: StringName = &"", target_iid: int = -1) -> void:
 	var k: String = once_key if once_key != "" else key
 	if done.has(k) or not hints_enabled():
 		return
@@ -239,7 +274,13 @@ func _show(key: String, modal: bool, highlight_kind: StringName = &"", once_key:
 	if spotlight != &"":
 		p["spotlight"] = String(spotlight)
 		_mark_spotlight(spotlight)
+	if target_iid >= 0:
+		p["target_iid"] = target_iid
 	if prompt.is_empty() or not bool(prompt.get("modal", false)):
+		# Tip modal tidak membuang tip biasa yang sedang tampil: tip itu kembali
+		# begitu tip modalnya ditutup.
+		if modal and not prompt.is_empty() and not bool(prompt.get("guided", false)):
+			_queue.push_front(prompt)
 		prompt = p
 		EventBus.tutorial_step_changed.emit(StringName(key))
 	else:
@@ -361,18 +402,35 @@ func _hint_done(key: String) -> void:
 
 
 func begin_day() -> void:
-	if not active():
+	if active():
+		match sim.time.day:
+			1:
+				_show("tut_welcome", true)
+				_set_step(&"decor_open")
+			2:
+				_set_step(&"")
+				_show("tut_day2_prep", false)
+			3:
+				_set_step(&"")
+				_show("tut_day3_balance", true)
+	_day_tips()
+
+
+## Tip awal hari untuk keadaan yang baru pertama kali terjadi (GDD 88.4): hujan,
+## hari libur yang mendekat, toko bertingkat, dan badge yang tertunda.
+func _day_tips() -> void:
+	if skipped:
 		return
-	match sim.time.day:
-		1:
-			_show("tut_welcome", true)
-			_set_step(&"decor_open")
-		2:
-			_set_step(&"")
-			_show("tut_day2_prep", false)
-		3:
-			_set_step(&"")
-			_show("tut_day3_balance", true)
+	if sim.weather.is_rain():
+		_show("tut_weather_rain", true, &"", "", &"weather_rain")
+	var until: int = sim.weather.days_until_holiday()
+	if until >= 0 and until <= int(DataRegistry.weather_raw().get("holiday_countdown_days", 3)):
+		_show("tut_holiday", true, &"", "", &"holiday")
+	if sim.world.location.is_multi_floor():
+		_show("tut_floors", true, &"", "", &"floors")
+	if done.has("pending_badge"):
+		done.erase("pending_badge")
+		_show("tut_badge", true, &"", "", &"badge")
 
 
 func on_event(ev: StringName) -> void:
@@ -411,12 +469,25 @@ func on_event(ev: StringName) -> void:
 			if sim.time.day == 3:
 				_show("tut_market_unlock", true)
 				_show("tut_market_teaser", false)
-		&"pricing_opened":
-			if sim.time.day >= 2:
-				_show("tut_pricing", false)
 		&"store_open":
+			# Hari 1 punya tur pembukaannya sendiri (GDD 88.1).
+			if sim.time.day >= 2:
+				_show("tut_speed", true, &"", "", &"speed_close")
+			if sim.staff.any_cashier_working():
+				_show("tut_cashier_staff", true, &"", "", &"cashier_staff")
 			if sim.time.day == 2 and sim.inventory.is_empty():
 				_show("tut_fried_bread_stale", false)
+		&"achievement":
+			# Badge pertama: disorot sekarang, atau di awal hari berikutnya bila
+			# urutan terpandu sedang berjalan (GDD 88.4).
+			if not done.has("tut_badge"):
+				if guided_step != &"":
+					done["pending_badge"] = true
+				else:
+					_show("tut_badge", true, &"", "", &"badge")
+		&"bailout_seen":
+			if sim.bailout.solo_mode:
+				_show("tut_solo", true, &"", "", &"solo")
 
 
 func on_customer_entered(c: Customer) -> void:
@@ -426,6 +497,8 @@ func on_customer_entered(c: Customer) -> void:
 	# Hari 1 terpandu mengenalkan pembeli pertama dengan sorotan (GDD 88.1).
 	if guided_step == &"":
 		_show("tut_patience", true)
+	if c.is_critic:
+		_show("tut_critic", true, &"", "", &"critic")
 	if c.archetype == &"customer_office_worker":
 		_show("tut_office_worker", false)
 
@@ -455,9 +528,13 @@ func on_customer_front(_c: Customer) -> void:
 	_show("tut_manual_cashier", false, &"cashier")
 
 
-func on_freshness_changed(state: StringName) -> void:
+## Roti di rak `iid` berganti tingkat kesegaran (GDD 19.7). Roti basi pertama
+## mendapat sorotan pada raknya (GDD 88.4).
+func on_freshness_changed(state: StringName, iid: int = -1) -> void:
 	if state == &"GOOD" and sim.time.day <= 3:
 		_show("tut_freshness", true)
+	elif state == &"STALE" or state == &"UNSALEABLE":
+		_show("tut_stale", true, &"", "", &"stale", iid)
 
 
 ## Arsip bantuan: kunci prompt yang sudah pernah tampil (GDD 27.6 replay).

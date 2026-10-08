@@ -9,6 +9,7 @@ extends UIScreen
 var _list: VBoxContainer = null
 var _detail: VBoxContainer = null
 var _selected: int = -1
+var _tour: CoachMarks = null
 
 
 func build() -> void:
@@ -28,6 +29,31 @@ func build() -> void:
 	if _selected < 0 and not orders.is_empty():
 		_selected = orders[0].order_id
 	_render()
+	var o: DeliveryOrder = sim.rotifood.orders.get(_selected)
+	if o != null and not o.packed and sim.tutorial.screen_tour(&"rotifood_popup"):
+		sim.tutorial.mark_tour(&"rotifood_popup")
+		_start_tour.call_deferred()
+
+
+## Tur sekali (GDD 88.4, 22.10): Pack Order, lalu Reject Order.
+func _start_tour() -> void:
+	if is_queued_for_deletion():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([
+		{"targets": _named.bind("Pack"), "key": "tut_rotifood_pack", "next": true},
+		{"targets": _named.bind("Reject"), "key": "tut_rotifood_reject", "next": true},
+	])
+
+
+func _named(node_name: String) -> Array:
+	var n: Node = find_child(node_name, true, false)
+	return [n] if n != null else []
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
 
 
 func _render() -> void:

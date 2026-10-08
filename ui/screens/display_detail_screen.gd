@@ -5,6 +5,7 @@ extends UIScreen
 ## basi/kedaluwarsa. Tidak ada refund bahan.
 
 var _body: VBoxContainer = null
+var _tour: CoachMarks = null
 
 
 func build() -> void:
@@ -17,8 +18,25 @@ func build() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_END
 	var discard: Button = btn(row, Tx.t("ui_display_discard"), "danger", func() -> void:
 		host.confirm(Tx.t("ui_display_discard_confirm"), _discard, true))
+	discard.name = "Discard"
 	discard.disabled = not sim.display.has_discardable(iid)
 	_render()
+	# Roti basi pertama yang bisa dibuang: sorot Discard sekali (GDD 88.4).
+	if sim.display.has_discardable(iid) and sim.tutorial.screen_tour(&"discard"):
+		sim.tutorial.mark_tour(&"discard")
+		_start_tour.call_deferred(discard)
+
+
+func _start_tour(discard: Button) -> void:
+	if is_queued_for_deletion():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([{"targets": func() -> Array: return [discard], "key": "tut_discard", "next": true}])
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
 
 
 func _render() -> void:

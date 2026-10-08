@@ -30,6 +30,8 @@ var _demand: Label = null
 var _campaign: Label = null
 var _solo: Label = null
 var _speed_buttons: Array[Button] = []
+## Baris Pause + 1x/2x/3x (disorot tutorial kecepatan, GDD 88.4).
+var _speed_row: HBoxContainer = null
 var _pause_btn: Button = null
 var _skip_btn: Button = null
 var _close_btn: Button = null
@@ -181,9 +183,11 @@ func _build_top_left(frame: Control) -> void:
 	_stars_chip = rf
 	r2.add_child(rf)
 	_solo = ProceduralUIFactory.label(Tx.t("ui_hud_solo"), 14, Palette.DANGER)
+	_solo.name = "Solo"
 	_solo.visible = false
 	v.add_child(_solo)
 	_floor_box = HBoxContainer.new()
+	_floor_box.name = "Floors"
 	_floor_box.add_theme_constant_override("separation", 6)
 	v.add_child(_floor_box)
 
@@ -201,6 +205,7 @@ func _build_top_center(frame: Control) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(row)
 	_weather_icon = ProceduralUIFactory.icon("sun", 30, Palette.GOLD_STAR)
+	_weather_icon.name = "Weather"
 	row.add_child(_weather_icon)
 	_day = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
 	_day.add_theme_font_override("font", ProceduralUIFactory.display_font())
@@ -217,9 +222,11 @@ func _build_top_center(frame: Control) -> void:
 	_phase.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	_phase_pill.add_child(_phase)
 	var speed := HBoxContainer.new()
+	speed.name = "SpeedRow"
 	speed.alignment = BoxContainer.ALIGNMENT_CENTER
 	speed.add_theme_constant_override("separation", 6)
 	v.add_child(speed)
+	_speed_row = speed
 	_pause_btn = ProceduralUIFactory.icon_button("pause", Tx.t("ui_pause_title"), "secondary")
 	_pause_btn.pressed.connect(func() -> void: game.modals.open(&"pause"))
 	speed.add_child(_pause_btn)
@@ -237,6 +244,7 @@ func _build_top_center(frame: Control) -> void:
 	_demand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_demand)
 	_holiday = ProceduralUIFactory.label("", 14, Palette.GOLDEN_CRUST)
+	_holiday.name = "Holiday"
 	_holiday.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_holiday)
 
@@ -624,6 +632,8 @@ func _refresh_all() -> void:
 	var until: int = sim.weather.days_until_holiday()
 	if until == 0:
 		_holiday.text = Tx.t("ui_hud_holiday_today")
+	elif until == 1:
+		_holiday.text = Tx.t("ui_hud_holiday_tomorrow")
 	elif until > 0 and until <= int(DataRegistry.weather_raw().get("holiday_countdown_days", 3)):
 		_holiday.text = Tx.t("ui_hud_holiday_countdown", {"days": until})
 	else:
@@ -811,6 +821,27 @@ func skip_button() -> Button:
 
 func staff_button() -> Button:
 	return _staff_tile
+
+
+func speed_row() -> HBoxContainer:
+	return _speed_row
+
+
+func weather_icon() -> Control:
+	return _weather_icon
+
+
+func holiday_label() -> Label:
+	return _holiday
+
+
+## Tombol lantai L1/L2 (hanya di lokasi bertingkat, GDD 30.5).
+func floor_buttons() -> HBoxContainer:
+	return _floor_box
+
+
+func solo_label() -> Label:
+	return _solo
 
 
 func marketing_button() -> Button:

@@ -555,7 +555,7 @@ func _show_tutorial_prompt() -> void:
 		if _tutorial_modal_shown != str(p["key"]) or not modals.is_open(screen):
 			_tutorial_modal_shown = str(p["key"])
 			hud.show_tutorial_hint("", &"", -1)
-			modals.open(screen, {"key": p["key"], "spotlight": spot})
+			modals.open(screen, {"key": p["key"], "spotlight": spot, "target_iid": int(p.get("target_iid", -1))})
 	else:
 		hud.show_tutorial_hint(str(p["key"]), StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
 	world.highlight(StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))

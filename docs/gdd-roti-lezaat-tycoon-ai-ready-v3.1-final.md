@@ -3135,7 +3135,68 @@ Upgrade tidak sekadar recolor; minimal ubah 2 dari:
 
 ## **32.4 Procedural Material Palette**
 
-Semua material mengambil warna dari centralized palette resource agar konsisten.
+Semua material mengambil warna dari centralized palette resource agar konsisten. Warna lingkungan luar toko (Seksi 32.5: aspal, beton, rumput, daun, batang, paving, keramik teras, genteng, lima cat rumah, kaca, kayu, pagar besi, kabel, toren, ban; untuk Tier 2 juga pintu gulung, bagian dalam toko, marka jalan, atap seng, lima cat ruko, dan enam warna papan nama; untuk Tier 3 juga ubin pemandu kuning; untuk Tier 4 juga granit, kuningan, bunga tabebuya, dan air kolam; untuk Tier 5 juga batu andesit, dinding kolonial, dan daun jendela hijau) juga ada di `Palette`. Warnanya sedikit diredam supaya toko tetap menjadi pusat perhatian; papan nama sedikit lebih cerah supaya terbaca sebagai pertokoan.
+
+## **32.5 Lingkungan Luar Toko**
+
+Keputusan maintainer 2026-10-08: toko tidak lagi melayang di atas warna latar polos. Di sekelilingnya digambar lingkungan yang sesuai tier lokasinya. Lingkungan ini murni tampilan: simulasi tidak mengetahuinya, tidak ada yang bisa diketuk, dan tidak ada yang disimpan.
+
+**Tier 1 — Garasi Rumah.** Usaha dimulai di garasi rumah pemain sendiri (Seksi 6). Garasinya berada di pinggir jalan aspal komplek sebuah perumahan kampung kota di Indonesia. Suasananya tenang dan tidak ramai.
+
+- **Jalan.** Jalan aspal komplek melintas di depan pintu toko. Ada beberapa tambalan aspal, satu polisi tidur, dan dua tutup gorong-gorong. Kedua tepinya diberi got beton, dengan tutup beton di depan setiap jalan masuk. Di depan pintu toko ada teras semen dengan pot bunga.
+- **Rumah pemilik.** Di samping garasi yang tampak di kiri atas layar berdiri rumah pemilik garasi. Rumah itu punya teras berkeramik dengan dua kursi dan meja kecil, pot bunga, dan pagar besi dengan gerbang tertutup. Toren air jingga berdiri di belakangnya.
+- **Tetangga.** Di samping yang tampak di kanan bawah layar ada carport tetangga berisi motor bebek yang diparkir. Di sana juga ada jemuran dan bak tanaman rendah berisi semak bulat di batas garasi. Rumah tetangga bercat mint berdiri di sebelahnya.
+- **Rumah-rumah lain.** Ada rumah lain sederetan toko, di seberang jalan, dan di deret belakang. Semuanya berpagar besi dan beratap genteng tanah liat, dengan cat pastel (krem, mint, persik, biru langit, kuning mentega).
+- **Tanaman.** Ada pohon mangga, pohon pisang, dan semak. Di halaman belakang toko berdiri toren air biru, dan di seberang toko ada taman kecil berbangku.
+- **Tiang listrik.** Tiang listrik beton dengan lampu jalan berdiri di seberang jalan. Kabelnya cukup rendah, sehingga di layar kabel melintas di atas jalan, bukan di depan muka toko.
+
+**Tier 2 — Ruko 1 Pintu.** Keputusan maintainer 2026-10-08 ("lanjutkan ke tier 2"), mengikuti permintaan awal "pertokoan dan jalan". Toko adalah ruko paling ujung di deretan ruko dua lantai yang menghadap jalan dua lajur.
+
+- **Jalan utama.** Jalan aspal dua lajur dengan garis tepi, garis tengah putus-putus, zebra cross, tambalan aspal, dan tutup gorong-gorong. Di seberang ada got terbuka dan trotoar lebar dengan tiang listrik dan lampu jalan. Kabelnya melintas di atas jalan, bukan di depan muka toko.
+- **Pelataran ruko.** Di depan deretan ruko ada pelataran parkir berpaving blok dua warna di atas got tertutup berkisi. Di pelataran ada motor yang diparkir menghadap toko, gerobak bakso, dan pohon ketapang kencana di pot beton.
+- **Deretan ruko.** Ruko menempel di samping toko (kiri atas layar), masing-masing dengan cat, papan nama, dan pintu sendiri. Ada apotek, konter ponsel, toko kelontong dengan renteng sachet, laundry, tukang cukur, dan beberapa ruko yang tutup. Lantai bawahnya berpintu gulung: ada yang terbuka dengan rak barang warna-warni dan etalase kaca, ada yang setengah terbuka, ada yang tertutup. Di atasnya ada kanopi beton dan papan nama bergambar sederhana tanpa tulisan (palang apotek, ponsel, gelembung laundry, garis kelontong, belang tukang cukur). Lantai atasnya punya jendela berteralis dengan AC atau balkon dengan jemuran, dan sebagian punya toren di dak. Dinding samping ruko tetangga yang tampak di atas dinding toko diberi lis lantai, roster angin, dan pipa talang.
+- **Jalan kampung.** Di samping toko (kanan bawah layar) ada jalan kecil masuk kampung, bergot di kedua tepinya, dengan polisi tidur. Di seberangnya deretan ruko berlanjut, cukup jauh supaya tidak menutupi toko. Di lorong samping toko ada pot bunga dan tong sampah.
+- **Kampung di belakang.** Di balik deretan ruko ada gang beton, lalu rumah-rumah kampung berpagar besi yang menghadap gang dengan teras, pintu, dan jendelanya. Ada juga pohon mangga dan semak.
+- **Seberang jalan.** Di seberang jalan ada deretan kios satu lantai beratap seng, agak mundur di balik trotoar. Kamera hanya melihat punggung dan atapnya, dan kios cukup rendah supaya seluruh lebar jalan beserta markanya tetap terlihat.
+- **Dari dapur di lantai atas.** Saat kamera menampilkan dapur (lantai 2), seluruh lingkungan turun satu lantai (`NeighborhoodFactory.STOREY`, 2,5 m), jadi dapur tampak berada di lantai atas ruko. Di bawah dapur digambar lantai dasar ruko sendiri: muka toko berkaca dengan pintu kaca di petak pintu, tenda bergaris karamel-krem dengan roti di lisnya, jendela samping berteralis, dan dak di belakang dapur dengan toren.
+
+**Tier 3 — Toko Bakery Mandiri.** Keputusan maintainer 2026-10-08 ("lanjutkan ke tier 3"). Toko bakery dua lantai berdiri sendiri di tepi jalan raya kota, dekat perkantoran dan kampus, sesuai target pelanggannya: pekerja kantoran, mahasiswa, dan keluarga (Seksi 6). Tidak ada kabel listrik di atas jalan.
+
+- **Teras depan dan trotoar.** Teras depan toko berubin terakota, dengan dua pot bunga dan papan menu kapur berbentuk A. Trotoar lebar berubin dua warna punya jalur ubin pemandu kuning, pohon peneduh, lampu jalan, halte, dan tempat sampah pilah hijau-kuning.
+- **Jalan raya.** Jalan empat lajur dengan garis tepi, garis lajur putus-putus, dan zebra cross. Di tengahnya ada median berumput dengan lampu berlengan dua.
+- **Minimarket di sebelah (kiri atas layar).** Muka kaca dengan rak barang warna-warni dan pintu kaca, kanopi tipis, dan pita papan nama bergaris tanpa tulisan. Di pelatarannya ada motor parkir, freezer es krim, dan rak galon. Di daknya ada unit AC dan toren. Lebih jauh lagi ada kedai kopi dan bank dua lantai bermuka kaca.
+- **Samping toko (kanan bawah layar).** Teras kafe toko berlantai papan kayu, dengan dua meja berpayung dan pot tanaman rendah di tepinya. Di sebelahnya ada parkir mobil bergaris, berisi dua mobil yang diperkecil seperti motor supaya pas dengan dunia chibi. Di seberang parkir berdiri gedung dua lantai.
+- **Belakang toko.** Halaman servis berisi toren, tabung gas hijau, dan krat roti, dengan tembok belakang bergerbang. Di baliknya ada gang beton, pagar kampus, taman berpohon besar, dan gedung kuliah di kejauhan.
+- **Dari dapur di lantai atas.** Lantai dasar toko sendiri tampak di bawah dapur: dinding krem berlis kayu gelap, kaca lebar mengapit pintu kaca, tenda karamel polos dengan roti di lisnya, dan di sisi teras pintu kaca, jendela, serta lambang roti bundar.
+
+Kamera hanya memperlihatkan sekitar toko. Di layar, posisi mendatar mengikuti z − x dan posisi tegak mengikuti x + z ditambah tinggi benda. Karena itu isi Tier 3 dipusatkan di teras, trotoar, minimarket, teras kafe, dan halaman belakang; jalan raya dan kampus hanya tampak di tepi layar saat zoom terjauh.
+
+**Tier 4 — Flagship Store.** Keputusan maintainer 2026-10-08 ("lanjutkan ke tier 4"). Toko mewah satu lantai berdiri di kawasan premium kota, sesuai target pelanggannya: sosialita, eksekutif, dan pencinta roti artisan (Seksi 6). Lantainya 8 × 8 m dan kamera mengikuti pemain, jadi keempat sisinya bergantian tampak.
+
+- **Pelataran depan.** Pelataran granit dengan karpet merah dari pintu ke trotoar, diapit tiang tali kuningan dan dua topiari bola di pot. Di depan dapur ada bak bunga granit, dan di sudut pelataran berdiri totem cokelat tua dengan lingkaran kuningan berisi roti, tanpa tulisan.
+- **Trotoar dan jalan.** Trotoar granit punya pohon tabebuya merah muda, lampu taman berbola dua, bangku, dan meja valet. Di jalur parkir ada mobil mewah hijau tua dan mobil putih (diperkecil seperti di Tier 3). Jalannya bermarka, dengan median berumput yang ditanami palem raja.
+- **Sisi kiri atas layar.** Lorong samping berubin granit diberi pot pakis. Toko perhiasan putih berlis kuningan menempel paling dekat, dan dinding sampingnya yang tampak di atas dinding toko diberi taman vertikal berbingkai kuningan. Sesudahnya ada toko bunga dengan ember bunga di teras dan butik pakaian bermanekin dengan tenda hitam bergerigi berlis kuningan.
+- **Sisi kanan bawah layar.** Taman air mancur berubin granit dengan dua bangku, dua meja berpayung putih, dan pagar tanaman rendah. Di seberang taman berdiri kafe patisserie dua lantai bertenda merah muda, dengan etalase kue dan meja di terasnya.
+- **Belakang toko.** Jalan servis dengan van antar dan tempat sampah pilah, lalu menara apartemen mewah dengan lobi kaca berkanopi dan balkon berpagar kaca.
+
+**Tier 5 — Mega Bakery Landmark.** Keputusan maintainer 2026-10-08 ("lanjutkan ke tier 5"). Mega bakery yang menjadi ikon kuliner kota menghadap alun-alun kota bergaya heritage, sesuai target pelanggannya: seluruh kalangan kota, pesanan katering dan acara besar, dan wisatawan kuliner (Seksi 6). Lantainya 10 × 10 m dan kamera mengikuti pemain.
+
+- **Teras dan alun-alun.** Teras batu andesit di depan toko punya empat pot besar dan dua lampu antik. Alun-alun berubin batu dengan pita batu gelap di tepinya. Di dekat toko berdiri menara jam putih (sekitar 5,8 m) dengan muka jam di dua sisi yang tampak kamera, atap limas genteng, dan bangku di kiri-kanannya. Pohon beringin berpagar rendah ada di sudut alun-alun, dekat dua becak yang mangkal. Di tepi alun-alun berjajar lampu antik, lalu jalan di seberangnya.
+- **Sisi kiri atas layar.** Gedung kolonial putih dua lantai berkaki batu, beratap genteng, dengan pintu utama diapit tiang dan pediment, dan jendela tinggi berlengkung dengan daun jendela hijau. Dinding sampingnya yang tampak di atas dinding toko juga berjendela. Di depannya ada deretan sepeda onthel sewaan berwarna pastel dan umbul-umbul. Sesudahnya berdiri gedung kolonial kuning.
+- **Sisi kanan bawah layar.** Pujasera terbuka dengan tiga tenda kaki lima merah, kuning, dan biru, dan meja panjang berbangku. Di seberangnya ada gedung kolonial persik.
+- **Belakang toko.** Halaman servis dengan krat roti, tabung gas, dan tempat sampah, tembok bata bercoping putih, dan pohon-pohon besar.
+
+Kamera hanya memuat benda setinggi sekitar 6 m dalam satu layar, jadi menara jam dibuat tidak lebih tinggi dari itu dan diletakkan dekat di depan toko. Kini setiap tier punya lingkungannya sendiri.
+
+Aturan untuk setiap tier:
+
+1. **Tidak pernah menutupi toko.** Dari sudut kamera yang terkunci (Seksi 130.1), tidak ada bagian lingkungan yang boleh menutupi lantai yang sedang tampil atau apa pun yang berdiri di atasnya. Ini berlaku juga untuk dapur di lantai atas. Benda di depan toko dan di sisi kanan bawah layar dijaga cukup rendah atau cukup jauh (`ACC_32_NEIGHBORHOOD_CLEAR`).
+2. **Satu draw call.** Jalan dan seluruh isinya dijahit menjadi satu mesh berwarna verteks dengan material MATTE bersama (`MeshBuilder`). Mesh itu paling banyak 20.000 segitiga. Toko bertingkat mendapat satu mesh lagi untuk lantai dasar ruko sendiri, paling banyak 2.000 segitiga. Tidak ada kombinasi shader baru (`ACC_89_FEW_SHADERS`, `ACC_32_NEIGHBORHOOD_STREETS`). Permukaan yang tidak pernah menghadap kamera tidak dibuat; misalnya, setiap jeruji pagar dan setiap kemasan di rak cukup satu bidang.
+3. **Memudar ke latar.** Warna verteks memudar ke `Palette.BG` mulai `NeighborhoodFactory.FADE_START` (11 m dari tengah toko) dan menyatu penuh pada `FADE_END` (28 m). Lantai yang lebih besar dari Tier 1–3 memudar lebih jauh, sebanyak selisih setengah diagonalnya (`fade_radii`). Bidang panjang seperti jalan dan got dipotong per `PIECE` (2,5 m) supaya pudarnya mengikuti jarak.
+4. **Dibangun sekali per lokasi.** Lingkungan hanya dibangun ulang saat lokasi berganti, tidak setiap kali ruangan digambar ulang karena dekorasi.
+5. **Mengikuti lantai yang tampil.** Di lantai toko, lingkungan berdiri di permukaan jalan. Dari lantai di atasnya, lingkungan turun `STOREY` per lantai dan lantai dasar ruko sendiri ikut tampil. Lantai yang tingkatnya tidak dikenal menyembunyikannya (`NeighborhoodFactory.floor_level`/`show_for_floor`, `ACC_32_NEIGHBORHOOD_UPPER_FLOOR`).
+
+Kode: `NeighborhoodFactory` (`procedural/meshes/neighborhood_factory.gd`), dipasang oleh `WorldView` (`neighborhood()`, `_apply_floor_visibility`).
 
 ---
 
@@ -4741,7 +4802,7 @@ Keputusan maintainer 2026-09-30: **tidak ada panel samping**, supaya dunia terli
 
 - **Bilah atas** tipis: judul, satu baris petunjuk atau status (sah / alasan ditolak), tombol lantai L1/L2 di lokasi bertingkat, dan tombol **Done**.
 - **Tab bawah**: Equipment (dengan jumlah alat yang belum dipasang), Your Decorations, dan Decor Shop. Mengetuk tab membuka baki kartu barang yang bisa digeser mendatar; mengetuk tab yang sama menutupnya. Keterangan arsiran ubin (harus kosong, area salah) ada di kiri tab.
-- **Toolbar aksi melayang tepat di atas barang yang dipegang**, dengan ekor yang menunjuk ke barang itu, dan ikut pindah bersamanya: nama barang, **Place** (hijau, bertanda centang), **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang, Meja Tunggu, dan kursi koki (Seksi 5.1.3–5.1.4), rak yang masih berisi roti (Seksi 72), atau barang yang belum dipasang; Rotate hanya untuk alat dan karpet. Selama barang diseret, toolbar disembunyikan. Barang yang tidak digambar di lantai yang sedang dilihat memakai toolbar yang sama, berlabuh di atas tab.
+- **Toolbar aksi melayang tepat di atas barang yang dipegang**, dengan ekor yang menunjuk ke barang itu, dan ikut pindah bersamanya: nama barang, **Place** (hijau, bertanda centang), **Rotate**, **Put Away**, dan **Cancel**. Put Away tidak tampil untuk Gudang, Meja Tunggu, dan kursi koki (Seksi 5.1.3–5.1.4), rak yang masih berisi roti (Seksi 72), atau barang yang belum dipasang; Rotate hanya untuk alat dan karpet. Selama barang diseret, toolbar disembunyikan. Barang yang tidak digambar di lantai yang sedang dilihat memakai toolbar yang sama, berlabuh di atas tab. Bila di atas barang tidak ada ruang (bilah atas, atau balon tutorial di bawahnya), toolbar pindah ke bawah barang supaya tidak menutupi barang maupun balon itu (2026-10-08).
 - Barang yang dipegang terangkat sedikit dan mengambang pelan (karpet tetap rata di lantai). Penanda "!" dan bar progres disembunyikan selama mode ini.
 
 **Memindah barang seperti The Sims (keputusan maintainer 2026-10-01).** Sebelumnya ketukan dipakai untuk dua hal sekaligus: memilih perabot dan memilih ubin tujuan. Akibatnya ubin yang tertutup model perabot sulit dituju. Mengetuk perabot lain di depan ubin itu malah memilihnya, dan mengetuk perabot terpilih (misalnya untuk menggesernya satu ubin) malah meletakkannya. Aturan sekarang:
@@ -5380,17 +5441,47 @@ Urutan terpandu (keputusan maintainer 2026-10-07 untuk langkah 1–12 dan 2026-1
 1. Preparation reminder singkat; tidak mengulang tutorial dasar.
 2. First Office Worker: explain lower patience.
 3. First 2+ customer queue: explain queue capacity and why cashier attention matters.
-4. Open pricing control tutorial saat Recipe/Price screen pertama dibuka; explain reference price and demand response.
+4. Pricing: harga Hari 1–3 terkunci (Seksi 63.2), jadi tipnya tidak lagi tampil di Hari 2. Begitu harga boleh diatur (after-hours Hari 3), Buku Resep yang pertama dibuka menyorot baris harga (`tut_pricing`, Seksi 88.4).
 5. First near-burn event triggers Smart Speed/alert explanation bila belum pernah terjadi.
 6. Bila seluruh bahan Hari 2 sudah dipanggang sebelum 08:00, tampilkan hint sekali: `"Fried bread goes stale quickly. Keep some batches for the afternoon."` (umur simpan pendek `recipe_plain_fried_bread`, Seksi 61.3).
 
 ## **88.3 Day 3 — Online Orders + Planning**
 
 1. Explain balancing physical stock vs RotiFood because online orders do **not** reserve stock.
-2. At Daily Summary, introduce that Market becomes available freely starting Day 4.
+2. At Daily Summary, introduce that Market becomes available freely starting Day 4. Setelah tipnya, tombol **Open Market** di nota disorot (`tut_close_market`), dan Market yang terbuka menjalankan turnya (Seksi 88.4).
 3. Show non-blocking teaser: `"From tomorrow, you can order ingredients at any time. Daytime deliveries take 3 in-game hours."`
 
 Tutorial step state disimpan agar save/load tidak mengulang reward/critical commit. Setiap blocking step memiliki recovery condition: bila expected object/state sudah tercapai sebelum prompt, step auto-complete dan lanjut.
+
+## **88.4 Fitur Lanjutan — Diperkenalkan Saat Pertama Dijumpai**
+
+Keputusan maintainer 2026-10-08. Setiap fitur berikut dijelaskan **sekali**, saat pemain pertama kali menjumpainya, di hari mana pun selama tutorial tidak dilewati (Skip Tutorial) dan setelan **Tutorial hints** menyala (Hari 4+). Tercatat di `tutorial.done` (Seksi 106), jadi tidak terulang setelah load.
+
+**Sorotan yang mem-pause game** (`TutorialSpotlight`, Seksi 27.5). Bila tip modal lain sedang tampil, sorotan mengantre di belakangnya.
+
+| Saat | Sorotan | Teks |
+| :--- | :--- | :--- |
+| Toko buka pertama kali setelah Hari 1 | baris Pause/1×/2×/3×, lalu tombol Close Early | `tut_speed`, `tut_close_early` |
+| Toko buka dengan Cashier Assistant bertugas | kasir dan meja jalurnya | `tut_cashier_staff` |
+| Hari pertama hujan (05:00) | ikon cuaca | `tut_weather_rain` |
+| Hitung mundur hari libur pertama tampil (05:00) | label hitung mundur | `tut_holiday` |
+| Hari pertama di lokasi bertingkat (Tier 2–3) | tombol L1/L2, lalu pintu tangga | `tut_floors`, `tut_floor_stairs` |
+| Food Vlogger pertama masuk | Food Vlogger | `tut_critic` |
+| Roti pertama menjadi `STALE` atau `UNSALEABLE` | raknya | `tut_stale` |
+| Badge pertama (achievement) | ubin Decoration Mode | `tut_badge` (ditunda ke awal hari berikutnya bila urutan terpandu sedang berjalan) |
+| Setelah kunjungan Pak Lurah (Solo Mode) | label Solo Mode | `tut_solo` |
+
+**Tur di dalam layar** (`CoachMarks`, sekali per tur, `TutorialManager.screen_tour`):
+
+| Layar | Kapan | Langkah |
+| :--- | :--- | :--- |
+| Daily Summary | Pasar baru terbuka | tombol Open Market (`tut_close_market`) |
+| Market | pertama dibuka setelah Pasar terbuka | daftar bahan (`tut_market_ingredients`), Buy dan catatan pengiriman (`tut_market_buy`), tab Equipment (`tut_market_equipment`), tab Store Upgrade (`tut_market_upgrade`); tur memindah tabnya sendiri |
+| Buku Resep | harga boleh diatur | baris harga (`tut_pricing`) |
+| Buku Resep | ada Kitchen Assistant | tombol Ask a Baker (`tut_ask_baker`) |
+| Popup RotiFood | pesanan belum dikemas | Pack Order (`tut_rotifood_pack`), Reject Order (`tut_rotifood_reject`) |
+| Detail rak | ada roti yang bisa dibuang | Discard (`tut_discard`) |
+| Decoration Mode | alat baru dari Market menunggu ditaruh | balon `tut_place_equipment` sampai alat itu ditaruh |
 
 ---
 
@@ -7073,6 +7164,7 @@ Role: `Cashier Assistant` dan `Kitchen Assistant` (`ui_staff_role_cashier`, `ui_
 | `ui_summary_manage_staff` | `Manage Staff` |
 | `ui_hud_demand` | `Demand: {done} / {total} breads` |
 | `ui_hud_holiday_countdown` | `Holiday in {days} days` |
+| `ui_hud_holiday_tomorrow` | `Holiday tomorrow` (2026-10-08: dulu tertulis "Holiday in 1 days") |
 | `ui_weather_sunny` | `Sunny` |
 | `ui_weather_rain` | `Rainy` |
 | `ui_event_holiday` | `Holiday` |
@@ -7525,6 +7617,34 @@ Urutan terpandu Hari 1 (Seksi 27.5, 88.1), keputusan maintainer 2026-10-07 dan 2
 | `ui_tour_next` | `Next` |
 | `ui_tour_skip` | `Skip` |
 | `ui_tour_count` | `{n}/{total}` |
+
+## **127.30 Feature Tip Strings**
+
+Tip fitur lanjutan (Seksi 88.4), keputusan maintainer 2026-10-08. Tur harga memakai `tut_pricing` (Seksi 88.2).
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `tut_close_market` | `Let's stock up for tomorrow. Tap Open Market.` |
+| `tut_market_ingredients` | `Buy ingredients here. Pick an amount for each one with the minus and plus buttons, or Max.` |
+| `tut_market_buy` | `Tap Buy to order. After closing, ingredients go straight into Storage; daytime orders arrive in 3 in-game hours.` |
+| `tut_market_equipment` | `Buy better mixers, ovens and shelves here after closing. The Market sells equipment up to your shop's tier.` |
+| `tut_market_upgrade` | `Move to a bigger shop here. This table shows what the next location adds, like more equipment slots and storage.` |
+| `tut_ask_baker` | `Tap Ask a Baker and your Kitchen Assistant bakes this batch for you, from mixer to shelf.` |
+| `tut_rotifood_pack` | `Pack Order takes the bread from your shelves. Pack it before the driver arrives for a better RotiFood rating.` |
+| `tut_rotifood_reject` | `Can't make it in time? Reject Order costs a little RotiFood rating, much less than a driver who gives up.` |
+| `tut_discard` | `Discard throws away stale and expired bread to free the shelf. There is no refund.` |
+| `tut_place_equipment` | `Your new equipment! Drag it to a free spot, then tap Place.` |
+| `tut_speed` | `Speed up quiet hours with 2× and 3×, or pause the game here.` |
+| `tut_close_early` | `Close Early ends the day right away. Wages stay the same, and your shop rating drops a little for every hour you cut.` |
+| `tut_weather_rain` | `It's raining today! Fewer people walk in, but RotiFood orders pour in. Keep bread ready for deliveries.` |
+| `tut_holiday` | `Holidays bring crowds of walk-ins and lots of RotiFood orders. Watch this countdown and stock up before the big day.` |
+| `tut_floors` | `Welcome to your bigger shop! It has two floors, and L1 and L2 show which one you are looking at.` |
+| `tut_floor_stairs` | `Walk to the stairs door to change floors. When something needs you on the other floor, an alert appears on the left.` |
+| `tut_cashier_staff` | `Your Cashier Assistant serves customers at their own lane. You can still open your lane next to them when the line gets long.` |
+| `tut_critic` | `A Food Vlogger is here! Serve them quickly with fresh, perfectly baked bread. Their review changes your shop rating tomorrow.` |
+| `tut_stale` | `Some bread on this shelf went stale. Fewer customers want it, and picky ones refuse it. Tap the shelf to see it and discard it.` |
+| `tut_badge` | `You earned a badge! Open Decoration Mode to hang it on a wall.` |
+| `tut_solo` | `Pak Lurah helped with coins and ingredients, and your staff are on leave for now. Schedule them again in Staff Management once you can pay their wages.` |
 
 ---
 

@@ -26,6 +26,7 @@ func _unlock(a: MiscDefinitions.AchievementDefinition) -> void:
 	EventBus.achievement_unlocked.emit(a.id)
 	EventBus.sfx.emit(&"achievement_unlock", &"")
 	EventBus.notify.emit(3, "ui_achievement_unlocked", {"name": Tx.t(String(a.localization_key))}, &"trophy")
+	sim.tutorial.on_event(&"achievement")
 
 
 func _check(pred: Callable) -> void:
