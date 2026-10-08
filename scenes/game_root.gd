@@ -192,6 +192,8 @@ func load_profile(profile_id: StringName) -> void:
 ## (`playing`) setelah overlay mulai memudar, jadi jam tidak maju selama loading.
 func _enter_gameplay(profile_id: StringName) -> void:
 	modals.close_all()
+	# Tip modal dari sesi sebelumnya harus bisa tampil lagi setelah load.
+	_tutorial_modal_shown = ""
 	# Sisa bunyi pendek dirakit di layar loading; selama gameplay tidak ada
 	# perakitan bunyi di latar yang bisa menahan frame.
 	AudioManager.stop_short_sound_prewarm()
@@ -546,10 +548,14 @@ func _show_tutorial_prompt() -> void:
 		world.highlight(&"", -1)
 		return
 	if bool(p.get("modal", false)):
-		if _tutorial_modal_shown != str(p["key"]):
+		# Tip yang mem-pause game: popup biasa, atau sorotan (GDD 27.5) bila
+		# prompt-nya menyebut satu.
+		var spot: String = str(p.get("spotlight", ""))
+		var screen: StringName = &"tutorial_spotlight" if spot != "" else &"tutorial"
+		if _tutorial_modal_shown != str(p["key"]) or not modals.is_open(screen):
 			_tutorial_modal_shown = str(p["key"])
 			hud.show_tutorial_hint("", &"", -1)
-			modals.open(&"tutorial", {"key": p["key"]})
+			modals.open(screen, {"key": p["key"], "spotlight": spot})
 	else:
 		hud.show_tutorial_hint(str(p["key"]), StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
 	world.highlight(StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))

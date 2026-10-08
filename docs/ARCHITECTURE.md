@@ -250,7 +250,30 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   (`_update_floaters`). Both timers use real seconds and stop while the game is
   paused. `WorldView._update_staff_lines` shows idle staff's lines (GDD 31.8) in one
   `ThoughtBubble` per staff member: at most one line a minute each, and only after a
-  few seconds of idling. `WorldView.highlight` marks the tutorial target (GDD 27.5):
+  few seconds of idling. The guided Day 1 tutorial (GDD 88.1) is a step machine in
+  `TutorialManager` (`GUIDED` prompts, `FLOW` transitions on world events,
+  `guided_step` saved); `allows_tap` holds back only what a step needs. The UI shows
+  the steps: `HUD` pulses the Decoration Mode button (`TutorialPulse`),
+  `DecorationScreen` shows the tip and pulses Done and reports `decor_opened`/
+  `decor_closed`, and `RecipeBookScreen` runs a `CoachMarks` spotlight tour that
+  looks its targets up by node name every frame. After the holding table the
+  steps go on to Skip to Open (the `HUD` pulses its button), the opening tour, and
+  the first customer. Steps whose state is already reached skip themselves
+  (`TutorialManager._resolve`). A prompt with a `spotlight` (the opening tour, the
+  first customer, and one-off tips for the first window shopper who leaves, the
+  first surprise and the first RotiFood order) opens `TutorialSpotlight`, a system
+  overlay that pauses the game and hosts `CoachMarks` over HUD panels or world
+  models; `WorldView.screen_rect_of` projects a model's meshes to a screen rect
+  every frame. The view-side `SurpriseDirector` reports its first scene with
+  `TutorialManager.on_surprise`, the only way a surprise touches the simulation
+  (a tip record). `CustomerOrderScreen` spotlights OK while the player learns to
+  serve. When the shop closes on Day 1 the steps continue after hours:
+  `DailySummaryScreen` spotlights Manage Staff once its tip is closed, and
+  `StaffScreen` and `MarketingScreen` report `*_opened`/`*_closed` and run their
+  own `CoachMarks` tours while their step is active (`TutorialManager.staff_tour`,
+  `marketing_tour`). `SimBot` plays the same steps through the sim API (it re-places a shelf
+  where it stands, parks the second tray on the holding table, and closes tips
+  that pause the game like a player). `WorldView.highlight` marks the tutorial target (GDD 27.5):
   besides the gold floor ring, every mesh of the target model gets
   `ProceduralMeshFactory.flash_material()` as `material_overlay`, and `_update_blink`
   pulses its alpha each frame (steady with Reduced Motion) and re-applies it when the

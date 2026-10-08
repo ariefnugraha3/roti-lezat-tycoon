@@ -56,9 +56,20 @@ func _blink() -> void:
 	world._process(0.016)
 	var storage: Node3D = world.furniture.get(s.equipment.placed_list(&"storage")[0].iid)
 	var mixer: Node3D = world.furniture.get(s.equipment.placed_list(&"mixer")[0].iid)
-	# Hari 1: setelah sambutan, tutorial meminta pemain mengetuk Storage.
+	# Hari 1: setelah sambutan, Decoration Mode lebih dulu (GDD 88.1). Tombolnya
+	# di HUD, jadi tidak ada perabot yang berkedip; di Decoration Mode rak
+	# disarankan untuk dipindah.
 	eq(str(s.tutorial.prompt.get("key", "")), "tut_welcome", "Day 1 starts with the welcome")
 	s.tutorial.dismiss()
+	eq(str(s.tutorial.prompt.get("key", "")), "tut_decor_open", "then asks for Decoration Mode")
+	_follow(world, s)
+	eq(_count_lit(world), 0, "a HUD button, so no furniture blinks")
+	s.tutorial.on_event(&"decor_opened")
+	_follow(world, s)
+	var shelf: Node3D = world.furniture.get(s.equipment.placed_list(&"display")[0].iid)
+	check(world.blink_target() == shelf and _lit(shelf), "in Decoration Mode the suggested shelf blinks")
+	s.tutorial.on_event(&"furniture_placed")
+	s.tutorial.on_event(&"decor_closed")
 	eq(str(s.tutorial.prompt.get("key", "")), "tut_tap_storage", "then asks for the storage")
 	_follow(world, s)
 	check(world.blink_target() == storage, "the storage blinks")

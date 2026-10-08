@@ -64,6 +64,12 @@ func is_showing() -> bool:
 	return visible and _key != ""
 
 
+## Kotak awan teksnya di layar (untuk sorotan tutorial), atau Rect2() bila tidak
+## tampil.
+func panel_rect() -> Rect2:
+	return _panel.get_global_rect() if is_showing() else Rect2()
+
+
 ## Tampilkan pikiran `key` (teks dari katalog string, dengan `params`). Pikiran
 ## baru muncul dengan pop kecil; memanggil ulang dengan kunci dan parameter yang
 ## sama tidak berbuat apa-apa.

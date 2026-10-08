@@ -31,7 +31,7 @@ func build() -> void:
 func _ok() -> void:
 	close()
 	if sim != null:
-		sim.tutorial.dismiss()
+		sim.tutorial.dismiss_key(str(params.get("key", "")))
 
 
 func _skip() -> void:

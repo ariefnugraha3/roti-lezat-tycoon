@@ -13,6 +13,11 @@ const MOOD_ICONS: Dictionary = {
 }
 
 
+## Tur sorotan tutorial Hari 1 pada tombol Manage Staff (GDD 88.1), atau null.
+var _tour: CoachMarks = null
+var _staff_btn: Button = null
+
+
 ## Nota harian hanya tertutup lewat tombolnya sendiri, supaya hari tidak pernah macet tanpa tombol lanjut.
 func _init() -> void:
 	super._init()
@@ -131,9 +136,10 @@ func build() -> void:
 			_leave_to(&"market")
 		else:
 			EventBus.notify.emit(2, "ui_market_locked", {}, &"cart"))
-	btn(row, Tx.t("ui_summary_manage_staff"), "secondary", func() -> void:
+	_staff_btn = btn(row, Tx.t("ui_summary_manage_staff"), "secondary", func() -> void:
 		sim.enter_after_hours()
 		_leave_to(&"staff"))
+	_staff_btn.name = "ManageStaff"
 	var cont: Button = btn(row, Tx.t("ui_continue_next_day"), "primary", _continue)
 	cont.custom_minimum_size = Vector2(260, 60)
 	cont.disabled = not sim.reports.can_continue()
@@ -145,6 +151,29 @@ func build() -> void:
 		paper.pivot_offset = Vector2(w * 0.5, 0.0)
 		create_tween().tween_property(paper, "scale", Vector2.ONE, 0.45).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	EventBus.sfx.emit(&"cashier_pack", &"")
+	# Hari 1: setelah tip nota ditutup, tombol Manage Staff disorot (GDD 88.1).
+	EventBus.tutorial_step_changed.connect(_on_tutorial_step)
+	_on_tutorial_step.call_deferred(&"")
+
+
+## Tur dimulai begitu langkahnya aktif dan tidak ada tip modal di depannya.
+func _on_tutorial_step(_s: StringName) -> void:
+	if sim == null or tour() != null or is_queued_for_deletion():
+		return
+	if not sim.tutorial.summary_tour() or bool(sim.tutorial.prompt.get("modal", false)):
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([{"targets": func() -> Array: return [_staff_btn], "key": "tut_close_summary", "next": false}])
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
+
+
+func on_closed() -> void:
+	if EventBus.tutorial_step_changed.is_connected(_on_tutorial_step):
+		EventBus.tutorial_step_changed.disconnect(_on_tutorial_step)
 
 
 ## Satu baris nota: keterangan di kiri, jumlah tebal di kanan. Jumlah bertanda

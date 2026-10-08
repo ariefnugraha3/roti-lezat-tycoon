@@ -162,6 +162,7 @@ func _equipment() -> void:
 	sim.debug_add_kr(5000.0)
 	check(bool(sim.equipment.buy(&"mixer_t2").get("ok", false)), "a Tier 2 mixer is bought into storage")
 	var was_scale: float = ProceduralUIFactory.text_scale
+	var orphans0: float = Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
 	for pct: int in [100, 125, 150]:
 		ProceduralUIFactory.text_scale = float(pct) / 100.0
 		game.modals.close_all()
@@ -226,6 +227,12 @@ func _equipment() -> void:
 		if String(b2.name) in ["Buy", "Replace", "Sell"] and not (b2 as Button).disabled:
 			enabled += 1
 	eq(enabled, 0, "during the day Buy, Replace and Sell are read-only")
+	# Membangun tabel tidak meninggalkan node yatim (dulu setiap judul kolom
+	# membuat satu Control yang tidak pernah dibebaskan).
+	game.modals.close_all()
+	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
+	eq(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT), orphans0, "building the tables leaves no orphan nodes behind")
 	ProceduralUIFactory.text_scale = was_scale
 	await _finish(game)
 

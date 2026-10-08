@@ -58,6 +58,18 @@ func active_count() -> int:
 	return customers.size()
 
 
+## Pembeli (bukan pengunjung lihat-lihat) yang paling awal masuk dan belum
+## selesai di toko, atau null. Dipakai sorotan pembeli pertama (GDD 88.1).
+func first_buyer() -> Customer:
+	var best: Customer = null
+	for c: Customer in sorted():
+		if c.window_shopper or c.state in [Customer.CELEBRATING, Customer.LEAVING, Customer.ABANDONING, Customer.LEAVE_NO_STOCK, Customer.DESPAWNED]:
+			continue
+		if best == null or c.spawned_at < best.spawned_at:
+			best = c
+	return best
+
+
 ## Skala delta rating per pelanggan (GDD 25.2).
 func tier_scale() -> float:
 	return DataRegistry.balf("rating.tier_scale_numerator") / sim.world.location.base_physical_rate
@@ -169,7 +181,6 @@ func try_admit_window_shopper(archetype: StringName) -> bool:
 	window_shoppers_today += 1
 	EventBus.sfx.emit(&"door_bell_enter", c.actor.floor_id)
 	_go_look(c, spot)
-	sim.tutorial.on_window_shopper_entered()
 	return true
 
 
@@ -358,6 +369,8 @@ func _next_look_or_leave(c: Customer, looked: bool = true) -> void:
 	sim.world.release_all_for(c.id)
 	if spot.is_empty():
 		_window_leave(c)
+		# Ia pulang tanpa membeli: tutorial menjelaskannya sekali (GDD 20.12, 88.1).
+		sim.tutorial.on_window_shopper_left()
 	else:
 		_go_look(c, spot)
 
@@ -637,6 +650,8 @@ func step(dt: float) -> void:
 			Customer.QUEUING:
 				_step_queuing(c, dt)
 			Customer.FRONT_OF_QUEUE, Customer.BEING_SERVED:
+				if arrived and c.state == Customer.FRONT_OF_QUEUE and c.awaiting_tap:
+					_at_counter(c)
 				_drain(c, dt)
 			Customer.CELEBRATING:
 				c.celebrate_left -= dt
@@ -764,6 +779,14 @@ func _step_queuing(c: Customer, dt: float) -> void:
 	_drain(c, dt)
 
 
+## Pembeli tiba di depan meja kasir dan menunggu diketuk (balon "!", GDD 21.4).
+## Di jalur pemain, tutorial memintanya diketuk (GDD 88.1).
+func _at_counter(c: Customer) -> void:
+	var lane: QueueLane = sim.queue.lane(c.lane_id)
+	if lane != null and lane.main:
+		sim.tutorial.on_event(&"customer_at_counter")
+
+
 ## Drain patience (GDD 58): dasar 1.0/detik, modifier multiplikatif, clamp 0.5..1.6.
 func _drain(c: Customer, dt: float) -> void:
 	var lane: QueueLane = sim.queue.lane(c.lane_id)
@@ -889,6 +912,7 @@ func abandon(c: Customer) -> void:
 		sim.reputation.queue_vip(&"vip_failure")
 	c.state = Customer.ABANDONING
 	EventBus.customer_abandoned.emit(0)
+	sim.tutorial.on_event(&"customer_abandoned")
 	EventBus.sfx.emit(&"customer_leave_angry", c.actor.floor_id)
 	_walk_out(c)
 

@@ -2,6 +2,10 @@ class_name CustomerOrderScreen
 extends UIScreen
 ## Popup pesanan pembeli fisik (GDD 2 langkah 6-7, 21.4): daftar roti yang
 ## dibeli beserta total; OK memulai animasi membungkus di simulation time.
+## Selama tutorial Hari 1 mengajarkan pembeli pertama (GDD 88.1), total dan
+## tombol OK disorot (`CoachMarks`), dan pemain mengetuk OK sendiri.
+
+var _tour: CoachMarks = null
 
 
 func build() -> void:
@@ -24,13 +28,31 @@ func build() -> void:
 		var n: Label = lbl(row, Tx.t("ui_order_line", {"count": st.quantity, "recipe": Tx.recipe_name(st.recipe_id)}), 17)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lbl(row, Tx.kr(price * st.quantity), 17, Palette.UI_WOOD)
-	lbl(body, Tx.t("ui_order_total", {"total": Tx.kr(total)}), 22, Palette.GOLDEN_CRUST)
+	var total_l: Label = lbl(body, Tx.t("ui_order_total", {"total": Tx.kr(total)}), 22, Palette.GOLDEN_CRUST)
+	total_l.name = "Total"
 	var row2: HBoxContainer = hbox(body, 12)
 	row2.alignment = BoxContainer.ALIGNMENT_END
 	var ok: Button = btn(row2, Tx.t("ui_order_wrap"), "primary", func() -> void:
 		sim.cashier.confirm_manual(cid)
 		close())
+	ok.name = "Wrap"
 	ok.custom_minimum_size = Vector2(200, 60)
+	if sim.tutorial.order_tour():
+		_start_tour.call_deferred([list.get_parent(), total_l, ok])
+
+
+## Satu sorotan: roti yang dibeli, total, dan OK. Tanpa Next, karena pemain
+## mengetuk OK sendiri.
+func _start_tour(targets: Array) -> void:
+	if is_queued_for_deletion():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([{"targets": func() -> Array: return targets, "key": "tut_order_ok", "next": false}])
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
 
 
 func on_closed() -> void:

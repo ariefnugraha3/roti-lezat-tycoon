@@ -1533,6 +1533,40 @@ func highlight(kind: StringName, iid: int) -> void:
 		tw.tween_property(_highlight, "scale", Vector3.ONE, 0.6)
 
 
+## Meja kasir jalur utama (jalur pemain), atau null.
+func main_counter() -> Node3D:
+	var lane: QueueLane = sim.queue.main_lane()
+	if lane == null or not floors.has(lane.floor_id):
+		return null
+	return (floors[lane.floor_id] as Node3D).find_child("Counter_%s" % lane.counter_id, false, false) as Node3D
+
+
+## Kotak layar (koordinat kanvas) yang menutupi semua mesh terlihat dari
+## model-model ini, sedikitnya `min_size`; Rect2() bila tidak ada yang tampil.
+## Dipakai sorotan tutorial pada pembeli, meja kasir, pengunjung lihat-lihat,
+## dan pemeran kejutan (GDD 27.5).
+func screen_rect_of(nodes: Array, min_size: Vector2 = Vector2.ZERO) -> Rect2:
+	var r := Rect2()
+	var any: bool = false
+	for n: Variant in nodes:
+		var root: Node3D = n as Node3D
+		if root == null or not is_instance_valid(root) or not root.is_visible_in_tree():
+			continue
+		for c: Node in [root] + root.find_children("*", "MeshInstance3D", true, false):
+			var mi: MeshInstance3D = c as MeshInstance3D
+			if mi == null or mi.mesh == null or not mi.is_visible_in_tree():
+				continue
+			var box: AABB = mi.global_transform * mi.get_aabb()
+			for i in 8:
+				var p: Vector2 = camera_rig.world_to_screen(box.get_endpoint(i))
+				r = Rect2(p, Vector2.ZERO) if not any else r.expand(p)
+				any = true
+	if not any:
+		return Rect2()
+	var grow := Vector2(maxf(0.0, min_size.x - r.size.x), maxf(0.0, min_size.y - r.size.y)) * 0.5
+	return r.grow_individual(grow.x, grow.y, grow.x, grow.y)
+
+
 ## Model yang harus diketuk pada langkah tutorial saat ini: alatnya, meja kasir
 ## jalur utama ("cashier"), atau tablet RotiFood ("tablet"); null bila tidak ada.
 func blink_target() -> Node3D:
@@ -1542,13 +1576,10 @@ func blink_target() -> Node3D:
 		return null
 	if _blink_root != null and is_instance_valid(_blink_root) and _blink_root.is_inside_tree():
 		return _blink_root
-	var lane: QueueLane = sim.queue.main_lane()
 	if _blink_kind == &"tablet":
 		var store: Node3D = floors.get(sim.world.store_floor())
 		return store.find_child("Tablet", false, false) as Node3D if store != null else null
-	if lane == null or not floors.has(lane.floor_id):
-		return null
-	return (floors[lane.floor_id] as Node3D).find_child("Counter_%s" % lane.counter_id, false, false) as Node3D
+	return main_counter()
 
 
 ## Mesh yang sedang diberi kilau kedip tutorial (salinan, untuk tes).

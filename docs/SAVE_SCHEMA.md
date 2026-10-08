@@ -79,7 +79,7 @@ the ones that validation checks.
 | `ratings` | object | `physical`, `rotifood`, day-start values, pending VIP outcomes. |
 | `weather` | object | `today`, `tomorrow`, rolled multipliers. |
 | `marketing` | object | Active campaign and its remaining days. |
-| `tutorial` | object | Completed steps, `skipped`, the current prompt. |
+| `tutorial` | object | Completed steps, `skipped`, the current prompt (with `spotlight` when it is a spotlight that pauses the game, GDD 27.5), and `step`: the guided Day 1 step in progress (GDD 88.1; `""` when none). Older saves without it load with `""` and keep the old Storage-first hard-block on Day 1. A step this version no longer knows loads as `""`. |
 | `decorations` | object | Owned items (uid, deco_id, floor, cell, slot, placed, `rot`), equipped cosmetics, `next_uid`. `slot` numbers a wall/counter spot of the current location (GDD 72.3); `cell` is a floor decoration's tile or a rug's anchor (smallest x/z); `rot` (0/1, missing in older saves = 0) turns a rug 90°. After load, decorations that break the slot rules go back to the inventory. |
 | `flags` | object | `market_unlocked`, `bailout_pending`, `solo_mode`, `economy_overflowed`, `last_freshness_rollover_day`. The last one prevents double overnight aging (GDD 19.9). |
 | `bailout` | object | Bailout counters, repeat visit and Solo Mode state (GDD 49). |

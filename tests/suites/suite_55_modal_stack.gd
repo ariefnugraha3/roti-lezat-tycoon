@@ -109,7 +109,11 @@ func _summary_survives() -> void:
 
 func _tutorial_over_summary() -> void:
 	var game: GameRoot = await _boot("Tutorial Stack Bakery")
-	while not game.sim.tutorial.prompt.is_empty():
+	# Tutup tip modal yang menunggu (sambutan); langkah terpandu Hari 1 tidak
+	# bisa di-dismiss dan berakhir sendiri saat hari ditutup (GDD 88.1).
+	for i in 8:
+		if game.sim.tutorial.prompt.is_empty() or bool(game.sim.tutorial.prompt.get("guided", false)):
+			break
 		game.sim.tutorial.dismiss()
 	game.modals.close_all()
 	PauseManager.clear_all()

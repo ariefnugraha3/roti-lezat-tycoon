@@ -3,6 +3,10 @@ extends UIScreen
 ## Buku Resep (GDD 5.3, 7, 61, 63.2, 92.4). Dibuka dengan mengetuk Storage;
 ## tombol Make hanya membuat job. Semua angka dibaca dari katalog.
 ##
+## Tutorial Hari 1 (keputusan maintainer 2026-10-07, GDD 88.1): Buku Resep
+## pertama dibuka dengan tur sorotan (daftar resep, bahan, peralatan, harga,
+## ukuran batch, lalu Make), yang kedua dengan tur singkat (daftar, lalu Make).
+##
 ## Tata letak (perbaikan 2026-10-02): hanya daftar resep di kiri yang digulir.
 ## Setiap resep bergambar roti flat (BreadArt, keputusan maintainer 2026-10-04):
 ## kecil di baris daftar, besar di samping judul rincian.
@@ -35,6 +39,7 @@ var _detail: VBoxContainer = null
 var _price_label: Label = null
 var _reaction: Label = null
 var _reaction_icon: IconCanvas = null
+var _tour: CoachMarks = null
 
 
 func build() -> void:
@@ -65,6 +70,49 @@ func build() -> void:
 	_render_detail()
 	if sim.tutorial.active():
 		sim.tutorial.on_event(&"pricing_opened")
+	var tour: StringName = sim.tutorial.recipe_tour()
+	if tour != &"":
+		_start_tour.call_deferred(tour)
+
+
+## Tur sorotan tutorial (GDD 88.1). Sasarannya dicari ulang tiap frame lewat
+## namanya, jadi tetap benar walau rinciannya dibangun ulang (mis. ganti batch).
+func _start_tour(kind: StringName) -> void:
+	if not is_inside_tree():
+		return
+	var list_area := func() -> Array: return [_list.get_parent()]
+	var steps: Array[Dictionary] = []
+	if kind == &"full":
+		steps = [
+			{"targets": list_area, "key": "tut_tour_list", "next": true},
+			{"targets": _tour_nodes.bind(["IngredientsCard"]), "key": "tut_tour_ingredients", "next": true},
+			{"targets": _tour_nodes.bind(["EquipmentChip"]), "key": "tut_tour_equipment", "next": true},
+			{"targets": _tour_nodes.bind(["PriceRow", "PriceNote"]), "key": "tut_tour_price", "next": true},
+			{"targets": _tour_nodes.bind(["BatchLabel", "Batch1", "Batch3", "Batch5"]), "key": "tut_tour_batch", "next": true},
+			{"targets": _tour_nodes.bind(["Make"]), "key": "tut_tour_make", "next": false},
+		]
+	else:
+		steps = [
+			{"targets": list_area, "key": "tut_tour_again_list", "next": true},
+			{"targets": _tour_nodes.bind(["MakeRow"]), "key": "tut_tour_again_make", "next": false},
+		]
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup(steps)
+
+
+func _tour_nodes(names: Array) -> Array:
+	var out: Array = []
+	for n: Variant in names:
+		var c: Node = _detail.find_child(str(n), true, false)
+		if c != null:
+			out.append(c)
+	return out
+
+
+## Tur yang sedang berjalan (untuk tes), atau null.
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
 
 
 func _render_list() -> void:
@@ -127,11 +175,15 @@ func _render_detail() -> void:
 	if _tab == 1:
 		_render_analytics(r)
 		return
-	head.add_child(_chip(Tx.t("ui_recipe_equipment", {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier})))
+	var chip: PanelContainer = _chip(Tx.t("ui_recipe_equipment", {"mixer": r.required_mixer_tier, "oven": r.required_oven_tier}))
+	chip.name = "EquipmentChip"
+	head.add_child(chip)
 	# Rincian lebih lebar dari bahan: barisnya lebih panjang, jadi tidak terlipat
 	# (juga pada skala teks 125%).
 	var cols: HBoxContainer = hbox(_detail, 14)
-	_build_ingredients(r, _card(cols, 0.8))
+	var ing_box: VBoxContainer = _card(cols, 0.8)
+	ing_box.get_parent().name = "IngredientsCard"
+	_build_ingredients(r, ing_box)
 	_build_facts(r, _card(cols, 1.2))
 	_detail.add_child(ProceduralUIFactory.dashed_separator())
 	_build_price(r)
@@ -228,9 +280,11 @@ func _fact(box: VBoxContainer, icon_name: String, text: String) -> void:
 ## 2026-10-02).
 func _build_make(r: RecipeDefinition) -> void:
 	var row: HBoxContainer = hbox(_detail, 8)
-	lbl(row, Tx.t("ui_recipe_batch"), 17, Palette.UI_WOOD)
+	row.name = "MakeRow"
+	lbl(row, Tx.t("ui_recipe_batch"), 17, Palette.UI_WOOD).name = "BatchLabel"
 	for b: int in DataRegistry.bal("production.batch_multipliers"):
 		var bb: Button = ProceduralUIFactory.button("x%d" % b, "primary" if b == _batch else "secondary")
+		bb.name = "Batch%d" % b
 		bb.custom_minimum_size = Vector2(64, ProceduralUIFactory.TOUCH_MIN)
 		bb.pressed.connect(func() -> void:
 			_batch = b
@@ -265,6 +319,7 @@ func _build_make(r: RecipeDefinition) -> void:
 ## referensi di baris berikutnya.
 func _build_price(r: RecipeDefinition) -> void:
 	var row: HBoxContainer = hbox(_detail, 12)
+	row.name = "PriceRow"
 	lbl(row, Tx.t("ui_recipe_price"), 17, Palette.UI_WOOD)
 	var sl := HSlider.new()
 	sl.min_value = r.min_price_kr
@@ -278,6 +333,7 @@ func _build_price(r: RecipeDefinition) -> void:
 	_price_label.custom_minimum_size = Vector2(84, 0)
 	_price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var rrow: HBoxContainer = hbox(_detail, 8)
+	rrow.name = "PriceNote"
 	_reaction_icon = ProceduralUIFactory.icon("happy", 24, Palette.GOLD_STAR)
 	rrow.add_child(_reaction_icon)
 	_reaction = lbl(rrow, "", 16)

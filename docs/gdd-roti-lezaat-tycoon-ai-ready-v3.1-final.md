@@ -749,7 +749,7 @@ Catatan placement:
   * **Panel Pesanan RotiFood** (keputusan maintainer 2026-10-02): panel sendiri di pojok kanan bawah, **tepat di atas Quick Menu** dan sejajar dengan tepi kanannya. Dulu bagian ini menempel di bawah Counter Stok Roti dan mudah terlewat. Panel memuat tombol RotiFood dan paling banyak tiga baris pesanan; sisanya diringkas menjadi satu baris "+N more". Panel tumbuh ke atas, dan Counter Stok Roti hanya bergeser naik bila keduanya akan bertabrakan. Lebar kedua panel selalu sama.
   * **Tombol RotiFood berdering** selama ada pesanan yang **belum dikemas**. Mukanya hijau dan lencana merah di pojoknya menghitung pesanan itu. Tombol bergetar seperti ponsel (0,55 detik), membesar sesaat, lalu memancarkan lingkaran gelombang. Dering ini berulang tiap 2,4 detik nyata, dan pesanan baru langsung memicunya. Bila driver sudah di dalam toko menunggu pesanan yang belum dikemas, tombol dan baris pesanannya merah dan dering datang dua kali lebih sering. Pesanan yang sudah dikemas tidak membuatnya berdering. Reduced Motion menghilangkan getar, denyut, dan gelombang; warna dan lencana tetap ada.
   * Baris pesanan hanya dibangun ulang bila isinya berubah. Tombol yang dibangun ulang di tengah ketukan membuat ketukan itu hilang.
-  * **Ubin Quick Menu** (perbaikan 2026-10-02): semua ubin sama besar dan ikonnya sebaris. Label rata atas, paling banyak dua baris yang dipenggal per kata, dan selalu muat di muka ubin di atas bibirnya. Ukuran ubin dihitung dari label terpanjang pada skala teks yang dipakai (100/125/150%, Seksi 28.5). Dulu label dua baris keluar dari ubin, dan pada 125% kata "Management" terpotong. Petunjuk tutorial dan tombol after-hours di tengah bawah berdiri di atas panel jam dan Quick Menu, mana pun yang lebih tinggi; dulu petunjuk itu menutupi lencana fase di panel jam.
+  * **Ubin Quick Menu** (perbaikan 2026-10-02): semua ubin sama besar dan ikonnya sebaris. Label rata atas, paling banyak dua baris yang dipenggal per kata, dan selalu muat di muka ubin di atas bibirnya. Ukuran ubin dihitung dari label terpanjang pada skala teks yang dipakai (100/125/150%, Seksi 28.5). Dulu label dua baris keluar dari ubin, dan pada 125% kata "Management" terpotong. Petunjuk tutorial dan tombol after-hours di tengah bawah berdiri di atas panel jam dan Quick Menu, mana pun yang lebih tinggi; dulu petunjuk itu menutupi lencana fase di panel jam. Selama after-hours petunjuk tutorial naik ke atas tombol Daily Summary dan Continue to Next Day, supaya keduanya tidak saling menutupi (2026-10-08).
 * **Desain Menu Utama**:  
   * Pasar Bahan Baku: Tampilan ala papan tulis kapur toko kelontong tempo dulu yang menampilkan katalog bahan dengan harga tetap, stok gudang saat ini, stok `in_transit`, estimasi waktu tiba pesanan aktif, dan tombol beli jumlah porsi (+ / - / Max). Mulai Hari 4 menu ini dapat dibuka kapan saja dari Quick Menu. Pasar memiliki tiga tab: Ingredients, Equipment, dan Store Upgrade (Seksi 5.1.2).
     **Tabel bahan (perbaikan 2026-10-07).** Dulu daftar bahan tidak lurus: kolom harga, stok, dan tombol bergeser mengikuti panjang nama dan harga, dan teks stok menempel di bagian atas baris. Kini bahan tampil sebagai tabel kapur dengan header tetap **Ingredient · Price · In Storage · Amount** di atas garis putus-putus, lalu baris yang digulir di bawahnya, dikelompokkan per kategori (judul kategori berkapur kuning). Setiap baris memuat nama bahan dengan satuannya di bawahnya (`per sachet`), harga rata kanan, stok gudang di tengah kolomnya (bila ada kiriman, di bawahnya tertulis `+5 arriving 13:00`), lalu tombol −, jumlah, +, dan **Max** di posisi yang sama pada setiap baris. Semua kolom selain nama berlebar tetap, dihitung dari teks terpanjang pada skala teks yang dipakai (100/125/150%). Nama yang terlalu panjang dipotong dengan elipsis. Baris berselang-seling sedikit lebih terang (rata, tanpa bayangan), jumlah yang dipilih berkapur kuning, dan tombol Max kini berwarna krem seperti tombol − dan + supaya terbaca di papan gelap. Scrollbar selalu tampil supaya header dan baris tetap selebar. Tes: `ACC_7_MARKET_TABLE`.
@@ -1301,7 +1301,7 @@ Keputusan maintainer 2026-09-30. Selama **persiapan (05:00–08:00)** panel jam 
 - Lompatan **bukan** pembekuan: simulasi maju tick demi tick seperti biasa, hanya jauh lebih cepat. Mixer dan oven tetap bekerja, Asisten Dapur tetap memanggang, roti di rak dan Meja Tunggu tetap menua, dan kurir tetap tiba, persis seperti bila pemain menunggu. Hasilnya identik dengan menunggu, jadi determinisme tidak berubah (Seksi 81.7).
 - Dunia tetap tergambar seperti time-lapse di balik lapisan yang menahan semua ketukan dan menampilkan jam yang berlari serta bar progres. Modal yang muncul di tengah jalan (tutorial, jeda karena fokus hilang) menahan lompatan sampai ditutup.
 - Lompatan berhenti tepat ketika toko buka pukul 08:00, atau **lebih awal** begitu ada loyang matang di oven yang harus diangkat pemain (bukan pesanan dapur yang diurus koki dan belum dituju koki, Seksi 23.3), supaya roti tidak gosong tanpa bisa dicegah. Toast `ui_skip_open_stopped` menjelaskannya.
-- Tombol tidak tampil di luar persiapan dan selama hard-block Hari 1 sebelum Gudang dibuka (Seksi 88.1). Bila sudah ada loyang yang menunggu diangkat, tombol tampil redup dan mengetuknya menampilkan `ui_skip_open_oven`.
+- Tombol tidak tampil di luar persiapan dan selama hard-block Hari 1 sebelum Gudang dibuka (Seksi 88.1). Setelah loyang kedua ditaruh di Meja Tunggu, tutorial Hari 1 justru memintanya: tombolnya berdenyut (Seksi 88.1 langkah 13). Bila sudah ada loyang yang menunggu diangkat, tombol tampil redup dan mengetuknya menampilkan `ui_skip_open_oven`.
 
 ## **15.5 Close Early — CANONICAL**
 
@@ -2162,7 +2162,7 @@ Keputusan maintainer 2026-10-01: sebagian orang yang masuk toko **tidak membeli 
 - Hari 1–3: daftar `window_shoppers` pada manifest Seksi 20.3, 14–15 orang per hari yang disisipkan di antara pembeli (kira-kira 4 dari 10 pengunjung).
 - Mulai Hari 4: proses Poisson (seperti Seksi 66) dengan laju per jam in-game = `base_physical_rate` tier (Seksi 65) × `time_of_day_multiplier` fisik (Seksi 66) × `weather_multiplier` fisik × `event_multiplier` fisik (Seksi 26.6) × `rate_ratio` (0,60). Rating, harga, dan kampanye tidak berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain. Di Tier 1 hasilnya sekitar 13 orang per hari, kira-kira satu dari tiga pengunjung. Frekuensinya dinaikkan 1,5× (dari 0,40 dan 8–10 orang per hari di Hari 1–3) atas permintaan maintainer, 2026-10-01. Penampilannya diundi dari bobot arketipe tier × modifier jam (Seksi 20.11).
 - Ia hanya masuk bila jumlah pengunjung lihat-lihat di dalam toko masih di bawah `max_inside_by_tier` (T1 2, T2 2, T3 3, T4 4, T5 5), jumlah aktor aktif lokasi masih di bawah anggaran Seksi 37.2, dan masih ada tempat berdiri. Bila tidak, kedatangan itu dilewati begitu saja.
-- Tip `tut_window_shopper` (Seksi 127.5) tampil sekali, pada pengunjung lihat-lihat pertama yang masuk saat tidak ada tip lain di layar. Tip ini tidak pernah menggeser tip lain.
+- Tip `tut_window_shopper` (Seksi 127.5) tampil sekali sebagai sorotan yang mem-pause game (Seksi 27.5, 88.1; keputusan maintainer 2026-10-08), saat pengunjung lihat-lihat pertama pulang tanpa membeli: dia dan gelembung celetukannya disorot. Bila tip modal lain sedang tampil, tip ini menunggu pengunjung lihat-lihat berikutnya.
 
 **Save** (Seksi 106): pelanggan menyimpan `window_shopper`, `look_cell`, `look_display`, dan `looks_left`, dan DemandManager menyimpan `scripted_window_shoppers` dan `next_window_shopper_at`. Saat load, pengunjung yang sedang melihat kembali ke tempat berdirinya (Seksi 77.2). Save lama tanpa field ini tetap dimuat, dan sisa hari itu berjalan tanpa pengunjung lihat-lihat.
 
@@ -2715,15 +2715,22 @@ Tutorial harus mengajari melalui aksi dunia, bukan paragraf panjang.
 
 Pemain harus belajar:
 
+- Menata toko di Decoration Mode: memindahkan satu perabot (keputusan maintainer 2026-10-07).
 - Membuka gudang/Buku Resep.
+- Membaca Buku Resep: daftar resep, bahan, peralatan, harga, ukuran batch (tur sorotan).
 - Memilih batch.
 - Mengetuk mixer.
 - Mengambil hasil mixer.
 - Mengantar ke oven.
 - Mengambil roti tepat waktu.
 - Menaruh ke display.
-- Melayani cashier manual.
+- Memarkir loyang di Meja Tunggu (Seksi 5.1.3).
+- Membuka toko lebih awal dengan Skip to Open (keputusan maintainer 2026-10-08).
+- Membaca rating toko, RotiFood Stars, dan panel pesanan RotiFood (tur sorotan saat toko buka).
+- Melayani cashier manual: ke meja kasir, mengetuk pembeli yang menunggu, OK.
 - Menyelesaikan satu RotiFood order.
+- Mengenali pengunjung lihat-lihat (Seksi 20.12) dan kejutan (Seksi 31.9) sebagai tontonan yang tidak mengubah penjualan.
+- Setelah toko tutup: mengenal Staff Management (pelamar, peran, gaji, kapasitas, Hire) dan Marketing (kampanye, Launch, mulai berguna Hari 4), keputusan maintainer 2026-10-08. Merekrut dan beriklan tidak diwajibkan.
 
 ## **27.3 Day 2 Learning Goals**
 
@@ -2742,7 +2749,11 @@ Pemain harus belajar:
 
 ## **27.5 Tutorial Blocking**
 
-- Hard-block hanya saat perlu mencegah pemain membuat state invalid.
+- Hard-block hanya saat perlu mencegah pemain membuat state invalid, atau saat tutorial terpandu Hari 1 meminta satu aksi tertentu (Seksi 88.1): semua ketukan dunia ditahan selama langkah Decoration Mode, hanya Storage yang bisa diketuk pada langkah Storage pertama, dan rak ditahan selama langkah Meja Tunggu. Ketukan yang ditahan memberi umpan balik (`ui_feedback_tutorial_wait`, `ui_feedback_tutorial_table`), tidak terasa mati.
+- Langkah terpandu selesai dengan melakukan aksinya, jadi petunjuknya tanpa tombol **Got it**; hanya sorotan dan petunjuk penutupnya yang ditutup pemain. Tip lain yang non-modal menunggu sampai urutan terpandu selesai; tip modal (mis. risiko gosong) dan tip yang mengantre tetap tampil di depan, lalu petunjuk langkahnya kembali.
+- **Tombol yang diminta** (ubin Decoration Mode, Staff Management, dan Marketing di Quick Menu, tombol Done di Decoration Mode, tombol Skip to Open, dan tombol after-hours Continue to Next Day) dikelilingi cincin madu berdenyut (`TutorialPulse`); dengan Reduced Motion cincinnya diam.
+- **Tur sorotan** (`CoachMarks`): layar diredupkan kecuali bagian yang dijelaskan, dengan balon penjelasan, nomor langkah (`2/6`), **Skip**, dan **Next**. Bagian yang disorot tetap bisa diketuk, bagian lain tertutup lapisan redup. Langkah terakhir tidak punya Next bila pemain harus mengetuk sasarannya sendiri (Make, OK di popup pesanan, Manage Staff di Daily Summary); tur yang hanya menjelaskan berakhir dengan **Got it**. Sorotan satu langkah tidak menampilkan nomor, dan Skip hanya bila tidak ada Got it.
+- **Sorotan yang mem-pause game** (`TutorialSpotlight`, keputusan maintainer 2026-10-08): tur yang sama sebagai lapisan sistem (overlay, Seksi 28.2) yang mem-pause game. Sasarannya panel HUD (chip rating, panel RotiFood) atau model di dunia (pembeli, rak, meja kasir, pengunjung lihat-lihat dan celetukannya, pemeran kejutan); kotak layarnya dihitung tiap frame dari mesh modelnya (`WorldView.screen_rect_of`) dan dibulatkan ke piksel utuh. Sorotan ini hanya menjelaskan, jadi bagian yang disorot tidak menerima ketukan. Menutupnya (Got it, Skip, Back) hanya menutup prompt miliknya sendiri (`TutorialManager.dismiss_key`).
 - **Target berkedip terang** (keputusan maintainer 2026-10-06, menggantikan "pulse lembut", supaya pemain tahu apa yang harus diketuk). Model alat atau perabot yang diminta langkah tutorial berkedip putih terang kira-kira sekali per detik (`WorldView.BLINK_PERIOD`, puncak `BLINK_PEAK`), dan cincin emas di lantai tetap berdenyut di bawahnya. Sasarannya Storage, Mixer, Oven, rak Display, meja kasir jalur utama (`cashier`), atau tablet RotiFood (`tablet`). Kedipnya pindah bersama langkah tutorial dan berhenti saat petunjuknya selesai; model yang dibangun ulang tetap berkedip. Dengan Reduced Motion, model menyala tetap tanpa kedip (`BLINK_STEADY`).
 - Kilaunya `material_overlay` bersama (`ProceduralMeshFactory.flash_material()`) dengan shader yang sama persis dengan arsiran ubin, jadi tidak ada kombinasi shader baru (Seksi 89.5). Sampelnya dipanaskan di `ShaderWarmup`.
 - Tutorial bubble tidak menutupi target.
@@ -3084,7 +3095,7 @@ Keputusan maintainer 2026-10-04. Supaya hari-hari tidak membosankan, sesekali se
 
 - `SurpriseDirector` (`gameplay/world/surprise_director.gd`, anak `WorldView`) memerankan adegan dengan `ActorView` dan model sementara yang tidak didaftarkan ke simulasi. Rutenya hanya membaca graf navigasi publik (`FloorGrid.NAV_PUBLIC`), dan pemerannya boleh menembus pelanggan.
 - Kucing, pipit, kupu-kupu, maskot, ukulele, hati, dan remah dibuat `CritterFactory` (`procedural/meshes/critter_factory.gd`) dari MeshBuilder berwarna verteks. Semuanya memakai material bersama yang sudah ada, jadi tidak menambah kombinasi shader, dan dipanaskan di `ShaderWarmup`.
-- Murni presentasi (`ACC_31_SURPRISE_COSMETIC`): hari dengan kejutan yang terus diputar berjalan persis sama dengan hari tanpa kejutan.
+- Murni presentasi (`ACC_31_SURPRISE_COSMETIC`): hari dengan kejutan yang terus diputar berjalan persis sama dengan hari tanpa kejutan. Satu-satunya jejaknya di simulasi adalah catatan tip tutorial: kejutan pertama disorot sekali (`tut_surprise`, Seksi 88.1).
 
 ---
 
@@ -5333,22 +5344,36 @@ Semua player-facing tutorial text berikut ditampilkan dalam **English**. Tutoria
 
 ## **88.1 Day 1 — Production + Manual Cashier**
 
-1. 05:00 intro: `"Welcome to your bakery. Let's bake your first loaf."`
-2. Highlight Storage; input world lain tetap disabled sampai Storage dipilih.
-3. Recipe Book: highlight Plain White Loaf (`recipe_plain_loaf`) x1, jelaskan ingredients dan batch yield.
-4. Setelah confirm, highlight Mixer.
-5. Saat mixing berjalan, tooltip menjelaskan progress bar dan bahwa equipment bekerja sendiri.
-6. Mixer complete: highlight Mixer lagi untuk pickup.
-7. Highlight Oven; setelah insert, tutorial menjelaskan burn risk.
-8. Oven complete: pause sekali dan jelaskan `"Take it out before it burns."`
-9. Highlight Display and Slot Picker.
-10. Ulangi guidance ringan sampai scripted Day-1 stock target dapat dipenuhi; jangan memaksa satu command sequence jika player sudah memahami flow.
-11. 08:00 open tutorial: customer enters; explain product selection and patience bar. The first window shopper who enters while no other tip is showing gets a non-blocking hint: `"Some visitors only look around. They leave without buying, and that is okay."` (Seksi 20.12).
-12. First customer reaches cashier: highlight counter and manual service.
-13. First successful payment: explain KR income.
-14. First RotiFood order: explain tablet, packing, and driver pickup.
-15. 18:00 Daily Summary: explain revenue, cost, utility, waste, rating.
-16. Trigger (berlaku Hari 1–3, biasanya terjadi sore Hari 1): saat stack pertama masuk `GOOD`, explain freshness indicator and leftover consequence.
+Urutan terpandu (keputusan maintainer 2026-10-07 untuk langkah 1–12 dan 2026-10-08 untuk langkah 13–27; `TutorialManager.GUIDED`/`FLOW`/`SPOTLIGHTS`). Setiap langkah maju oleh peristiwa dunia, langkah sorotan dan petunjuk penutup maju saat ditutup pemain, dan langkahnya disimpan di save (`tutorial.step`, Seksi 106).
+
+1. 05:00 intro (modal): `"Welcome to your bakery! First, let's arrange it your way. Then we'll bake your first loaf."`
+2. **Decoration Mode lebih dulu.** Tombol Decoration Mode di Quick Menu berdenyut (`tut_decor_open`). Semua ketukan dunia ditahan sampai langkah 4 selesai.
+3. Di Decoration Mode, balon kuning di bawah bilah atas meminta pemain memindahkan perabot (`tut_decor_move`); rak di toko berkedip sebagai saran, tetapi perabot apa pun boleh. Pemain wajib benar-benar memindahkan perabot (Place yang mengubah posisi). Menutup Decoration Mode sebelum itu kembali ke langkah 2.
+4. Setelah perabot dipindah, tombol Done berdenyut (`tut_decor_done`). Done kembali ke toko.
+5. Highlight Storage (`tut_tap_storage`); input world lain tetap disabled sampai Storage dipilih.
+6. Recipe Book dibuka dengan **tur sorotan** enam langkah: daftar resep (Plain White Loaf terpilih), kartu Ingredients (Have / Need), chip peralatan (`Needs Mixer T1 · Oven T1`), baris harga (terkunci sampai Hari 4), ukuran batch, lalu tombol **Make** (langkah terakhir, tanpa Next). Menutup Buku Resep tanpa memesan kembali ke langkah 5, dan tur diulang saat dibuka lagi.
+7. Setelah Make, highlight Mixer. Saat mixing berjalan, petunjuk menjelaskan bahwa equipment bekerja sendiri. Mixer complete: highlight Mixer lagi untuk pickup.
+8. Highlight Oven. Saat memanggang, petunjuk menjelaskan cincin progres (`tut_baking`). Oven complete: pause sekali dan jelaskan `"Take it out before it burns."`, lalu `tut_take_tray` (oven disorot).
+9. Highlight Display and Slot Picker. Begitu loyang pertama habis tertata di rak, tutorial meminta **satu batch lagi** (`tut_again_storage`, Storage berkedip).
+10. Recipe Book kedua dibuka dengan **tur singkat**: daftar resep, lalu ukuran batch dan Make. Menutupnya tanpa memesan kembali ke langkah 9.
+11. Mixer dan Oven sekali lagi (`tut_mixer_again`, lalu petunjuk yang sama dengan langkah 7–8, tanpa tip gosong kedua).
+12. Loyang kedua diarahkan ke **Meja Tunggu** di dapur (`tut_to_table`, meja berkedip); rak ditahan sampai loyangnya ditaruh.
+13. **Skip to Open** (keputusan maintainer 2026-10-08): tombol Skip to Open berdenyut (`tut_skip_open`, yang juga mengingatkan bahwa loyang di meja menunggu rak kosong). Semua alat bisa diketuk lagi. Langkah ini selesai saat toko buka, lewat Skip to Open maupun saat jam mencapai 08:00.
+14. **Tur pembukaan**: sorotan yang mem-pause game (Seksi 27.5), empat langkah: rating toko (`tut_tour_rating`), RotiFood Stars (`tut_tour_rotifood_rating`), panel pesanan RotiFood (`tut_tour_rotifood_orders`), lalu `tut_rotifood` di panel yang sama. Got it pada langkah terakhir menutupnya.
+15. Menunggu pembeli pertama (`tut_buyer_wait`).
+16. **Pembeli pertama masuk**: game pause, sorotan pada pembeli dan rak yang ia tuju (`tut_buyer_enter`), lalu pada meja kasir (`tut_manual_cashier`).
+17. Meja kasir berkedip (`tut_serve_counter`) sampai pemain berdiri di sana, lalu `tut_serve_wait` (kesabaran pembeli; menggantikan tip lama `tut_patience`). Begitu pembeli berdiri di depan meja dengan balon "!", meja berkedip lagi (`tut_serve_tap`): ketuk pembeli atau meja. Popup pesanan menyorot daftar roti, total, dan OK (`tut_order_ok`, tanpa Next: pemain mengetuk OK). Selama roti dikemas `tut_serve_pack`. Pembeli yang kabur sebelum dilayani mengembalikan langkah ke `tut_serve_wait`.
+18. Penjualan pertama: petunjuk penutup `tut_first_sale` dengan Got it (menggantikan tip lama `tut_income`). Urutan terpandu siang hari selesai; urutan berikutnya mulai saat toko tutup (langkah 23).
+19. Langkah yang keadaannya sudah tercapai dilewati: toko sudah buka saat langkah 13 tercapai (langsung ke 14), pembeli sudah di dalam saat langkah 15, pemain sudah di kasir saat diminta ke kasir, atau pembeli sudah menunggu di depan meja saat pemain tiba. Tanpa urutan terpandu (save lama), tip lama `tut_patience`, `tut_manual_cashier`, dan `tut_income` tetap tampil sekali.
+20. **Pengunjung lihat-lihat pertama yang pulang tanpa membeli**: sorotan sekali yang mem-pause game pada dia dan celetukannya (`tut_window_shopper`, Seksi 20.12). Bila tip modal lain sedang tampil, tip ini menunggu pengunjung lihat-lihat berikutnya.
+21. **Kejutan pertama** (Seksi 31.9): sorotan sekali pada para pemeran 2,5 detik nyata setelah adegan mulai (`SurpriseDirector.TIP_AFTER_SECONDS`, `tut_surprise`): kejutan hanya tontonan dan tidak mengubah penjualan. Bila tip modal lain sedang tampil, tip ini menunggu kejutan berikutnya.
+22. **Pesanan RotiFood pertama**: sorotan sekali pada panel RotiFood, dengan pesanan barunya dan tombol yang berdering (`tut_rotifood_first`). Karena pesanannya tetap di panel sampai dikemas, sorotan ini boleh mengantre di belakang tip modal lain.
+23. 18:00 Daily Summary: explain revenue, cost, utility, waste, rating (`tut_summary`). Urutan terpandu siang hari yang belum selesai berakhir di sini. Pada Hari 1 **tutorial setelah tutup** dimulai (keputusan maintainer 2026-10-08, langkah 24–27).
+24. Setelah tip nota ditutup, tombol **Manage Staff** di nota disorot (`tut_close_summary`, tanpa Next: pemain mengetuknya; Skip tetap ada). Bila pemain sudah di after-hours dengan nota tertutup, ubin Staff Management di Quick Menu berdenyut (`tut_staff_open`).
+25. **Staff Management** terbuka di tab Applicants dengan tur sorotan empat langkah: daftar pelamar (`tut_tour_staff_list`), rincian pelamar terpilih (`tut_tour_staff_role`), baris kapasitas dan gaji (`tut_tour_staff_wage`), lalu tombol Hire (`tut_tour_staff_hire`). Merekrut tidak diwajibkan.
+26. Setelah Staff Management ditutup, ubin **Marketing** berdenyut (`tut_marketing_open`). Marketing terbuka dengan tur sorotan tiga langkah: kartu kampanye pertama (`tut_tour_marketing_card`), tombol Launch-nya (`tut_tour_marketing_launch`), lalu daftar kampanye (`tut_tour_marketing_later`: Hari 1–3 memakai manifest Seksi 20.3, jadi iklan baru terasa mulai Hari 4). Meluncurkan iklan tidak diwajibkan.
+27. Setelah Marketing ditutup, tombol after-hours **Continue to Next Day** berdenyut dengan petunjuk penutup `tut_close_done` (Got it). Continue to Next Day kapan pun mengakhiri urutan ini; penutupan Hari 2 dan 3 tidak mengulanginya. Selama after-hours petunjuk tutorial berdiri di atas tombol after-hours (Seksi 7).
+28. Trigger (berlaku Hari 1–3, biasanya terjadi sore Hari 1): saat stack pertama masuk `GOOD`, explain freshness indicator and leftover consequence.
 
 ## **88.2 Day 2 — Pressure, Queue, Pricing**
 
@@ -6944,7 +6969,7 @@ Kolom ID di tabel-tabel berikut memakai ID canonical Seksi 78; katalog ini hanya
 
 Minimum canonical tutorial strings:
 
-- `Welcome to your bakery. Let's bake your first loaf.`
+- `Welcome to your bakery! First, let's arrange it your way. Then we'll bake your first loaf.` (diubah 2026-10-07: Decoration Mode lebih dulu, Seksi 88.1)
 - `Tap Storage to choose a recipe.`
 - `Choose a recipe and a batch size.`
 - `Tap the Mixer to start mixing.`
@@ -7446,6 +7471,60 @@ Tabel tab Equipment dan Store Upgrade di Pasar (Seksi 5.1.2, 6, 7), perbaikan 20
 | `ui_upgrade_storage_value` | `{capacity} units` |
 | `ui_upgrade_equipment_value` | `Up to Tier {tier}` |
 | `ui_upgrade_wage_value` | `{wage} per day each` |
+
+## **127.29 Guided Day 1 Tutorial Strings**
+
+Urutan terpandu Hari 1 (Seksi 27.5, 88.1), keputusan maintainer 2026-10-07 dan 2026-10-08. `tut_tour_list` sampai `tut_tour_again_make` dipakai tur sorotan Buku Resep, `tut_tour_rating` sampai `tut_tour_rotifood_orders` tur pembukaan toko, `tut_tour_staff_*` dan `tut_tour_marketing_*` tur Staff Management dan Marketing setelah tutup; `{n}`/`{total}` = nomor langkah tur. Tur pembukaan juga memakai `tut_rotifood`, dan sorotan pembeli pertama `tut_manual_cashier` (Seksi 127.5).
+
+| String ID | Final English Text |
+| :--- | :--- |
+| `tut_decor_open` | `First, make the bakery yours. Tap Decoration Mode.` |
+| `tut_decor_move` | `Drag any furniture to a new spot, like this shelf. Then tap Place.` |
+| `tut_decor_done` | `Nice! Tap Done to go back and start baking.` |
+| `tut_tour_list` | `These are your recipes. Start with Plain White Loaf.` |
+| `tut_tour_ingredients` | `What the recipe needs. Have / Need compares your Storage with the batch.` |
+| `tut_tour_equipment` | `The mixer and oven tier this recipe needs.` |
+| `tut_tour_price` | `The selling price. It stays at the reference price until Day 4.` |
+| `tut_tour_batch` | `How many batches to bake. A bigger batch makes more bread but takes longer.` |
+| `tut_tour_make` | `All set? Tap Make to start baking!` |
+| `tut_tour_again_list` | `Pick a recipe you have the ingredients for.` |
+| `tut_tour_again_make` | `Choose the batch size, then tap Make.` |
+| `tut_baking` | `The oven is baking. Its ring fills up until the bread is ready.` |
+| `tut_take_tray` | `The bread is ready! Tap the Oven to take the tray out.` |
+| `tut_again_storage` | `Your first bread is on the shelf! Let's bake one more batch. Tap Storage.` |
+| `tut_choose_recipe_again` | `Choose a recipe and tap Make.` |
+| `tut_mixer_again` | `Tap the Mixer to mix the new batch.` |
+| `tut_to_table` | `This time, park the tray on the holding table in the kitchen. It keeps bread when the shelves are full.` |
+| `tut_skip_open` | `The tray waits on the table until a shelf has room. Now tap Skip to Open to open the shop right away!` |
+| `tut_tour_rating` | `This is your shop rating. Sales and quick service raise it; customers who leave unhappy lower it. More stars bring more customers.` |
+| `tut_tour_rotifood_rating` | `This is your RotiFood rating. Orders packed before the driver arrives raise it; late or rejected orders lower it. More stars bring more orders.` |
+| `tut_tour_rotifood_orders` | `RotiFood delivery orders show up here, and the RotiFood button rings. Tap an order and pack it before the driver arrives.` |
+| `tut_buyer_wait` | `The shop is open! Your first customer is on the way.` |
+| `tut_buyer_enter` | `Your first customer! Customers pick bread from your shelves, then line up at the counter to pay.` |
+| `tut_serve_counter` | `Tap the counter to go and serve them.` |
+| `tut_serve_wait` | `Stay at the counter. Customers lose patience while they wait, so serve them quickly!` |
+| `tut_serve_tap` | `Your customer is waiting. Tap them or the counter to see their order.` |
+| `tut_serve_pack` | `Stay at the counter while you pack their bread.` |
+| `tut_order_ok` | `This is what they are buying. Tap OK to pack their bread.` |
+| `tut_first_sale` | `Your first sale! Coins go into your cash as soon as the bread is paid for.` |
+| `tut_surprise` | `A little surprise! Visits like this happen now and then. They are just for fun and never change your sales.` |
+| `tut_rotifood_first` | `Your first RotiFood order! Tap it, then tap Pack Order. The driver picks it up at the counter.` |
+| `tut_close_summary` | `The shop is closed for today! Let's get ready for tomorrow. Tap Manage Staff.` |
+| `tut_staff_open` | `Tap Staff Management to meet the people who want to work for you.` |
+| `tut_tour_staff_list` | `These are your applicants. Tap anyone to read about them.` |
+| `tut_tour_staff_role` | `Cashier Assistants serve customers at a checkout lane of their own. Kitchen Assistants bake what you ask for with Ask a Baker.` |
+| `tut_tour_staff_wage` | `Every helper earns the daily wage shown here for each day they work. The counts show how many helpers fit in your shop.` |
+| `tut_tour_staff_hire` | `Hire after closing, and they start tomorrow at 05:00. You can give them a day off or let them go at any time.` |
+| `tut_marketing_open` | `Now tap Marketing to see how ads bring more visitors.` |
+| `tut_tour_marketing_card` | `An ad campaign brings more visitors while it runs. You pay its price once, up front.` |
+| `tut_tour_marketing_launch` | `Launch ads after closing, and they start tomorrow. Only one campaign can run at a time, and bigger shops unlock bigger ones.` |
+| `tut_tour_marketing_later` | `Your first three days already have a set number of customers, so ads start to pay off from Day 4.` |
+| `tut_close_done` | `All set for today! Tap Continue to Next Day when you are ready.` |
+| `ui_feedback_tutorial_wait` | `Follow the tip first` |
+| `ui_feedback_tutorial_table` | `Put this tray on the holding table first` |
+| `ui_tour_next` | `Next` |
+| `ui_tour_skip` | `Skip` |
+| `ui_tour_count` | `{n}/{total}` |
 
 ---
 

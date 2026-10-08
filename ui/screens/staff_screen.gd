@@ -12,6 +12,10 @@ extends UIScreen
 ## dikelompokkan per peran, adalah satu-satunya bagian yang digulir (ke bawah).
 ## Rincian karyawan terpilih di kanan (kartu polaroid, bio, tugas perannya, dan
 ## tombol aksinya) muat tanpa gulir.
+##
+## Tutorial Hari 1 (GDD 88.1): dibuka setelah toko tutup, layar ini membuka tab
+## Applicants dengan tur sorotan: daftar pelamar, rinciannya, gaji dan
+## kapasitas, lalu tombol Hire.
 
 var _tab: int = 0
 var _body: VBoxContainer = null
@@ -20,9 +24,14 @@ var _detail: VBoxContainer = null
 var _ids: Array[StringName] = []
 ## Karyawan terpilih per tab (Your Team, Applicants).
 var _selected: Array[StringName] = [&"", &""]
+var _tour: CoachMarks = null
 
 
 func build() -> void:
+	sim.tutorial.on_event(&"staff_opened")
+	var touring: bool = sim.tutorial.staff_tour()
+	if touring:
+		_tab = 1
 	var body: VBoxContainer = make_popup(Tx.t("ui_staff"), Vector2(1200, 660))
 	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_staff_team"), Tx.t("ui_staff_applicants")], _tab, func(idx: int) -> void:
 		_tab = idx
@@ -31,6 +40,36 @@ func build() -> void:
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(_body)
 	_render()
+	if touring:
+		_start_tour.call_deferred()
+
+
+## Tur sorotan pelamar (GDD 88.1). Sasarannya dicari ulang tiap frame lewat nama,
+## karena isi layar dibangun ulang setiap pilihan.
+func _start_tour() -> void:
+	if is_queued_for_deletion():
+		return
+	_tour = CoachMarks.new()
+	add_child(_tour)
+	_tour.setup([
+		{"targets": _named.bind("StaffList"), "key": "tut_tour_staff_list", "next": true},
+		{"targets": _named.bind("Detail"), "key": "tut_tour_staff_role", "next": true},
+		{"targets": _named.bind("StaffSummary"), "key": "tut_tour_staff_wage", "next": true},
+		{"targets": _named.bind("Hire"), "key": "tut_tour_staff_hire", "next": true},
+	])
+
+
+func _named(node_name: String) -> Array:
+	var n: Node = find_child(node_name, true, false)
+	return [n] if n != null else []
+
+
+func tour() -> CoachMarks:
+	return _tour if _tour != null and is_instance_valid(_tour) else null
+
+
+func on_closed() -> void:
+	sim.tutorial.on_event(&"staff_closed")
 
 
 func _render() -> void:
@@ -38,6 +77,7 @@ func _render() -> void:
 	var loc: LocationDefinition = sim.world.location
 	# Ringkasan dalam satu baris: kapasitas per peran di kiri, proyeksi kas di kanan.
 	var top: HBoxContainer = hbox(_body, 16)
+	top.name = "StaffSummary"
 	var cap: Label = lbl(top, Tx.t("ui_staff_capacity", {"cashiers": sim.staff.employed_ids(&"cashier").size(), "max_cashiers": loc.staff_capacity(&"cashier"),
 		"bakers": sim.staff.employed_ids(&"baker").size(), "max_bakers": loc.staff_capacity(&"baker")}), 16, Palette.UI_WOOD)
 	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -57,6 +97,7 @@ func _render() -> void:
 	left.custom_minimum_size = Vector2(400, 0)
 	split.add_child(left)
 	_list = scroll_box(left)
+	_list.get_parent().name = "StaffList"
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	split.add_child(right)
@@ -156,6 +197,7 @@ func _render_detail() -> void:
 	if def == null:
 		return
 	var row: HBoxContainer = hbox(_detail, 18)
+	row.name = "Detail"
 	row.add_child(ProceduralUIFactory.polaroid(String(def.id), sim.staff.daily_wage()))
 	var col := VBoxContainer.new()
 	col.name = "Info"

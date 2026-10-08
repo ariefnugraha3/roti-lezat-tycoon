@@ -38,6 +38,9 @@ const MAX_SECONDS: float = 90.0
 ## bila sudah terlambat lebih dari ini (detik jam in-game, 1,5 jam), supaya
 ## kejutan yang tertunda tidak tampil beruntun.
 const LATE_SECONDS: float = 5400.0
+## Detik nyata sejak adegan mulai sampai tutorial boleh menyorotnya (GDD 88.1):
+## pemerannya sudah masuk pintu dan terlihat.
+const TIP_AFTER_SECONDS: float = 2.5
 
 var sim: SimulationRoot = null
 var view: WorldView = null
@@ -50,6 +53,8 @@ var _rng := RandomNumberGenerator.new()
 var _t: float = 0.0
 var _fx: Array[Node3D] = []
 var _shown: bool = true
+## Tutorial sudah diberi tahu tentang adegan ini.
+var _tipped: bool = false
 
 
 func setup(s: SimulationRoot, wv: WorldView) -> void:
@@ -156,6 +161,11 @@ func update(delta: float) -> void:
 		var paused: bool = PauseManager.is_paused()
 		if not paused:
 			_step(delta)
+			# Kejutan pertama dijelaskan sekali oleh tutorial (GDD 88.1). Hanya
+			# catatan tip yang berubah; adegannya tetap tontonan murni.
+			if _kind != &"" and not _tipped and _t >= TIP_AFTER_SECONDS:
+				_tipped = true
+				sim.tutorial.on_surprise()
 		_place_bubbles(0.0 if paused else delta)
 		return
 	if PauseManager.is_paused() or not sim.time.is_open():
@@ -175,6 +185,7 @@ func start(kind: StringName) -> bool:
 	_rng.seed = hash("%d|%d|%s|cast" % [sim.rng.master_seed, sim.time.day, kind])
 	_flags.clear()
 	_t = 0.0
+	_tipped = false
 	match kind:
 		&"cat":
 			_cat()

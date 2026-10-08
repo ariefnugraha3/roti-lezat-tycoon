@@ -268,6 +268,7 @@ func place(iid: int, floor_id: StringName, anchor: Vector2i, rotation: int) -> S
 	if reason != &"":
 		return reason
 	_commit_place(e, floor_id, anchor, rotation)
+	sim.tutorial.on_event(&"furniture_placed")
 	return &""
 
 

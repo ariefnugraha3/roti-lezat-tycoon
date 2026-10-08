@@ -106,6 +106,11 @@ var _warn_title: Label = null
 var _warn_detail: Label = null
 var _warn_tween: Tween = null
 var _overlay_floor: StringName = &""
+## Tombol Done dan balon tutorial Hari 1 (GDD 88.1): "pindahkan perabot",
+## lalu "ketuk Done".
+var _done_btn: Button = null
+var _tut: PanelContainer = null
+var _tut_label: Label = null
 
 
 func _init() -> void:
@@ -138,13 +143,17 @@ func build() -> void:
 	_build_bottom(frame)
 	_build_warning(frame)
 	_build_toolbar()
+	_build_tutorial(frame)
 	sim.world.layout_changed.connect(_refresh_overlay)
+	EventBus.tutorial_step_changed.connect(_on_tutorial_step)
 	var pre: int = int(params.get("select_iid", -1))
 	if pre >= 0:
 		_hold_equipment(pre)
 		_focus_pending = has_selection()
 	_refresh_all()
 	_refresh_overlay()
+	sim.tutorial.on_event(&"decor_opened")
+	_refresh_tutorial()
 
 
 # ===========================================================================
@@ -180,7 +189,65 @@ func _build_top_bar(frame: Control) -> void:
 				game.world.view_floor_override = fid)
 			fb.custom_minimum_size = Vector2(56, 48)
 	var done: Button = btn(row, Tx.t("ui_decor_done"), "primary", _done)
+	done.name = "Done"
 	done.custom_minimum_size = Vector2(120, 48)
+	_done_btn = done
+
+
+## Balon tutorial kuning (gaya petunjuk HUD) tepat di bawah bilah atas; hanya
+## tampil selama langkah dekorasi tutorial Hari 1 (GDD 88.1).
+func _build_tutorial(frame: Control) -> void:
+	_tut = PanelContainer.new()
+	_tut.name = "TutorialTip"
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.BUTTER_YELLOW, 20, true)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 18
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	_tut.add_theme_stylebox_override("panel", sb)
+	_tut.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_tut.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_tut.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(_tut)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_tut.add_child(row)
+	row.add_child(ProceduralUIFactory.badge("chef", Palette.FLOUR_WHITE, Palette.UI_WOOD, 40))
+	_tut_label = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
+	_tut_label.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	_tut_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tut_label.custom_minimum_size = Vector2(440, 0)
+	row.add_child(_tut_label)
+	_tut.visible = false
+	_top.resized.connect(func() -> void: _tut.offset_top = _top.size.y + 10.0)
+
+
+func _on_tutorial_step(_key: StringName) -> void:
+	_refresh_tutorial()
+
+
+## Tampilkan langkah dekorasi tutorial yang berlaku, dan denyutkan Done saat
+## pemain tinggal menutup Decoration Mode.
+func _refresh_tutorial() -> void:
+	if _tut == null:
+		return
+	var p: Dictionary = sim.tutorial.prompt
+	var key: String = str(p.get("key", ""))
+	var show_tip: bool = bool(p.get("guided", false)) and key in ["tut_decor_move", "tut_decor_done"]
+	_tut.visible = show_tip
+	if show_tip:
+		_tut_label.text = Tx.t(key)
+		_tut.reset_size()
+		_tut.offset_top = _top.size.y + 10.0
+	if str(p.get("highlight_kind", "")) == "decor_done" and show_tip:
+		TutorialPulse.attach(_done_btn, ProceduralUIFactory.RADIUS_PILL)
+	else:
+		TutorialPulse.detach(_done_btn)
+
+
+## Balon tutorial yang sedang tampil (untuk tes), atau null.
+func tutorial_tip() -> PanelContainer:
+	return _tut if _tut != null and _tut.visible else null
 
 
 ## Tepi bawah: baki barang (tertutup sampai sebuah tab diketuk) di atas baris
@@ -1184,6 +1251,10 @@ func on_closed() -> void:
 	game.commands.drag_override = Callable()
 	game.commands.drop_override = Callable()
 	game.hud.set_decoration_active(false)
+	if EventBus.tutorial_step_changed.is_connected(_on_tutorial_step):
+		EventBus.tutorial_step_changed.disconnect(_on_tutorial_step)
+	# Terakhir, supaya petunjuk berikutnya tampil di HUD yang sudah kembali.
+	sim.tutorial.on_event(&"decor_closed")
 
 
 ## Toolbar melayang: panel krem dengan ekor segitiga yang menunjuk ke barang.

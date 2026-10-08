@@ -5,7 +5,7 @@ extends TestSuite
 
 const SCREENS: Array[StringName] = [
 	&"settings", &"credits", &"help", &"stats", &"pause", &"recipe_book", &"market", &"staff",
-	&"marketing", &"decoration", &"rotifood", &"display_detail", &"debug", &"tutorial", &"lifecycle",
+	&"marketing", &"decoration", &"rotifood", &"display_detail", &"debug", &"tutorial", &"tutorial_spotlight", &"lifecycle",
 ]
 
 
@@ -45,6 +45,8 @@ func _smoke() -> void:
 			params = {"display": game.sim.equipment.placed_list(&"display")[0].iid}
 		if id == &"tutorial":
 			params = {"key": "tut_welcome"}
+		if id == &"tutorial_spotlight":
+			params = {"key": "tut_tour_rating", "spotlight": "open_tour"}
 		var s: UIScreen = game.modals.open(id, params)
 		check(s != null, "screen %s opens" % id)
 		await runner.get_tree().process_frame

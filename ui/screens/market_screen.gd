@@ -193,12 +193,14 @@ func _column_labels(cols: Array, node_name: String = "Columns") -> HBoxContainer
 	h.add_theme_constant_override("separation", COL_SEP)
 	for c: Array in cols:
 		var key: String = str(c[0])
-		var cell: Control = Control.new()
+		var cell: Control
 		if key != "":
 			var l: Label = _chalk(Tx.t(key), 14, CHALK_MUTED)
 			l.name = key
 			l.horizontal_alignment = c[2]
 			cell = l
+		else:
+			cell = Control.new()
 		if float(c[1]) < 0.0:
 			cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		else:

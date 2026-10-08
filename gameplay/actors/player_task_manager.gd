@@ -106,6 +106,8 @@ func tap_equipment(iid: int) -> bool:
 	if e == null or not e.placed:
 		return false
 	if not sim.tutorial.allows_tap(e.category()):
+		# Tutorial Hari 1 (GDD 88.1): ketukan ditahan, tetapi tidak terasa mati.
+		_feedback_at(&"tutorial_table" if sim.tutorial.guided_step == &"table" else &"tutorial_wait", iid)
 		return false
 	var kind: StringName = e.category()
 	# Ketukan kedua pada perabot yang masih dituju membatalkan perintahnya.
@@ -290,8 +292,9 @@ func _at_storage(iid: int) -> void:
 	EventBus.storage_door.emit(iid, true)
 	EventBus.sfx.emit(&"storage_open", actor.floor_id)
 	sim.ui_requests.recipe_book_storage = iid
-	EventBus.recipe_book_requested.emit()
+	# Tutorial lebih dulu, supaya Buku Resep yang terbuka tahu langkah turnya.
 	sim.tutorial.on_event(&"storage_opened")
+	EventBus.recipe_book_requested.emit()
 
 
 ## Buku Resep: pemain memilih resep & batch (GDD 2 langkah 2).
@@ -312,6 +315,7 @@ func close_storage() -> void:
 		EventBus.storage_door.emit(iid, false)
 		EventBus.sfx.emit(&"storage_close", actor.floor_id)
 	sim.ui_requests.recipe_book_storage = -1
+	sim.tutorial.on_event(&"storage_closed")
 
 
 func _at_mixer(iid: int) -> void:
@@ -400,6 +404,7 @@ func _at_table(iid: int) -> void:
 	if j != null:
 		if sim.production.put_on_table(j.job_id):
 			actor.carried = {}
+			sim.tutorial.on_event(&"tray_on_table" if j.stage == ProductionJob.TRAY_ON_TABLE else &"dough_on_table")
 		return
 	var items: Array[ProductionJob] = sim.production.table_jobs()
 	if items.is_empty():
@@ -417,6 +422,7 @@ func _at_table(iid: int) -> void:
 	if sim.production.take_from_table(pick.job_id, PLAYER_ID):
 		actor.carried = {"type": "dough" if pick.stage == ProductionJob.CARRIED_TO_OVEN else "tray",
 			"job_id": pick.job_id, "recipe_id": String(pick.recipe_id)}
+		sim.tutorial.on_event(&"table_taken")
 
 
 ## Pemilih petak: taruh `qty` unit ke satu petak (GDD 7, 85).

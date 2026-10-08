@@ -71,11 +71,15 @@ func _markers_in(root: Node) -> Array[StationMarker]:
 
 func _skip_to_open() -> void:
 	PauseManager.clear_all()
-	# 1. Hari 1: lompatan terkunci sampai Gudang dibuka (GDD 88.1 hard-block).
+	# 1. Hari 1: lompatan terkunci sampai pelajaran Decoration Mode dan Gudang
+	# selesai (GDD 88.1 hard-block).
 	var t: SimulationRoot = new_sim(1504)
-	eq(t.skip_to_open_block(), &"tutorial", "day 1 waits for the storage lesson first")
+	eq(t.skip_to_open_block(), &"tutorial", "day 1 waits for the first lessons")
+	for ev: StringName in [&"decor_opened", &"furniture_placed", &"decor_closed"]:
+		t.tutorial.on_event(ev)
+	eq(t.skip_to_open_block(), &"tutorial", "after Decoration Mode it still waits for Storage")
 	t.tutorial.on_event(&"storage_opened")
-	eq(t.skip_to_open_block(), &"", "after the first lesson the skip is allowed")
+	eq(t.skip_to_open_block(), &"", "after the first lessons the skip is allowed")
 	free_sim(t)
 	# 2. Melompat = menunggu, hanya lebih cepat: tick yang sama, state yang sama.
 	var a: SimulationRoot = _prep_with_baker(1505)

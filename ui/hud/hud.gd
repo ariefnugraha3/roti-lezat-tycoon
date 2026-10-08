@@ -16,6 +16,9 @@ var _root: Control = null
 var _kr: Label = null
 var _rating: Label = null
 var _stars: Label = null
+## Chip rating toko dan RotiFood Stars (disorot tur pembukaan tutorial, GDD 88.1).
+var _rating_chip: PanelContainer = null
+var _stars_chip: PanelContainer = null
 var _clock: Label = null
 var _day: Label = null
 var _phase: Label = null
@@ -69,6 +72,12 @@ var _alerts_box: VBoxContainer = null
 var _floor_box: HBoxContainer = null
 var _hint: PanelContainer = null
 var _hint_label: Label = null
+var _hint_ok: Button = null
+## Ubin Decoration Mode di Quick Menu (disorot langkah pertama tutorial Hari 1).
+var _decor_btn: Button = null
+## Ubin Staff Management dan Marketing (disorot tutorial setelah toko tutup).
+var _staff_tile: Button = null
+var _ads_tile: Button = null
 var _toasts: VBoxContainer = null
 var _caption: Label = null
 var _after_hours: HBoxContainer = null
@@ -110,6 +119,7 @@ func _ready() -> void:
 	_build_after_hours(frame)
 	_quick.resized.connect(_place_above_quick)
 	_clock_panel.resized.connect(_place_above_quick)
+	_after_hours.resized.connect(_place_above_quick)
 	_place_above_quick()
 	EventBus.notify.connect(_on_notify)
 	EventBus.feedback.connect(_on_feedback)
@@ -159,12 +169,16 @@ func _build_top_left(frame: Control) -> void:
 	r2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(r2)
 	var rs: PanelContainer = ProceduralUIFactory.chip("star", Palette.GOLD_STAR, "", 18, 26)
+	rs.name = "StoreRating"
 	rs.tooltip_text = Tx.t("ui_summary_store_rating")
 	_rating = rs.get_meta("value")
+	_rating_chip = rs
 	r2.add_child(rs)
 	var rf: PanelContainer = ProceduralUIFactory.chip("scooter", Palette.OJOL_GREEN, "", 18, 26)
+	rf.name = "RotiFoodRating"
 	rf.tooltip_text = Tx.t("ui_summary_rotifood_rating")
 	_stars = rf.get_meta("value")
+	_stars_chip = rf
 	r2.add_child(rf)
 	_solo = ProceduralUIFactory.label(Tx.t("ui_hud_solo"), 14, Palette.DANGER)
 	_solo.visible = false
@@ -327,8 +341,13 @@ func _place_above_quick() -> void:
 	_rf_panel.offset_bottom = top
 	_rf_panel.offset_top = top
 	var bottom_h: float = maxf(_quick.size.y, _clock_panel.size.y)
-	_hint.offset_bottom = -(bottom_h + PANEL_GAP)
 	_after_hours.offset_bottom = -(bottom_h + 12.0)
+	# After-hours: petunjuk tutorial berdiri di atas tombol Daily Summary dan
+	# Continue, supaya keduanya tidak saling menutupi.
+	var hint_bottom: float = bottom_h + PANEL_GAP
+	if _after_hours.visible:
+		hint_bottom = bottom_h + 12.0 + _after_hours.size.y + PANEL_GAP
+	_hint.offset_bottom = -hint_bottom
 
 
 ## Kedua panel kanan selebar yang terlebar, supaya tepinya sejajar. Stok display
@@ -379,9 +398,12 @@ func _build_quick_menu(frame: Control) -> void:
 			game.modals.open(&"market")
 		else:
 			_on_notify(2, "ui_hud_market_locked", {}, &"cart"))
-	_quick_button("people", "ui_staff", func() -> void: game.modals.open(&"staff"))
-	_quick_button("megaphone", "ui_marketing", func() -> void: game.modals.open(&"marketing"))
-	_quick_button("frame", "ui_decoration", func() -> void: game.modals.open(&"decoration"))
+	_staff_tile = _quick_button("people", "ui_staff", func() -> void: game.modals.open(&"staff"))
+	_staff_tile.name = "StaffButton"
+	_ads_tile = _quick_button("megaphone", "ui_marketing", func() -> void: game.modals.open(&"marketing"))
+	_ads_tile.name = "MarketingButton"
+	_decor_btn = _quick_button("frame", "ui_decoration", func() -> void: game.modals.open(&"decoration"))
+	_decor_btn.name = "DecorationButton"
 
 
 ## Ubin Quick Menu: pil krem berbibir dengan lencana ikon berwarna dan label
@@ -508,9 +530,11 @@ func _build_hint(frame: Control) -> void:
 	_hint_label.custom_minimum_size = Vector2(420, 0)
 	row.add_child(_hint_label)
 	var ok: Button = ProceduralUIFactory.button(Tx.t("ui_tutorial_got_it"), "primary")
+	ok.name = "GotIt"
 	ok.pressed.connect(func() -> void:
 		sim.tutorial.dismiss())
 	row.add_child(ok)
+	_hint_ok = ok
 	_hint.visible = false
 	_caption = ProceduralUIFactory.label("", 14, Palette.TEXT_MUTED)
 	# Caption suara tepat di atas panel jam (kiri bawah).
@@ -613,7 +637,10 @@ func _refresh_all() -> void:
 	var camp: Dictionary = sim.marketing.active
 	_campaign.text = Tx.t("ui_hud_campaign", {"campaign": Tx.t(str(camp["campaign_id"])), "days": camp["remaining_days"]}) if not camp.is_empty() else ""
 	_market_btn.modulate = Color(1, 1, 1, 1.0 if sim.supply.market_unlocked else 0.55)
-	_after_hours.visible = sim.time.phase == TimeManager.AFTER_HOURS
+	var after_hours: bool = sim.time.phase == TimeManager.AFTER_HOURS
+	if after_hours != _after_hours.visible:
+		_after_hours.visible = after_hours
+		_place_above_quick()
 	var block: StringName = sim.skip_to_open_block()
 	_skip_btn.visible = block != &"phase" and block != &"tutorial" and not game.is_skipping_to_open()
 	# Oven menunggu diangkat: tombol tetap bisa diketuk dan menjelaskan alasannya.
@@ -762,6 +789,43 @@ func rotifood_panel() -> Control:
 	return _rf_panel
 
 
+## Baris pesanan RotiFood teratas di panel, atau null bila tidak ada pesanan.
+func first_order_row() -> Control:
+	for c: Node in _orders_box.get_children():
+		if c is Button and String(c.name).begins_with("Order"):
+			return c as Control
+	return null
+
+
+func rating_chip() -> PanelContainer:
+	return _rating_chip
+
+
+func rotifood_rating_chip() -> PanelContainer:
+	return _stars_chip
+
+
+func skip_button() -> Button:
+	return _skip_btn
+
+
+func staff_button() -> Button:
+	return _staff_tile
+
+
+func marketing_button() -> Button:
+	return _ads_tile
+
+
+## Tombol after-hours "Continue to Next Day".
+func continue_button() -> Button:
+	return _after_hours.get_node("Continue") as Button
+
+
+func after_hours_row() -> Control:
+	return _after_hours
+
+
 func stock_panel() -> Control:
 	return _stock_panel
 
@@ -866,11 +930,13 @@ const FEEDBACK_KEYS: Dictionary = {
 	&"command_queue_full": "ui_feedback_command_queue_full", &"staff_serving": "ui_feedback_staff_serving",
 	&"no_free_oven": "ui_feedback_no_free_oven", &"burnt_discarded": "ui_feedback_burnt_discarded",
 	&"command_cancelled": "ui_feedback_command_cancelled",
+	&"tutorial_wait": "ui_feedback_tutorial_wait", &"tutorial_table": "ui_feedback_tutorial_table",
 }
 const FEEDBACK_ICONS: Dictionary = {
 	&"path_blocked": "cross", &"hands_full": "bag", &"station_busy": "hourglass",
 	&"missing_ingredients": "box", &"display_full": "warning", &"nothing_to_do": "bubble",
 	&"burnt_discarded": "fire", &"command_cancelled": "cross",
+	&"tutorial_wait": "chef", &"tutorial_table": "chef",
 }
 
 
@@ -914,12 +980,37 @@ func _on_caption(key: String) -> void:
 	tw.tween_property(_caption, "modulate:a", 0.0, 0.4)
 
 
-func show_tutorial_hint(key: String, _kind: StringName, _iid: int) -> void:
+func show_tutorial_hint(key: String, kind: StringName, _iid: int) -> void:
 	if _hint == null:
 		return
 	_hint.visible = key != ""
 	if key != "":
 		_hint_label.text = Tx.t(key)
+	# Langkah terpandu Hari 1 (GDD 88.1) selesai dengan melakukan aksinya, jadi
+	# tanpa "Got it" kecuali langkah penutupnya.
+	_hint_ok.visible = bool(sim.tutorial.prompt.get("dismissable", true))
+	# Tombol HUD yang diminta langkahnya dikelilingi cincin berdenyut (GDD 27.5).
+	var pulses: Dictionary = {
+		&"decor_button": [_decor_btn, QUICK_RADIUS], &"staff_button": [_staff_tile, QUICK_RADIUS],
+		&"marketing_button": [_ads_tile, QUICK_RADIUS], &"skip_open": [_skip_btn, ProceduralUIFactory.RADIUS_PILL],
+		&"continue_button": [continue_button(), ProceduralUIFactory.RADIUS_PILL],
+	}
+	for k: Variant in pulses.keys():
+		var target: Array = pulses[k]
+		if k == kind and key != "":
+			TutorialPulse.attach(target[0], int(target[1]))
+		else:
+			TutorialPulse.detach(target[0])
+
+
+## Ubin Decoration Mode di Quick Menu (untuk tes).
+func decoration_button() -> Button:
+	return _decor_btn
+
+
+## Petunjuk tutorial yang sedang tampil (untuk tes).
+func tutorial_hint() -> PanelContainer:
+	return _hint
 
 
 func set_decoration_active(on: bool) -> void:

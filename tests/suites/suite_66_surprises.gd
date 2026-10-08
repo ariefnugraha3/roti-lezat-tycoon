@@ -262,13 +262,21 @@ func _cosmetic() -> void:
 		world._process(real_dt)
 	eq(played.size(), kinds.size(), "all eight surprises played during the morning")
 	check(a.customers.entered_today > 0, "while customers came and went (%d)" % a.customers.entered_today)
-	same_state(state_of(b), state_of(a), "the morning plays out the same with the surprises")
+	same_state(_without_tip(state_of(b)), _without_tip(state_of(a)), "the morning plays out the same with the surprises")
 	var clock: int = int(a.time.time_seconds)
 	print("      all eight surprises over by %02d:%02d, %d walk-ins so far" % [clock / 3600, (clock / 60) % 60, a.customers.entered_today])
 	world.queue_free()
 	await runner.get_tree().process_frame
 	run_day(a, bot_a)
 	run_day(b, bot_b)
-	same_state(state_of(b), state_of(a), "and so does the rest of the day")
+	same_state(_without_tip(state_of(b)), _without_tip(state_of(a)), "and so does the rest of the day")
 	free_sim(a)
 	free_sim(b)
+
+
+## Satu-satunya jejak kejutan di simulasi: catatan bahwa tip tutorial kejutan
+## sudah tampil (GDD 88.1).
+static func _without_tip(d: Dictionary) -> Dictionary:
+	var done: Array = (d.get("tutorial", {}) as Dictionary).get("done", [])
+	done.erase("tut_surprise")
+	return d

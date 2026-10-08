@@ -21,6 +21,9 @@ var decisions: int = 0
 ## pemain yang mengetuk beberapa kali per detik, bukan 20 kali.
 var think_interval: int = 5
 var _cooldown: int = 0
+## Loyang yang bot taruh di Meja Tunggu karena tutorial Hari 1 memintanya; bot
+## hanya mengambil kembali loyang ini, supaya hari-hari lain bermain sama.
+var _parked_job: int = -1
 
 
 func _init(s: SimulationRoot) -> void:
@@ -29,6 +32,15 @@ func _init(s: SimulationRoot) -> void:
 
 func think() -> void:
 	var p: PlayerTaskManager = sim.player
+	# 0. Tutorial: tip yang mem-pause game, sorotan, dan petunjuk penutup ditutup
+	# dengan "Got it" seperti pemain (GDD 88.1); petunjuk langkah lain tetap.
+	var tp: Dictionary = sim.tutorial.prompt
+	if bool(tp.get("modal", false)) or (bool(tp.get("guided", false)) and bool(tp.get("dismissable", false))):
+		sim.tutorial.dismiss()
+	# Tutorial Hari 1 (GDD 88.1): pemain mencoba Decoration Mode lebih dulu.
+	if sim.tutorial.wants_furniture_move():
+		_try_decoration()
+		return
 	# 1. Respons "modal" yang diminta lapisan tugas pemain.
 	if sim.ui_requests.recipe_book_storage >= 0:
 		_choose_recipe()
@@ -69,6 +81,12 @@ func _decide() -> void:
 				p.tap_equipment(oven.iid)
 				return
 		elif carried.stage == ProductionJob.CARRIED_TO_DISPLAY:
+			# Tutorial Hari 1: loyang kedua dicoba di Meja Tunggu (GDD 88.1).
+			var table: EquipmentInstance = sim.equipment.table_instance()
+			if not sim.tutorial.allows_tap(&"display") and table != null:
+				_parked_job = carried.job_id
+				p.tap_equipment(table.iid)
+				return
 			for e2: EquipmentInstance in sim.equipment.placed_list(&"display"):
 				if sim.display.free_units(e2.iid) > 0:
 					p.tap_equipment(e2.iid)
@@ -79,6 +97,15 @@ func _decide() -> void:
 	for j: ProductionJob in sim.production.sorted_jobs():
 		if j.is_waiting_oven_pickup() and not sim.staff.handles(j):
 			p.tap_equipment(j.oven_id)
+			return
+	# Loyang tutorial di Meja Tunggu: antar ke rak begitu ada ruang.
+	if _parked_job >= 0:
+		var parked: ProductionJob = sim.production.get_job(_parked_job)
+		var tbl: EquipmentInstance = sim.equipment.table_instance()
+		if parked == null or parked.stage != ProductionJob.TRAY_ON_TABLE:
+			_parked_job = -1
+		elif tbl != null and sim.production.table_pick() == parked:
+			p.tap_equipment(tbl.iid)
 			return
 	for j2: ProductionJob in sim.production.sorted_jobs():
 		if j2.owner_actor_id == PlayerTaskManager.PLAYER_ID and j2.stage == ProductionJob.MIX_DONE_WAITING_PICKUP:
@@ -107,6 +134,18 @@ func _decide() -> void:
 	# (GDD 21.2): jalur kedua mempercepat antrean.
 	if sim.time.is_open() and serve_customers and p.manning_lane == &"":
 		p.tap_cashier(sim.queue.main_lane().id, false)
+
+
+## Tutorial Hari 1: buka Decoration Mode, taruh satu perabot (di tempatnya
+## sendiri, jadi tata letaknya tidak berubah), lalu tutup lagi, lewat
+## peristiwa yang sama dengan UI.
+func _try_decoration() -> void:
+	sim.tutorial.on_event(&"decor_opened")
+	if sim.tutorial.guided_step != &"decor_done":
+		for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
+			sim.equipment.place(e.iid, e.floor_id, e.anchor, e.rotation)
+			break
+	sim.tutorial.on_event(&"decor_closed")
 
 
 func _serve_if_needed() -> bool:

@@ -179,6 +179,7 @@ func place(uid: int, floor_id: StringName, cell: Vector2i, slot: int, rot: int =
 	if type_of(o) == &"floor_overlay":
 		o["rot"] = r
 	sim.world.rebuild_occupancy()
+	sim.tutorial.on_event(&"furniture_placed")
 	return &""
 
 
