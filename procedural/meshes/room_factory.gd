@@ -29,6 +29,62 @@ static func wall_height(loc_tier: int) -> float:
 	return WALL_HEIGHTS[clampi(loc_tier, 1, 5) - 1]
 
 
+## Gaya interior per tier lokasi (keputusan maintainer 2026-10-08, GDD 32.3):
+## pola dan warna ubin toko dan dapur, dinding, lis bawah (wainscot) dan relnya,
+## dinding rendah, kusen, tirai, dan garis batas zona. Tier 1 tetap garasi hangat
+## berkayu pinus; tier berikutnya naik kelas mengikuti lingkungannya (GDD 32.5).
+static func interior_style(tier: int) -> Dictionary:
+	match clampi(tier, 1, 5):
+		2:
+			# Ruko: keramik putih-abu, dapur ubin mint, dinding kuning mentega.
+			return {
+				"store": {"pattern": &"checker", "a": Palette.FLOUR_WHITE.darkened(0.03), "b": Palette.HOUSE_SKY.darkened(0.04), "cell": 0.5},
+				"kitchen": {"pattern": &"checker", "a": Palette.PASTEL_MINT.darkened(0.08), "b": Palette.FLOUR_WHITE.darkened(0.03), "cell": 0.25},
+				"wall": Palette.HOUSE_BUTTER, "wainscot": Palette.FLOUR_WHITE.darkened(0.04), "wainscot_h": 0.5,
+				"rail": Palette.PASTEL_MINT.darkened(0.25), "low": Palette.HOUSE_BUTTER.darkened(0.18), "frame": Palette.FLOUR_WHITE.darkened(0.03),
+				"curtain": [Palette.PASTEL_MINT, Palette.FLOUR_WHITE], "line": Palette.PASTEL_MINT.darkened(0.25), "pillar": Palette.FLOUR_WHITE,
+			}
+		3:
+			# Bakery mandiri: lantai papan kayu oak, dapur ubin putih, dinding krem
+			# berlis kayu cokelat setinggi pinggang.
+			return {
+				"store": {"pattern": &"planks", "a": Palette.CARAMEL.lightened(0.45), "b": Palette.CARAMEL.lightened(0.36), "c": Palette.CARAMEL.lightened(0.27)},
+				"kitchen": {"pattern": &"checker", "a": Palette.FLOUR_WHITE.darkened(0.09), "b": Palette.FLOUR_WHITE.darkened(0.02), "cell": 0.25},
+				"wall": Palette.VANILLA_CREAM.lightened(0.3), "wainscot": Palette.DOOR_WOOD, "wainscot_h": 0.75,
+				"rail": Palette.CARAMEL, "low": Palette.DOOR_WOOD.darkened(0.1), "frame": Palette.DOOR_WOOD,
+				"curtain": [Palette.BUTTER_YELLOW, Palette.FLOUR_WHITE], "line": Palette.DOOR_WOOD, "pillar": Palette.VANILLA_CREAM,
+			}
+		4:
+			# Flagship: lantai marmer berlis kuningan, dapur granit, dinding sage
+			# berpanel putih.
+			return {
+				"store": {"pattern": &"marble", "a": Palette.FLOUR_WHITE.darkened(0.02), "b": Palette.VANILLA_CREAM.lightened(0.18), "cell": 1.0, "inlay": Palette.BRASS},
+				"kitchen": {"pattern": &"checker", "a": Palette.GRANITE, "b": Palette.GRANITE.darkened(0.08), "cell": 0.5},
+				"wall": Palette.SAGE_WALL, "wainscot": Palette.FLOUR_WHITE.darkened(0.03), "wainscot_h": 0.62,
+				"rail": Palette.BRASS, "low": Palette.FLOUR_WHITE.darkened(0.07), "frame": Palette.BRASS,
+				"curtain": [Palette.PASTEL_STRAWBERRY.lightened(0.2), Palette.FLOUR_WHITE], "line": Palette.BRASS, "pillar": Palette.FLOUR_WHITE,
+			}
+		5:
+			# Landmark heritage: ubin catur gelap-krem, dapur ubin terakota, dinding
+			# kolonial putih dengan wainscot hijau.
+			return {
+				"store": {"pattern": &"checker", "a": Palette.CHECKER_DARK, "b": Palette.COLONIAL_WHITE, "cell": 0.5},
+				"kitchen": {"pattern": &"checker", "a": Palette.TERRACOTTA.lightened(0.18), "b": Palette.TERRACOTTA.lightened(0.3), "cell": 0.5},
+				"wall": Palette.COLONIAL_WHITE, "wainscot": Palette.COLONIAL_GREEN, "wainscot_h": 0.9,
+				"rail": Palette.FLOUR_WHITE, "low": Palette.COLONIAL_GREEN.darkened(0.12), "frame": Palette.COLONIAL_GREEN,
+				"curtain": [Palette.COLONIAL_GREEN.lightened(0.35), Palette.FLOUR_WHITE], "line": Palette.BRASS, "pillar": Palette.COLONIAL_WHITE.darkened(0.04),
+			}
+		_:
+			# Garasi rumah: ubin terakota, dapur krem, dinding kayu pinus.
+			return {
+				"store": {"pattern": &"checker", "a": Palette.TERRACOTTA, "b": Palette.TERRACOTTA.lightened(0.12), "cell": 0.5},
+				"kitchen": {"pattern": &"checker", "a": Palette.VANILLA_CREAM, "b": Palette.FLOUR_WHITE.darkened(0.05), "cell": 0.5},
+				"wall": Palette.PINE_WOOD.lightened(0.18), "wainscot": Palette.CARAMEL, "wainscot_h": 0.32,
+				"low": Palette.PINE_WOOD.darkened(0.1), "frame": Palette.CARAMEL,
+				"curtain": [Palette.GINGHAM_A, Palette.GINGHAM_B], "line": Palette.CARAMEL, "pillar": Palette.VANILLA_CREAM,
+			}
+
+
 ## Posisi X pusat jendela di dinding belakang selebar `w` meter.
 static func back_window_xs(w: float) -> Array[float]:
 	var out: Array[float] = []
@@ -57,37 +113,49 @@ static func build_floor(loc: LocationDefinition, f: FloorDefinition, bakery_name
 	var w: float = float(f.size.x) * T
 	var d: float = float(f.size.y) * T
 	var h: float = wall_height(loc.tier)
-	_build_floor_tiles(root, f)
-	_build_walls(root, f, w, d, h, loc.tier)
+	var style: Dictionary = interior_style(loc.tier)
+	_build_floor_tiles(root, f, style)
+	_build_walls(root, f, w, d, h, loc.tier, style)
 	for c: Dictionary in f.counters:
 		_build_counter(root, loc, f, c, false, skins)
 	if not f.rotifood_counter.is_empty():
 		_build_counter(root, loc, f, f.rotifood_counter, true, skins)
 	for cell: Vector2i in f.walls:
-		_partition_block(root, cell, loc.tier)
+		_partition_block(root, cell, style)
 	if f.has_portal():
-		_build_portal(root, f, h)
+		_build_portal(root, f, h, style)
 	if not f.entrance.is_empty():
-		_build_entrance(root, f, bakery_name, h, skins)
+		_build_entrance(root, f, bakery_name, h, skins, style)
 	_lighting(root, w, d, h)
 	return root
 
 
-static func _build_floor_tiles(root: Node3D, f: FloorDefinition) -> void:
+## Ubin tiap zona menurut gaya tier: papan catur, papan kayu, atau marmer
+## berlis kuningan (interior_style).
+static func _build_floor_tiles(root: Node3D, f: FloorDefinition, style: Dictionary) -> void:
 	for z: Dictionary in f.zones:
 		var r: Rect2i = z["rect"]
-		var store: bool = z["type"] == &"store"
-		var a: Color = Palette.TERRACOTTA if store else Palette.VANILLA_CREAM
-		var b: Color = Palette.TERRACOTTA.lightened(0.12) if store else Palette.FLOUR_WHITE.darkened(0.05)
-		var plane: MeshInstance3D = EquipmentFactory._checker_plane(float(r.size.x) * T, float(r.size.y) * T, T, a, b, true)
+		var zs: Dictionary = style["store"] if z["type"] == &"store" else style["kitchen"]
+		var zw: float = float(r.size.x) * T
+		var zd: float = float(r.size.y) * T
+		var plane: MeshInstance3D
+		if zs["pattern"] == &"planks":
+			var woods: Array[Color] = [zs["a"], zs["b"], zs["c"]]
+			plane = EquipmentFactory._plank_plane(zw, zd, 0.25, 1.0, woods)
+		else:
+			plane = EquipmentFactory._checker_plane(zw, zd, float(zs.get("cell", T)), zs["a"], zs["b"], true)
 		plane.name = "Zone_%s" % z["type"]
 		root.add_child(plane)
-		plane.position = Vector3((float(r.position.x) + float(r.size.x) * 0.5) * T, 0.0, (float(r.position.y) + float(r.size.y) * 0.5) * T)
+		var cx: float = (float(r.position.x) + float(r.size.x) * 0.5) * T
+		var cz: float = (float(r.position.y) + float(r.size.y) * 0.5) * T
+		plane.position = Vector3(cx, 0.0, cz)
+		if zs["pattern"] == &"marble":
+			_inlay(root, Rect2(cx - zw * 0.5, cz - zd * 0.5, zw, zd), float(zs["cell"]), zs["inlay"])
 	# Garis batas zona toko/dapur: tipis, tetap terbaca walau garasi terbuka (GDD 6.2).
 	if f.zones.size() > 1:
 		var k: Rect2i = (f.zones[1] as Dictionary)["rect"]
 		var horizontal: bool = k.position.y > 0
-		var line := ProceduralMeshFactory.box(Vector3(float(f.size.x) * T if horizontal else 0.03, 0.006, 0.03 if horizontal else float(f.size.y) * T), Palette.CARAMEL)
+		var line := ProceduralMeshFactory.box(Vector3(float(f.size.x) * T if horizontal else 0.03, 0.006, 0.03 if horizontal else float(f.size.y) * T), style["line"])
 		line.name = "ZoneLine"
 		root.add_child(line)
 		if horizontal:
@@ -96,9 +164,26 @@ static func _build_floor_tiles(root: Node3D, f: FloorDefinition) -> void:
 			line.position = Vector3(float(k.position.x) * T, 0.004, float(f.size.y) * T * 0.5)
 
 
-static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h: float, tier: int) -> void:
-	var wall_color: Color = Palette.PINE_WOOD.lightened(0.18)
-	var trim: Color = Palette.CARAMEL
+## Garis lis kuningan di sela ubin marmer, mengikuti petak papan caturnya.
+static func _inlay(root: Node3D, rect: Rect2, cell: float, color: Color) -> void:
+	var nx: int = maxi(2, int(round(rect.size.x / cell)))
+	var nz: int = maxi(2, int(round(rect.size.y / cell)))
+	for i in range(1, nx):
+		var line := ProceduralMeshFactory.box(Vector3(0.02, 0.004, rect.size.y), color)
+		line.name = "Inlay"
+		root.add_child(line)
+		line.position = Vector3(rect.position.x + rect.size.x * float(i) / float(nx), 0.003, rect.position.y + rect.size.y * 0.5)
+	for j in range(1, nz):
+		var line2 := ProceduralMeshFactory.box(Vector3(rect.size.x, 0.004, 0.02), color)
+		line2.name = "Inlay"
+		root.add_child(line2)
+		line2.position = Vector3(rect.position.x + rect.size.x * 0.5, 0.003, rect.position.y + rect.size.y * float(j) / float(nz))
+
+
+static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h: float, tier: int, style: Dictionary) -> void:
+	var wall_color: Color = style["wall"]
+	var trim: Color = style["wainscot"]
+	var wh: float = float(style["wainscot_h"])
 	# Belakang (z = d) dan kanan (x = w): penuh.
 	var back := ProceduralMeshFactory.box(Vector3(w + WALL_THICK * 2.0, h, WALL_THICK), wall_color)
 	back.name = "WallBack"
@@ -108,33 +193,44 @@ static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h
 	right.name = "WallRight"
 	root.add_child(right)
 	right.position = Vector3(w + WALL_THICK * 0.5, h * 0.5, d * 0.5)
-	# Wainscot kayu di dasar dinding penuh.
-	var wb := ProceduralMeshFactory.box(Vector3(w, 0.32, 0.012), trim)
+	# Lis bawah (wainscot) di dasar dinding penuh, dengan rel di atasnya bila ada.
+	var wb := ProceduralMeshFactory.box(Vector3(w, wh, 0.012), trim)
+	wb.name = "Wainscot"
 	root.add_child(wb)
-	wb.position = Vector3(w * 0.5, 0.16, d - 0.006)
-	var wr := ProceduralMeshFactory.box(Vector3(0.012, 0.32, d), trim)
+	wb.position = Vector3(w * 0.5, wh * 0.5, d - 0.006)
+	var wr := ProceduralMeshFactory.box(Vector3(0.012, wh, d), trim.darkened(0.04))
+	wr.name = "Wainscot"
 	root.add_child(wr)
-	wr.position = Vector3(w - 0.006, 0.16, d * 0.5)
+	wr.position = Vector3(w - 0.006, wh * 0.5, d * 0.5)
+	if style.has("rail"):
+		var rail: Color = style["rail"]
+		var rb := ProceduralMeshFactory.box(Vector3(w, 0.035, 0.03), rail)
+		root.add_child(rb)
+		rb.position = Vector3(w * 0.5, wh, d - 0.015)
+		var rr := ProceduralMeshFactory.box(Vector3(0.03, 0.035, d), rail)
+		root.add_child(rr)
+		rr.position = Vector3(w - 0.015, wh, d * 0.5)
 	# Depan & kiri: dinding rendah, dengan celah pintu di depan.
 	var door_x0: float = INF
 	var door_x1: float = -INF
 	for c: Vector2i in f.entrance:
 		door_x0 = minf(door_x0, float(c.x) * T)
 		door_x1 = maxf(door_x1, float(c.x + 1) * T)
+	var low: Color = style["low"]
 	if door_x0 == INF:
-		_low_wall(root, "WallFront", Vector3(w * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w, LOW_WALL, WALL_THICK))
+		_low_wall(root, "WallFront", Vector3(w * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w, LOW_WALL, WALL_THICK), low)
 	else:
 		if door_x0 > 0.01:
-			_low_wall(root, "WallFrontL", Vector3(door_x0 * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(door_x0, LOW_WALL, WALL_THICK))
+			_low_wall(root, "WallFrontL", Vector3(door_x0 * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(door_x0, LOW_WALL, WALL_THICK), low)
 		if door_x1 < w - 0.01:
-			_low_wall(root, "WallFrontR", Vector3((door_x1 + w) * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w - door_x1, LOW_WALL, WALL_THICK))
-	_low_wall(root, "WallLeft", Vector3(-WALL_THICK * 0.5, 0.0, d * 0.5), Vector3(WALL_THICK, LOW_WALL, d))
-	# Jendela bertirai gingham dan jam dinding (GDD 4.1 Cozy).
+			_low_wall(root, "WallFrontR", Vector3((door_x1 + w) * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w - door_x1, LOW_WALL, WALL_THICK), low)
+	_low_wall(root, "WallLeft", Vector3(-WALL_THICK * 0.5, 0.0, d * 0.5), Vector3(WALL_THICK, LOW_WALL, d), low)
+	# Jendela bertirai dan jam dinding (GDD 4.1 Cozy); kusen dan tirai mengikuti tier.
 	for x: float in back_window_xs(w):
-		_window(root, Vector3(x, h * WINDOW_HEIGHT_RATIO, d - 0.01), 0.0)
+		_window(root, Vector3(x, h * WINDOW_HEIGHT_RATIO, d - 0.01), 0.0, style)
 	# Muka jendela (-Z lokal) menghadap ke dalam ruangan: yaw +90 di dinding kanan.
 	for z: float in side_window_zs(d):
-		_window(root, Vector3(w - 0.01, h * WINDOW_HEIGHT_RATIO, z), 90.0)
+		_window(root, Vector3(w - 0.01, h * WINDOW_HEIGHT_RATIO, z), 90.0, style)
 	# Model jam menghadap +Z lokal; diputar 180 supaya mukanya menghadap ruangan.
 	var clock := EquipmentFactory._wall_clock(root, Vector3(w * 0.5, h * 0.86, d - 0.02))
 	if clock != null:
@@ -143,25 +239,25 @@ static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h
 	if tier >= 4:
 		# Flagship & Landmark: pilar penanda di sudut.
 		for p: Vector2 in [Vector2(0.0, d), Vector2(w, d)]:
-			var pil := ProceduralMeshFactory.cylinder(h, 0.08, 0.09, Palette.VANILLA_CREAM)
+			var pil := ProceduralMeshFactory.cylinder(h, 0.08, 0.09, style["pillar"])
 			root.add_child(pil)
 			pil.position = Vector3(p.x, h * 0.5, p.y)
 
 
-static func _low_wall(root: Node3D, node_name: String, center: Vector3, size: Vector3) -> void:
-	var m := ProceduralMeshFactory.box(size, Palette.PINE_WOOD.darkened(0.1))
+static func _low_wall(root: Node3D, node_name: String, center: Vector3, size: Vector3, color: Color) -> void:
+	var m := ProceduralMeshFactory.box(size, color)
 	m.name = node_name
 	root.add_child(m)
 	m.position = Vector3(center.x, size.y * 0.5, center.z)
 
 
-static func _window(root: Node3D, pos: Vector3, yaw: float) -> void:
+static func _window(root: Node3D, pos: Vector3, yaw: float, style: Dictionary) -> void:
 	var win := Node3D.new()
 	win.name = "Window"
 	root.add_child(win)
 	win.position = pos
 	win.rotation_degrees = Vector3(0.0, yaw, 0.0)
-	var frame := ProceduralMeshFactory.box(Vector3(WINDOW_WIDTH, 0.62, 0.04), Palette.CARAMEL)
+	var frame := ProceduralMeshFactory.box(Vector3(WINDOW_WIDTH, 0.62, 0.04), style["frame"])
 	win.add_child(frame)
 	var glass := ProceduralMeshFactory.box(Vector3(0.66, 0.50, 0.02), Palette.GOLDEN_HOUR)
 	var gm: StandardMaterial3D = ProceduralMeshFactory.material_of(glass)
@@ -174,17 +270,17 @@ static func _window(root: Node3D, pos: Vector3, yaw: float) -> void:
 	win.add_child(glass)
 	glass.position = Vector3(0.0, 0.0, -0.012)
 	for s: float in [-1.0, 1.0]:
-		var curtain := EquipmentFactory._checker_plane(0.18, 0.54, 0.06, Palette.GINGHAM_A, Palette.GINGHAM_B, false)
+		var curtain := EquipmentFactory._checker_plane(0.18, 0.54, 0.06, style["curtain"][0], style["curtain"][1], false)
 		win.add_child(curtain)
 		curtain.position = Vector3(s * 0.30, 0.0, -0.03)
 
 
-static func _partition_block(root: Node3D, cell: Vector2i, tier: int) -> void:
-	var m := ProceduralMeshFactory.box(Vector3(T, PARTITION_H, T * 0.5), Palette.PINE_WOOD if tier < 5 else Palette.VANILLA_CREAM)
+static func _partition_block(root: Node3D, cell: Vector2i, style: Dictionary) -> void:
+	var m := ProceduralMeshFactory.box(Vector3(T, PARTITION_H, T * 0.5), style["low"])
 	m.name = "Partition"
 	root.add_child(m)
 	m.position = GridMath.cell_center3(cell, PARTITION_H * 0.5)
-	var top := ProceduralMeshFactory.box(Vector3(T, 0.04, T * 0.6), Palette.CARAMEL)
+	var top := ProceduralMeshFactory.box(Vector3(T, 0.04, T * 0.6), style["line"])
 	root.add_child(top)
 	top.position = GridMath.cell_center3(cell, PARTITION_H + 0.02)
 
@@ -261,7 +357,7 @@ static func _star_trim(node: Node3D) -> void:
 
 
 ## Pintu tangga (GDD 60, 68): bingkai pintu dengan anak tangga mungil di baliknya.
-static func _build_portal(root: Node3D, f: FloorDefinition, h: float) -> void:
+static func _build_portal(root: Node3D, f: FloorDefinition, h: float, style: Dictionary) -> void:
 	var cell: Vector2i = f.portal["cell"]
 	var access: Vector2i = f.portal["access"]
 	var portal := Node3D.new()
@@ -272,10 +368,10 @@ static func _build_portal(root: Node3D, f: FloorDefinition, h: float) -> void:
 	portal.rotation.y = atan2(to.x, to.y)
 	var door_h: float = minf(1.35, h * 0.72)
 	for s: float in [-1.0, 1.0]:
-		var post := ProceduralMeshFactory.box(Vector3(0.06, door_h, 0.08), Palette.CARAMEL)
+		var post := ProceduralMeshFactory.box(Vector3(0.06, door_h, 0.08), style["frame"])
 		portal.add_child(post)
 		post.position = Vector3(s * 0.21, door_h * 0.5, 0.0)
-	var lintel := ProceduralMeshFactory.box(Vector3(0.48, 0.07, 0.09), Palette.CARAMEL)
+	var lintel := ProceduralMeshFactory.box(Vector3(0.48, 0.07, 0.09), style["frame"])
 	portal.add_child(lintel)
 	lintel.position = Vector3(0.0, door_h, 0.0)
 	var dark := ProceduralMeshFactory.box(Vector3(0.38, door_h - 0.04, 0.02), Palette.DARK_CHOCOLATE)
@@ -295,7 +391,7 @@ static func _build_portal(root: Node3D, f: FloorDefinition, h: float) -> void:
 	arrow.position = Vector3(0.0, door_h + 0.2, 0.0)
 
 
-static func _build_entrance(root: Node3D, f: FloorDefinition, bakery_name: String, h: float, skins: Dictionary) -> void:
+static func _build_entrance(root: Node3D, f: FloorDefinition, bakery_name: String, h: float, skins: Dictionary, style: Dictionary) -> void:
 	var x0: float = INF
 	var x1: float = -INF
 	for c: Vector2i in f.entrance:
@@ -307,7 +403,7 @@ static func _build_entrance(root: Node3D, f: FloorDefinition, bakery_name: Strin
 	root.add_child(mat_node)
 	mat_node.position = Vector3(mid, 0.006, 0.22)
 	for s: float in [x0, x1]:
-		var post := ProceduralMeshFactory.box(Vector3(0.07, 0.9, 0.08), Palette.CARAMEL)
+		var post := ProceduralMeshFactory.box(Vector3(0.07, 0.9, 0.08), style["frame"])
 		root.add_child(post)
 		post.position = Vector3(s, 0.45, -WALL_THICK * 0.5)
 	var sign := Node3D.new()

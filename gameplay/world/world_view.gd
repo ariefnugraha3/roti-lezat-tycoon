@@ -295,7 +295,7 @@ func _equipment_model(e: EquipmentInstance) -> Node3D:
 		&"display":
 			node = EquipmentFactory.build_display(def.tier)
 		&"table":
-			node = EquipmentFactory.build_holding_table()
+			node = EquipmentFactory.build_holding_table(sim.world.location.tier)
 		&"chair":
 			node = EquipmentFactory.build_staff_chair()
 		_:

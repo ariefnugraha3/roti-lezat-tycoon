@@ -309,6 +309,16 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   placed copies share meshes), swings the pendulums, makes decorations pickable, and
   shows the wall/counter slot markers the screen taps (`show_slot_markers`,
   `slot_at_screen`).
+- The room interior follows the location tier (GDD 32.3). `RoomFactory.interior_style`
+  returns the floor pattern and colours per zone (checker, staggered planks from
+  `EquipmentFactory._plank_plane`, or marble with brass `_inlay` lines), the wall,
+  wainscot, rail, low wall, frame, curtain and zone-line colours. `build_floor` passes
+  that style to the floor, wall, window, partition, portal and entrance builders.
+  `EquipmentFactory.build_divider_counter` builds a different counter body per tier
+  (`_counter_wood`, `_counter_glass`, `_counter_slats`, `_counter_marble`,
+  `_counter_heritage`) around the same register, tablet and surface anchors.
+  `build_holding_table(tier)` builds a different table per tier (`_table_*`) around
+  the same Top anchor; `WorldView._equipment_model` passes the location tier.
 - The neighbourhood outside the shop (GDD 32.5) is drawn by `NeighborhoodFactory`
   (`procedural/meshes/neighborhood_factory.gd`). It builds the Tier 1 kampung street,
   the Tier 2 shophouse street, the Tier 3 city avenue, the Tier 4 premium district

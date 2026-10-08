@@ -297,6 +297,13 @@ const STONE_LIGHT: Color = Color(0.776471, 0.760784, 0.729412)  # #C6C2BA
 const COLONIAL_WHITE: Color = Color(0.952941, 0.929412, 0.878431)  # #F3EDE0
 ## Daun jendela dan pintu kolonial.
 const COLONIAL_GREEN: Color = Color(0.305882, 0.541176, 0.415686)  # #4E8A6A
+
+
+## Interior toko per tier lokasi (GDD 32.3, keputusan maintainer 2026-10-08).
+## Dinding hijau sage Tier 4.
+const SAGE_WALL: Color = Color(0.776471, 0.831373, 0.745098)  # #C6D4BE
+## Ubin gelap papan catur heritage Tier 5.
+const CHECKER_DARK: Color = Color(0.478431, 0.454902, 0.431373)  # #7A746E
 ## Cat muka ruko: abu-abu hangat.
 const RUKO_GREY: Color = Color(0.862745, 0.843137, 0.807843)  # #DCD7CE
 ## Cat muka ruko: hijau sage.

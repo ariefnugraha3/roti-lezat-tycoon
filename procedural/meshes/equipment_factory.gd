@@ -634,14 +634,40 @@ const STORAGE_UNIT_WIDTH: float = 0.46
 ## Setiap daun pintu adalah anak Node3D yang namanya diawali "Pintu"
 ## ("Pintu", "Pintu2", "PintuLemari"). ProceduralAnimationSystem.storage_door()
 ## membuka SEMUANYA sekaligus saat pemain mengetuk gudang.
-## Meja Tunggu (GDD 5.1.3): meja kerja kayu pinus dengan taplak gingham mint
-## dan rak bawah berisi lap serta loyang cadangan. Isi meja (mangkuk adonan,
-## loyang) dipasang ShopWorld pada titik "Top" di permukaan daun meja.
-static func build_holding_table() -> Node3D:
-	var root: Node3D = _root("HoldingTable", 1)
-	var pine: Color = Palette.PINE_WOOD
-	# Daun meja rendah seukuran karakter chibi, dengan lis di bawah tepinya.
+## Meja Tunggu (GDD 5.1.3), bentuk dan warnanya mengikuti tier lokasi (GDD 32.3):
+##   1  meja kayu pinus bertaplak gingham mint dengan rak bawah berisi lap
+##   2  meja kerja stainless dengan rak bawah, krat biru, dan loyang
+##   3  meja kayu tebal (butcher block) berlaci dengan karung tepung di rak bawah
+##   4  meja marmer berkaki kuningan dengan kotak kue berpita di rak bawah
+##   5  meja industri stainless bertingkat dua dengan roda dan loyang bertumpuk
+## Permukaan daun meja selalu di y yang sama, jadi isi meja (mangkuk adonan,
+## loyang) yang dipasang pada titik "Top" duduk rapi di semua tier.
+static func build_holding_table(tier: int = 1) -> Node3D:
+	var t: int = clampi(tier, 1, 5)
+	var root: Node3D = _root("HoldingTable", t)
 	var top_y: float = 0.575
+	match t:
+		2:
+			_table_steel(root, top_y)
+		3:
+			_table_block(root, top_y)
+		4:
+			_table_marble(root, top_y)
+		5:
+			_table_industrial(root, top_y)
+		_:
+			_table_pine(root, top_y)
+	var top := Node3D.new()
+	top.name = "Top"
+	top.position = Vector3(0.0, top_y + 0.031, 0.0)
+	root.add_child(top)
+	return root
+
+
+## Tier 1: meja kayu pinus dengan taplak gingham mint dan rak bawah berisi lap
+## serta loyang cadangan.
+static func _table_pine(root: Node3D, top_y: float) -> void:
+	var pine: Color = Palette.PINE_WOOD
 	_slab(root, Vector3(0.96, 0.05, 0.46), 0.012, pine.lightened(0.08), Vector3(0.0, top_y, 0.0))
 	_box(root, Vector3(0.88, 0.06, 0.40), pine.darkened(0.10), Vector3(0.0, top_y - 0.05, 0.0))
 	for sx: float in [-1.0, 1.0]:
@@ -656,11 +682,74 @@ static func build_holding_table() -> Node3D:
 	_box(root, Vector3(0.97, 0.006, 0.22), Palette.PASTEL_MINT, Vector3(0.0, runner_y, 0.0))
 	for i in 5:
 		_box(root, Vector3(0.020, 0.007, 0.22), Palette.FLOUR_WHITE, Vector3(-0.40 + 0.20 * float(i), runner_y + 0.001, 0.0))
-	var top := Node3D.new()
-	top.name = "Top"
-	top.position = Vector3(0.0, top_y + 0.031, 0.0)
-	root.add_child(top)
-	return root
+
+
+## Tier 2: meja kerja stainless khas dapur ruko, kaki pipa, rak bawah dengan krat
+## plastik biru dan tumpukan loyang.
+static func _table_steel(root: Node3D, top_y: float) -> void:
+	var surf: float = top_y + 0.025
+	_slab(root, Vector3(0.96, 0.04, 0.46), 0.008, METAL_CHROME, Vector3(0.0, surf - 0.02, 0.0))
+	_box(root, Vector3(0.96, 0.05, 0.012), METAL_CHROME.darkened(0.12), Vector3(0.0, surf - 0.045, 0.226))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_cyl(root, surf - 0.04, 0.018, 0.018, METAL_STEEL, Vector3(sx * 0.43, (surf - 0.04) * 0.5, sz * 0.19))
+	_box(root, Vector3(0.88, 0.02, 0.40), METAL_CHROME.darkened(0.1), Vector3(0.0, 0.13, 0.0))
+	_slab(root, Vector3(0.30, 0.14, 0.26), 0.012, Palette.SIGN_BLUE, Vector3(-0.22, 0.21, 0.0))
+	for i in 3:
+		_box(root, Vector3(0.30, 0.012, 0.24), METAL_STEEL, Vector3(0.22, 0.146 + 0.016 * float(i), 0.0))
+
+
+## Tier 3: meja kayu tebal (butcher block) bergaris serat, kaki kayu cokelat,
+## laci bergagang kuningan, dan rak bawah dengan karung tepung serta penggiling.
+static func _table_block(root: Node3D, top_y: float) -> void:
+	var surf: float = top_y + 0.025
+	var wood: Color = Palette.DOOR_WOOD
+	_slab(root, Vector3(0.96, 0.08, 0.46), 0.012, Palette.PINE_WOOD.lightened(0.1), Vector3(0.0, surf - 0.04, 0.0))
+	for i in 8:
+		_box(root, Vector3(0.11, 0.07, 0.006), Palette.PINE_WOOD.darkened(0.04 if i % 2 == 0 else 0.13), Vector3(-0.42 + 0.12 * float(i), surf - 0.04, 0.231))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_box(root, Vector3(0.07, surf - 0.08, 0.07), wood, Vector3(sx * 0.41, (surf - 0.08) * 0.5, sz * 0.17))
+	_box(root, Vector3(0.40, 0.08, 0.02), wood.lightened(0.12), Vector3(0.0, surf - 0.13, 0.205))
+	_sph(root, 0.016, Palette.BRASS, Vector3(0.0, surf - 0.13, 0.22))
+	_slab(root, Vector3(0.86, 0.03, 0.36), 0.008, wood.darkened(0.08), Vector3(0.0, 0.11, 0.0))
+	_slab(root, Vector3(0.26, 0.17, 0.2), 0.06, Palette.FLOUR_WHITE.darkened(0.05), Vector3(-0.2, 0.21, 0.0))
+	_cyl(root, 0.34, 0.025, 0.025, Palette.PINE_WOOD.lightened(0.15), Vector3(0.2, 0.15, 0.0), Vector3(0.0, 0.0, 90.0))
+
+
+## Tier 4: meja marmer putih berlis kuningan di atas kaki kuningan ramping dengan
+## palang H, dan rak bawah berisi dua kotak kue berpita merah muda.
+static func _table_marble(root: Node3D, top_y: float) -> void:
+	var surf: float = top_y + 0.025
+	var marble: Color = Palette.FLOUR_WHITE.darkened(0.02)
+	_slab(root, Vector3(0.96, 0.045, 0.46), 0.01, marble, Vector3(0.0, surf - 0.0225, 0.0))
+	_box(root, Vector3(0.97, 0.012, 0.47), Palette.BRASS, Vector3(0.0, surf - 0.05, 0.0))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_cyl(root, surf - 0.055, 0.014, 0.018, Palette.BRASS, Vector3(sx * 0.42, (surf - 0.055) * 0.5, sz * 0.18))
+	for sx2: float in [-1.0, 1.0]:
+		_box(root, Vector3(0.016, 0.016, 0.36), Palette.BRASS, Vector3(sx2 * 0.42, 0.16, 0.0))
+	_box(root, Vector3(0.84, 0.016, 0.016), Palette.BRASS, Vector3(0.0, 0.16, 0.0))
+	_slab(root, Vector3(0.80, 0.02, 0.32), 0.006, marble.darkened(0.05), Vector3(0.0, 0.18, 0.0))
+	for bx: float in [-0.2, 0.18]:
+		_box(root, Vector3(0.24, 0.12, 0.2), Palette.FLOUR_WHITE, Vector3(bx, 0.25, 0.0))
+		_box(root, Vector3(0.245, 0.122, 0.03), Palette.ROSY_CHEEK, Vector3(bx, 0.25, 0.0))
+
+
+## Tier 5: meja industri stainless bertingkat dua dengan kaki tabung, roda, bibir
+## belakang, dan loyang bertumpuk di kedua rak bawahnya.
+static func _table_industrial(root: Node3D, top_y: float) -> void:
+	var surf: float = top_y + 0.025
+	_slab(root, Vector3(0.97, 0.04, 0.47), 0.006, METAL_CHROME, Vector3(0.0, surf - 0.02, 0.0))
+	_box(root, Vector3(0.97, 0.07, 0.02), METAL_CHROME.darkened(0.06), Vector3(0.0, surf + 0.035, -0.225))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_box(root, Vector3(0.04, surf - 0.1, 0.04), METAL_STEEL, Vector3(sx * 0.44, 0.06 + (surf - 0.1) * 0.5, sz * 0.2))
+			_cyl(root, 0.03, 0.035, 0.035, RUBBER_DARK, Vector3(sx * 0.44, 0.035, sz * 0.2), Vector3(90.0, 0.0, 0.0))
+	for sy: float in [0.13, 0.33]:
+		_box(root, Vector3(0.90, 0.018, 0.42), METAL_CHROME.darkened(0.08), Vector3(0.0, sy, 0.0))
+		for i in 3:
+			_box(root, Vector3(0.36, 0.012, 0.3), METAL_STEEL.lightened(0.05 * float(i)), Vector3(-0.2 + 0.4 * float(i % 2), sy + 0.016 + 0.014 * float(i), 0.0))
 
 
 ## Tinggi permukaan bantal kursi koki (sebelum skala footprint), meter.
@@ -1108,49 +1197,21 @@ static func build_divider_counter(tier: int, span: float, registers: int) -> Nod
 	var root: Node3D = _root("DividerCounter", t)
 
 	var sp: float = maxf(span, float(DIVIDER_MIN_TILES) * FLOOR_TILE)
-	var dep: float = DIVIDER_DEPTH
 	var h: float = DIVIDER_HEIGHT
-	var top_th: float = 0.06
-	var kick_h: float = 0.06
+	var trim: Color = counter_trim(t)
 
-	var body: Color = Palette.PINE_WOOD
-	var front: Color = Palette.PINE_WOOD.darkened(0.22)
-	var top: Color = Palette.CARAMEL
-	# Lis aksen ikut naik kelas bersama tier lokasi, sama seperti build_counter().
-	var trim_colors: Array[Color] = [
-		Palette.CARAMEL,
-		METAL_COPPER,
-		METAL_COPPER,
-		METAL_CHROME,
-		Palette.APRON_GOLD,
-	]
-	var trim: Color = trim_colors[t - 1]
-
-	# --- Badan meja ---------------------------------------------------------
-	# Alas terpendam (toe kick) supaya meja terbaca berat dan membumi.
-	_box(root, Vector3(sp - 0.12, kick_h, dep - 0.10), body.darkened(0.38), Vector3(0.0, kick_h * 0.5, 0.0))
-	var body_h: float = h - top_th - kick_h
-	_slab(root, Vector3(sp, body_h, dep), 0.035, body, Vector3(0.0, kick_h + body_h * 0.5, 0.0))
-
-	# Panel muka pembeli (+Z): sedikit lebih gelap dan sedikit menonjol.
-	_slab(root, Vector3(sp - 0.06, body_h - 0.10, 0.030), 0.012, front, Vector3(0.0, kick_h + body_h * 0.5, dep * 0.5 + 0.008))
-	# Tiga list mendatar tipis sebagai aksen panel muka.
-	for i in 3:
-		var ly: float = kick_h + body_h * (0.24 + float(i) * 0.26)
-		_box(root, Vector3(sp - 0.14, 0.018, 0.012), trim, Vector3(0.0, ly, dep * 0.5 + 0.026))
-
-	# --- Papan atas ---------------------------------------------------------
-	# Papan karamel menonjol DIVIDER_TOP_OVERHANG di tiap sisi, sudut tumpul
-	# lewat rounded_slab() supaya terasa empuk (GDD 4.1), bukan kotak tajam.
-	var over: float = DIVIDER_TOP_OVERHANG
-	_slab(root, Vector3(sp + over * 2.0, top_th, dep + over * 2.0), 0.022, top, Vector3(0.0, h - top_th * 0.5, 0.0))
-	var lip_pos := Vector3(0.0, h - top_th - 0.012, dep * 0.5 + over)
-	if t <= 3:
-		_box(root, Vector3(sp + over * 2.0, 0.016, 0.014), trim, lip_pos)
-	else:
-		# Tier tinggi: garis LED pastel di bawah bibir meja (senada build_counter).
-		var led: MeshInstance3D = _box(root, Vector3(sp + over * 2.0, 0.016, 0.014), Palette.PASTEL_PERIWINKLE, lip_pos)
-		_set_glow(led, Palette.PASTEL_PERIWINKLE, 0.65)
+	# --- Badan meja: bentuk dan warnanya mengikuti tier (GDD 32.3) -----------
+	match t:
+		2:
+			_counter_glass(root, sp, trim)
+		3:
+			_counter_slats(root, sp, trim)
+		4:
+			_counter_marble(root, sp, trim)
+		5:
+			_counter_heritage(root, sp, trim)
+		_:
+			_counter_wood(root, sp, trim)
 
 	# --- Mesin kasir di atas meja -------------------------------------------
 	var n: int = clampi(registers, 0, MAX_REGISTERS)
@@ -1177,8 +1238,139 @@ static func build_divider_counter(tier: int, span: float, registers: int) -> Nod
 ## Mesin kasir tambahan di atas meja pembatas, pada posisi X lokal `local_x`
 ## (meja yang dipakai beberapa jalur, Tier 1-2, keputusan maintainer 2026-10-02).
 static func add_divider_register(counter: Node3D, index: int, local_x: float, tier: int) -> Node3D:
-	var trim_colors: Array[Color] = [Palette.CARAMEL, METAL_COPPER, METAL_COPPER, METAL_CHROME, Palette.APRON_GOLD]
-	return _divider_register(counter, index, Vector3(local_x, DIVIDER_HEIGHT, -0.030), trim_colors[clampi(tier, 1, 5) - 1])
+	return _divider_register(counter, index, Vector3(local_x, DIVIDER_HEIGHT, -0.030), counter_trim(tier))
+
+
+## Warna lis meja kasir dan mesin kasirnya menurut tier lokasi.
+static func counter_trim(tier: int) -> Color:
+	var trims: Array[Color] = [Palette.CARAMEL, METAL_CHROME, METAL_COPPER, Palette.BRASS, Palette.BRASS]
+	return trims[clampi(tier, 1, 5) - 1]
+
+
+## Tier 1: meja kayu pinus berpapan atas karamel dengan tiga lis mendatar di
+## muka pembeli (+Z) dan alas terpendam supaya terbaca berat dan membumi.
+static func _counter_wood(root: Node3D, sp: float, trim: Color) -> void:
+	var dep: float = DIVIDER_DEPTH
+	var h: float = DIVIDER_HEIGHT
+	var top_th: float = 0.06
+	var kick_h: float = 0.06
+	var body: Color = Palette.PINE_WOOD
+	_box(root, Vector3(sp - 0.12, kick_h, dep - 0.10), body.darkened(0.38), Vector3(0.0, kick_h * 0.5, 0.0))
+	var body_h: float = h - top_th - kick_h
+	_slab(root, Vector3(sp, body_h, dep), 0.035, body, Vector3(0.0, kick_h + body_h * 0.5, 0.0))
+	_slab(root, Vector3(sp - 0.06, body_h - 0.10, 0.030), 0.012, body.darkened(0.22), Vector3(0.0, kick_h + body_h * 0.5, dep * 0.5 + 0.008))
+	for i in 3:
+		var ly: float = kick_h + body_h * (0.24 + float(i) * 0.26)
+		_box(root, Vector3(sp - 0.14, 0.018, 0.012), trim, Vector3(0.0, ly, dep * 0.5 + 0.026))
+	var over: float = DIVIDER_TOP_OVERHANG
+	_slab(root, Vector3(sp + over * 2.0, top_th, dep + over * 2.0), 0.022, Palette.CARAMEL, Vector3(0.0, h - top_th * 0.5, 0.0))
+	_box(root, Vector3(sp + over * 2.0, 0.016, 0.014), trim, Vector3(0.0, h - top_th - 0.012, dep * 0.5 + over))
+
+
+## Tier 2: etalase kaca khas ruko: kaki krom, badan putih, kaca muka berbingkai
+## krom dengan roti berjajar di baliknya, dan papan atas putih.
+static func _counter_glass(root: Node3D, sp: float, trim: Color) -> void:
+	var dep: float = DIVIDER_DEPTH
+	var h: float = DIVIDER_HEIGHT
+	var top_th: float = 0.04
+	var kick_h: float = 0.05
+	var white: Color = Palette.FLOUR_WHITE.darkened(0.06)
+	_box(root, Vector3(sp - 0.08, kick_h, dep - 0.08), METAL_CHROME.darkened(0.3), Vector3(0.0, kick_h * 0.5, 0.0))
+	var body_h: float = h - top_th - kick_h
+	_slab(root, Vector3(sp, body_h, dep), 0.02, white, Vector3(0.0, kick_h + body_h * 0.5, 0.0))
+	var gy0: float = kick_h + 0.07
+	var gh: float = h - top_th - gy0 - 0.02
+	var fz: float = dep * 0.5
+	_box(root, Vector3(sp - 0.06, gh, 0.012), Palette.WINDOW_GLASS.lightened(0.22), Vector3(0.0, gy0 + gh * 0.5, fz + 0.006))
+	var loaves: int = maxi(2, int((sp - 0.16) / 0.2))
+	for i in loaves:
+		var lx: float = -(sp - 0.16) * 0.5 + (sp - 0.16) * (float(i) + 0.5) / float(loaves)
+		var loaf: MeshInstance3D = _sph(root, 0.05, Palette.GOLDEN_CRUST if i % 2 == 0 else Palette.CUSTARD, Vector3(lx, gy0 + 0.05, fz + 0.016))
+		loaf.scale = Vector3(1.4, 0.75, 0.45)
+	for yy: float in [gy0, gy0 + gh]:
+		_box(root, Vector3(sp - 0.04, 0.016, 0.02), trim, Vector3(0.0, yy, fz + 0.012))
+	var posts: int = maxi(1, int(sp / 0.55))
+	for j in posts + 1:
+		var px: float = -(sp - 0.05) * 0.5 + (sp - 0.05) * float(j) / float(posts)
+		_box(root, Vector3(0.016, gh, 0.02), trim, Vector3(px, gy0 + gh * 0.5, fz + 0.012))
+	var over: float = DIVIDER_TOP_OVERHANG
+	_slab(root, Vector3(sp + over * 2.0, top_th, dep + over * 2.0), 0.012, Palette.FLOUR_WHITE.darkened(0.02), Vector3(0.0, h - top_th * 0.5, 0.0))
+	_box(root, Vector3(sp + over * 2.0, 0.014, 0.014), trim, Vector3(0.0, h - top_th - 0.01, dep * 0.5 + over))
+
+
+## Tier 3: meja kayu cokelat bermuka bilah-bilah kayu terang dan papan atas marmer
+## putih yang tebal dan menonjol, berlis tembaga.
+static func _counter_slats(root: Node3D, sp: float, trim: Color) -> void:
+	var dep: float = DIVIDER_DEPTH
+	var h: float = DIVIDER_HEIGHT
+	var top_th: float = 0.07
+	var kick_h: float = 0.05
+	var wood: Color = Palette.DOOR_WOOD
+	_box(root, Vector3(sp - 0.1, kick_h, dep - 0.1), wood.darkened(0.35), Vector3(0.0, kick_h * 0.5, 0.0))
+	var body_h: float = h - top_th - kick_h
+	_slab(root, Vector3(sp, body_h, dep), 0.02, wood, Vector3(0.0, kick_h + body_h * 0.5, 0.0))
+	var inner: float = sp - 0.08
+	var n: int = maxi(4, int(inner / 0.07))
+	for i in n:
+		var sx: float = -inner * 0.5 + inner * (float(i) + 0.5) / float(n)
+		_box(root, Vector3(inner / float(n) - 0.02, body_h - 0.04, 0.018), Palette.PINE_WOOD.darkened(0.04 if i % 2 == 0 else 0.12), Vector3(sx, kick_h + body_h * 0.5, dep * 0.5 + 0.009))
+	var over: float = 0.05
+	_slab(root, Vector3(sp + over * 2.0, top_th, dep + over * 2.0), 0.02, Palette.FLOUR_WHITE.darkened(0.03), Vector3(0.0, h - top_th * 0.5, 0.0))
+	_box(root, Vector3(sp + over * 2.0, 0.014, 0.012), trim, Vector3(0.0, h - top_th - 0.008, dep * 0.5 + over - 0.004))
+
+
+## Tier 4: meja marmer "waterfall" (papan atas turun di kedua ujung), muka beralur
+## halus, alas kuningan, dan garis LED pastel di bawah bibir.
+static func _counter_marble(root: Node3D, sp: float, trim: Color) -> void:
+	var dep: float = DIVIDER_DEPTH
+	var h: float = DIVIDER_HEIGHT
+	var top_th: float = 0.05
+	var kick_h: float = 0.05
+	var marble: Color = Palette.FLOUR_WHITE.darkened(0.02)
+	_box(root, Vector3(sp - 0.06, kick_h, dep - 0.06), trim.darkened(0.12), Vector3(0.0, kick_h * 0.5, 0.0))
+	var body_h: float = h - top_th - kick_h
+	_slab(root, Vector3(sp, body_h, dep), 0.015, marble.darkened(0.03), Vector3(0.0, kick_h + body_h * 0.5, 0.0))
+	var inner: float = sp - 0.06
+	var n: int = maxi(6, int(inner / 0.045))
+	for i in n:
+		var fx: float = -inner * 0.5 + inner * (float(i) + 0.5) / float(n)
+		_box(root, Vector3(inner / float(n) - 0.012, body_h - 0.03, 0.014), marble.darkened(0.05 if i % 2 == 0 else 0.1), Vector3(fx, kick_h + body_h * 0.5, dep * 0.5 + 0.007))
+	var over: float = 0.04
+	_slab(root, Vector3(sp + 0.1, top_th, dep + over * 2.0), 0.008, marble, Vector3(0.0, h - top_th * 0.5, 0.0))
+	for sx: float in [-1.0, 1.0]:
+		_box(root, Vector3(0.05, h, dep + over * 2.0), marble, Vector3(sx * (sp * 0.5 + 0.025), h * 0.5, 0.0))
+	var led: MeshInstance3D = _box(root, Vector3(sp, 0.016, 0.014), Palette.PASTEL_PERIWINKLE, Vector3(0.0, h - top_th - 0.012, dep * 0.5 + over))
+	_set_glow(led, Palette.PASTEL_PERIWINKLE, 0.65)
+
+
+## Tier 5: meja kasir heritage dari kayu gelap berpanel timbul dan bertiang, papan
+## atas marmer hijau tua berlis kuningan, dan rel kaki kuningan di sisi pembeli.
+static func _counter_heritage(root: Node3D, sp: float, trim: Color) -> void:
+	var dep: float = DIVIDER_DEPTH
+	var h: float = DIVIDER_HEIGHT
+	var top_th: float = 0.06
+	var kick_h: float = 0.07
+	var wood: Color = Palette.DARK_CHOCOLATE.lightened(0.12)
+	_box(root, Vector3(sp, kick_h, dep + 0.02), wood.darkened(0.25), Vector3(0.0, kick_h * 0.5, 0.0))
+	var body_h: float = h - top_th - kick_h
+	_slab(root, Vector3(sp, body_h, dep), 0.02, wood, Vector3(0.0, kick_h + body_h * 0.5, 0.0))
+	var panels: int = maxi(2, int(sp / 0.42))
+	var pw: float = (sp - 0.06) / float(panels)
+	var py: float = kick_h + body_h * 0.5
+	for i in panels:
+		var px: float = -(sp - 0.06) * 0.5 + pw * (float(i) + 0.5)
+		_box(root, Vector3(pw - 0.06, body_h - 0.08, 0.02), wood.lightened(0.12), Vector3(px, py, dep * 0.5 + 0.01))
+		_box(root, Vector3(pw - 0.14, body_h - 0.16, 0.03), wood.lightened(0.2), Vector3(px, py, dep * 0.5 + 0.015))
+	for j in panels + 1:
+		var qx: float = -(sp - 0.06) * 0.5 + pw * float(j)
+		_box(root, Vector3(0.03, body_h, 0.035), wood.darkened(0.1), Vector3(qx, py, dep * 0.5 + 0.017))
+	var over: float = DIVIDER_TOP_OVERHANG
+	_slab(root, Vector3(sp + over * 2.0, top_th, dep + over * 2.0), 0.018, Palette.COLONIAL_GREEN.darkened(0.3), Vector3(0.0, h - top_th * 0.5, 0.0))
+	_box(root, Vector3(sp + over * 2.0, 0.016, 0.014), trim, Vector3(0.0, h - top_th - 0.012, dep * 0.5 + over))
+	_cyl(root, sp - 0.1, 0.016, 0.016, trim, Vector3(0.0, 0.14, dep * 0.5 + 0.08), Vector3(0.0, 0.0, 90.0))
+	for k in 3:
+		var bx: float = -(sp - 0.3) * 0.5 + (sp - 0.3) * float(k) / 2.0
+		_box(root, Vector3(0.02, 0.02, 0.07), trim, Vector3(bx, 0.14, dep * 0.5 + 0.045))
 
 
 static func _divider_register(parent: Node3D, index: int, pos: Vector3, trim: Color) -> Node3D:
@@ -2066,6 +2258,43 @@ static func _checker_plane(width: float, height: float, cell_target: float, colo
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.name = "Checker"
+	return mi
+
+
+## Lantai papan kayu: bilah selebar `plank` memanjang Z dengan sambungan
+## berselang setiap `length`, warna kayu bergantian dari `colors`. Materialnya
+## sama dengan papan catur (dua sisi), jadi tidak ada kombinasi shader baru.
+static func _plank_plane(width: float, depth: float, plank: float, length: float, colors: Array[Color]) -> MeshInstance3D:
+	var cols: int = maxi(1, int(round(width / plank)))
+	var pw: float = width / float(cols)
+	var mesh := ArrayMesh.new()
+	for pass_idx in colors.size():
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var emitted: int = 0
+		for c in cols:
+			var u0: float = -width * 0.5 + float(c) * pw
+			var u1: float = u0 + pw
+			var v: float = -depth * 0.5 - length * float((c * 2) % 3) / 3.0
+			var k: int = c
+			while v < depth * 0.5:
+				var v0: float = maxf(v, -depth * 0.5)
+				var v1: float = minf(v + length, depth * 0.5)
+				if v1 > v0 + 0.001 and k % colors.size() == pass_idx:
+					emitted += 1
+					_checker_tri(st, Vector3(u0, 0.0, v0), Vector3(u0, 0.0, v1), Vector3(u1, 0.0, v1), Vector3.UP)
+					_checker_tri(st, Vector3(u0, 0.0, v0), Vector3(u1, 0.0, v1), Vector3(u1, 0.0, v0), Vector3.UP)
+				v += length
+				k += 1
+		if emitted == 0:
+			continue
+		var mat: StandardMaterial3D = ProceduralMeshFactory.material(colors[pass_idx], 0.94)
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		st.set_material(mat)
+		st.commit(mesh)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.name = "Planks"
 	return mi
 
 

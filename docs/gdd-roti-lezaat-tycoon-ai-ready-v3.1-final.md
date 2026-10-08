@@ -426,7 +426,7 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
 
 ### **5.1.3 Meja Tunggu (Holding Table) — CANONICAL**
 
-Meja kerja kayu sederhana di dapur untuk **menaruh sementara** mangkuk adonan dan loyang roti matang saat oven atau rak sedang penuh. Meja ini **bukan rak jualan**: pembeli dan pesanan RotiFood tidak pernah mengambil apa pun darinya.
+Meja kerja di dapur untuk **menaruh sementara** mangkuk adonan dan loyang roti matang saat oven atau rak sedang penuh. Meja ini **bukan rak jualan**: pembeli dan pesanan RotiFood tidak pernah mengambil apa pun darinya. Bentuk dan warnanya mengikuti tier lokasi (Seksi 32.3), tetapi permukaannya selalu setinggi yang sama.
 
 * **Sepaket bangunan**: satu meja per lokasi (`holding_table`, jejak 2 × 1 ubin, Seksi 60), gratis, tidak dijual di Pasar, dan tidak bisa disimpan (Put Away). Seperti Gudang, meja boleh digeser di Mode Dekorasi dan ikut pindah saat upgrade lokasi. New Game dan save lama (Seksi 106) menempatkannya otomatis di zona dapur.
 * **Koki hanya menaruh, tidak mengambil**: koki memarkir loyang di meja bila semua rak penuh, dan adonan bila tidak ada oven yang bisa menerimanya (Seksi 3.2, keputusan maintainer 2026-10-02). Serah terima saat staf berhenti bertugas (Seksi 87.2) juga memarkir di sini, supaya tidak ada job yatim. Mengambil barang dari meja tetap hanya pemain.
@@ -3133,9 +3133,21 @@ Upgrade tidak sekadar recolor; minimal ubah 2 dari:
 - animation complexity.
 - functional attachment.
 
+**Interior per tier lokasi** (keputusan maintainer 2026-10-08). Ubin, dinding, meja kasir, dan Meja Tunggu berbeda bentuk dan warnanya di setiap tier, mengikuti lingkungannya (Seksi 32.5). Tirai, kusen, dinding rendah, dan sekat toko/dapur ikut gaya yang sama. Tier 1 tetap seperti semula.
+
+| Tier | Ubin toko / dapur | Dinding | Meja kasir | Meja Tunggu |
+|---|---|---|---|---|
+| 1 Garasi Rumah | papan catur terakota / krem | kayu pinus, lis karamel rendah | kayu pinus berpapan atas karamel dengan tiga lis | meja kayu pinus bertaplak gingham mint |
+| 2 Ruko | keramik putih-abu / ubin kecil mint | kuning mentega, lis keramik putih dengan rel mint | etalase kaca berbingkai krom dengan roti di baliknya, papan atas putih | meja kerja stainless dengan krat biru dan loyang |
+| 3 Bakery Mandiri | papan kayu oak berselang / ubin kecil putih | krem, wainscot kayu cokelat setinggi pinggang | kayu cokelat bermuka bilah kayu terang, papan atas marmer putih | meja kayu tebal (butcher block) berlaci dengan karung tepung |
+| 4 Flagship | marmer berlis kuningan / granit | hijau sage, panel putih dengan rel kuningan | marmer "waterfall" bermuka beralur, alas kuningan, garis LED | meja marmer berkaki kuningan dengan kotak kue berpita |
+| 5 Landmark | papan catur gelap-krem heritage / ubin terakota | putih kolonial, wainscot hijau tinggi | kayu gelap berpanel timbul, papan atas marmer hijau, rel kaki kuningan | meja industri stainless bertingkat dua beroda |
+
+Semua varian memakai kombinasi shader yang sudah ada (`ACC_32_INTERIOR_TIERS`). Titik pasang perabot tetap di tempat yang sama: permukaan meja kasir, tablet, mesin kasir, dan titik "Top" Meja Tunggu. Kode: `RoomFactory.interior_style`, `EquipmentFactory.build_divider_counter`, `build_holding_table(tier)`.
+
 ## **32.4 Procedural Material Palette**
 
-Semua material mengambil warna dari centralized palette resource agar konsisten. Warna lingkungan luar toko (Seksi 32.5: aspal, beton, rumput, daun, batang, paving, keramik teras, genteng, lima cat rumah, kaca, kayu, pagar besi, kabel, toren, ban; untuk Tier 2 juga pintu gulung, bagian dalam toko, marka jalan, atap seng, lima cat ruko, dan enam warna papan nama; untuk Tier 3 juga ubin pemandu kuning; untuk Tier 4 juga granit, kuningan, bunga tabebuya, dan air kolam; untuk Tier 5 juga batu andesit, dinding kolonial, dan daun jendela hijau) juga ada di `Palette`. Warnanya sedikit diredam supaya toko tetap menjadi pusat perhatian; papan nama sedikit lebih cerah supaya terbaca sebagai pertokoan.
+Semua material mengambil warna dari centralized palette resource agar konsisten. Warna lingkungan luar toko (Seksi 32.5: aspal, beton, rumput, daun, batang, paving, keramik teras, genteng, lima cat rumah, kaca, kayu, pagar besi, kabel, toren, ban; untuk Tier 2 juga pintu gulung, bagian dalam toko, marka jalan, atap seng, lima cat ruko, dan enam warna papan nama; untuk Tier 3 juga ubin pemandu kuning; untuk Tier 4 juga granit, kuningan, bunga tabebuya, dan air kolam; untuk Tier 5 juga batu andesit, dinding kolonial, dan daun jendela hijau) juga ada di `Palette`, begitu pula warna interior baru dari Seksi 32.3 (dinding sage dan ubin gelap heritage). Warnanya sedikit diredam supaya toko tetap menjadi pusat perhatian; papan nama sedikit lebih cerah supaya terbaca sebagai pertokoan.
 
 ## **32.5 Lingkungan Luar Toko**
 
