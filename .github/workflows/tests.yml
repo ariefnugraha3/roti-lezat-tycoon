@@ -1,0 +1,65 @@
+# Jalankan compile check, semua tes kecuali soak panjang, dan release validator
+# cepat setiap kali ada push atau pull request ke main (juga bisa manual lewat
+# tab Actions > "Tes" > "Run workflow"). Soak panjang (TEST_LONGRUN_*) butuh
+# berjam-jam, jadi tetap dijalankan di mesin lokal.
+name: Tes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Push baru membatalkan tes lama di cabang yang sama.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Unduh Godot (diverifikasi SHA-512)
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          editor="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSLO "$base/$editor.zip"
+          curl -fsSLO "$base/SHA512-SUMS.txt"
+          grep -E "  $editor\.zip$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$editor.zip"
+          mv "$editor" godot
+          chmod +x godot
+
+      - name: Import
+        run: ./godot --headless --path . --import
+
+      - name: Compile check
+        run: ./godot --headless --path . res://tools/compile_check.tscn
+
+      # Runner gagal bila ada tes gagal. Peringatan kebocoran objek dicetak
+      # sesudah baris TESTS, jadi log juga diperiksa.
+      - name: Tes (tanpa soak panjang)
+        run: |
+          set -o pipefail
+          ./godot --headless --path . res://tests/test_runner.tscn -- --skip-long 2>&1 | tee tests.log
+          if grep -q "leaked at exit" tests.log; then
+            echo "::error::Objek bocor saat keluar (lihat akhir log)"
+            exit 1
+          fi
+
+      # Mode --quick melewati tes, soak, dan ekspor, sehingga gerbang rilis selalu
+      # "CLOSED"; yang dinilai di sini hanya jumlah cek yang gagal.
+      - name: Release validator (cepat)
+        run: |
+          ./godot --headless --path . res://tools/release_validator.tscn -- --quick 2>&1 | tee validator.log || true
+          grep -Eq "checks: 0 failed" validator.log

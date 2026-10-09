@@ -18,6 +18,13 @@ func tests() -> Array:
 	]
 
 
+func _tip_texts() -> Array[String]:
+	var out: Array[String] = []
+	for key: String in HelpScreen.ALL_TIPS:
+		out.append(Tx.t(key))
+	return out
+
+
 func _smoke() -> void:
 	SaveManager.dir = "user://test_saves_ui"
 	for pid: StringName in SaveManager.PROFILE_IDS:
@@ -29,6 +36,21 @@ func _smoke() -> void:
 	game.skip_splash_for_tests()
 	game.show_main_menu()
 	check(game.modals.is_open(&"main_menu"), "main menu opens")
+	# Layar yang terbuka dari Main Menu sebelum ada game: Settings > Replay
+	# tutorial membuka Help tanpa simulasi (dulu error dan daftarnya kosong).
+	for menu_id: StringName in [&"settings", &"credits", &"help"]:
+		var ms: UIScreen = game.modals.open(menu_id, {})
+		check(ms != null, "%s opens from the main menu" % menu_id)
+		await runner.get_tree().process_frame
+		if menu_id == &"help" and ms != null:
+			var tips: int = 0
+			for l: Node in ms.find_children("*", "Label", true, false):
+				if HelpScreen.ALL_TIPS.has(String((l as Label).text)) or (l as Label).text in _tip_texts():
+					tips += 1
+			eq(tips, HelpScreen.ALL_TIPS.size(), "help lists every tip when no game is loaded")
+		game.modals.close_all()
+		await runner.get_tree().process_frame
+	game.show_main_menu()
 	game.modals.open(&"profiles", {"mode": "new"})
 	await runner.get_tree().process_frame
 	game.modals.close_all()

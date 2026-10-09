@@ -338,6 +338,30 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   far enough that the locked camera always sees the whole floor on screen.
   `ACC_32_NEIGHBORHOOD_CLEAR` projects every triangle along the camera ray, for every
   floor and its drop, to prove it.
+- Outdoor life (GDD 32.6–32.10) is presentation only and reads the simulation without
+  writing to it:
+  - `Daylight` (`gameplay/world/daylight.gd`) samples warm keyframes by clock and rain.
+    `WorldView.apply_daylight` (10 times a second) sets the sun and lamp lights that
+    `RoomFactory` put on each floor, the ambient light and the background, and toggles
+    the street's `LampGlow` mesh, which `NeighborhoodFactory` builds from the lamp
+    heads it recorded, using the SHADOW material.
+  - `StreetLife` (`gameplay/world/street_life.gd`, a child of `WorldView`) runs the
+    lanes from `NeighborhoodFactory.traffic(tier)`. Vehicles are `TrafficFactory`
+    meshes (MATTE, riders included) under a `Traffic` node inside the neighbourhood, so
+    they drop with the street on upper floors. They come in four fade levels, built at
+    most one per frame and cached. Walkers are a pool of `ActorView`s that are never
+    registered with the simulation. Its own RNG is seeded from the master seed, the day
+    and the tier. It moves in real seconds, stops while paused, and its density follows
+    the quality preset (`density`, `max_walkers`).
+  - Rain: `WorldView._build_neighborhood` rebuilds the street wet
+    (`MeshBuilder.darken_ground`, puddles from `puddle_spots`) when the weather changes
+    at 05:00. `StreetLife` adds ripples, raincoats and, where `umbrella_lift` allows,
+    umbrellas.
+  - `WorldView.ambience_for(rain, tier)` adds the tier's street loop.
+    `StreetLife._chime` plays the Tier 5 clock tower once per in-game hour.
+  - `HolidayFactory` builds the holiday bunting (on the store floor node) and banners
+    (in the neighbourhood). `WorldView._apply_holiday` places them on every rebuild and
+    day change.
 - Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
   `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
   `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.
@@ -383,3 +407,14 @@ of starting a broken game.
   (`pack_seq_*.png` plus a `pack_sequence.png` strip), packing in the overview and close-up,
   a window shopper looking at the display, the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
   and trays at different freshness (with and without its marker).
+- `tools/length_probe.tscn` (headless) measures the game length (GDD 2, target about 26
+  in-game days): a bot plays a new game through the UI APIs until it owns Tier 5, Tier 5
+  equipment in every slot and every shop decoration, printing one line per day and
+  `RESULT ... goal_day=N`. Use `--seed=N --variant=typical|eager --days=N`, and run
+  several seeds in parallel.
+- `tools/ui_resolution_sweep.tscn` (windowed) opens the menu and in-game screens at the
+  GDD 110 window sizes and text scales, saves half-size PNGs to `LINEUP_OUT`, and prints
+  `SWEEP OFF` for every visible control outside the screen and `SWEEP done, N issues`
+  at the end. It uses its own save folder.
+- `.github/workflows/tests.yml` runs the compile check, the tests without the soaks
+  and the quick release validator on every push and pull request to `main`.

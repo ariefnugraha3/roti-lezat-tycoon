@@ -9,6 +9,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_88_TUTORIAL_CLOSE_STEPS", "name": "88.1 after the Day 1 summary the tutorial leads to Staff Management, then Marketing, then Continue to Next Day; each screen's tour runs only on its step; the step survives a save; the next day ends it and later closings do not repeat it", "fn": _close_steps},
 		{"id": "ACC_88_TUTORIAL_CLOSE_UI", "name": "88.1, 27.5 the Day 1 summary spotlights Manage Staff after its tip; Staff Management opens on Applicants with a four-stop tour (list, applicant, wage and room, Hire); the Marketing tile pulses and Marketing tours its first campaign, Launch and the list; then Continue to Next Day pulses, and the after-hours tip never covers the after-hours buttons", "fn": _close_ui},
+		{"id": "ACC_88_TUTORIAL_HINT_PHASE", "name": "88.1 the after-hours buttons appear the moment the shop closes, not at the next HUD refresh, so the tutorial tip moves above them at once (this race made ACC_88_TUTORIAL_CLOSE_UI fail now and then)", "fn": _hint_phase},
 	]
 
 
@@ -67,6 +68,28 @@ func _close_steps() -> void:
 # ===========================================================================
 # UI
 # ===========================================================================
+
+## Refresh HUD berkala (5 kali per detik) ditahan; hanya sinyal pergantian fase
+## yang boleh memunculkan tombol after-hours.
+func _hint_phase() -> void:
+	var game: GameRoot = await _boot("Phase Bakery")
+	var hud: HUD = game.hud
+	var sim: SimulationRoot = game.sim
+	hud.show_tutorial_hint("tut_close_summary", &"", -1)
+	await runner.get_tree().process_frame
+	check(not hud.after_hours_row().visible, "during the day the after-hours buttons are hidden")
+	hud._refresh = 1000.0
+	sim.time.set_phase(TimeManager.AFTER_HOURS)
+	check(hud.after_hours_row().visible, "closing shows the after-hours buttons at once")
+	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
+	hud._refresh = 1000.0
+	check(hud.tutorial_hint().visible, "the tip is still shown")
+	check(not hud.tutorial_hint().get_global_rect().intersects(hud.after_hours_row().get_global_rect()),
+		"two frames later the tip already stands above the after-hours buttons")
+	hud._refresh = 0.0
+	await _finish(game)
+
 
 func _boot(profile_name: String) -> GameRoot:
 	SaveManager.dir = "user://test_saves_tutorial_close"

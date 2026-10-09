@@ -17,7 +17,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_32_NEIGHBORHOOD_STREETS", "name": "32.5 Tier 1 stands on a kampung street, Tier 2 at the end of a row of shophouses, Tier 3 on a city avenue, Tier 4 in a premium district and Tier 5 on the city square: one vertex-coloured street mesh with the shared matte material (one draw call, no new shader, nothing to tap) within the triangle budget, asphalt in front of the shop and the background colour far away (a bigger floor fades further out); a shop with an upper floor also gets its own ground floor as a second mesh; the street is built once per location, not on every decoration change, and changes or goes away with the location", "fn": _streets},
 		{"id": "ACC_32_NEIGHBORHOOD_UPPER_FLOOR", "name": "32.5 from the Tier 2 and Tier 3 kitchens upstairs the street shows one storey below with the shop's own ground floor under the kitchen; back on the shop floor it stands at street level again; an unknown floor hides it", "fn": _upper_floor},
-		{"id": "ACC_32_NEIGHBORHOOD_CLEAR", "name": "32.5 nothing outside the shop can hide the shop: from the locked camera angle no triangle of the street (lowered one storey per floor, with the shop's own ground floor on upper floors) covers any part of the floor on screen or what stands on it", "fn": _clear},
+		{"id": "ACC_32_NEIGHBORHOOD_CLEAR", "name": "32.5 nothing outside the shop can hide the shop: from the locked camera angle no triangle of the street or its lamp glow (lowered one storey per floor, with the shop's own ground floor on upper floors) covers any part of the floor on screen or what stands on it", "fn": _clear},
 	]
 
 
@@ -60,8 +60,12 @@ func _streets() -> void:
 		if not check(n != null, "Tier %d has a street around the shop" % loc.tier):
 			continue
 		var upper: bool = loc.floors.size() > 1
-		eq(n.find_children("*", "MeshInstance3D", true, false).size(), 2 if upper else 1,
-			"Tier %d: the street is one mesh (one draw call)%s" % [loc.tier, ", plus the shop's own ground floor" if upper else ""])
+		eq(n.find_children("*", "MeshInstance3D", true, false).size(), (2 if upper else 1) + 1,
+			"Tier %d: the street is one mesh (one draw call)%s, plus the street lamp glow shown at dawn and dusk (GDD 32.6)" % [loc.tier, ", plus the shop's own ground floor" if upper else ""])
+		var glow: MeshInstance3D = n.get_node_or_null("LampGlow") as MeshInstance3D
+		if check(glow != null, "Tier %d has a lamp glow mesh" % loc.tier):
+			check(not glow.visible, "Tier %d: the lamp glow starts off" % loc.tier)
+			check(glow.material_override == MeshBuilder.material(MeshBuilder.SHADOW), "Tier %d: the lamp glow reuses the shadow material, so no new shader" % loc.tier)
 		check(n.find_children("*", "CollisionObject3D", true, false).is_empty(), "Tier %d: nothing in the street can be tapped" % loc.tier)
 		for mesh_name: String in ["Street", "OwnBuilding"]:
 			var mi: MeshInstance3D = n.get_node_or_null(mesh_name) as MeshInstance3D
@@ -199,7 +203,7 @@ func _clear() -> void:
 				continue
 			views += 1
 			var drop: float = NeighborhoodFactory.STOREY * float(level)
-			var meshes: Array[String] = ["Street"]
+			var meshes: Array[String] = ["Street", "LampGlow"]
 			if level > 0:
 				meshes.append("OwnBuilding")
 			var bad: Array[String] = []

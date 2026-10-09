@@ -127,6 +127,9 @@ func _ready() -> void:
 	EventBus.feedback.connect(_on_feedback)
 	EventBus.coin_popup.connect(_on_coin)
 	EventBus.speed_changed.connect(func(_s: int) -> void: _refresh_speed())
+	# Tombol after-hours muncul tepat saat fase berganti, bukan di refresh
+	# berikutnya, supaya petunjuk tutorial langsung bergeser ke atasnya.
+	EventBus.phase_changed.connect(func(_p: StringName) -> void: _sync_after_hours())
 	PauseManager.pause_changed.connect(func(_p: bool) -> void: _refresh_speed())
 	AudioManager.caption_requested.connect(_on_caption)
 	get_viewport().size_changed.connect(_on_resize)
@@ -356,6 +359,16 @@ func _place_above_quick() -> void:
 	if _after_hours.visible:
 		hint_bottom = bottom_h + 12.0 + _after_hours.size.y + PANEL_GAP
 	_hint.offset_bottom = -hint_bottom
+
+
+## Tombol after-hours tampil hanya selama after-hours; tata letak bawah ikut.
+func _sync_after_hours() -> void:
+	if sim == null:
+		return
+	var after_hours: bool = sim.time.phase == TimeManager.AFTER_HOURS
+	if after_hours != _after_hours.visible:
+		_after_hours.visible = after_hours
+		_place_above_quick()
 
 
 ## Kedua panel kanan selebar yang terlebar, supaya tepinya sejajar. Stok display
@@ -647,10 +660,7 @@ func _refresh_all() -> void:
 	var camp: Dictionary = sim.marketing.active
 	_campaign.text = Tx.t("ui_hud_campaign", {"campaign": Tx.t(str(camp["campaign_id"])), "days": camp["remaining_days"]}) if not camp.is_empty() else ""
 	_market_btn.modulate = Color(1, 1, 1, 1.0 if sim.supply.market_unlocked else 0.55)
-	var after_hours: bool = sim.time.phase == TimeManager.AFTER_HOURS
-	if after_hours != _after_hours.visible:
-		_after_hours.visible = after_hours
-		_place_above_quick()
+	_sync_after_hours()
 	var block: StringName = sim.skip_to_open_block()
 	_skip_btn.visible = block != &"phase" and block != &"tutorial" and not game.is_skipping_to_open()
 	# Oven menunggu diangkat: tombol tetap bisa diketuk dan menjelaskan alasannya.

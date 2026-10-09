@@ -156,17 +156,41 @@ const T5_COURT_X: float = -9.6
 const T5_BACK_Z: float = 13.0
 ## Skala mobil terhadap ukuran sebenarnya (dunia chibi).
 const CAR_SCALE: float = 0.68
+## Pendar lampu jalan saat senja dan fajar (GDD 32.6): cakram lembut menghadap
+## kamera di kepala lampu, dan genangan cahaya di tanah di bawahnya. Keduanya
+## memakai material SHADOW (tanpa bayangan, transparan) milik bayangan karakter.
+const GLOW_RADIUS: float = 0.5
+const GLOW_COLOR: Color = Color(1.0, 0.86, 0.55, 0.7)
+const POOL_RADIUS: float = 1.0
+const POOL_COLOR: Color = Color(1.0, 0.85, 0.55, 0.24)
+## Tinggi genangan cahaya: tepat di atas bibir got dan trotoar.
+const POOL_Y: float = 0.075
+
+## Hujan (GDD 32.8): permukaan dekat tanah digelapkan, dan genangan air
+## kebiruan muncul di jalan, trotoar, dan alun-alun dekat toko.
+const WET_DARKEN: float = 0.16
+const WET_MAX_Y: float = 0.25
+const PUDDLE_COLOR: Color = Color(0.565, 0.635, 0.69)
+const PUDDLE_RIM: Color = Color(0.49, 0.565, 0.62)
+const PUDDLE_SHINE: Color = Color(0.87, 0.9, 0.93)
+
+## Kepala lampu jalan yang dirakit `build()` terakhir (titik pendarnya).
+static var _lamp_heads: PackedVector3Array = PackedVector3Array()
+## Genangan yang dirakit `build()` terakhir: Vector4(x, y, z, jari-jari).
+static var _puddles: Array[Vector4] = []
 
 
 ## Lingkungan untuk lokasi `loc` (lantai toko `f`), atau null bila tier itu belum
 ## punya lingkungan. Lokasi bertingkat juga mendapat "OwnBuilding": lantai dasar
 ## ruko sendiri, yang hanya tampil saat kamera di lantai atas.
-static func build(loc: LocationDefinition, f: FloorDefinition) -> Node3D:
+static func build(loc: LocationDefinition, f: FloorDefinition, wet: bool = false) -> Node3D:
 	if loc == null or f == null or not has_street(loc.tier):
 		return null
 	var w: float = float(f.size.x) * T
 	var d: float = float(f.size.y) * T
 	var center := Vector3(w * 0.5, 0.0, d * 0.5)
+	_lamp_heads = PackedVector3Array()
+	_puddles = []
 	var mb := MeshBuilder.new()
 	_ground(mb, Vector2(center.x, center.z))
 	match loc.tier:
@@ -180,11 +204,23 @@ static func build(loc: LocationDefinition, f: FloorDefinition) -> Node3D:
 			_tier4(mb, w, d, _door_x(f))
 		_:
 			_tier5(mb, w, d, _door_x(f))
+	if wet:
+		mb.darken_ground(WET_MAX_Y, WET_DARKEN)
+		for pd: Vector4 in puddle_spots(loc.tier):
+			_puddle(mb, pd)
 	var fade: Vector2 = fade_radii(w, d)
 	mb.fade_to(center, fade.x, fade.y, Palette.BG, 1.0)
 	var root := Node3D.new()
 	root.name = "Neighborhood"
+	root.set_meta("wet", wet)
+	root.set_meta("puddles", _puddles.duplicate())
 	root.add_child(mb.commit("Street"))
+	var glow := MeshBuilder.new()
+	for p: Vector3 in _lamp_heads:
+		_lamp_glow(glow, p, center, fade)
+	var glow_mi: MeshInstance3D = glow.commit("LampGlow", MeshBuilder.SHADOW)
+	glow_mi.visible = false
+	root.add_child(glow_mi)
 	if loc.floors.size() > 1:
 		var upper_d: float = d
 		for uf: FloorDefinition in loc.floors:
@@ -263,6 +299,156 @@ static func show_for_floor(node: Node3D, loc: LocationDefinition, floor_id: Stri
 	var own: Node3D = node.get_node_or_null("OwnBuilding") as Node3D
 	if own != null:
 		own.visible = level > 0
+
+
+## Lalu-lalang di luar toko (GDD 32.7). `lanes` = lajur kendaraan sejajar muka
+## toko: z tengah lajur, arah (+1 = ke +x), ujung x0..x1 (kendaraan muncul dan
+## hilang di ujung yang sudah memudar penuh atau di luar layar), jenis dan
+## bobotnya, jeda nyata antar kendaraan (detik), dan geser samping acak untuk
+## roda dua. Lalu lintas berjalan di kiri: arah +x di lajur yang lebih jauh dari
+## toko. `walks` = jalur pejalan kaki (dua arah), `looks` = arketipe rupa
+## pejalan kaki. Semua lajur cukup jauh dari muka toko supaya kendaraan dan orang
+## yang lewat tidak menutupi lantai toko di layar (ACC_32_STREET_LIFE).
+static func traffic(tier: int) -> Dictionary:
+	var two: Dictionary = {&"motor": 5, &"motor_pair": 2, &"ojol": 3, &"bicycle": 2, &"gerobak": 1, &"car": 1}
+	match tier:
+		1:
+			return {
+				"lanes": [
+					{"z": -2.45, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": two, "gap": Vector2(7.0, 15.0), "jitter": 0.12},
+					{"z": -3.75, "dir": 1, "x0": -26.0, "x1": 30.0, "kinds": two, "gap": Vector2(8.0, 16.0), "jitter": 0.12},
+				],
+				"walks": [{"z": -1.75, "x0": -9.0, "x1": 15.0, "gap": Vector2(7.0, 15.0)}],
+				"looks": [&"customer_generic", &"customer_school_child", &"customer_indecisive"],
+			}
+		2:
+			var road: Dictionary = {&"motor": 6, &"ojol": 3, &"motor_pair": 2, &"angkot": 3, &"car": 3, &"van": 1}
+			return {
+				"lanes": [
+					{"z": -4.1, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": road, "gap": Vector2(4.5, 9.0), "jitter": 0.35},
+					{"z": -7.1, "dir": 1, "x0": -26.0, "x1": 30.0, "kinds": road, "gap": Vector2(5.0, 10.0), "jitter": 0.35},
+				],
+				"walks": [{"z": -2.95, "x0": -8.0, "x1": 14.0, "gap": Vector2(7.0, 15.0)}],
+				"looks": [&"customer_generic", &"customer_office_worker", &"customer_school_child"],
+			}
+		3:
+			return {
+				"lanes": [
+					{"z": -6.35, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": {&"car": 6, &"ojol": 3, &"motor": 3, &"bus": 1, &"van": 1, &"angkot": 1},
+						"gap": Vector2(3.5, 7.5), "jitter": 0.3},
+					{"z": -9.85, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": {&"car": 6, &"bus": 2, &"van": 1, &"ojol": 1},
+						"gap": Vector2(4.0, 8.0), "jitter": 0.2},
+				],
+				"walks": [{"z": -2.9, "x0": -8.0, "x1": 11.0, "gap": Vector2(6.0, 13.0)}],
+				"looks": [&"customer_office_worker", &"customer_generic", &"customer_school_child"],
+			}
+		4:
+			return {
+				"lanes": [
+					{"z": -9.8, "dir": -1, "x0": -27.0, "x1": 33.0, "kinds": {&"luxury": 6, &"car": 2, &"van": 1, &"ojol": 1},
+						"gap": Vector2(4.0, 8.0), "jitter": 0.15},
+					{"z": -12.2, "dir": -1, "x0": -27.0, "x1": 33.0, "kinds": {&"luxury": 5, &"car": 3, &"bus": 1},
+						"gap": Vector2(5.0, 10.0), "jitter": 0.15},
+				],
+				"walks": [{"z": -4.7, "x0": -14.0, "x1": 20.0, "gap": Vector2(7.0, 15.0)}],
+				"looks": [&"customer_snob", &"customer_office_worker", &"customer_generic"],
+			}
+		5:
+			return {
+				"lanes": [
+					{"z": -10.7, "dir": -1, "x0": -27.0, "x1": 33.0, "kinds": {&"vintage": 3, &"car": 3, &"motor": 3, &"becak": 1, &"ojol": 1},
+						"gap": Vector2(4.5, 9.0), "jitter": 0.25},
+					{"z": -14.3, "dir": 1, "x0": -27.0, "x1": 33.0, "kinds": {&"car": 3, &"vintage": 2, &"bus": 1, &"motor": 2},
+						"gap": Vector2(5.0, 10.0), "jitter": 0.25},
+					# Becak dan onthel berangkat dari pangkalan becak melintasi alun-alun.
+					{"z": -4.75, "dir": 1, "x0": -1.6, "x1": 26.0, "kinds": {&"becak": 3, &"onthel": 3},
+						"gap": Vector2(9.0, 18.0), "jitter": 0.0, "pop": true},
+				],
+				"walks": [{"z": -3.0, "x0": -1.6, "x1": 24.0, "gap": Vector2(6.0, 13.0)}],
+				"looks": [&"customer_generic", &"customer_bulk_buyer", &"customer_school_child", &"customer_critic"],
+			}
+	return {"lanes": [], "walks": [], "looks": []}
+
+
+## Genangan hujan per tier: Vector4(x, tinggi permukaan, z, jari-jari), di jalan,
+## trotoar, dan alun-alun yang tampak dari kamera (GDD 32.8).
+static func puddle_spots(tier: int) -> Array[Vector4]:
+	var road: float = Y_ROAD + 0.006
+	var yard: float = Y_YARD + 0.014
+	var out: Array[Vector4] = []
+	match tier:
+		1:
+			out = [Vector4(-0.5, road, -2.0, 0.55), Vector4(2.6, road, -3.2, 0.7), Vector4(6.4, road, -2.3, 0.45),
+				Vector4(-3.8, road, -3.6, 0.6), Vector4(9.4, road, -3.9, 0.5), Vector4(13.0, road, -2.6, 0.55)]
+		2:
+			out = [Vector4(1.0, road, -3.5, 0.6), Vector4(4.4, road, -5.3, 0.8), Vector4(-2.6, road, -4.6, 0.5),
+				Vector4(8.2, road, -3.3, 0.55), Vector4(11.5, road, -6.4, 0.7)]
+		3:
+			out = [Vector4(2.2, yard, -3.5, 0.45), Vector4(-2.8, yard, -3.9, 0.55), Vector4(6.2, yard, -2.4, 0.4),
+				Vector4(1.0, road, -5.7, 0.7), Vector4(4.2, road, -7.9, 0.8)]
+		4:
+			out = [Vector4(2.4, yard, -3.6, 0.5), Vector4(6.0, yard, -4.8, 0.6), Vector4(-2.0, yard, -5.0, 0.45),
+				Vector4(10.0, yard, -3.4, 0.5), Vector4(1.0, road, -10.6, 0.8)]
+		5:
+			out = [Vector4(1.5, yard, -4.2, 0.6), Vector4(8.8, yard, -3.1, 0.5), Vector4(2.6, yard, -6.3, 0.7),
+				Vector4(-0.6, yard, -5.9, 0.55), Vector4(11.0, yard, -5.2, 0.6), Vector4(2.0, road, -11.6, 0.8)]
+	return out
+
+
+## Satu genangan: tiga cakram lonjong bertumpuk supaya bentuknya tidak bulat
+## sempurna, dengan kilau tipis memantulkan langit. Jari-jari dicatat untuk riak
+## tetes hujan.
+static func _puddle(mb: MeshBuilder, pd: Vector4) -> void:
+	var p := Vector3(pd.x, pd.y, pd.z)
+	var r: float = pd.w
+	var oval := Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.62))
+	mb.disc(Transform3D(oval, p), r, PUDDLE_COLOR, PUDDLE_RIM, 16)
+	mb.disc(Transform3D(oval, p + Vector3(r * 0.6, 0.001, r * 0.18)), r * 0.6, PUDDLE_COLOR, PUDDLE_RIM, 12)
+	mb.disc(Transform3D(oval, p + Vector3(-r * 0.5, 0.001, -r * 0.2)), r * 0.5, PUDDLE_COLOR, PUDDLE_RIM, 12)
+	var streak := Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.16))
+	mb.disc(Transform3D(streak, p + Vector3(-r * 0.1, 0.002, -r * 0.12)), r * 0.42, PUDDLE_SHINE, PUDDLE_COLOR, 10)
+	_puddles.append(pd)
+
+
+## Nyalakan atau padamkan pendar lampu jalan (Daylight, GDD 32.6).
+static func set_lamps(node: Node3D, on: bool) -> void:
+	var glow: Node3D = node.get_node_or_null("LampGlow") as Node3D
+	if glow != null:
+		glow.visible = on
+
+
+## Arah dari dunia menuju kamera yang terkunci (yaw/pitch dari katalog).
+static func toward_camera() -> Vector3:
+	var yaw: float = deg_to_rad(DataRegistry.balf("camera.yaw_degrees"))
+	var pitch: float = deg_to_rad(DataRegistry.balf("camera.pitch_degrees"))
+	return Vector3(-sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch)).normalized()
+
+
+## Pendar satu lampu: cakram menghadap kamera dan genangan cahaya di tanah.
+## Lampu di kejauhan meredup bersama pudarnya lingkungan.
+static func _lamp_glow(mb: MeshBuilder, p: Vector3, center: Vector3, fade: Vector2) -> void:
+	var dist: float = Vector2(p.x - center.x, p.z - center.z).length()
+	var keep: float = 1.0 - clampf((dist - fade.x) / maxf(fade.y - fade.x, 0.001), 0.0, 1.0)
+	if keep <= 0.05:
+		return
+	var n: Vector3 = toward_camera()
+	var x: Vector3 = Vector3.UP.cross(n).normalized()
+	var face := Basis(x, n, x.cross(n).normalized())
+	var halo := Color(GLOW_COLOR, GLOW_COLOR.a * keep)
+	# Titik di tinggi y tampak di atas tanah z + k y (k = cos(yaw) / tan(pitch)).
+	# Di cakram setegak layar, z + k y naik paling cepat searah gradien (0, k, 1)
+	# yang diproyeksikan ke bidang cakram. Lampu dekat muka toko (teras Tier 5)
+	# mendapat cakram lebih kecil supaya pendarnya tidak menutupi lantai toko.
+	var pitch: float = deg_to_rad(DataRegistry.balf("camera.pitch_degrees"))
+	var yaw: float = deg_to_rad(DataRegistry.balf("camera.yaw_degrees"))
+	var k: float = cos(yaw) / tan(pitch)
+	var g := Vector3(0.0, k, 1.0)
+	var along: float = maxf((g - n * g.dot(n)).length(), 0.001)
+	var r: float = minf(GLOW_RADIUS, (-0.05 - (p.z + p.y * k)) / along)
+	if r >= 0.12:
+		mb.disc(Transform3D(face, p), r, halo, Color(halo, 0.0), 14)
+	var pool := Color(POOL_COLOR, POOL_COLOR.a * keep)
+	mb.disc(Transform3D(Basis.IDENTITY, Vector3(p.x, POOL_Y, p.z)), POOL_RADIUS, pool, Color(pool, 0.0), 16)
 
 
 # ===========================================================================
@@ -1210,6 +1396,7 @@ static func _globe_lamp(mb: MeshBuilder, p: Vector3, h: float) -> void:
 	mb.box(_at(p + Vector3(0.0, h - 0.05, 0.0)), Vector3(0.7, 0.04, 0.04), post)
 	for sx: float in [-0.33, 0.33]:
 		mb.ellipsoid(_at(p + Vector3(sx, h + 0.1, 0.0)), Vector3(0.13, 0.13, 0.13), Palette.FLOUR_WHITE, 8, 4)
+		_lamp_heads.append(p + Vector3(sx, h + 0.1, 0.0))
 
 
 ## Meja valet: podium kayu gelap berpelat kuningan.
@@ -1492,6 +1679,7 @@ static func _vintage_lamp(mb: MeshBuilder, p: Vector3, h: float) -> void:
 	mb.cylinder(_at(p + Vector3(0.0, h * 0.5, 0.0)), h, 0.045, 0.06, black, 6)
 	mb.box(_at(p + Vector3(0.0, h + 0.15, 0.0)), Vector3(0.24, 0.3, 0.24), Palette.BUTTER_YELLOW.lightened(0.3))
 	mb.cylinder(_at(p + Vector3(0.0, h + 0.37, 0.0)), 0.14, 0.02, 0.2, black, 4)
+	_lamp_heads.append(p + Vector3(0.0, h + 0.15, 0.0))
 
 
 ## Tenda kaki lima: meja dagangan bertaplak dengan mangkuk-mangkuk, empat tiang,
@@ -2175,6 +2363,7 @@ static func _lamp_post(mb: MeshBuilder, p: Vector3, h: float, arms: Array) -> vo
 		_stick(mb, top + Vector3(0.0, -0.25, 0.0), end, 0.045, steel)
 		var along_x: bool = absf(dir.x) > 0.5
 		mb.box(_at(end + dir * 0.12), Vector3(0.36 if along_x else 0.18, 0.07, 0.18 if along_x else 0.36), Palette.FLOUR_WHITE.darkened(0.05))
+		_lamp_heads.append(end + dir * 0.12 + Vector3(0.0, -0.06, 0.0))
 
 
 ## Halte bus di trotoar: atap, empat tiang, dinding belakang kaca, bangku, dan
@@ -2359,6 +2548,7 @@ static func _pole(mb: MeshBuilder, p: Vector3, h: float) -> Vector3:
 	var arm_end: Vector3 = p + Vector3(0.0, h - 0.85, 0.75)
 	_stick(mb, p + Vector3(0.0, h - 1.0, 0.0), arm_end, 0.05, Palette.CONCRETE_DARK)
 	mb.box(_at(arm_end + Vector3(0.0, -0.04, 0.08)), Vector3(0.18, 0.07, 0.34), Palette.FLOUR_WHITE.darkened(0.05))
+	_lamp_heads.append(arm_end + Vector3(0.0, -0.1, 0.08))
 	return p + Vector3(0.0, h - 0.1, 0.0)
 
 

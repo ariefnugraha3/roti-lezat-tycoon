@@ -278,6 +278,14 @@ func fade_to(center: Vector3, start: float, end: float, to: Color, max_t: float)
 			_c[k] = _c[k].lerp(to, t)
 
 
+## Permukaan datar dekat tanah (normal menghadap ke atas, di bawah `max_y`)
+## digelapkan `amount`: jalan, trotoar, dan rumput yang basah oleh hujan.
+func darken_ground(max_y: float, amount: float) -> void:
+	for k in _v.size():
+		if _v[k].y < max_y and _n[k].y > 0.95:
+			_c[k] = _c[k].darkened(amount)
+
+
 ## Semua verteks yang sudah dirakit (untuk tes).
 func vertices() -> PackedVector3Array:
 	return _v

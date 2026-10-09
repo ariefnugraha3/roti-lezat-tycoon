@@ -9,6 +9,8 @@ extends Node3D
 
 const MARKER_HZ: float = 12.0
 const BREAD_HZ: float = 4.0
+## Cahaya diperbarui 10 kali per detik nyata (perubahannya sangat pelan).
+const DAYLIGHT_INTERVAL: float = 0.1
 const MAX_BREAD_PER_SLOT: int = 3
 ## Isi Meja Tunggu digambar lebih kecil dari barang di tangan agar enam muat.
 const TABLE_ITEM_SCALE: float = 0.75
@@ -74,6 +76,10 @@ var _env: WorldEnvironment = null
 var _neighborhood: Node3D = null
 ## Lokasi yang lingkungannya sedang terpasang.
 var _neighborhood_loc: StringName = &""
+## Lingkungan yang terpasang dirakit basah (hujan, GDD 32.8).
+var _neighborhood_wet: bool = false
+## Hiasan hari libur yang terpasang (GDD 32.10): di dinding toko dan di luar.
+var _holiday_nodes: Array[Node3D] = []
 var _t: float = 0.0
 var _smoke: Dictionary = {}
 var decoration_mode: bool = false
@@ -93,6 +99,8 @@ var _staff_bubbles: Dictionary = {}
 var _staff_said: Dictionary = {}
 ## Kejutan kosmetik di toko (GDD 31.9).
 var surprises: SurpriseDirector = null
+## Kendaraan dan pejalan kaki yang lewat di luar toko (GDD 32.7).
+var street_life: StreetLife = null
 ## Detik NYATA toko buka tanpa satu pun pelanggan (GDD 31.7).
 var _quiet_real: float = 0.0
 ## Barang yang sedang dipegang di Decoration Mode (GDD 72.2): {kind
@@ -115,6 +123,12 @@ var _room_swing: Array[Node3D] = []
 ## Penanda slot dinding/meja Decoration Mode: [{index, node, aabb, pos}].
 var _slot_markers: Node3D = null
 var _slot_marker_list: Array[Dictionary] = []
+## Cahaya yang mengikuti jam (Daylight, GDD 32.6): matahari dan lampu tiap lantai.
+var _suns: Array[DirectionalLight3D] = []
+var _lamps: Array[OmniLight3D] = []
+var _daylight_timer: float = 0.0
+## Hasil Daylight.sample terakhir yang dipasang (untuk tes).
+var daylight: Dictionary = {}
 
 
 func setup(s: SimulationRoot) -> void:
@@ -146,6 +160,9 @@ func setup(s: SimulationRoot) -> void:
 	surprises = SurpriseDirector.new()
 	add_child(surprises)
 	surprises.setup(sim, self)
+	street_life = StreetLife.new()
+	add_child(street_life)
+	street_life.setup(sim, self)
 	sim.world.layout_changed.connect(rebuild_furniture)
 	EventBus.location_changed.connect(func(_id: StringName) -> void: _on_location_changed())
 	EventBus.storage_door.connect(_on_storage_door)
@@ -181,6 +198,8 @@ func rebuild_all() -> void:
 	_counter_aabbs.clear()
 	var skins: Dictionary = sim.decoration.equipped.duplicate()
 	_room_swing.clear()
+	_suns.clear()
+	_lamps.clear()
 	for fd: FloorDefinition in sim.world.location.floors:
 		var node: Node3D = RoomFactory.build_floor(sim.world.location, fd, sim.bakery_name, skins)
 		add_child(node)
@@ -188,24 +207,38 @@ func rebuild_all() -> void:
 		var pend: Node3D = node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
 		if pend != null:
 			_room_swing.append(pend)
+		for sun: Node in node.find_children("Sun", "DirectionalLight3D", true, false):
+			_suns.append(sun as DirectionalLight3D)
+		for lamp: Node in node.find_children("Lamp*", "OmniLight3D", true, false):
+			_lamps.append(lamp as OmniLight3D)
 	# Jalan dan rumah-rumah di sekitar toko, sesuai tier lokasinya (GDD 32.5).
 	# Hanya dibangun ulang saat lokasinya berganti, tidak setiap ganti dekorasi.
 	if _neighborhood_loc != sim.world.location.id:
-		if _neighborhood != null:
-			_neighborhood.queue_free()
-			_neighborhood = null
-		_neighborhood_loc = sim.world.location.id
-		for fd2: FloorDefinition in sim.world.location.floors:
-			if fd2.id == sim.world.location.store_floor():
-				_neighborhood = NeighborhoodFactory.build(sim.world.location, fd2)
-		if _neighborhood != null:
-			add_child(_neighborhood)
+		_build_neighborhood()
 	rebuild_furniture()
 	_apply_weather()
 	_apply_brightness()
+	apply_daylight()
 	_update_counter_aabbs()
 	_apply_floor_visibility()
 	MaterialKeep.scan(self)
+
+
+## Rakit lingkungan lokasi sekarang, basah bila hari ini hujan (GDD 32.8), lalu
+## mulai lagi lalu-lalangnya.
+func _build_neighborhood() -> void:
+	if _neighborhood != null:
+		_neighborhood.queue_free()
+		_neighborhood = null
+	_neighborhood_loc = sim.world.location.id
+	_neighborhood_wet = sim.weather.is_rain()
+	for fd2: FloorDefinition in sim.world.location.floors:
+		if fd2.id == sim.world.location.store_floor():
+			_neighborhood = NeighborhoodFactory.build(sim.world.location, fd2, _neighborhood_wet)
+	if _neighborhood != null:
+		add_child(_neighborhood)
+	if street_life != null:
+		street_life.rebuild(_neighborhood)
 
 
 func rebuild_furniture() -> void:
@@ -379,6 +412,7 @@ func _process(delta: float) -> void:
 	_update_shopper_lines()
 	_update_staff_lines(delta)
 	surprises.update(delta)
+	street_life.update(delta)
 	_marker_timer -= delta
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ
@@ -392,6 +426,10 @@ func _process(delta: float) -> void:
 	_update_blink(delta)
 	_animate_lift()
 	_animate_swing()
+	_daylight_timer -= delta
+	if _daylight_timer <= 0.0:
+		_daylight_timer = DAYLIGHT_INTERVAL
+		apply_daylight()
 
 
 func _v3(p: Vector2) -> Vector3:
@@ -1039,6 +1077,8 @@ func _apply_floor_visibility() -> void:
 		(floors[fid] as Node3D).visible = StringName(str(fid)) == camera_rig.active_floor
 	if _neighborhood != null:
 		NeighborhoodFactory.show_for_floor(_neighborhood, sim.world.location, camera_rig.active_floor)
+	if street_life != null:
+		street_life.set_store_view(camera_rig.active_floor == sim.world.location.store_floor())
 	if _slot_markers != null:
 		_slot_markers.visible = camera_rig.active_floor == sim.world.location.store_floor()
 
@@ -1062,12 +1102,61 @@ func _apply_weather() -> void:
 		_rain = null
 	if sim.weather.is_rain():
 		_rain = FX.rain_overlay(_rain_layer)
-	AudioManager.set_ambience(ambience_for(sim.weather.is_rain()))
+	AudioManager.set_ambience(ambience_for(sim.weather.is_rain(), sim.world.location.tier))
+	# Jalan basah dan genangan (GDD 32.8). Cuaca berganti pukul 05:00, di balik
+	# transisi malam, jadi lingkungan dirakit ulang tanpa tersendat di layar.
+	if _neighborhood != null and _neighborhood_wet != sim.weather.is_rain():
+		_build_neighborhood()
+		_apply_floor_visibility()
+		apply_daylight()
+	_apply_holiday()
+
+
+## Hiasan hari libur (GDD 32.10): dipasang ulang setiap dunia dirakit dan setiap
+## hari berganti (cuaca dan hari libur sama-sama berganti pukul 05:00).
+func _apply_holiday() -> void:
+	for n: Node3D in _holiday_nodes:
+		if is_instance_valid(n):
+			n.queue_free()
+	_holiday_nodes.clear()
+	if not sim.weather.holiday_today():
+		return
+	var theme: int = HolidayFactory.theme_for(sim.time.day)
+	var store: FloorDefinition = sim.world.location.floor_def(sim.world.location.store_floor())
+	var room: Node3D = floors.get(sim.world.location.store_floor())
+	if store == null or room == null:
+		return
+	var inside: MeshInstance3D = HolidayFactory.build_inside(sim.world.location, store, theme)
+	room.add_child(inside)
+	_holiday_nodes.append(inside)
+	if _neighborhood != null:
+		var outside: MeshInstance3D = HolidayFactory.build_outside(store, theme)
+		_neighborhood.add_child(outside)
+		_holiday_nodes.append(outside)
+
+
+## Hiasan hari libur yang terpasang (untuk tes).
+func holiday_nodes() -> Array[Node3D]:
+	return _holiday_nodes
+
+
+## Cahaya dunia mengikuti jam dan cuaca (GDD 32.6): matahari, lampu ruangan,
+## ambient, latar, dan lampu jalan.
+func apply_daylight() -> void:
+	if sim == null:
+		return
+	daylight = Daylight.sample(sim.time.time_seconds, sim.weather.is_rain())
+	Daylight.apply(daylight, _suns, _lamps, _env.environment if _env != null else null)
+	if _neighborhood != null:
+		NeighborhoodFactory.set_lamps(_neighborhood, bool(daylight["street"]))
 
 
 ## Lapisan ambience untuk cuaca hari ini (juga disiapkan di layar loading).
-static func ambience_for(rain: bool) -> Array[StringName]:
+## Lapisan ketiga adalah suara jalan sesuai tier lokasi (GDD 32.9).
+static func ambience_for(rain: bool, tier: int = 0) -> Array[StringName]:
 	var ids: Array[StringName] = [&"rain_loop" if rain else &"sunny_ambience", &"shop_ambience_room"]
+	if tier >= 1 and tier <= 5:
+		ids.append(StringName("street_ambience_t%d" % tier))
 	return ids
 
 

@@ -320,7 +320,7 @@ Seluruh objek visual yang terlihat di dalam game—baik **objek 3D** maupun **el
 Identitas visual dan atmosfer game dibangun di atas tiga pilar emosional yang saling melengkapi:
 
 1. **Warm (Sehangat Roti yang Baru Matang)**:
-   * **Pencahayaan & Suasana**: Pencahayaan dunia 3D mengadopsi pencahayaan *golden hour* yang hangat. Cahaya matahari sore berwarna kuning keemasan (`#FFE3A8`) menerobos lembut melalui jendela kaca berbingkai kayu, berpadu dengan pendar lampu penghangat etalase (`#FFAA44`) dan bara oven yang ramah.
+   * **Pencahayaan & Suasana**: Pencahayaan dunia 3D mengadopsi pencahayaan *golden hour* yang hangat. Cahaya matahari sore berwarna kuning keemasan (`#FFE3A8`) menerobos lembut melalui jendela kaca berbingkai kayu, berpadu dengan pendar lampu penghangat etalase (`#FFAA44`) dan bara oven yang ramah. Sejak 2026-10-09 cahaya mengikuti jam in-game (Seksi 32.6): golden hour menjadi suasana sore, pagi lebih lembut, siang lebih terang, dan senja jingga dengan lampu menyala.
    * **Palet Warna Kuliner Hangat**:
      * *Golden Crust & Loaf*: Cokelat panggang keemasan (`#D9822B`), karamel hangat (`#8C4A1E`), dan cokelat gelap lembut (`#5A2E12`).
      * *Butter & Custard*: Kuning mentega lembut (`#FCE38A`), krim custard (`#F9D371`).
@@ -2702,6 +2702,7 @@ Holiday bisa bersamaan dengan hujan; multiplier-nya dikalikan.
 **Kalender holiday** (deterministik, tanpa RNG, supaya bisa direncanakan):
 - `event_holiday` berlangsung 3 hari (Jumat–Minggu) setiap 14 hari mulai Hari 12: Hari 12–14, 26–28, 40–42, dan seterusnya. Rumusnya: `day_index ≥ 12` dan `(day_index − 12) mod 14 < 3`.
 - HUD dan Daily Summary menampilkan hitung mundur holiday berikutnya mulai 3 hari sebelumnya.
+- Selama holiday toko dan jalan di depannya dihias (Seksi 32.10).
 
 ---
 
@@ -3202,13 +3203,95 @@ Kamera hanya memuat benda setinggi sekitar 6 m dalam satu layar, jadi menara jam
 
 Aturan untuk setiap tier:
 
-1. **Tidak pernah menutupi toko.** Dari sudut kamera yang terkunci (Seksi 130.1), tidak ada bagian lingkungan yang boleh menutupi lantai yang sedang tampil atau apa pun yang berdiri di atasnya. Ini berlaku juga untuk dapur di lantai atas. Benda di depan toko dan di sisi kanan bawah layar dijaga cukup rendah atau cukup jauh (`ACC_32_NEIGHBORHOOD_CLEAR`).
-2. **Satu draw call.** Jalan dan seluruh isinya dijahit menjadi satu mesh berwarna verteks dengan material MATTE bersama (`MeshBuilder`). Mesh itu paling banyak 20.000 segitiga. Toko bertingkat mendapat satu mesh lagi untuk lantai dasar ruko sendiri, paling banyak 2.000 segitiga. Tidak ada kombinasi shader baru (`ACC_89_FEW_SHADERS`, `ACC_32_NEIGHBORHOOD_STREETS`). Permukaan yang tidak pernah menghadap kamera tidak dibuat; misalnya, setiap jeruji pagar dan setiap kemasan di rak cukup satu bidang.
+1. **Tidak pernah menutupi toko.** Dari sudut kamera yang terkunci (Seksi 130.1), tidak ada bagian lingkungan yang boleh menutupi lantai yang sedang tampil atau apa pun yang berdiri di atasnya. Ini berlaku juga untuk dapur di lantai atas. Benda di depan toko dan di sisi kanan bawah layar dijaga cukup rendah atau cukup jauh (`ACC_32_NEIGHBORHOOD_CLEAR`). Aturan ini juga berlaku untuk pendar lampu jalan, kendaraan dan orang yang lewat, payung, dan hiasan hari libur (Seksi 32.6–32.10).
+2. **Satu draw call.** Jalan dan seluruh isinya dijahit menjadi satu mesh berwarna verteks dengan material MATTE bersama (`MeshBuilder`). Mesh itu paling banyak 20.000 segitiga. Toko bertingkat mendapat satu mesh lagi untuk lantai dasar ruko sendiri, paling banyak 2.000 segitiga. Pendar lampu jalan (Seksi 32.6) satu mesh lagi dengan material SHADOW milik bayangan karakter, dan hanya tampil saat fajar dan senja. Tidak ada kombinasi shader baru (`ACC_89_FEW_SHADERS`, `ACC_32_NEIGHBORHOOD_STREETS`). Permukaan yang tidak pernah menghadap kamera tidak dibuat; misalnya, setiap jeruji pagar dan setiap kemasan di rak cukup satu bidang.
 3. **Memudar ke latar.** Warna verteks memudar ke `Palette.BG` mulai `NeighborhoodFactory.FADE_START` (11 m dari tengah toko) dan menyatu penuh pada `FADE_END` (28 m). Lantai yang lebih besar dari Tier 1–3 memudar lebih jauh, sebanyak selisih setengah diagonalnya (`fade_radii`). Bidang panjang seperti jalan dan got dipotong per `PIECE` (2,5 m) supaya pudarnya mengikuti jarak.
 4. **Dibangun sekali per lokasi.** Lingkungan hanya dibangun ulang saat lokasi berganti, tidak setiap kali ruangan digambar ulang karena dekorasi.
 5. **Mengikuti lantai yang tampil.** Di lantai toko, lingkungan berdiri di permukaan jalan. Dari lantai di atasnya, lingkungan turun `STOREY` per lantai dan lantai dasar ruko sendiri ikut tampil. Lantai yang tingkatnya tidak dikenal menyembunyikannya (`NeighborhoodFactory.floor_level`/`show_for_floor`, `ACC_32_NEIGHBORHOOD_UPPER_FLOOR`).
 
 Kode: `NeighborhoodFactory` (`procedural/meshes/neighborhood_factory.gd`), dipasang oleh `WorldView` (`neighborhood()`, `_apply_floor_visibility`).
+
+## **32.6 Cahaya Mengikuti Jam**
+
+Keputusan maintainer 2026-10-09. Cahaya dunia tidak lagi golden hour sepanjang hari, tetapi mengikuti jam in-game:
+
+- **05:00, fajar.** Matahari rendah berwarna persik lembut, ambient merah muda, lampu ruangan terang, dan lampu jalan masih menyala sampai sekitar 06:00.
+- **06:30–08:00, pagi.** Cahaya makin terang dan hangat.
+- **12:00, siang.** Paling terang, hangat-netral.
+- **15:00, sore.** Golden hour yang lama (`Palette.GOLDEN_HOUR`), persis seperti sebelumnya.
+- **16:45–17:35.** Makin keemasan lalu jingga. Lampu ruangan naik, dan lampu jalan menyala sekitar 17:10.
+- **18:00, senja.** Matahari jingga redup, ambient merah muda yang tetap hangat, dan lampu ruangan paling terang. Jam berhenti di 18:00 selama after-hours, jadi suasana senja inilah yang tampak saat mengurus toko setelah tutup.
+
+Semua warna tetap hangat (Seksi 130.3). Hujan meredupkan dan memucatkan matahari dan menaikkan lampu ruangan. Lampu jalan di setiap tier (tiang listrik, lampu kota, lampu taman berbola, dan lampu antik) berpendar lembut saat menyala: cakram transparan yang menghadap kamera, ditambah genangan cahaya di tanah. Pendar lampu yang dekat muka toko dikecilkan supaya tidak menutupi lantai, dan pendar di kejauhan meredup bersama lingkungannya.
+
+Yang berubah hanya warna, kekuatan, dan sudut cahaya, serta warna latar, jadi tidak ada kombinasi shader baru. Pendarnya memakai material SHADOW yang sudah dipakai bayangan karakter. Murni tampilan: hanya membaca jam dan cuaca.
+
+Kode: `Daylight` (`gameplay/world/daylight.gd`, titik kunci `KEYS`), `WorldView.apply_daylight`, `NeighborhoodFactory.set_lamps`. Tes: `ACC_32_DAYLIGHT`.
+
+## **32.7 Lalu-Lalang di Luar Toko**
+
+Keputusan maintainer 2026-10-09. Kendaraan dan pejalan kaki melintas di luar toko sesuai tier lokasinya:
+
+| Tier | Kendaraan | Pejalan kaki |
+|---|---|---|
+| 1 | motor bebek (kadang berboncengan), ojol berjaket hijau dengan kotak pesanan, sepeda, gerobak bakso yang didorong, sesekali mobil | warga kampung di tepi jalan |
+| 2 | motor, ojol, angkot, mobil, van | warga dan pekerja di tepi jalan depan ruko |
+| 3 | mobil, ojol, motor, bus kota, van, angkot | pekerja kantoran dan mahasiswa di trotoar |
+| 4 | mobil mewah, mobil, van, bus | sosialita dan eksekutif di trotoar granit |
+| 5 | mobil antik, mobil, motor, becak, bus; becak dan onthel berangkat dari pangkalan becak melintasi alun-alun | warga dan wisatawan di depan teras |
+
+- Lalu lintas berjalan di lajur kiri, seperti di Indonesia. Kendaraan tidak saling menabrak: yang di belakang melambat, dan kendaraan roda dua menyalip kendaraan yang jauh lebih lambat (gerobak, sepeda, becak) dengan bergeser ke tengah jalan.
+- Jalan sepi saat fajar dan after-hours, dan ramai pada jam berangkat (07:00–09:00) dan pulang kerja (16:00–18:00).
+- Kendaraan muncul dan hilang di ujung jalan yang sudah memudar, dan ikut memudar ke warna latar seperti jalannya (`StreetLife.FADE_LEVELS`). Pengendaranya bagian dari mesh kendaraan.
+- Kamera hanya memperlihatkan sekitar toko. Jalan Tier 1–2 tampak di pojok kiri bawah layar, sedangkan jalan raya Tier 3–5 baru tampak saat zoom terjauh. Karena itu tier tersebut terutama diramaikan pejalan kaki, dan di Tier 5 juga becak serta onthel yang melintasi alun-alun.
+- **Tidak pernah menutupi toko** (aturan 1, Seksi 32.5). Setiap lajur dan jalur pejalan kaki cukup jauh dari muka toko untuk kendaraan dan orang tertinggi yang lewat di sana (`ACC_32_STREET_LIFE_CLEAR`).
+- **Murni tontonan**, seperti kejutan (Seksi 31.9). Kendaraan adalah mesh sementara dan pejalan kaki adalah `ActorView` yang tidak didaftarkan ke simulasi. Jadwalnya memakai RNG sendiri (Seksi 116), dan tidak ada yang disimpan. Geraknya memakai detik nyata (kecepatan 2×/3× tidak mempercepatnya) dan berhenti saat game di-pause.
+- Pejalan kaki tidak tampil saat kamera di dapur lantai atas, sedangkan kendaraan ikut turun bersama jalan.
+- Preset kualitas mengatur kepadatannya (Seksi 109.2): Low paling banyak 1 pejalan kaki sekaligus, Medium/Auto 2, High 3, dan lalu lintas menjarang dengan faktor yang sama.
+- Satu kendaraan memakai satu draw call dengan material MATTE bersama. Satu pejalan kaki memakai 13 draw call, sama seperti pelanggan.
+
+Kode: `StreetLife` (`gameplay/world/street_life.gd`, anak `WorldView`), `TrafficFactory` (`procedural/meshes/traffic_factory.gd`), lajur di `NeighborhoodFactory.traffic`. Tes: `ACC_32_STREET_LIFE`, `ACC_32_STREET_LIFE_CLEAR`.
+
+## **32.8 Hujan di Jalan**
+
+Keputusan maintainer 2026-10-09. Saat hari hujan (Seksi 26):
+
+- Permukaan dekat tanah (aspal, paving, ubin, dan rumput) tampak lebih gelap karena basah (`NeighborhoodFactory.WET_DARKEN`).
+- Genangan air kebiruan muncul di jalan, trotoar, dan alun-alun dekat toko (`puddle_spots`). Tetes hujan membuat riak cincin di setiap genangan.
+- Pengendara memakai jas hujan berponco, dan pesepeda bertudung. Pejalan kaki memakai jas hujan cerah. Mereka juga berpayung bila jalurnya cukup jauh dari muka toko (Tier 2–5). Di jalan kampung Tier 1 payung akan menutupi muka toko, jadi pejalan kaki di sana cukup berjas hujan.
+- Cuaca berganti pukul 05:00, di balik transisi malam, jadi lingkungan dirakit ulang (sekitar 40–60 ms di desktop) tanpa terlihat tersendat. Lingkungan basah tetap paling banyak 20.000 segitiga.
+
+Kode: `NeighborhoodFactory.build(..., wet)`, `MeshBuilder.darken_ground`, `StreetLife` (riak, jas hujan, dan payung). Tes: `ACC_32_RAIN_STREET`.
+
+## **32.9 Suara Jalan dan Lonceng Menara Jam**
+
+Keputusan maintainer 2026-10-09. Ambience toko mendapat lapisan ketiga, yaitu suara jalan sesuai tier (Seksi 93):
+
+| Tier | Suara jalan |
+|---|---|
+| 1 | angin, motor lewat di kejauhan, burung, dan "ting ting" sendok penjual bakso |
+| 2 | dengung lalu lintas, motor, dan klakson angkot |
+| 3 | dengung jalan raya, mobil berdesir, dan desis rem bus |
+| 4 | gemericik air mancur di atas lalu lintas yang pelan |
+| 5 | riuh orang di alun-alun dan bel becak |
+
+Setiap loop hanya 4 detik supaya murah dirakit di layar loading.
+
+Di Tier 5 menara jam alun-alun berdentang (empat nada lalu satu dentang) setiap kali jam in-game berganti, selama persiapan dan jam buka, saat kamera di lantai toko.
+
+Kode: `AudioGenerator._street_*` dan `_clock_chime`, `WorldView.ambience_for(rain, tier)`, `StreetLife._chime`. Tes: `ACC_33_STREET_AMBIENCE`.
+
+## **32.10 Hiasan Hari Libur**
+
+Keputusan maintainer 2026-10-09. Selama hari libur (Seksi 26.6), untaian bendera segitiga terpasang di bagian atas kedua dinding belakang lantai toko, dengan celah di sekitar jam dinding. Dua umbul-umbul juga berdiri di samping muka toko. Temanya bergantian setiap kali libur datang (`HolidayFactory.theme_for`):
+
+1. merah-putih,
+2. pastel dengan lampion merah,
+3. hijau-kuning dengan ketupat.
+
+Umbul-umbul berdiri di sisi muka toko yang tidak pernah menutupi lantai. Hiasan dipasang ulang setiap hari berganti dan diturunkan setelah libur selesai. Murni tampilan, satu mesh MATTE per bagian.
+
+Kode: `HolidayFactory` (`procedural/meshes/holiday_factory.gd`), `WorldView._apply_holiday`. Tes: `ACC_32_HOLIDAY_DECOR`.
 
 ---
 
@@ -5859,6 +5942,12 @@ Semua audio dibuat/di-generate sesuai kebijakan aset proyek. AI audio implemento
 | `rain_loop` | soft rain on awning/window, seamless loop |
 | `sunny_ambience` | distant scooters, birds, light wind through the storefront |
 | `shop_ambience_room` | interior room tone, subtle clock, distant street |
+| `street_ambience_t1` | Tier 1 kampung street: soft wind, a distant scooter, birds, a bakso seller's spoon "ting ting" (Section 32.9) |
+| `street_ambience_t2` | Tier 2 shophouse road: traffic hum, scooters, an angkot horn |
+| `street_ambience_t3` | Tier 3 city avenue: denser traffic, passing cars, a bus brake hiss |
+| `street_ambience_t4` | Tier 4 premium district: a fountain over quiet traffic, birds |
+| `street_ambience_t5` | Tier 5 city square: crowd murmur and a becak bell |
+| `clock_tower_chime` | Tier 5 clock tower: four bell notes and a low strike when an in-game hour turns |
 | `menu_music` | calm warm loop in the same bossa/lo-fi palette |
 | `shop_music_morning` | 05:00–08:00: gentle morning guitar + brushed percussion, hopeful |
 | `shop_music_day` | warm acoustic bossa/lo-fi, nylon guitar, soft Rhodes, 80–95 BPM, unobtrusive loop |
@@ -6432,6 +6521,8 @@ Only cosmetic/rendering features may change: shadow quality, particle counts, re
 
 `Auto` selects a conservative initial preset and may downgrade cosmetic quality on sustained performance pressure; it may never alter gameplay rules.
 
+Street life (Section 32.7) reads `decor_density`: Low shows at most one walker at a time, Medium and Auto two, High three, and traffic thins out by the same factor.
+
 ---
 
 # **110. Resolution, Safe Area & UI Test Matrix**
@@ -6444,6 +6535,8 @@ Mandatory responsive layouts must pass at minimum:
 - 20:9 common Android landscape.
 - Device cutout/safe-area inset handling.
 - 100%, 125%, and accessibility enlarged text scale.
+
+A popup's title ribbon sits half above its card and grows with the text scale, so at 150% a full-height card is shortened to keep the ribbon on screen (`UIScreen.make_popup`).
 
 No mandatory button, timer, price, patience indicator, or modal confirmation may clip outside the safe area. World view may letterbox/adjust zoom; UI remains anchored to safe-area-aware containers.
 
@@ -6572,7 +6665,7 @@ Persist independent deterministic state for exactly these streams (owner: `RNGMa
 
 Arrival and choice use separate streams, so rearranging the display never changes who arrives next. Gameplay-significant outcomes may not consume `cosmetic_rng` or `audio_rng`. Adding a particle/sound variant must not alter tomorrow's weather or customer schedule.
 
-Presentation that lives only in the view layer consumes no stream at all, because a headless run has no view and must stay identical. Surprise moments (Section 31.9) seed their own `RandomNumberGenerator` from the master seed and the day, and staff idle lines (Section 31.8) use no randomness.
+Presentation that lives only in the view layer consumes no stream at all, because a headless run has no view and must stay identical. Surprise moments (Section 31.9) seed their own `RandomNumberGenerator` from the master seed and the day, and staff idle lines (Section 31.8) use no randomness. Street life (Section 32.7) does the same: its traffic, walkers and raindrop ripples use a generator seeded from the master seed, the day and the location tier.
 
 ---
 

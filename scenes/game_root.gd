@@ -605,7 +605,7 @@ func _warm_audio(p_from: float, p_to: float) -> void:
 			if _loader != null:
 				_loader.set_progress(lerpf(p_from, p_mid, AudioManager.stream_progress(music)))
 			await get_tree().process_frame
-	var others: Array[StringName] = WorldView.ambience_for(sim.weather.is_rain())
+	var others: Array[StringName] = WorldView.ambience_for(sim.weather.is_rain(), sim.world.location.tier)
 	others.append_array([&"mixer_loop", &"oven_loop"])
 	# Bunyi pendek lain juga dirakit sekarang. Dulu bunyi disintesis saat pertama
 	# dibunyikan, dan di browser itu menahan frame 20-170 ms per bunyi tepat saat

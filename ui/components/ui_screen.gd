@@ -67,7 +67,13 @@ func on_closed() -> void:
 func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_SIZE, closable: bool = true) -> VBoxContainer:
 	var inset: Vector4 = ProceduralUIFactory.safe_area_margin()
 	var vp: Vector2 = get_viewport_rect().size if is_inside_tree() else Vector2(1280, 720)
-	var sz := Vector2(minf(size_v.x, vp.x - inset.x - inset.z - 24.0), minf(size_v.y, vp.y - inset.y - inset.w - 24.0))
+	# Pita judul menumpang setengahnya di atas kartu dan ikut membesar dengan
+	# skala teks; di 150% tingginya 66 px, sehingga kartu setinggi layar
+	# dipendekkan supaya pitanya tetap di dalam layar (GDD 110). Sampai 125%
+	# pita muat di ruang RIBBON_H.
+	var ribbon_h: float = ProceduralUIFactory.RIBBON_H + maxf(0.0, SettingsManager.text_scale() - 1.25) * 56.0
+	var max_h: float = minf(vp.y - inset.y - inset.w - 24.0, vp.y - inset.y - inset.w - ribbon_h - 4.0)
+	var sz := Vector2(minf(size_v.x, vp.x - inset.x - inset.z - 24.0), minf(size_v.y, max_h))
 	var p: Control = ProceduralUIFactory.popup(title_text, sz)
 	add_child(p)
 	if closable:

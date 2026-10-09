@@ -520,6 +520,7 @@ const RECIPES: Array[String] = [
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"stamp_confirm", "box_drop", "sparkle_chime", "whoosh", "achievement_flourish",
 	"upgrade_sting", "bailout_cue", "rain_loop", "sunny_ambience", "room_tone",
+	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
 ]
@@ -616,6 +617,18 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _sunny_ambience()
 		"room_tone":
 			return _room_tone()
+		"street_t1":
+			return _street_kampung()
+		"street_t2":
+			return _street_shophouse()
+		"street_t3":
+			return _street_avenue()
+		"street_t4":
+			return _street_premium()
+		"street_t5":
+			return _street_square()
+		"clock_chime":
+			return _clock_chime()
 	# Resep tak dikenal: bunyi kosong pendek, tidak pernah null (GDD 132).
 	return _to_stream(_new_buffer(0.05), false)
 
@@ -937,3 +950,123 @@ static func _room_tone() -> AudioStreamWAV:
 				{"attack": 0.0005, "decay": 0.005, "sustain": 0.0, "release": 0.003}, 1800.0, 6000.0)
 		buf = _add_wrapped(buf, tick, float(k))
 	return _to_stream(_normalize(buf, 0.3), true)
+
+
+# ---------------------------------------------------------------------------
+# Suara jalan per tier lokasi (GDD 32.9): lapisan ambience dari luar toko.
+# Loop pendek (STREET_SECONDS) supaya murah dirakit di layar loading; peristiwa
+# dibungkus (_add_wrapped) dan modulasi pas satu putaran agar sambungannya mulus.
+# ---------------------------------------------------------------------------
+
+const STREET_SECONDS: float = 4.0
+
+
+## Derau dasar: putih -> lowpass (dengung lalu lintas, angin, air).
+static func _street_bed(amp: float, lp: float, hp: float = 0.0) -> PackedFloat32Array:
+	var buf: PackedFloat32Array = _new_buffer(STREET_SECONDS)
+	var rng: RandomNumberGenerator = _noise_rng()
+	for i in buf.size():
+		buf[i] = rng.randf_range(-1.0, 1.0) * amp
+	buf = _lowpass(buf, lp)
+	if hp > 0.0:
+		buf = _highpass(buf, hp)
+	return buf
+
+
+## Motor lewat di kejauhan: gigi gergaji rendah yang naik lalu menghilang.
+static func _moto_pass(buf: PackedFloat32Array, at: float, f0: float, amp: float) -> PackedFloat32Array:
+	var m: PackedFloat32Array = _new_buffer(2.2)
+	m = _add_osc(m, 0.0, 2.2, f0, f0 * 1.18, "saw", amp, {"attack": 0.9, "decay": 0.25, "sustain": 0.55, "release": 1.0})
+	m = _lowpass(m, 650.0)
+	return _add_wrapped(buf, m, at)
+
+
+## Kicau burung: tiga nada naik yang pendek.
+static func _chirps(buf: PackedFloat32Array, at: float, f: float, amp: float) -> PackedFloat32Array:
+	for c in 3:
+		var ch: PackedFloat32Array = _new_buffer(0.08)
+		ch = _add_osc(ch, 0.0, 0.08, f, f * 1.25, "sine", amp, {"attack": 0.005, "decay": 0.03, "sustain": 0.3, "release": 0.03})
+		buf = _add_wrapped(buf, ch, at + 0.11 * float(c))
+	return buf
+
+
+## Tier 1, kampung kota: angin lembut, motor lewat jauh, burung, dan "ting ting"
+## sendok penjual bakso di kejauhan.
+static func _street_kampung() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _street_bed(0.22, 420.0)
+	buf = _moto_pass(buf, 0.4, 70.0, 0.2)
+	buf = _chirps(buf, 2.3, 3100.0, 0.18)
+	for c in 3:
+		var ting: PackedFloat32Array = _new_buffer(0.32)
+		ting = _add_bell(ting, 0.0, 0.32, 2637.0, 0.16, 14.0)
+		ting = _add_bell(ting, 0.0, 0.25, 3951.0, 0.05, 22.0)
+		buf = _add_wrapped(buf, ting, 3.0 + 0.22 * float(c))
+	return _to_stream(_normalize(buf, 0.35), true)
+
+
+## Tier 2, jalan ruko: dengung lalu lintas, dua motor, dan klakson angkot.
+static func _street_shophouse() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _street_bed(0.45, 280.0)
+	buf = _moto_pass(buf, 0.2, 64.0, 0.22)
+	buf = _moto_pass(buf, 2.2, 78.0, 0.18)
+	var horn: PackedFloat32Array = _new_buffer(0.42)
+	for k in 2:
+		horn = _add_osc(horn, 0.18 * float(k), 0.12, 440.0, 440.0, "square", 0.12, {"attack": 0.005, "decay": 0.02, "sustain": 0.8, "release": 0.03})
+	horn = _lowpass(horn, 1600.0)
+	buf = _add_wrapped(buf, horn, 3.1)
+	return _to_stream(_normalize(buf, 0.38), true)
+
+
+## Tier 3, jalan raya kota: dengung lebih tebal, mobil berdesir lewat, desis rem bus.
+static func _street_avenue() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _street_bed(0.6, 360.0)
+	for at: float in [0.2, 1.9]:
+		var swell: PackedFloat32Array = _noise_buffer(1.6, 0.35, {"attack": 0.7, "decay": 0.2, "sustain": 0.6, "release": 0.7}, 180.0, 1400.0)
+		buf = _add_wrapped(buf, swell, at)
+	var hiss: PackedFloat32Array = _noise_buffer(0.35, 0.18, {"attack": 0.01, "decay": 0.1, "sustain": 0.5, "release": 0.2}, 2500.0, 7000.0)
+	buf = _add_wrapped(buf, hiss, 3.2)
+	return _to_stream(_normalize(buf, 0.4), true)
+
+
+## Tier 4, kawasan premium: gemericik air mancur, lalu lintas yang jauh dan pelan,
+## dan burung.
+static func _street_premium() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _street_bed(0.5, 3600.0, 700.0)
+	var n: int = buf.size()
+	var inv: float = 1.0 / float(SAMPLE_RATE)
+	for i in n:
+		buf[i] *= 0.82 + 0.18 * sin(TAU * 0.5 * float(i) * inv)
+	var hum: PackedFloat32Array = _street_bed(0.15, 260.0)
+	for j in n:
+		buf[j] += hum[j]
+	buf = _chirps(buf, 1.2, 3400.0, 0.12)
+	return _to_stream(_normalize(buf, 0.36), true)
+
+
+## Tier 5, alun-alun: riuh orang ramai yang naik-turun dan bel becak "kring kring".
+static func _street_square() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _street_bed(0.55, 900.0, 250.0)
+	var n: int = buf.size()
+	var inv: float = 1.0 / float(SAMPLE_RATE)
+	for i in n:
+		var t: float = float(i) * inv
+		buf[i] *= 0.7 + 0.2 * sin(TAU * 1.5 * t) + 0.1 * sin(TAU * 0.75 * t)
+	for k in 2:
+		var ring: PackedFloat32Array = _new_buffer(0.45)
+		ring = _add_bell(ring, 0.0, 0.45, 2093.0, 0.14, 9.0)
+		ring = _add_bell(ring, 0.0, 0.3, 5280.0, 0.05, 16.0)
+		buf = _add_wrapped(buf, ring, 1.4 + 0.18 * float(k))
+	return _to_stream(_normalize(buf, 0.38), true)
+
+
+## Lonceng menara jam Tier 5 setiap jam (GDD 32.9): empat nada lalu satu dentang.
+static func _clock_chime() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(4.2)
+	var notes: Array[float] = [659.25, 523.25, 587.33, 392.0]
+	for i in notes.size():
+		buf = _add_bell(buf, 0.55 * float(i), 2.0, notes[i], 0.5, 2.2)
+		buf = _add_bell(buf, 0.55 * float(i), 1.2, notes[i] * 2.76, 0.12, 4.0)
+	buf = _add_bell(buf, 2.6, 1.6, 196.0, 0.55, 1.2)
+	buf = _add_bell(buf, 2.6, 1.2, 392.0, 0.2, 2.0)
+	buf = _lowpass(buf, 5000.0)
+	return _to_stream(_normalize(buf, 0.6), false)
