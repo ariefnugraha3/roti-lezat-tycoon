@@ -71,6 +71,16 @@ func jump_to_tier(s: SimulationRoot, tier: int) -> void:
 	s.continue_to_next_day()
 
 
+## Pembeli dan pengunjung lihat-lihat datang dulu dari ujung trotoar (GDD 20.1):
+## majukan tick kanonik sampai `c` melewati pintu. false bila belum sampai.
+func walk_in(s: SimulationRoot, c: Customer, limit: float = 60.0) -> bool:
+	var t: float = 0.0
+	while c.state == Customer.APPROACHING and t < limit and s.is_running():
+		s.step(s.tick_seconds)
+		t += s.tick_seconds
+	return c.state != Customer.APPROACHING
+
+
 ## Stok rak langsung (tanpa produksi) di petak `index` rak pertama.
 func stock(s: SimulationRoot, recipe_id: StringName, qty: int, index: int = 0, iid: int = -1) -> int:
 	var d: int = iid if iid >= 0 else s.equipment.placed_list(&"display")[0].iid

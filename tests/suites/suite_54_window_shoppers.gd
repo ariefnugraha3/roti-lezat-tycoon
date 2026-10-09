@@ -100,6 +100,10 @@ func _lifecycle() -> void:
 		free_sim(s)
 		return
 	var w: Customer = list[0]
+	eq(w.state, Customer.APPROACHING, "comes along the pavement first (GDD 20.1)")
+	check(w.actor.outside and w.actor.pos.y < 0.0, "starts outside the shop")
+	eq(s.customers.window_shoppers_today, 0, "not counted before stepping in")
+	check(walk_in(s, w), "reaches the door")
 	eq(w.actor.cell(), s.world.entrance_cell(), "enters through the front door (GDD 83.1)")
 	eq(s.customers.window_shoppers_today, 1, "counted as a window shopper")
 	eq(s.customers.entered_today, 0, "not counted as a buyer")
@@ -199,8 +203,9 @@ func _give_way() -> void:
 		if with_looker:
 			check(s.customers.try_admit_window_shopper(&"customer_generic"), "a window shopper walks in")
 			w = _window_shoppers(s)[0]
-		# Tick yang sama persis di kedua toko; pengunjung terus melihat begitu tiba.
-		for i0 in 160:
+		# Tick yang sama persis di kedua toko; pengunjung datang lewat trotoar
+		# (GDD 20.1) lalu terus melihat begitu tiba.
+		for i0 in 600:
 			s.step(s.tick_seconds)
 			if w != null and w.state == Customer.BROWSING and w.browse_left < 500.0:
 				w.browse_left = 999.0
@@ -212,7 +217,7 @@ func _give_way() -> void:
 		var contended: bool = false
 		var overlap: bool = false
 		var t: float = 0.0
-		while t < 40.0:
+		while t < 60.0:
 			s.step(s.tick_seconds)
 			t += s.tick_seconds
 			for b: Customer in s.customers.sorted():

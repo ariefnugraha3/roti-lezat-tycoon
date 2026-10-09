@@ -11,6 +11,9 @@ const MARKER_HZ: float = 12.0
 const BREAD_HZ: float = 4.0
 ## Cahaya diperbarui 10 kali per detik nyata (perubahannya sangat pelan).
 const DAYLIGHT_INTERVAL: float = 0.1
+## Paling banyak orang yang berjalan pulang di trotoar sekaligus (sisanya
+## langsung hilang di pintu seperti dulu), supaya pool body tidak habis.
+const MAX_LEAVERS: int = 8
 const MAX_BREAD_PER_SLOT: int = 3
 ## Isi Meja Tunggu digambar lebih kecil dari barang di tangan agar enam muat.
 const TABLE_ITEM_SCALE: float = 0.75
@@ -129,6 +132,9 @@ var _lamps: Array[OmniLight3D] = []
 var _daylight_timer: float = 0.0
 ## Hasil Daylight.sample terakhir yang dipasang (untuk tes).
 var daylight: Dictionary = {}
+## Orang yang baru keluar pintu dan berjalan pulang (GDD 20.1): [{view, actor}].
+var _leavers: Array[Dictionary] = []
+var _leaver_sim: float = -1.0
 
 
 func setup(s: SimulationRoot) -> void:
@@ -178,6 +184,7 @@ func setup(s: SimulationRoot) -> void:
 ## Upgrade lokasi: ruangan baru dibangun, lalu shader alat tier baru dipanaskan
 ## di bawah lantai (tak terlihat) supaya tidak macet saat alat itu dibeli nanti.
 func _on_location_changed() -> void:
+	_clear_leavers()
 	rebuild_all()
 	if shader_warmup:
 		var w: ShaderWarmup = ShaderWarmup.start(self)
@@ -408,6 +415,7 @@ func _process(delta: float) -> void:
 	else:
 		camera_rig.follow(camera_rig.follow_target, delta)
 	_sync_actors(delta)
+	_step_leavers(delta)
 	_update_thoughts(delta)
 	_update_shopper_lines()
 	_update_staff_lines(delta)
@@ -508,16 +516,88 @@ func _sync_actors(delta: float) -> void:
 	for oid: Variant in sim.supply.couriers.keys():
 		var ca: SimActor = sim.supply.couriers[oid]
 		_sync_one(ca, "cour|%d" % ca.visual_seed, _npc_spec.bind("courier_supply", ca.visual_seed, false), delta, live, true)
-	# Kembalikan view yang aktornya sudah hilang ke pool (GDD 83.2: dibersihkan di pintu).
+	# Aktor yang hilang di pintu berjalan pulang di trotoar dulu (GDD 20.1), lalu
+	# body-nya kembali ke pool (GDD 83.2).
 	for k: Variant in views.keys():
 		if not live.has(k):
 			var old: ActorView = views[k]
 			views.erase(k)
-			if bool(old.get_meta("pooled", false)):
-				old.reset_for_pool()
-				_pool.append(old)
-			else:
-				old.queue_free()
+			if not _start_leaver(old):
+				_release_view(old)
+
+
+## Kembalikan body ke pool, atau bebaskan bila bukan body pool.
+func _release_view(old: ActorView) -> void:
+	if bool(old.get_meta("pooled", false)):
+		old.reset_for_pool()
+		_pool.append(old)
+	else:
+		old.queue_free()
+
+
+## Pelanggan, driver, atau kurir yang baru keluar pintu (atau dibubarkan di
+## trotoar saat toko tutup) berjalan ke ujung trotoar. Murni tampilan: aktornya
+## sudah tidak ada di simulasi. false bila tidak perlu (atau sudah terlalu ramai).
+func _start_leaver(v: ActorView) -> bool:
+	var kind: StringName = StringName(str(v.get_meta("kind", "")))
+	if not kind in [&"customer", &"driver", &"courier"] or _leavers.size() >= MAX_LEAVERS:
+		return false
+	if not v.has_meta("pos") or StringName(str(v.get_meta("floor", ""))) != sim.world.store_floor():
+		return false
+	var a := SimActor.new()
+	a.id = StringName("leaving_%s" % v.actor_id)
+	a.kind = kind
+	a.speed_mps = float(v.get_meta("speed", 1.2))
+	var side: int = 1 if posmod(hash(String(v.actor_id)), 2) == 0 else -1
+	a.walk_path(sim.world.store_floor(), StreetPaths.leave_from(sim.world.location, side, v.get_meta("pos")))
+	v.set_patience(1.0, false, false)
+	v.set_alert(false)
+	v.set_thought("")
+	v.set_look_around(false)
+	_leavers.append({"view": v, "actor": a})
+	return true
+
+
+## Langkahkan yang sedang berjalan pulang: dengan waktu simulasi selama hari
+## berjalan (ikut 2x/3x dan pause), dengan waktu nyata saat after-hours.
+func _step_leavers(delta: float) -> void:
+	var now: float = sim.time.sim_seconds
+	var dt: float = maxf(0.0, now - _leaver_sim) if _leaver_sim >= 0.0 else 0.0
+	_leaver_sim = now
+	if not sim.time.is_running_phase() and not PauseManager.is_paused():
+		dt = delta * DataRegistry.balf("clock.sim_seconds_per_real_second")
+	var on_store: bool = camera_rig.active_floor == sim.world.store_floor()
+	var i: int = 0
+	while i < _leavers.size():
+		var lv: Dictionary = _leavers[i]
+		var v: ActorView = lv["view"]
+		var a: SimActor = lv["actor"]
+		if not is_instance_valid(v):
+			_leavers.remove_at(i)
+			continue
+		if dt > 0.0:
+			a.step(dt, sim.world)
+		v.visible = on_store
+		v.sync(a, delta if dt > 0.0 else 0.0, on_store)
+		if not a.has_route():
+			_leavers.remove_at(i)
+			_release_view(v)
+			continue
+		i += 1
+
+
+## Semua yang sedang berjalan pulang langsung selesai (lokasi berganti).
+func _clear_leavers() -> void:
+	for lv: Dictionary in _leavers:
+		var v: ActorView = lv["view"]
+		if is_instance_valid(v):
+			_release_view(v)
+	_leavers.clear()
+
+
+## Orang yang sedang berjalan pulang di trotoar (untuk tes).
+func leavers() -> Array[Dictionary]:
+	return _leavers
 
 
 func _staff_spec(staff_id: String) -> Dictionary:
@@ -566,6 +646,11 @@ func _sync_one(a: SimActor, key: String, spec_fn: Callable, delta: float, live: 
 	var on_floor: bool = a.floor_id == camera_rig.active_floor
 	v.visible = on_floor
 	v.sync(a, delta, on_floor)
+	# Data terakhir aktornya, untuk berjalan pulang setelah ia hilang di pintu.
+	v.set_meta("kind", a.kind)
+	v.set_meta("speed", a.speed_mps)
+	v.set_meta("pos", a.pos)
+	v.set_meta("floor", a.floor_id)
 
 
 func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:

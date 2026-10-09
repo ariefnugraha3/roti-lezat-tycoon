@@ -17,6 +17,11 @@ const SHADOW: StringName = &"shadow"
 const SIGN: StringName = &"sign"
 
 static var _materials: Dictionary = {}
+## Mode tangkap (dipakai TrafficFactory untuk memanggang model karakter ke mesh
+## kendaraan): commit() hanya menyimpan isi mesh di meta "arrays" tanpa membuat
+## ArrayMesh, jadi tidak ada unggahan ke GPU lalu baca balik yang sinkron (mahal
+## di WebGL). Selalu dikembalikan ke false sesudahnya.
+static var capture: bool = false
 
 var _v := PackedVector3Array()
 var _n := PackedVector3Array()
@@ -278,6 +283,99 @@ func fade_to(center: Vector3, start: float, end: float, to: Color, max_t: float)
 			_c[k] = _c[k].lerp(to, t)
 
 
+## Kotak bersudut bulat (bodi kendaraan, jok, bemper): sisi datar, rusuk dan
+## sudut membulat berjari-jari `radius`. Tiap sisi berupa grid; titik di pita
+## lengkung disebar rata sudutnya (tan), sehingga dua sisi yang bertemu di rusuk
+## berbagi titik yang sama dan bayangannya menyambung mulus. `k` = jumlah ruas
+## per setengah lengkung (1 sederhana, 2 halus).
+func rounded_box(xf: Transform3D, size: Vector3, radius: float, color: Color, k: int = 2) -> void:
+	var h: Vector3 = size * 0.5
+	var r: float = clampf(radius, 0.0, minf(h.x, minf(h.y, h.z)) - 0.0001)
+	var core: Vector3 = h - Vector3(r, r, r)
+	var nb: Basis = xf.basis.inverse().transposed()
+	var steps: PackedFloat32Array = PackedFloat32Array()
+	for j in range(k, 0, -1):
+		steps.append(-(1.0 + tan(PI * 0.25 * float(j) / float(k))))
+	steps.append(-1.0)
+	steps.append(1.0)
+	for j2 in range(1, k + 1):
+		steps.append(1.0 + tan(PI * 0.25 * float(j2) / float(k)))
+	# Koordinat grid per sumbu: inti +- (r * tan) di pita lengkung.
+	var axes: Array[PackedFloat32Array] = []
+	for ax in 3:
+		var c: float = core[ax]
+		var list := PackedFloat32Array()
+		for s: float in steps:
+			if absf(s) <= 1.0:
+				list.append(c * s)
+			else:
+				list.append(signf(s) * (c + r * (absf(s) - 1.0)))
+		axes.append(list)
+	for face in 6:
+		var axis: int = face / 2
+		var sgn: float = -1.0 if face % 2 == 0 else 1.0
+		var u_ax: int = (axis + 1) % 3
+		var v_ax: int = (axis + 2) % 3
+		var rows: Array[PackedInt32Array] = []
+		for vi in axes[v_ax].size():
+			var row := PackedInt32Array()
+			for ui in axes[u_ax].size():
+				var q := Vector3.ZERO
+				q[axis] = sgn * h[axis]
+				q[u_ax] = axes[u_ax][ui]
+				q[v_ax] = axes[v_ax][vi]
+				var cl := Vector3(clampf(q.x, -core.x, core.x), clampf(q.y, -core.y, core.y), clampf(q.z, -core.z, core.z))
+				var d: Vector3 = q - cl
+				var n: Vector3 = d.normalized() if d.length_squared() > 1e-12 else Vector3.ZERO
+				if n == Vector3.ZERO:
+					n[axis] = sgn
+				row.append(_vert(xf * (cl + n * r), nb * n, color))
+			rows.append(row)
+		_stitch(rows, false)
+
+
+## Tambahkan isi surface mesh lain (hasil `surface_get_arrays`) yang
+## ditransformasi `xf`: dipakai untuk "memanggang" model karakter yang sudah
+## berpose ke dalam mesh kendaraan (satu draw call, GDD 32.7). Urutan segitiga
+## asal dipertahankan.
+func append_arrays(arrays: Array, xf: Transform3D) -> void:
+	var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var n: Variant = arrays[Mesh.ARRAY_NORMAL]
+	var c: Variant = arrays[Mesh.ARRAY_COLOR]
+	var idx: Variant = arrays[Mesh.ARRAY_INDEX]
+	var base: int = _v.size()
+	# Transformasi seluruh array sekaligus (bawaan engine, jauh lebih cepat dari
+	# loop GDScript per verteks).
+	var moved: PackedVector3Array = xf * v
+	_v.append_array(moved)
+	if n != null:
+		var nb: Basis = xf.basis.inverse().transposed()
+		var sc: Vector3 = nb.get_scale()
+		if absf(sc.x - sc.y) < 0.001 and absf(sc.y - sc.z) < 0.001 and absf(sc.x) > 0.0001:
+			# Skala seragam: setelah dibagi skalanya basis normal murni rotasi.
+			_n.append_array(Transform3D(nb * (1.0 / absf(sc.x)), Vector3.ZERO) * (n as PackedVector3Array))
+		else:
+			for nv: Vector3 in n as PackedVector3Array:
+				_n.append((nb * nv).normalized())
+	else:
+		for k in v.size():
+			_n.append(Vector3.UP)
+	if c != null:
+		_c.append_array(c as PackedColorArray)
+	else:
+		for k2 in v.size():
+			_c.append(Color.WHITE)
+	for p: Vector3 in moved:
+		_min = _min.min(p)
+		_max = _max.max(p)
+	if idx != null:
+		for i: int in idx as PackedInt32Array:
+			_i.append(base + i)
+	else:
+		for i2 in v.size():
+			_i.append(base + i2)
+
+
 ## Permukaan datar dekat tanah (normal menghadap ke atas, di bawah `max_y`)
 ## digelapkan `amount`: jalan, trotoar, dan rumput yang basah oleh hujan.
 func darken_ground(max_y: float, amount: float) -> void:
@@ -318,18 +416,46 @@ func commit(node_name: String, finish: StringName = MATTE) -> MeshInstance3D:
 	if _i.is_empty():
 		mi.set_meta("aabb", AABB())
 		return mi
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = _v
-	arrays[Mesh.ARRAY_NORMAL] = _n
-	arrays[Mesh.ARRAY_COLOR] = _c
-	arrays[Mesh.ARRAY_INDEX] = _i
+	mi.set_meta("aabb", AABB(_min, _max - _min))
+	if capture:
+		mi.set_meta("arrays", arrays())
+		mi.set_meta("finish", finish)
+		return mi
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays())
 	mi.mesh = mesh
 	mi.material_override = material(finish)
-	mi.set_meta("aabb", AABB(_min, _max - _min))
 	return mi
+
+
+## Penanda isi saat ini (jumlah verteks dan indeks), untuk `flip_since`.
+func mark() -> Vector2i:
+	return Vector2i(_v.size(), _i.size())
+
+
+## Jadikan semua yang dirakit sejak penanda `m` permukaan dalam: normalnya
+## dibalik dan sisi depan segitiganya ditukar. Dipakai untuk lapisan dalam
+## bentuk terbuka (kap becak), supaya bagian dalamnya tidak tembus pandang.
+func flip_since(m: Vector2i) -> void:
+	for k in range(m.x, _n.size()):
+		_n[k] = -_n[k]
+	var t: int = m.y
+	while t + 2 < _i.size():
+		var b: int = _i[t + 1]
+		_i[t + 1] = _i[t + 2]
+		_i[t + 2] = b
+		t += 3
+
+
+## Isi mesh yang sudah dirakit, siap untuk `add_surface_from_arrays`.
+func arrays() -> Array:
+	var out: Array = []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = _v
+	out[Mesh.ARRAY_NORMAL] = _n
+	out[Mesh.ARRAY_COLOR] = _c
+	out[Mesh.ARRAY_INDEX] = _i
+	return out
 
 
 ## Material bersama untuk semua karakter: warna datang dari verteks (sRGB,

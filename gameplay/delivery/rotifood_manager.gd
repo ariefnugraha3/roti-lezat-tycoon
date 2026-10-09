@@ -253,7 +253,7 @@ func step(dt: float) -> void:
 	for o: DeliveryOrder in active_orders():
 		match o.driver_phase:
 			&"none":
-				if now >= o.driver_arrival_time:
+				if now >= o.driver_arrival_time - approach_seconds(o):
 					o.driver_phase = &"pending"
 					o.driver_pending_since = now
 					o.state = DeliveryOrder.DRIVER_EN_ROUTE if not o.packed else o.state
@@ -262,6 +262,10 @@ func step(dt: float) -> void:
 					_fail(o, &"pending_expired", false)
 				else:
 					_try_admit_driver(o)
+			&"approaching":
+				o.driver.step(dt, sim.world)
+				if not o.driver.has_route():
+					_driver_enter(o)
 			&"entering":
 				o.driver.step(dt, sim.world)
 				_drain(o, dt)
@@ -315,16 +319,36 @@ func _try_admit_driver(o: DeliveryOrder) -> void:
 	a.speed_mps = float(DataRegistry.driver_def().get("movement_speed_mps", 1.25))
 	a.visual_key = &"driver_rotifood"
 	a.visual_seed = sim.rng.stream(&"cosmetic_rng").randi()
-	a.place_at(sim.world.store_floor(), sim.world.entrance_cell())
+	# Datang dari ujung trotoar (GDD 20.1, 22.6); kesabarannya baru berkurang di toko.
+	a.walk_path(sim.world.store_floor(), StreetPaths.approach(sim.world.location, _side(o)))
 	o.driver = a
-	o.driver_phase = &"entering"
-	o.driver_entered_at = sim.time.sim_seconds
+	o.driver_phase = &"approaching"
 	o.driver_patience = o.driver_patience_max
 	o.driver_stall = 0.0
 	if not o.packed:
 		o.state = DeliveryOrder.DRIVER_EN_ROUTE
-	EventBus.sfx.emit(&"rotifood_driver_arrive", a.floor_id)
-	_go_tail(o, lane)
+
+
+## Driver tiba di pintu dan masuk toko menuju antreannya.
+func _driver_enter(o: DeliveryOrder) -> void:
+	o.driver.place_at(sim.world.store_floor(), sim.world.entrance_cell())
+	o.driver_phase = &"entering"
+	o.driver_entered_at = sim.time.sim_seconds
+	EventBus.sfx.emit(&"rotifood_driver_arrive", o.driver.floor_id)
+	var lane: QueueLane = sim.queue.lane_of(o.driver_id())
+	if lane != null:
+		_go_tail(o, lane)
+
+
+## Sisi trotoar driver: bergantian menurut nomor order, tanpa RNG.
+func _side(o: DeliveryOrder) -> int:
+	return 1 if o.order_id % 2 == 0 else -1
+
+
+## Lama driver berjalan dari ujung trotoar ke pintu (detik-simulasi). Ia berangkat
+## selama itu sebelum `driver_arrival_time`, jadi tiba di pintu tepat waktu.
+func approach_seconds(o: DeliveryOrder) -> float:
+	return StreetPaths.approach_seconds(sim.world.location, _side(o), float(DataRegistry.driver_def().get("movement_speed_mps", 1.25)))
 
 
 func _go_tail(o: DeliveryOrder, lane: QueueLane) -> void:
@@ -458,7 +482,10 @@ func _driver_leave(o: DeliveryOrder) -> void:
 	sim.queue.release(o.driver_id())
 	sim.world.release_all_for(o.driver_id())
 	o.driver_phase = &"leaving"
-	if o.driver != null and not o.driver.go_to(sim.world, sim.world.store_floor(), sim.world.entrance_cell()):
+	if o.driver != null and o.driver.outside:
+		# Masih di trotoar (order dibatalkan atau ditolak): berbalik pulang.
+		o.driver.walk_path(sim.world.store_floor(), StreetPaths.retreat(sim.world.location, _side(o), o.driver.pos))
+	elif o.driver != null and not o.driver.go_to(sim.world, sim.world.store_floor(), sim.world.entrance_cell()):
 		o.driver = null
 		o.driver_phase = &"gone"
 
@@ -527,12 +554,14 @@ func restore(d: Dictionary) -> void:
 func reconstruct() -> void:
 	for o: DeliveryOrder in active_orders():
 		if o.driver == null:
-			if o.driver_phase in [&"entering", &"queued", &"at_service"]:
+			if o.driver_phase in [&"approaching", &"entering", &"queued", &"at_service"]:
 				o.driver_phase = &"pending"
 				o.driver_pending_since = sim.time.sim_seconds
 			continue
 		var lane: QueueLane = sim.queue.lane_of(o.driver_id())
 		match o.driver_phase:
+			&"approaching":
+				o.driver.walk_path(sim.world.store_floor(), StreetPaths.approach(sim.world.location, _side(o)))
 			&"queued":
 				var i: int = lane.slot_index_of(o.driver_id()) if lane != null else -1
 				if i >= 0:

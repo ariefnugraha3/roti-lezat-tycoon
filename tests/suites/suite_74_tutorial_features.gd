@@ -296,6 +296,8 @@ func _feature_ui() -> void:
 	for c: Customer in sim.customers.sorted():
 		if c.is_critic:
 			critic = c
+	# Ia datang dulu lewat trotoar (GDD 20.1); tipnya muncul begitu ia masuk.
+	check(critic != null and walk_in(sim, critic), "the Food Vlogger reaches the door")
 	await _frames(2)
 	await _check_spotlight(game, ["tut_critic"], [func() -> Rect2: return world.screen_rect_of([world.views.get(critic.id)])], "critic")
 	# Roti basi di rak.

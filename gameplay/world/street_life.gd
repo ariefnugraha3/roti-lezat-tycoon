@@ -18,8 +18,11 @@ extends Node3D
 ## Tingkat pudar kendaraan. Di layar, bahkan pada zoom terjauh, jalan tidak
 ## pernah lebih pudar dari ~0,45; sesudahnya kendaraan sudah di luar layar.
 const FADE_LEVELS: Array[float] = [0.0, 0.15, 0.3, 0.45]
-## Paling banyak satu mesh kendaraan dirakit per frame (menghindari tersendat).
-const BUILDS_PER_FRAME: int = 1
+## Merakit kendaraan dibagi ke langkah-langkah kecil (bodi, satu pengendara,
+## satu bingkai pada satu tingkat pudar). Tiap frame menjalankan paling sedikit
+## satu langkah, lalu terus selama waktunya masih di bawah WORK_USEC, supaya
+## tidak tersendat, juga di browser HP yang jauh lebih lambat.
+const WORK_USEC: int = 3000
 const WALKER_POOL: int = 4
 const MAX_WALKERS: int = 3
 ## Kecepatan nyata pejalan kaki (m/s).
@@ -28,6 +31,9 @@ const WALK_SPEED: Vector2 = Vector2(1.5, 1.9)
 const POP_SECONDS: float = 0.3
 ## Jarak aman minimal di antara dua kendaraan selajur (m).
 const SAFE_GAP: float = 1.6
+## Perlambatan dan percepatan kendaraan (m/s^2). Kendaraan mulai mengerem di
+## belakang yang lebih lambat sejauh jarak pengereman ditambah jarak aman.
+const BRAKE: float = 3.0
 ## Roda dua menyalip kendaraan yang kecepatannya di bawah rasio ini, dengan
 ## bergeser sejauh PASS_OFFSET ke arah tengah jalan.
 const PASS_RATIO: float = 0.6
@@ -66,7 +72,16 @@ var _rain: bool = false
 var _day: int = -1
 var _rng := RandomNumberGenerator.new()
 var _cache: Dictionary = {}
-var _builds_left: int = 0
+## Rencana rakitan per "jenis|varian|hujan" (TrafficFactory.plan) dan jumlah
+## mesh yang sudah disusun darinya; rencana dibuang begitu semua bingkai dan
+## tingkat pudarnya jadi.
+var _plans: Dictionary = {}
+var _plan_meshes: Dictionary = {}
+var _work_deadline: int = 0
+var _work_units: int = 0
+## [jenis, varian] kendaraan lajur tier ini yang rencananya dirakit di sela
+## waktu frame sebelum dibutuhkan.
+var _warm: Array = []
 var _t: float = 0.0
 var _store_view: bool = true
 ## Riak aktif: [{node, puddle: Vector4, t, level}].
@@ -88,7 +103,7 @@ func setup(s: SimulationRoot, wv: WorldView) -> void:
 ## pejalan kaki dimulai lagi dari kosong.
 func rebuild(neighborhood: Node3D) -> void:
 	clear()
-	_cache.clear()
+	_clear_cache()
 	_tier = sim.world.location.tier if sim != null else 0
 	if neighborhood == null or not NeighborhoodFactory.has_street(_tier):
 		return
@@ -116,6 +131,7 @@ func rebuild(neighborhood: Node3D) -> void:
 		_walk_next.append(0.0)
 	_looks = plan["looks"]
 	_reseed()
+	_queue_warm()
 	_build_pool()
 	if bool(neighborhood.get_meta("wet", false)):
 		_build_ripples(neighborhood.get_meta("puddles", []))
@@ -217,13 +233,15 @@ func update(delta: float) -> void:
 	if PauseManager.is_paused() or delta <= 0.0:
 		return
 	_t += delta
-	_builds_left = BUILDS_PER_FRAME
+	_work_deadline = Time.get_ticks_usec() + WORK_USEC
+	_work_units = 0
 	_chime()
 	var act: float = activity()
 	for lane: Dictionary in lanes:
 		_step_lane(lane, delta, act)
 	_step_walkers(delta, act)
 	_step_ripples(delta)
+	_warm_step()
 
 
 ## Menara jam alun-alun Tier 5 berdentang setiap jam in-game berganti, selama
@@ -266,7 +284,7 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 		if i > 0:
 			var ahead: Dictionary = cars[i - 1]
 			var gap_m: float = absf(float(ahead["x"]) - float(car["x"])) - (float(ahead["len"]) + float(car["len"])) * 0.5
-			if gap_m < SAFE_GAP * 2.0:
+			if gap_m < _brake_gap(float(car["speed"]), float(ahead["speed"])):
 				# Roda dua menyalip yang jauh lebih lambat (gerobak, sepeda, becak)
 				# dengan bergeser ke tengah jalan; selain itu melambat di belakangnya.
 				if TWO_WHEELS.has(car["kind"]) and float(ahead["want"]) < want * PASS_RATIO:
@@ -282,7 +300,7 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 		else:
 			car.erase("pass_until")
 		car["offset"] = move_toward(float(car.get("offset", 0.0)), offset_want, delta * 1.6)
-		car["speed"] = move_toward(float(car["speed"]), want, delta * 3.0)
+		car["speed"] = move_toward(float(car["speed"]), want, delta * BRAKE)
 		car["x"] = float(car["x"]) + dir * float(car["speed"]) * delta
 		car["age"] = float(car["age"]) + delta
 		var done: bool = float(car["x"]) * dir >= end_x * dir
@@ -292,6 +310,13 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 			cars.remove_at(i)
 			continue
 		i += 1
+
+
+## Jarak yang dibutuhkan kendaraan berkecepatan `v` untuk melambat ke `v_ahead`
+## (kendaraan di depannya) ditambah dua kali jarak aman.
+static func _brake_gap(v: float, v_ahead: float) -> float:
+	var closing: float = maxf(0.0, v - v_ahead)
+	return closing * closing / (2.0 * BRAKE) + SAFE_GAP * 2.0
 
 
 ## Muncul di ujung lajur. false bila ujungnya masih terhalang kendaraan lain atau
@@ -312,7 +337,7 @@ func _spawn_car(lane: Dictionary) -> bool:
 	if TWO_WHEELS.has(kind):
 		z += _rng.randf_range(-float(def["jitter"]), float(def["jitter"]))
 	var level: int = _level_at(start_x, z)
-	var mesh: Mesh = _mesh(kind, variant, level, true)
+	var mesh: Mesh = _mesh(kind, variant, level, true, 0)
 	if mesh == null:
 		return false
 	var mi := MeshInstance3D.new()
@@ -324,9 +349,21 @@ func _spawn_car(lane: Dictionary) -> bool:
 	_root.add_child(mi)
 	var speed: Vector2 = inf["speed"]
 	var v: float = _rng.randf_range(speed.x, speed.y)
-	var car: Dictionary = {"kind": kind, "variant": variant, "node": mi, "x": start_x, "z": z, "speed": v, "want": v,
+	# Muncul di belakang kendaraan yang lebih lambat dan terlalu dekat untuk
+	# sempat mengerem: mulai dengan kecepatannya, lalu menambah laju bila lega.
+	var start_v: float = v
+	if not cars.is_empty():
+		var last2: Dictionary = cars[cars.size() - 1]
+		var gap0: float = absf(float(last2["x"]) - start_x) - (float(last2["len"]) + float(inf["length"])) * 0.5
+		if gap0 < _brake_gap(v, float(last2["speed"])):
+			start_v = minf(v, float(last2["speed"]))
+	# Kaki pengayuh dan pedagang bergerak menurut jarak tempuh (`stride` m per
+	# putaran), mulai dari fase acak supaya tidak serempak.
+	var stride: float = float(inf.get("stride", 1.0))
+	var car: Dictionary = {"kind": kind, "variant": variant, "node": mi, "x": start_x, "z": z, "speed": start_v, "want": v,
 		"len": float(inf["length"]), "bob": float(inf["bob"]), "phase": _rng.randf_range(0.0, TAU), "level": level,
-		"age": 0.0, "pop": bool(def.get("pop", false)), "pop_out": 0.0}
+		"age": 0.0, "pop": bool(def.get("pop", false)), "pop_out": 0.0, "frames": TrafficFactory.frames(kind),
+		"frame": 0, "stride": stride, "dist": _rng.randf_range(0.0, stride)}
 	cars.append(car)
 	_place_car(car, false, 0.0)
 	return true
@@ -351,11 +388,18 @@ func _place_car(car: Dictionary, leaving: bool, delta: float) -> void:
 		car["pop_out"] = POP_SECONDS
 	mi.scale = Vector3.ONE * s
 	var level: int = _level_at(x, z)
-	if level != int(car["level"]):
-		var mesh: Mesh = _mesh(car["kind"], int(car["variant"]), level, false)
+	var frame: int = 0
+	var nf: int = int(car["frames"])
+	if nf > 1:
+		var stride: float = float(car["stride"])
+		car["dist"] = fposmod(float(car["dist"]) + float(car["speed"]) * delta, stride)
+		frame = int(float(car["dist"]) / stride * float(nf)) % nf
+	if level != int(car["level"]) or frame != int(car["frame"]):
+		var mesh: Mesh = _mesh(car["kind"], int(car["variant"]), level, false, frame)
 		if mesh != null:
 			mi.mesh = mesh
 			car["level"] = level
+			car["frame"] = frame
 
 
 ## Tingkat pudar di titik (x, z): sama dengan pudar jalan di bawahnya.
@@ -369,24 +413,96 @@ func _level_at(x: float, z: float) -> int:
 	return best
 
 
-## Mesh dari cache; dirakit bila belum ada dan anggaran frame ini masih ada.
-## `fallback`: pakai tingkat pudar lain yang sudah jadi bila anggaran habis.
-func _mesh(kind: StringName, variant: int, level: int, fallback: bool) -> Mesh:
-	var key: String = "%s|%d|%d|%d" % [kind, variant, 1 if _rain else 0, level]
+## Mesh bingkai `frame` pada tingkat pudar `level` dari cache. Bila belum ada,
+## disusun dari rencana kendaraannya selama anggaran frame ini masih ada
+## (merakit rencana baru mahal, menyusun bingkai murah). `fallback`: pakai
+## bingkai atau tingkat pudar lain yang sudah jadi bila anggaran habis.
+func _mesh(kind: StringName, variant: int, level: int, fallback: bool, frame: int = 0) -> Mesh:
+	var base: String = "%s|%d|%d" % [kind, variant, 1 if _rain else 0]
+	var key: String = "%s|%d|%d" % [base, frame, level]
 	if _cache.has(key):
 		return _cache[key]
-	if _builds_left > 0:
-		_builds_left -= 1
-		var mi: MeshInstance3D = TrafficFactory.build(kind, variant, _rain, FADE_LEVELS[level])
-		_cache[key] = mi.mesh
-		mi.free()
-		return _cache[key]
-	if fallback:
-		for l in FADE_LEVELS.size():
-			var k2: String = "%s|%d|%d|%d" % [kind, variant, 1 if _rain else 0, l]
-			if _cache.has(k2):
-				return _cache[k2]
+	var p: Dictionary = _plans.get(base, {})
+	if p.is_empty() or not TrafficFactory.plan_ready(p):
+		if not _can_work():
+			return _any_mesh(base, TrafficFactory.frames(kind), frame, level) if fallback else null
+		_work_units += 1
+		if p.is_empty():
+			p = TrafficFactory.plan(kind, variant, _rain)
+			_plans[base] = p
+		else:
+			TrafficFactory.plan_step(p)
+		if not TrafficFactory.plan_ready(p):
+			return _any_mesh(base, TrafficFactory.frames(kind), frame, level) if fallback else null
+	if not _can_work():
+		return _any_mesh(base, TrafficFactory.frames(kind), frame, level) if fallback else null
+	_work_units += 1
+	var mesh: ArrayMesh = TrafficFactory.mesh_from(TrafficFactory.frame_arrays(p, frame), FADE_LEVELS[level])
+	_cache[key] = mesh
+	var made: int = int(_plan_meshes.get(base, 0)) + 1
+	_plan_meshes[base] = made
+	if made >= TrafficFactory.frames(kind) * FADE_LEVELS.size():
+		_plans.erase(base)
+	return mesh
+
+
+## Mesh lain dari kendaraan yang sama yang sudah jadi: bingkai yang sama di
+## tingkat pudar lain dulu, lalu bingkai lain. null bila belum ada sama sekali.
+func _any_mesh(base: String, frames: int, frame: int, level: int) -> Mesh:
+	for l in FADE_LEVELS.size():
+		var k: String = "%s|%d|%d" % [base, frame, l]
+		if _cache.has(k):
+			return _cache[k]
+	for f in frames:
+		var k2: String = "%s|%d|%d" % [base, f, level]
+		if _cache.has(k2):
+			return _cache[k2]
 	return null
+
+
+func _clear_cache() -> void:
+	_cache.clear()
+	_plans.clear()
+	_plan_meshes.clear()
+	_warm.clear()
+
+
+## Rencana semua jenis dan varian di lajur tier ini dirakit di latar, urut nama.
+func _queue_warm() -> void:
+	_warm.clear()
+	var seen: Dictionary = {}
+	for lane: Dictionary in lanes:
+		var kinds: Array = (lane["def"]["kinds"] as Dictionary).keys()
+		kinds.sort_custom(func(a: Variant, b: Variant) -> bool: return String(a) < String(b))
+		for k: Variant in kinds:
+			var kind := StringName(str(k))
+			for v in int(TrafficFactory.info(kind)["variants"]):
+				var key: String = "%s|%d" % [kind, v]
+				if not seen.has(key):
+					seen[key] = true
+					_warm.append([kind, v])
+
+
+## Langkah kerja frame ini masih boleh dijalankan.
+func _can_work() -> bool:
+	return _work_units == 0 or Time.get_ticks_usec() < _work_deadline
+
+
+## Rakit rencana kendaraan yang belum ada di sisa waktu frame, supaya saat
+## dibutuhkan bingkainya tinggal disusun.
+func _warm_step() -> void:
+	while not _warm.is_empty() and _can_work():
+		var w: Array = _warm[0]
+		var base: String = "%s|%d|%d" % [w[0], int(w[1]), 1 if _rain else 0]
+		var p: Dictionary = _plans.get(base, {})
+		if p.is_empty() and not _plan_meshes.has(base):
+			_plans[base] = TrafficFactory.plan(w[0], int(w[1]), _rain)
+			_work_units += 1
+		elif not p.is_empty() and not TrafficFactory.plan_ready(p):
+			TrafficFactory.plan_step(p)
+			_work_units += 1
+		else:
+			_warm.pop_front()
 
 
 func _pick(weights: Dictionary) -> StringName:
@@ -405,7 +521,8 @@ func _pick(weights: Dictionary) -> StringName:
 
 ## Cuaca berganti: kendaraan baru memakai jas hujan; yang sedang lewat tetap.
 func _restyle() -> void:
-	_cache.clear()
+	_clear_cache()
+	_queue_warm()
 	_build_pool()
 
 

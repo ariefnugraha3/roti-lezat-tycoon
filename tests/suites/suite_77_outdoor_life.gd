@@ -225,10 +225,18 @@ func _street_clear() -> void:
 					for rain: bool in [false, true]:
 						var key: String = "%s|%d|%s|%f" % [kn, v, rain, ry]
 						if not cache.has(key):
-							var mi: MeshInstance3D = TrafficFactory.build(kn, v, rain, 0.0)
-							check(mi.material_override == MeshBuilder.material(MeshBuilder.MATTE), "%s uses the shared matte material" % kn)
-							cache[key] = _lift(mi.mesh.surface_get_arrays(0), ry, k)
-							mi.free()
+							if v == 0 and not rain:
+								var mi: MeshInstance3D = TrafficFactory.build(kn, v, rain, 0.0)
+								check(mi.material_override == MeshBuilder.material(MeshBuilder.MATTE), "%s uses the shared matte material" % kn)
+								mi.free()
+							# Semua bingkai kayuh/langkah: kakinya bergerak.
+							var p: Dictionary = TrafficFactory.plan(kn, v, rain)
+							while not TrafficFactory.plan_step(p):
+								pass
+							var lift: float = -INF
+							for fr in TrafficFactory.frames(kn):
+								lift = maxf(lift, _lift(TrafficFactory.frame_arrays(p, fr), ry, k))
+							cache[key] = lift
 						worst = maxf(worst, float(cache[key]))
 				var z: float = float(ld["z"])
 				if two:

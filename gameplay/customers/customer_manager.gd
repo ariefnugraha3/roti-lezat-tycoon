@@ -63,7 +63,7 @@ func active_count() -> int:
 func first_buyer() -> Customer:
 	var best: Customer = null
 	for c: Customer in sorted():
-		if c.window_shopper or c.state in [Customer.CELEBRATING, Customer.LEAVING, Customer.ABANDONING, Customer.LEAVE_NO_STOCK, Customer.DESPAWNED]:
+		if c.window_shopper or c.state in [Customer.APPROACHING, Customer.CELEBRATING, Customer.LEAVING, Customer.ABANDONING, Customer.LEAVE_NO_STOCK, Customer.DESPAWNED]:
 			continue
 		if best == null or c.spawned_at < best.spawned_at:
 			best = c
@@ -108,7 +108,6 @@ func try_admit(arrival: Dictionary) -> bool:
 		c.patience_max = float(arrival["patience_override"])
 	c.patience = c.patience_max
 	c.lane_id = lane.id
-	c.spawned_at = sim.time.sim_seconds
 	c.actor = SimActor.new()
 	c.actor.id = c.id
 	c.actor.kind = &"customer"
@@ -116,15 +115,38 @@ func try_admit(arrival: Dictionary) -> bool:
 	c.actor.speed_mps = def.movement_speed_mps
 	c.actor.visual_key = archetype
 	c.actor.visual_seed = sim.rng.stream(&"cosmetic_rng").randi()
-	c.actor.place_at(sim.world.store_floor(), door)
-	c.state = Customer.ENTERING
 	customers[c.id] = c
+	_start_approach(c)
+	return true
+
+
+## Datang dari ujung trotoar (keputusan maintainer 2026-10-09, GDD 20.1): slot
+## antrean sudah dipesan saat diterima, lalu ia berjalan sepanjang trotoar ke
+## pintu. Sisinya bergantian menurut nomor pelanggan, tanpa RNG.
+func _start_approach(c: Customer) -> void:
+	var num: int = int(String(c.id).substr(1))
+	var side: int = -1 if num % 2 == 1 else 1
+	c.actor.walk_path(sim.world.store_floor(), StreetPaths.approach(sim.world.location, side))
+	c.state = Customer.APPROACHING
+
+
+## Tiba di pintu: baru sekarang ia masuk toko, membunyikan bel, dan memilih roti
+## (atau tempat melihat-lihat).
+func _enter_shop(c: Customer) -> void:
+	c.actor.place_at(sim.world.store_floor(), sim.world.entrance_cell())
+	c.spawned_at = sim.time.sim_seconds
+	EventBus.sfx.emit(&"door_bell_enter", c.actor.floor_id)
+	if c.window_shopper:
+		window_shoppers_today += 1
+		c.state = Customer.ENTERING
+		if not c.actor.go_to(sim.world, sim.world.store_floor(), c.look_cell):
+			_window_leave(c)
+		return
+	c.state = Customer.ENTERING
 	entered_today += 1
 	EventBus.customer_spawned.emit(0)
-	EventBus.sfx.emit(&"door_bell_enter", c.actor.floor_id)
 	_choose_target(c)
 	sim.tutorial.on_customer_entered(c)
-	return true
 
 
 # ===========================================================================
@@ -162,7 +184,6 @@ func try_admit_window_shopper(archetype: StringName) -> bool:
 		return false
 	if customers.size() + sim.rotifood.driver_count() >= DataRegistry.bali("queue.max_visible_customer_actors"):
 		return false
-	var door: Vector2i = sim.world.entrance_cell()
 	var spot: Dictionary = _pick_look_spot(-1)
 	if spot.is_empty():
 		return false
@@ -173,14 +194,14 @@ func try_admit_window_shopper(archetype: StringName) -> bool:
 	c.archetype = archetype
 	c.window_shopper = true
 	c.looks_left = 2 if r.randf() < DataRegistry.balf("window_shopper.second_look_chance") else 1
-	c.spawned_at = sim.time.sim_seconds
 	c.actor = _window_shopper_actor(c)
 	c.actor.visual_seed = r.randi()
-	c.actor.place_at(sim.world.store_floor(), door)
+	# Tempatnya dipesan sekarang; ia berjalan ke sana setelah tiba di pintu.
+	c.look_cell = spot["cell"]
+	c.look_display = int(spot["display"])
+	sim.world.reserve_point(sim.world.store_floor(), c.look_cell, c.id)
 	customers[c.id] = c
-	window_shoppers_today += 1
-	EventBus.sfx.emit(&"door_bell_enter", c.actor.floor_id)
-	_go_look(c, spot)
+	_start_approach(c)
 	return true
 
 
@@ -635,6 +656,10 @@ func step(dt: float) -> void:
 	var lowest: float = 1.0
 	for c: Customer in sorted():
 		var arrived: bool = c.actor.step(dt, sim.world)
+		if c.state == Customer.APPROACHING:
+			if not c.actor.has_route():
+				_enter_shop(c)
+			continue
 		if c.window_shopper:
 			_step_window_shopper(c, dt)
 			continue
@@ -878,7 +903,7 @@ func _movable(lane: QueueLane, include_front: bool) -> Array[StringName]:
 			out.append(c.id)
 	for id2: StringName in lane.reservations:
 		var c2: Customer = customer(id2)
-		if c2 != null and not lane.line.has(id2) and not out.has(id2) 				and c2.state in [Customer.ENTERING, Customer.BROWSING, Customer.CARRYING_TO_QUEUE]:
+		if c2 != null and not lane.line.has(id2) and not out.has(id2) 				and c2.state in [Customer.APPROACHING, Customer.ENTERING, Customer.BROWSING, Customer.CARRYING_TO_QUEUE]:
 			out.append(c2.id)
 	return out
 
@@ -1024,6 +1049,9 @@ func reconstruct() -> void:
 			continue
 		var lane: QueueLane = sim.queue.lane(c.lane_id)
 		match c.state:
+			Customer.APPROACHING:
+				# Save di tengah perjalanan: berangkat lagi dari ujung trotoar.
+				_start_approach(c)
 			Customer.QUEUING:
 				var i: int = lane.slot_index_of(c.id) if lane != null else -1
 				if i < 0:
@@ -1057,6 +1085,10 @@ func reconstruct() -> void:
 func _reconstruct_window_shopper(c: Customer) -> void:
 	var floor_id: StringName = sim.world.store_floor()
 	match c.state:
+		Customer.APPROACHING:
+			if _look_spot_valid(c):
+				sim.world.reserve_point(floor_id, c.look_cell, c.id)
+			_start_approach(c)
 		Customer.ENTERING, Customer.BROWSING:
 			if not _look_spot_valid(c) or not sim.world.reserve_point(floor_id, c.look_cell, c.id):
 				_window_leave(c)

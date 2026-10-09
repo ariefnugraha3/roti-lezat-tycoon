@@ -20,6 +20,8 @@ var route: Array[Dictionary] = []
 var goal_floor: StringName = &""
 var goal_cell: Vector2i = Vector2i(-1, -1)
 var moving: bool = false
+## Sedang berjalan di luar grid lantai (trotoar, `walk_path`).
+var outside: bool = false
 ## Barang yang dibawa: {} kosong, atau {type, job_id, recipe_id, units}.
 var carried: Dictionary = {}
 var state: StringName = &"IDLE"
@@ -46,6 +48,7 @@ func has_route() -> bool:
 
 ## Pasang tujuan; mengembalikan false bila jalan terhalang (GDD 16.7).
 func go_to(world: WorldManager, target_floor: StringName, target_cell: Vector2i) -> bool:
+	outside = false
 	goal_floor = target_floor
 	goal_cell = target_cell
 	if floor_id == target_floor and cell() == target_cell:
@@ -75,6 +78,26 @@ func place_at(target_floor: StringName, target_cell: Vector2i) -> void:
 	pos = GridMath.cell_center(target_cell)
 	route.clear()
 	moving = false
+	outside = false
+
+
+## Berjalan di luar grid lantai (trotoar, GDD 20.1): mulai di titik pertama `path`
+## lalu menempuh titik-titik berikutnya lurus, tanpa pencarian jalan. Selama itu
+## `outside` true, jadi repath tata letak tidak menyentuhnya.
+func walk_path(target_floor: StringName, path: PackedVector2Array) -> void:
+	floor_id = target_floor
+	route.clear()
+	if path.is_empty():
+		moving = false
+		outside = false
+		return
+	pos = path[0]
+	for i in range(1, path.size()):
+		route.append({"floor": target_floor, "pos": path[i], "portal": false})
+	moving = not route.is_empty()
+	outside = moving
+	if path.size() > 1 and path[0].distance_to(path[1]) > 0.0001:
+		facing = (path[1] - path[0]).normalized()
 
 
 ## Satu langkah gerak (detik-simulasi). Mengembalikan true bila tiba di tujuan
@@ -110,8 +133,10 @@ func step(dt: float, world: WorldManager) -> bool:
 			budget = 0.0
 	if route.is_empty():
 		moving = false
+		outside = false
 		arrived = true
-	_watchdog(dt, world)
+	if not outside:
+		_watchdog(dt, world)
 	return arrived
 
 
@@ -138,6 +163,8 @@ func _watchdog(dt: float, world: WorldManager) -> void:
 
 ## Repath setelah layout berubah (GDD 17.5).
 func repath(world: WorldManager) -> void:
+	if outside:
+		return
 	if goal_cell.x >= 0 and not route.is_empty():
 		go_to(world, goal_floor, goal_cell)
 

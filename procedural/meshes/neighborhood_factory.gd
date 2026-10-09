@@ -154,8 +154,6 @@ const T5_PASSAGE_X1: float = 11.0
 const T5_COURT_X: float = -9.6
 ## Tembok bata di ujung halaman servis belakang (z).
 const T5_BACK_Z: float = 13.0
-## Skala mobil terhadap ukuran sebenarnya (dunia chibi).
-const CAR_SCALE: float = 0.68
 ## Pendar lampu jalan saat senja dan fajar (GDD 32.6): cakram lembut menghadap
 ## kamera di kepala lampu, dan genangan cahaya di tanah di bawahnya. Keduanya
 ## memakai material SHADOW (tanpa bayangan, transparan) milik bayangan karakter.
@@ -318,7 +316,7 @@ static func traffic(tier: int) -> Dictionary:
 					{"z": -2.45, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": two, "gap": Vector2(7.0, 15.0), "jitter": 0.12},
 					{"z": -3.75, "dir": 1, "x0": -26.0, "x1": 30.0, "kinds": two, "gap": Vector2(8.0, 16.0), "jitter": 0.12},
 				],
-				"walks": [{"z": -1.75, "x0": -9.0, "x1": 15.0, "gap": Vector2(7.0, 15.0)}],
+				"walks": [{"z": StreetPaths.walk_z(1), "x0": -9.0, "x1": 15.0, "gap": Vector2(7.0, 15.0)}],
 				"looks": [&"customer_generic", &"customer_school_child", &"customer_indecisive"],
 			}
 		2:
@@ -328,7 +326,7 @@ static func traffic(tier: int) -> Dictionary:
 					{"z": -4.1, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": road, "gap": Vector2(4.5, 9.0), "jitter": 0.35},
 					{"z": -7.1, "dir": 1, "x0": -26.0, "x1": 30.0, "kinds": road, "gap": Vector2(5.0, 10.0), "jitter": 0.35},
 				],
-				"walks": [{"z": -2.95, "x0": -8.0, "x1": 14.0, "gap": Vector2(7.0, 15.0)}],
+				"walks": [{"z": StreetPaths.walk_z(2), "x0": -8.0, "x1": 14.0, "gap": Vector2(7.0, 15.0)}],
 				"looks": [&"customer_generic", &"customer_office_worker", &"customer_school_child"],
 			}
 		3:
@@ -339,7 +337,7 @@ static func traffic(tier: int) -> Dictionary:
 					{"z": -9.85, "dir": -1, "x0": -26.0, "x1": 30.0, "kinds": {&"car": 6, &"bus": 2, &"van": 1, &"ojol": 1},
 						"gap": Vector2(4.0, 8.0), "jitter": 0.2},
 				],
-				"walks": [{"z": -2.9, "x0": -8.0, "x1": 11.0, "gap": Vector2(6.0, 13.0)}],
+				"walks": [{"z": StreetPaths.walk_z(3), "x0": -8.0, "x1": 11.0, "gap": Vector2(6.0, 13.0)}],
 				"looks": [&"customer_office_worker", &"customer_generic", &"customer_school_child"],
 			}
 		4:
@@ -350,7 +348,7 @@ static func traffic(tier: int) -> Dictionary:
 					{"z": -12.2, "dir": -1, "x0": -27.0, "x1": 33.0, "kinds": {&"luxury": 5, &"car": 3, &"bus": 1},
 						"gap": Vector2(5.0, 10.0), "jitter": 0.15},
 				],
-				"walks": [{"z": -4.7, "x0": -14.0, "x1": 20.0, "gap": Vector2(7.0, 15.0)}],
+				"walks": [{"z": StreetPaths.walk_z(4), "x0": -14.0, "x1": 20.0, "gap": Vector2(7.0, 15.0)}],
 				"looks": [&"customer_snob", &"customer_office_worker", &"customer_generic"],
 			}
 		5:
@@ -364,7 +362,7 @@ static func traffic(tier: int) -> Dictionary:
 					{"z": -4.75, "dir": 1, "x0": -1.6, "x1": 26.0, "kinds": {&"becak": 3, &"onthel": 3},
 						"gap": Vector2(9.0, 18.0), "jitter": 0.0, "pop": true},
 				],
-				"walks": [{"z": -3.0, "x0": -1.6, "x1": 24.0, "gap": Vector2(6.0, 13.0)}],
+				"walks": [{"z": StreetPaths.walk_z(5), "x0": -1.6, "x1": 24.0, "gap": Vector2(6.0, 13.0)}],
 				"looks": [&"customer_generic", &"customer_bulk_buyer", &"customer_school_child", &"customer_critic"],
 			}
 	return {"lanes": [], "walks": [], "looks": []}
@@ -929,8 +927,8 @@ static func _t3_right(mb: MeshBuilder) -> void:
 	while hz < 5.9:
 		mb.ellipsoid(_at(Vector3(T3_TERRACE_X + 0.15, 0.5, hz)), Vector3(0.16, 0.14, 0.24), Palette.LEAF if int(hz * 2.0) % 2 == 0 else Palette.LEAF_DEEP, 7, 4)
 		hz += 0.55
-	_car(mb, Vector3(-7.95, 0.0, 3.2), PI, Palette.SIGN_RED)
-	_car(mb, Vector3(-5.85, 0.0, 3.0), PI, Palette.FLOUR_WHITE.darkened(0.08))
+	_car(mb, Vector3(-7.95, 0.0, 3.2), PI, Palette.SIGN_RED, 0)
+	_car(mb, Vector3(-5.85, 0.0, 3.0), PI, Palette.FLOUR_WHITE.darkened(0.08), 1)
 	mb.box(_at(Vector3((T3_LOT_X + T3_TERRACE_X) * 0.5, 0.6, 6.05)), Vector3(T3_TERRACE_X - T3_LOT_X, 1.2, 0.15), Palette.CONCRETE)
 	_ruko(mb, _at(Vector3(T3_LOT_X - 0.4 - 3.9, 0.0, 0.0)), {"w": 7.8, "dpt": T3_BACK_Z, "wall": Palette.HOUSE_SKY, "sign": Palette.SIGN_PURPLE,
 		"logo": &"phone", "door": &"glass", "goods": [Palette.CABLE.lightened(0.25), Palette.PASTEL_PERIWINKLE], "upper": &"windows", "ac": true})
@@ -957,8 +955,9 @@ static func _t3_back(mb: MeshBuilder) -> void:
 ## sampah pilah, motor dan freezer di pelataran minimarket, dan pot bunga serta
 ## papan menu di teras toko.
 static func _t3_street_life(mb: MeshBuilder) -> void:
+	# Dekat tepi jalan, supaya daunnya tidak menggantung di atas jalur pejalan kaki.
 	for tx: float in [-13.0, 4.6, 11.8, 19.0]:
-		_mango_tree(mb, Vector3(tx, 0.0, -3.7), 0.75)
+		_mango_tree(mb, Vector3(tx, 0.0, -4.1), 0.75)
 	for lx: float in [-6.0, 1.2, 8.6, 16.0]:
 		_lamp_post(mb, Vector3(lx, 0.0, T3_ROAD_NEAR + 0.3), 4.0, [Vector3(0.0, 0.0, -1.0)])
 	for mx: float in [-20.0, -6.0, 8.0, 22.0]:
@@ -973,7 +972,8 @@ static func _t3_street_life(mb: MeshBuilder) -> void:
 	_galon_rack(mb, Vector3(8.5, 0.0, 0.2))
 	_planter(mb, Vector3(0.45, 0.0, -1.0))
 	_planter(mb, Vector3(2.55, 0.0, -1.0))
-	_menu_board(mb, Vector3(1.5, 0.0, -1.45))
+	# Di depan pot kiri, bukan di depan pintu: pembeli masuk lurus dari trotoar (GDD 20.1).
+	_menu_board(mb, Vector3(0.45, 0.0, -1.6))
 
 
 ## Lantai dasar toko bakery mandiri Tier 3, hanya tampil saat kamera di dapur
@@ -1112,8 +1112,8 @@ static func _t4_front(mb: MeshBuilder, door_x: float) -> void:
 	_bench(mb, Vector3(7.5, 0.0, -4.0), 0.0)
 	_valet(mb, Vector3(0.0, 0.0, -3.7))
 	var lane: float = (T4_ROAD_NEAR + T4_PARK_Z) * 0.5
-	_car(mb, Vector3(3.2, 0.0, lane), PI * 0.5, Palette.MATCHA_DEEP.darkened(0.35))
-	_car(mb, Vector3(-6.6, 0.0, lane), PI * 0.5, Palette.FLOUR_WHITE.darkened(0.05))
+	_car(mb, Vector3(3.2, 0.0, lane), PI * 0.5, Palette.MATCHA_DEEP.darkened(0.35), 2)
+	_car(mb, Vector3(-6.6, 0.0, lane), PI * 0.5, Palette.FLOUR_WHITE.darkened(0.05), 2)
 
 
 ## Sisi kiri atas layar: lorong samping dengan pot pakis, lalu deretan butik.
@@ -1277,21 +1277,10 @@ static func _tower(mb: MeshBuilder, xf: Transform3D, w: float, dpt: float, floor
 	mb.box(xf * _at(Vector3(0.0, top + 0.3, dpt * 0.5)), Vector3(w + 0.4, 0.6, dpt + 0.4), white)
 
 
-## Van antar barang (diperkecil seperti mobil): badan kotak tinggi, kaca depan
-## dan samping, empat roda, dan lampu. -Z lokal = depan.
+## Van antar barang yang diparkir: model mainan yang sama dengan van yang lewat
+## (TrafficFactory, detail rendah). -Z lokal = depan.
 static func _van(mb: MeshBuilder, p: Vector3, yaw: float, body: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw) * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * CAR_SCALE), Vector3.ZERO)
-	var glass: Color = Palette.WINDOW_GLASS.darkened(0.2)
-	mb.box(xf * _at(Vector3(0.0, 1.05, 0.0)), Vector3(1.8, 1.5, 4.6), body)
-	mb.box(xf * _at(Vector3(0.0, 1.45, -2.31)), Vector3(1.6, 0.55, 0.04), glass)
-	mb.box(xf * _at(Vector3(0.0, 1.5, -1.45)), Vector3(1.82, 0.45, 1.2), glass)
-	mb.box(xf * _at(Vector3(0.0, 0.95, 0.7)), Vector3(1.82, 0.5, 2.0), Palette.SIGN_GREEN)
-	for sx: float in [-1.0, 1.0]:
-		for sz: float in [-1.0, 1.0]:
-			mb.cylinder(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(sx * 0.8, 0.33, sz * 1.5)), 0.26, 0.33, 0.33, Palette.TIRE, 10)
-	for lx: float in [-0.65, 0.65]:
-		mb.box(xf * _at(Vector3(lx, 0.75, -2.31)), Vector3(0.3, 0.14, 0.04), Palette.BUTTER_YELLOW)
-		mb.box(xf * _at(Vector3(lx, 0.8, 2.31)), Vector3(0.28, 0.12, 0.04), Palette.STRAWBERRY)
+	TrafficFactory.boxy(mb, _at_yaw(p, yaw), body, false, 0)
 
 
 ## Pohon tabebuya berbunga merah muda di lubang pohon berkisi.
@@ -1636,40 +1625,16 @@ static func _umbul(mb: MeshBuilder, p: Vector3, a: Color, b: Color) -> void:
 			Vector3(tip.x + 0.17 + sway1, y1, z), Vector3(tip.x - 0.17 + sway1, y1, z), nrm, a if i % 2 == 0 else b)
 
 
-## Sepeda onthel sewaan: dua roda, rangka berwarna, sadel, setang, dan keranjang
-## rotan di depan. -Z lokal = depan.
+## Sepeda onthel sewaan yang diparkir: model yang sama dengan onthel yang lewat
+## (TrafficFactory, detail rendah), dengan keranjang rotan. -Z lokal = depan.
 static func _bicycle(mb: MeshBuilder, p: Vector3, yaw: float, color: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw)
-	for wz: float in [-0.45, 0.45]:
-		mb.torus(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(0.0, 0.32, wz)), 0.29, 0.025, Palette.TIRE, 10, 3)
-	var bb: Vector3 = xf * Vector3(0.0, 0.36, 0.02)
-	var seat: Vector3 = xf * Vector3(0.0, 0.84, 0.16)
-	var head: Vector3 = xf * Vector3(0.0, 0.86, -0.36)
-	_stick(mb, xf * Vector3(0.0, 0.32, 0.45), seat, 0.035, color)
-	_stick(mb, bb, seat, 0.035, color)
-	_stick(mb, bb, head, 0.035, color)
-	_stick(mb, seat, head, 0.035, color)
-	_stick(mb, head, xf * Vector3(0.0, 0.32, -0.45), 0.035, color)
-	mb.box(xf * _at(Vector3(0.0, 0.88, 0.18)), Vector3(0.12, 0.05, 0.22), Palette.TIRE)
-	mb.box(xf * _at(Vector3(0.0, 0.96, -0.38)), Vector3(0.44, 0.03, 0.04), Palette.TIRE)
-	mb.box(xf * _at(Vector3(0.0, 0.84, -0.6)), Vector3(0.3, 0.2, 0.24), Palette.DOOR_WOOD.lightened(0.15))
+	TrafficFactory.bicycle(mb, _at_yaw(p, yaw), color, true, 0.0, 0)
 
 
-## Becak: kursi penumpang berkap dengan dua roda di depan, pijakan kaki, dan
-## sepeda pengayuh di belakang. -Z lokal = depan.
+## Becak yang mangkal: model yang sama dengan becak yang lewat (TrafficFactory,
+## detail rendah), tanpa penumpang dan pengayuh. -Z lokal = depan.
 static func _becak(mb: MeshBuilder, p: Vector3, yaw: float, color: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw)
-	mb.box(xf * _at(Vector3(0.0, 0.72, -0.3)), Vector3(1.0, 0.42, 0.62), color)
-	mb.box(xf * _at(Vector3(0.0, 0.97, -0.26)), Vector3(0.9, 0.1, 0.5), Palette.STRAWBERRY_DEEP)
-	mb.box(xf * _at(Vector3(0.0, 1.22, 0.0)), Vector3(1.0, 0.55, 0.1), color)
-	mb.box(Transform3D(xf.basis * Basis(Vector3(1.0, 0.0, 0.0), 0.35), xf * Vector3(0.0, 1.6, -0.2)), Vector3(1.06, 0.06, 0.78), Palette.CABLE.lightened(0.15))
-	mb.box(xf * _at(Vector3(0.0, 0.44, -0.78)), Vector3(0.9, 0.04, 0.32), color.darkened(0.2))
-	for wx: float in [-0.56, 0.56]:
-		mb.torus(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(wx, 0.3, -0.38)), 0.27, 0.035, Palette.TIRE, 10, 3)
-	_stick(mb, xf * Vector3(0.0, 0.6, 0.05), xf * Vector3(0.0, 0.92, 0.8), 0.05, color.darkened(0.25))
-	mb.box(xf * _at(Vector3(0.0, 0.96, 0.78)), Vector3(0.14, 0.06, 0.24), Palette.TIRE)
-	mb.box(xf * _at(Vector3(0.0, 1.05, 0.5)), Vector3(0.5, 0.03, 0.04), Palette.TIRE)
-	mb.torus(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(0.0, 0.3, 1.05)), 0.27, 0.035, Palette.TIRE, 10, 3)
+	TrafficFactory.becak(mb, _at_yaw(p, yaw), color, 0.0, 0)
 
 
 ## Lampu antik: tiang hitam berkaki, lentera kaca hangat bertudung di puncak.
@@ -2321,24 +2286,11 @@ static func _minimarket(mb: MeshBuilder, xf: Transform3D, w: float, dpt: float) 
 	mb.box(xf * _at(Vector3(-w * 0.5 - 0.13, 2.55, dpt * 0.45)), Vector3(0.26, 0.42, 0.6), Palette.FLOUR_WHITE.darkened(0.06))
 
 
-## Mobil yang diparkir: badan, kabin berkaca, empat roda, bemper, dan lampu.
-## Diperkecil (CAR_SCALE) seperti motor dan perabot supaya pas dengan dunia chibi.
+## Mobil yang diparkir: model mainan yang sama dengan mobil yang lewat
+## (TrafficFactory, detail rendah). `style` 0 = kompak, 1 = sedan, 2 = mewah.
 ## -Z lokal = depan mobil.
-static func _car(mb: MeshBuilder, p: Vector3, yaw: float, body: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw) * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * CAR_SCALE), Vector3.ZERO)
-	var glass: Color = Palette.WINDOW_GLASS.darkened(0.2)
-	mb.box(xf * _at(Vector3(0.0, 0.58, 0.0)), Vector3(1.72, 0.56, 4.1), body)
-	mb.box(xf * _at(Vector3(0.0, 1.1, 0.25)), Vector3(1.5, 0.5, 2.2), body)
-	mb.box(xf * _at(Vector3(0.0, 1.12, 0.25)), Vector3(1.53, 0.34, 1.96), glass)
-	mb.box(xf * _at(Vector3(0.0, 1.12, 0.25)), Vector3(1.36, 0.34, 2.24), glass)
-	for sx: float in [-1.0, 1.0]:
-		for sz: float in [-1.0, 1.0]:
-			mb.cylinder(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(sx * 0.76, 0.33, sz * 1.32)), 0.26, 0.33, 0.33, Palette.TIRE, 10)
-	for bz: float in [-2.07, 2.07]:
-		mb.box(xf * _at(Vector3(0.0, 0.38, bz)), Vector3(1.74, 0.16, 0.08), Palette.CABLE.lightened(0.15))
-	for lx: float in [-0.6, 0.6]:
-		mb.box(xf * _at(Vector3(lx, 0.72, -2.06)), Vector3(0.3, 0.12, 0.04), Palette.BUTTER_YELLOW)
-		mb.box(xf * _at(Vector3(lx, 0.74, 2.06)), Vector3(0.28, 0.1, 0.04), Palette.STRAWBERRY)
+static func _car(mb: MeshBuilder, p: Vector3, yaw: float, body: Color, style: int = 1) -> void:
+	TrafficFactory.car(mb, _at_yaw(p, yaw), body, style, 0)
 
 
 ## Meja bundar teras kafe dengan dua kursi dan payung.
@@ -2454,22 +2406,11 @@ static func _umbrella_tree(mb: MeshBuilder, p: Vector3) -> void:
 		mb.ellipsoid(_at(p + Vector3(0.0, float(tr[0]), 0.0)), Vector3(float(tr[1]), 0.13, float(tr[1])), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, 10, 4)
 
 
-## Gerobak dagangan kaki lima: badan kotak di atas dua roda, etalase kaca, atap
-## kecil bertiang, dan pegangan dorong.
+## Gerobak dagangan kaki lima yang diparkir: model yang sama dengan gerobak
+## bakso yang didorong lewat (TrafficFactory, detail rendah), memanjang di X
+## dengan gagang dorong ke +X.
 static func _cart(mb: MeshBuilder, p: Vector3, yaw: float, body: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw)
-	mb.box(xf * _at(Vector3(0.0, 0.62, 0.0)), Vector3(1.3, 0.5, 0.62), body)
-	mb.box(xf * _at(Vector3(0.0, 0.9, 0.0)), Vector3(1.34, 0.06, 0.66), Palette.FLOUR_WHITE)
-	mb.box(xf * _at(Vector3(-0.15, 1.1, 0.0)), Vector3(0.8, 0.34, 0.5), Palette.WINDOW_GLASS)
-	for sx: float in [-0.6, 0.6]:
-		for sz: float in [-0.28, 0.28]:
-			mb.box(xf * _at(Vector3(sx, 1.33, sz)), Vector3(0.035, 0.8, 0.035), Palette.FLOUR_WHITE.darkened(0.1))
-	mb.box(xf * _at(Vector3(0.0, 1.75, 0.0)), Vector3(1.5, 0.05, 0.82), Palette.SIGN_YELLOW)
-	for wz: float in [-0.35, 0.35]:
-		mb.torus(xf * Transform3D(Basis(Vector3(1.0, 0.0, 0.0), PI * 0.5), Vector3(-0.3, 0.26, wz)), 0.2, 0.05, Palette.TIRE, 10, 4)
-	mb.box(xf * _at(Vector3(0.55, 0.2, 0.0)), Vector3(0.06, 0.4, 0.06), Palette.TIRE)
-	for hz: float in [-0.24, 0.24]:
-		_stick(mb, xf * Vector3(0.65, 0.78, hz), xf * Vector3(1.0, 0.85, hz), 0.04, Palette.DOOR_WOOD)
+	TrafficFactory.gerobak(mb, _at_yaw(p, yaw + PI * 0.5), body, 0)
 
 
 static func _shrub(mb: MeshBuilder, p: Vector3, r: float) -> void:
@@ -2513,18 +2454,10 @@ static func _water_tower(mb: MeshBuilder, p: Vector3, color: Color, height: floa
 	mb.cylinder(_at(p + Vector3(0.0, height + 1.0, 0.0)), 0.1, 0.24, 0.42, color.lightened(0.12), 12)
 
 
-## Motor bebek yang diparkir menghadap jalan.
+## Skuter yang diparkir: model yang sama dengan skuter yang lewat
+## (TrafficFactory, detail rendah).
 static func _motorbike(mb: MeshBuilder, p: Vector3, yaw: float, body: Color) -> void:
-	var xf: Transform3D = _at_yaw(p, yaw)
-	for wz: float in [-0.5, 0.5]:
-		mb.torus(xf * Transform3D(Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5), Vector3(0.0, 0.25, wz)), 0.19, 0.07, Palette.TIRE, 10, 5)
-	mb.box(xf * _at(Vector3(0.0, 0.46, 0.12)), Vector3(0.26, 0.28, 0.62), body)
-	mb.box(xf * _at(Vector3(0.0, 0.58, -0.38)), Vector3(0.3, 0.46, 0.09), body)
-	mb.box(xf * _at(Vector3(0.0, 0.3, -0.12)), Vector3(0.24, 0.05, 0.42), Palette.TIRE)
-	mb.box(xf * _at(Vector3(0.0, 0.65, 0.22)), Vector3(0.25, 0.09, 0.56), Palette.TIRE)
-	_stick(mb, xf * Vector3(0.0, 0.25, -0.5), xf * Vector3(0.0, 0.92, -0.42), 0.05, Palette.CONCRETE_DARK)
-	mb.box(xf * _at(Vector3(0.0, 0.94, -0.42)), Vector3(0.58, 0.04, 0.04), Palette.TIRE)
-	mb.box(xf * _at(Vector3(0.0, 0.86, -0.48)), Vector3(0.14, 0.1, 0.06), Palette.BUTTER_YELLOW)
+	TrafficFactory.scooter(mb, _at_yaw(p, yaw), body, 0)
 
 
 ## Jemuran: dua tiang, seutas tali sepanjang Z, dan pakaian warna-warni.

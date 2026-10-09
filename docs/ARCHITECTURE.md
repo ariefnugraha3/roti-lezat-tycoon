@@ -20,7 +20,7 @@ the data catalogs, not here (GDD 126.1).
 | `ui/` | `ModalHost`, `ScreenRegistry`, the HUD and every screen. |
 | `scenes/` | `main.tscn` → `GameRoot`, the application shell. |
 | `tests/` | Headless harness, suites, `SimBot`, fixtures. |
-| `tools/` | Release validator, string lint, compile check, icon generator. |
+| `tools/` | Release validator, string lint, compile check, icon generator, QA renders and probes. |
 
 ## 2. Autoloads (GDD 35.2, 98)
 
@@ -115,7 +115,11 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 - **Customers** (GDD 20, 84): `DemandManager` produces arrivals (the Day 1–3
   manifest, then a Poisson process). An arrival needs a queue reservation
   (`QueueManager.reserve`), otherwise it goes to the pending pool (30 s, or 40 s
-  for drivers). A customer chooses a recipe and walks to the nearest display with it.
+  for drivers). An admitted customer first walks from an end of the pavement to the
+  door (`APPROACHING`, GDD 20.1): `SimActor.walk_path` follows the off-grid path from
+  `StreetPaths.approach` with `outside = true`, and `_enter_shop` puts it on the door
+  cell, rings the bell and counts it. Patience only drains inside. Then the customer
+  chooses a recipe and walks to the nearest display with it.
   Stock is revalidated and taken on arrival. Substitution uses the GDD 84.3 score.
   The customer then queues. The service point frees the slot, and the cashier
   completes the transaction in the GDD 103.1 order.
@@ -141,6 +145,13 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 - **Supply** (GDD 5.2.3, 70): daytime purchases pay immediately and arrive 3 in-game
   hours later. Stock commits when the courier drops the package, with one courier at
   the staging point at a time. After-hours purchases commit instantly.
+- **Street arrivals** (GDD 20.1, 22.6, 5.2.3): RotiFood drivers and couriers also walk
+  in from the pavement (`StreetPaths`, `core/street_paths.gd`). They set off early by
+  `approach_seconds` / `approach_game_seconds`, so they reach the door at the
+  scheduled time. Whoever leaves through the door is released by the simulation;
+  `WorldView._start_leaver` keeps their `ActorView` walking to the end of the pavement
+  as a view only (at most `MAX_LEAVERS`), stepped with simulation time while the day
+  runs.
 - **Upgrade** (GDD 47, 105): the upgrade needs no production jobs and nothing
   carried. The code takes a snapshot, charges the upgrade, migrates the equipment
   with deterministic auto-placement, and checks protected paths. On any failure it
@@ -347,12 +358,20 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
     heads it recorded, using the SHADOW material.
   - `StreetLife` (`gameplay/world/street_life.gd`, a child of `WorldView`) runs the
     lanes from `NeighborhoodFactory.traffic(tier)`. Vehicles are `TrafficFactory`
-    meshes (MATTE, riders included) under a `Traffic` node inside the neighbourhood, so
-    they drop with the street on upper floors. They come in four fade levels, built at
-    most one per frame and cached. Walkers are a pool of `ActorView`s that are never
+    meshes (MATTE) under a `Traffic` node inside the neighbourhood, so they drop with
+    the street on upper floors. Their riders are the shoppers' `CharacterFactory`
+    models, posed and baked into the vehicle mesh. A vehicle is assembled from a plan
+    (`TrafficFactory.plan`: the body, then one rider per `plan_step`, each character
+    built in `MeshBuilder.capture` mode so nothing is uploaded and read back from the
+    GPU), and each frame (pedalling or walking legs, four for bicycles, onthel, becak
+    and the cart) at each of four fade levels is assembled from it (`frame_arrays`,
+    `mesh_from`). All of this runs in steps within `WORK_USEC` per frame (at least
+    one step); `_warm_step` prepares the tier's plans in the background, and a plan is
+    dropped once all its meshes exist. Walkers are a pool of `ActorView`s that are never
     registered with the simulation. Its own RNG is seeded from the master seed, the day
     and the tier. It moves in real seconds, stops while paused, and its density follows
-    the quality preset (`density`, `max_walkers`).
+    the quality preset (`density`, `max_walkers`). Parked vehicles in the street mesh
+    use the same `TrafficFactory` builders at `detail` 0.
   - Rain: `WorldView._build_neighborhood` rebuilds the street wet
     (`MeshBuilder.darken_ground`, puddles from `puddle_spots`) when the weather changes
     at 05:00. `StreetLife` adds ripples, raincoats and, where `umbrella_lift` allows,
@@ -407,6 +426,10 @@ of starting a broken game.
   (`pack_seq_*.png` plus a `pack_sequence.png` strip), packing in the overview and close-up,
   a window shopper looking at the display, the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
   and trays at different freshness (with and without its marker).
+- `tools/vehicle_lineup.tscn` (windowed) renders every `TrafficFactory` vehicle and
+  variant from the side, the pedalling and walking frames, the rain versions and a
+  mixed street at the gameplay camera to `LINEUP_OUT`, and prints triangle counts,
+  build times per plan step and each tier's street-mesh triangles.
 - `tools/length_probe.tscn` (headless) measures the game length (GDD 2, target about 26
   in-game days): a bot plays a new game through the UI APIs until it owns Tier 5, Tier 5
   equipment in every slot and every shop decoration, printing one line per day and

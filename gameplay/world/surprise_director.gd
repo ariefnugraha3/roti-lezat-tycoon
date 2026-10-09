@@ -32,8 +32,9 @@ const SPEED_FLY: float = 0.9
 const POP_SECONDS: float = 0.25
 ## Laju pembauran bobot pose (per detik).
 const POSE_RATE: float = 6.0
-## Batas waktu satu adegan (detik nyata): pengaman bila rute macet.
-const MAX_SECONDS: float = 90.0
+## Batas waktu satu adegan (detik nyata): pengaman bila rute macet. Termasuk
+## berjalan datang dan pulang di trotoar (GDD 20.1).
+const MAX_SECONDS: float = 150.0
 ## Kejutan yang belum bisa mulai (pemain di lantai lain, Decoration Mode) batal
 ## bila sudah terlambat lebih dari ini (detik jam in-game, 1,5 jam), supaya
 ## kejutan yang tertunda tidak tampil beruntun.
@@ -49,6 +50,8 @@ var _todo: Array[Dictionary] = []
 var _cast: Array[Dictionary] = []
 var _flags: Dictionary = {}
 var _kind: StringName = &""
+## Sisi trotoar tempat para pemeran adegan ini datang dan pulang (-1 / +1).
+var _side: int = 1
 var _rng := RandomNumberGenerator.new()
 var _t: float = 0.0
 var _fx: Array[Node3D] = []
@@ -163,7 +166,7 @@ func update(delta: float) -> void:
 			_step(delta)
 			# Kejutan pertama dijelaskan sekali oleh tutorial (GDD 88.1). Hanya
 			# catatan tip yang berubah; adegannya tetap tontonan murni.
-			if _kind != &"" and not _tipped and _t >= TIP_AFTER_SECONDS:
+			if _kind != &"" and not _tipped and _t >= TIP_AFTER_SECONDS and _cast_inside():
 				_tipped = true
 				sim.tutorial.on_surprise()
 		_place_bubbles(0.0 if paused else delta)
@@ -183,6 +186,8 @@ func start(kind: StringName) -> bool:
 	abort()
 	_kind = kind
 	_rng.seed = hash("%d|%d|%s|cast" % [sim.rng.master_seed, sim.time.day, kind])
+	# Dari jenis adegan dan hari, tanpa memakai RNG pemeran.
+	_side = StreetPaths.side_for(sim.world.location.tier, 1 if posmod(hash("%s|%d" % [kind, sim.time.day]), 2) == 0 else -1)
 	_flags.clear()
 	_t = 0.0
 	_tipped = false
@@ -530,10 +535,14 @@ func _begin(m: Dictionary, act: Dictionary) -> void:
 	var a: SimActor = m["actor"]
 	match str(act["do"]):
 		"enter":
-			var out: Vector2 = _outside_pos()
-			a.pos = out
-			a.facing = (GridMath.cell_center(sim.world.entrance_cell()) - out).normalized()
-			_straight(a, GridMath.cell_center(sim.world.entrance_cell()))
+			if _walks_street(m):
+				# Datang dari ujung trotoar seperti pembeli (GDD 20.1).
+				a.walk_path(a.floor_id, StreetPaths.approach(sim.world.location, _side))
+			else:
+				var out: Vector2 = _outside_pos()
+				a.pos = out
+				a.facing = (GridMath.cell_center(sim.world.entrance_cell()) - out).normalized()
+				_straight(a, GridMath.cell_center(sim.world.entrance_cell()))
 		"walk":
 			a.go_to(sim.world, a.floor_id, act["cell"])
 		"exit":
@@ -579,9 +588,12 @@ func _advance(m: Dictionary, act: Dictionary, delta: float) -> bool:
 				return false
 			if int(act["step"]) == 0:
 				act["step"] = 1
-				_straight(a, _outside_pos())
+				if _walks_street(m):
+					a.walk_path(a.floor_id, StreetPaths.leave(sim.world.location, _side))
+				else:
+					_straight(a, _outside_pos())
 				return false
-			# Di luar pintu: mengecil lalu hilang.
+			# Di ujung trotoar (atau di luar pintu): mengecil lalu hilang.
 			m["pop"] = maxf(0.0, float(m["pop"]) - delta / POP_SECONDS)
 			if float(m["pop"]) <= 0.0:
 				_free_member(m)
@@ -681,6 +693,20 @@ func _toward_camera(turn: float) -> Vector2:
 	if d.length_squared() < 0.0001:
 		return Vector2(0.0, 1.0)
 	return d.normalized().rotated(turn)
+
+
+## Pemeran yang berjalan di tanah datang dan pulang lewat trotoar; burung dan
+## kupu-kupu tetap terbang lewat pintu.
+func _walks_street(m: Dictionary) -> bool:
+	return str(m["type"]) in ["person", "cat", "mascot"]
+
+
+## Ada pemeran yang sudah masuk toko (tutorial baru menyorot setelah itu).
+func _cast_inside() -> bool:
+	for m: Dictionary in _cast:
+		if not bool(m["gone"]) and (m["actor"] as SimActor).pos.y >= 0.0:
+			return true
+	return false
 
 
 func _straight(a: SimActor, target: Vector2) -> void:

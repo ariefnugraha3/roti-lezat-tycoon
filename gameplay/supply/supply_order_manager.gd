@@ -11,6 +11,8 @@ const CREATED: StringName = &"CREATED"
 const PAID: StringName = &"PAID"
 const IN_TRANSIT: StringName = &"IN_TRANSIT"
 const COURIER_SPAWNING: StringName = &"COURIER_SPAWNING"
+## Berjalan dari ujung trotoar ke pintu (GDD 20.1, 24A).
+const COURIER_APPROACHING: StringName = &"COURIER_APPROACHING"
 const COURIER_ENTERING: StringName = &"COURIER_ENTERING"
 const DROPPING_PACKAGE: StringName = &"DROPPING_PACKAGE"
 const INVENTORY_COMMITTED: StringName = &"INVENTORY_COMMITTED"
@@ -152,7 +154,9 @@ func step(dt: float) -> void:
 		return
 	var now: float = sim.time.time_seconds
 	for o: Dictionary in orders:
-		if str(o["state"]) == String(IN_TRANSIT) and now >= float(o["arrival_game_time"]):
+		# Kurir berangkat dari ujung trotoar selama perjalanannya sebelum ETA, jadi
+		# tiba di pintu tepat pada jam yang tertulis di Pasar.
+		if str(o["state"]) == String(IN_TRANSIT) and now >= float(o["arrival_game_time"]) - approach_game_seconds(int(o["order_id"])):
 			o["state"] = String(COURIER_SPAWNING)
 			delivery_fifo.append(int(o["order_id"]))
 	_spawn_next()
@@ -164,6 +168,9 @@ func step(dt: float) -> void:
 		var o2: Dictionary = order_by_id(oid)
 		a.step(dt, sim.world)
 		match StringName(str(o2["state"])):
+			COURIER_APPROACHING:
+				if not a.has_route():
+					_courier_enter(oid, a)
 			COURIER_ENTERING:
 				if not a.has_route():
 					o2["state"] = String(DROPPING_PACKAGE)
@@ -205,9 +212,28 @@ func _spawn_next() -> void:
 	a.speed_mps = float(DataRegistry.courier_def().get("movement_speed_mps", 1.4))
 	a.visual_key = &"courier_supply"
 	a.visual_seed = sim.rng.stream(&"cosmetic_rng").randi()
-	a.place_at(sim.world.store_floor(), sim.world.entrance_cell())
+	a.walk_path(sim.world.store_floor(), StreetPaths.approach(sim.world.location, _side(oid)))
 	couriers[oid] = a
 	var o: Dictionary = order_by_id(oid)
+	o["state"] = String(COURIER_APPROACHING)
+
+
+## Sisi trotoar kurir: bergantian menurut nomor order, tanpa RNG.
+func _side(oid: int) -> int:
+	return -1 if oid % 2 == 0 else 1
+
+
+## Lama kurir berjalan dari ujung trotoar ke pintu, dalam detik jam in-game.
+func approach_game_seconds(oid: int) -> float:
+	var speed: float = float(DataRegistry.courier_def().get("movement_speed_mps", 1.4))
+	return StreetPaths.approach_seconds(sim.world.location, _side(oid), speed) * sim.time.ratio
+
+
+## Kurir tiba di pintu lalu masuk menuju titik antar barang.
+func _courier_enter(oid: int, a: SimActor) -> void:
+	var f: FloorDefinition = sim.world.location.floor_def(sim.world.store_floor())
+	var o: Dictionary = order_by_id(oid)
+	a.place_at(sim.world.store_floor(), sim.world.entrance_cell())
 	o["state"] = String(COURIER_ENTERING)
 	EventBus.sfx.emit(&"supply_courier_arrive", a.floor_id)
 	if not a.go_to(sim.world, sim.world.store_floor(), f.supply_dropoff):
@@ -215,7 +241,7 @@ func _spawn_next() -> void:
 		_commit(o)
 		o["state"] = String(COMPLETED)
 		couriers.erase(oid)
-		sim.world.release_point(sim.world.store_floor(), f.supply_dropoff, cid)
+		sim.world.release_point(sim.world.store_floor(), f.supply_dropoff, a.id)
 
 
 func _prune() -> void:
@@ -277,7 +303,7 @@ func reconstruct() -> void:
 			o["state"] = String(COMPLETED)
 			continue
 		var st: StringName = StringName(str(o["state"]))
-		if st in [COURIER_SPAWNING, COURIER_ENTERING, DROPPING_PACKAGE, COURIER_EXITING]:
+		if st in [COURIER_SPAWNING, COURIER_APPROACHING, COURIER_ENTERING, DROPPING_PACKAGE, COURIER_EXITING]:
 			o["state"] = String(COURIER_SPAWNING)
 			fifo.append(int(o["order_id"]))
 	for oid: int in delivery_fifo:

@@ -4,6 +4,9 @@ extends RefCounted
 ## pool oleh lapisan dunia berdasarkan data ini.
 
 const SPAWNING: StringName = &"SPAWNING"
+## Berjalan dari ujung trotoar ke pintu (GDD 20.1): slot antrean sudah dipesan,
+## kesabaran belum berkurang, dan ia belum dihitung masuk toko.
+const APPROACHING: StringName = &"APPROACHING"
 const ENTERING: StringName = &"ENTERING"
 const BROWSING: StringName = &"BROWSING"
 const SELECTING: StringName = &"SELECTING"

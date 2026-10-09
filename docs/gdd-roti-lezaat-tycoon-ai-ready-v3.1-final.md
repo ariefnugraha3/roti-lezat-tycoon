@@ -523,6 +523,7 @@ CREATED
 PAID
 IN_TRANSIT
 COURIER_SPAWNING
+COURIER_APPROACHING
 COURIER_ENTERING
 DROPPING_PACKAGE
 INVENTORY_COMMITTED
@@ -548,12 +549,12 @@ var instant_after_hours: bool
 
 Ketika ETA tercapai:
 
-1. Seorang **Kurir Paket Bahan Baku** muncul dari titik masuk luar toko membawa kardus/paket prosedural.
+1. Seorang **Kurir Paket Bahan Baku** membawa kardus/paket prosedural dari ujung trotoar di luar layar, berjalan sepanjang trotoar, lalu masuk lewat pintu (keputusan maintainer 2026-10-09, Seksi 20.1). Ia berangkat lebih awal sepanjang lama perjalanannya (`SupplyOrderManager.approach_game_seconds`), jadi tiba di pintu tepat pada ETA yang ditampilkan Pasar (`ACC_24_COURIER_ARRIVAL`).
 2. Kurir berjalan menuju **staging point di meja kasir**. Kurir paket suplai bukan pelanggan dan bukan Driver RotiFood, sehingga tidak membeli produk dan tidak memakai patience customer.
 3. Kurir menaruh paket di permukaan meja kasir dengan animasi singkat (angkat → turunkan → paket menyentuh meja).
 4. **Commit point inventaris terjadi tepat ketika paket diletakkan di meja.** Seluruh bahan dalam order ditambahkan ke Gudang secara atomik dan langsung dapat dipakai untuk produksi.
 5. Muncul feedback singkat, misalnya ikon paket + teks `Ingredients Delivered!` dan perubahan counter stok.
-6. Setelah commit, kurir berbalik, berjalan keluar melalui pintu toko, lalu di-despawn setelah mencapai titik keluar.
+6. Setelah commit, kurir berbalik dan berjalan keluar melalui pintu toko. Di pintu ia di-despawn dari simulasi, lalu tubuhnya berjalan kembali ke ujung trotoar sebagai tampilan saja (Seksi 20.1).
 
 #### **D. Anti-Stacking Kurir Suplai**
 
@@ -1749,6 +1750,7 @@ Save/load wajib mempertahankan `age_ingame_hours`, `base_expiry_hours`, `freshne
 
 ```text
 SPAWNING
+APPROACHING
 ENTERING
 BROWSING
 SELECTING
@@ -1764,7 +1766,20 @@ RETURNING_ITEMS
 DESPAWNED
 ```
 
-Pengunjung lihat-lihat (Seksi 20.12) hanya memakai `SPAWNING → ENTERING → BROWSING → LEAVING → DESPAWNED`, dengan `ENTERING → BROWSING` boleh terulang sekali di tempat kedua.
+Pengunjung lihat-lihat (Seksi 20.12) hanya memakai `SPAWNING → APPROACHING → ENTERING → BROWSING → LEAVING → DESPAWNED`, dengan `ENTERING → BROWSING` boleh terulang sekali di tempat kedua.
+
+**Datang dari ujung jalan** (keputusan maintainer 2026-10-09). Pengunjung tidak lagi muncul begitu saja di dalam toko:
+
+- Begitu diterima, slot antreannya langsung dipesan (Seksi 67). Ia lalu muncul di ujung trotoar di luar layar, kiri atau kanan bergantian menurut nomornya (tanpa RNG). Ia berjalan sepanjang garis trotoar di depan toko (`StreetPaths.WALK_Z`), lalu berbelok tegak lurus ke pintu (`APPROACHING`).
+- Baru di pintu ia membunyikan bel, dihitung masuk (`entered_today`), dan memilih roti.
+- Kesabarannya tidak berkurang selama di trotoar.
+- Lama perjalanannya adalah panjang jalur dibagi kecepatan berjalannya, sekitar 8–12 simulation-seconds (4–6 menit in-game). Karena itu pembeli masuk toko sedikit lebih lambat dari jadwal kedatangannya. Ekonomi tidak berubah: pada pengukuran 8 hari dengan bot, tidak ada pembeli yang terlewat.
+- Jalur di setiap tier bebas dari benda lingkungan dan hiasan hari libur (`ACC_20_STREET_PATHS`).
+- Yang pulang berjalan kembali ke ujung trotoar. Di pintu ia sudah dilepas simulasi, jadi tubuhnya (`ActorView`) berjalan sebagai tampilan saja. Paling banyak 8 orang sekaligus (`WorldView.MAX_LEAVERS`), dan sisanya langsung hilang di pintu seperti dulu.
+- Save di tengah perjalanan memulai perjalanan itu lagi dari ujung trotoar.
+- Driver RotiFood (Seksi 22.6), kurir suplai (Seksi 5.2.3), dan pemeran kejutan yang berjalan (Seksi 31.9) memakai jalur yang sama.
+
+Kode: `StreetPaths` (`core/street_paths.gd`), `CustomerManager._start_approach` dan `_enter_shop`, `SimActor.walk_path`, dan `WorldView._start_leaver`. Tes: `ACC_20_STREET_ARRIVAL`, `ACC_20_STREET_PATHS`, `ACC_20_STREET_LEAVERS`.
 
 ## **20.2 Customer Archetype Data**
 
@@ -2162,6 +2177,7 @@ Keputusan maintainer 2026-10-01: sebagian orang yang masuk toko **tidak membeli 
 - Hari 1–3: daftar `window_shoppers` pada manifest Seksi 20.3, 14–15 orang per hari yang disisipkan di antara pembeli (kira-kira 4 dari 10 pengunjung).
 - Mulai Hari 4: proses Poisson (seperti Seksi 66) dengan laju per jam in-game = `base_physical_rate` tier (Seksi 65) × `time_of_day_multiplier` fisik (Seksi 66) × `weather_multiplier` fisik × `event_multiplier` fisik (Seksi 26.6) × `rate_ratio` (0,60). Rating, harga, dan kampanye tidak berpengaruh, jadi jumlah mereka tidak memberi sinyal apa pun kepada pemain. Di Tier 1 hasilnya sekitar 13 orang per hari, kira-kira satu dari tiga pengunjung. Frekuensinya dinaikkan 1,5× (dari 0,40 dan 8–10 orang per hari di Hari 1–3) atas permintaan maintainer, 2026-10-01. Penampilannya diundi dari bobot arketipe tier × modifier jam (Seksi 20.11).
 - Ia hanya masuk bila jumlah pengunjung lihat-lihat di dalam toko masih di bawah `max_inside_by_tier` (T1 2, T2 2, T3 3, T4 4, T5 5), jumlah aktor aktif lokasi masih di bawah anggaran Seksi 37.2, dan masih ada tempat berdiri. Bila tidak, kedatangan itu dilewati begitu saja.
+- Ia juga datang dari ujung trotoar (Seksi 20.1, keputusan maintainer 2026-10-09). Tempat berdirinya dipesan saat ia diterima. Ia baru dihitung (`window_shoppers_today`) saat melewati pintu. Batas `max_inside_by_tier` juga menghitung yang masih di trotoar menuju toko. Pada pengukuran 8 hari dengan bot, hanya satu kedatangan yang terlewat karena itu.
 - Tip `tut_window_shopper` (Seksi 127.5) tampil sekali sebagai sorotan yang mem-pause game (Seksi 27.5, 88.1; keputusan maintainer 2026-10-08), saat pengunjung lihat-lihat pertama pulang tanpa membeli: dia dan gelembung celetukannya disorot. Bila tip modal lain sedang tampil, tip ini menunggu pengunjung lihat-lihat berikutnya.
 
 **Save** (Seksi 106): pelanggan menyimpan `window_shopper`, `look_cell`, `look_display`, dan `looks_left`, dan DemandManager menyimpan `scripted_window_shoppers` dan `next_window_shopper_at`. Saat load, pengunjung yang sedang melihat kembali ke tempat berdirinya (Seksi 77.2). Save lama tanpa field ini tetap dimuat, dan sisa hari itu berjalan tanpa pengunjung lihat-lihat.
@@ -2322,6 +2338,7 @@ Saat semua stock cukup:
 - Hanya setelah `QueueManager.reserve_slot(driver_id, target_queue)` berhasil, driver actor boleh masuk dan berjalan ke slot yang dialokasikan.
 - Bila reservasi gagal, arrival tetap `pending` dan dicoba lagi ketika slot kosong; jangan menumpuk beberapa driver di entrance.
 - Satu slot = satu driver/customer. Pergerakan maju antar-slot wajib mempertahankan spacing dan collision separation.
+- Driver datang dari ujung trotoar (Seksi 20.1, keputusan maintainer 2026-10-09). Ia berangkat lebih awal sepanjang lama perjalanannya (`RotiFoodManager.approach_seconds`), jadi tiba di pintu tepat pada `driver_arrival_time`. Slot antreannya dipesan saat ia berangkat, dan kesabarannya baru berkurang di dalam toko. Bila ordernya dibatalkan atau ditolak (Seksi 22.10) saat ia masih di trotoar, ia berbalik ke ujung trotoar. Tes: `ACC_22_DRIVER_ARRIVAL`.
 
 ## **22.7 Instant Handover**
 
@@ -3095,6 +3112,7 @@ Keputusan maintainer 2026-10-04. Supaya hari-hari tidak membosankan, sesekali se
 **Teknis.**
 
 - `SurpriseDirector` (`gameplay/world/surprise_director.gd`, anak `WorldView`) memerankan adegan dengan `ActorView` dan model sementara yang tidak didaftarkan ke simulasi. Rutenya hanya membaca graf navigasi publik (`FloorGrid.NAV_PUBLIC`), dan pemerannya boleh menembus pelanggan.
+- Pemeran yang berjalan (orang, kucing, maskot) datang dari ujung trotoar dan pulang lewat trotoar, seperti pembeli (Seksi 20.1, keputusan maintainer 2026-10-09). Sisi trotoarnya diturunkan dari jenis adegan dan hari, tanpa RNG pemeran. Burung pipit dan kupu-kupu tetap terbang lewat pintu. Satu adegan paling lama 150 detik (`SurpriseDirector.MAX_SECONDS`). Tip tutorial kejutan baru muncul setelah ada pemeran di dalam toko. Tes: `ACC_31_SURPRISE_STREET`.
 - Kucing, pipit, kupu-kupu, maskot, ukulele, hati, dan remah dibuat `CritterFactory` (`procedural/meshes/critter_factory.gd`) dari MeshBuilder berwarna verteks. Semuanya memakai material bersama yang sudah ada, jadi tidak menambah kombinasi shader, dan dipanaskan di `ShaderWarmup`.
 - Murni presentasi (`ACC_31_SURPRISE_COSMETIC`): hari dengan kejutan yang terus diputar berjalan persis sama dengan hari tanpa kejutan. Satu-satunya jejaknya di simulasi adalah catatan tip tutorial: kejutan pertama disorot sekali (`tut_surprise`, Seksi 88.1).
 
@@ -3240,9 +3258,10 @@ Keputusan maintainer 2026-10-09. Kendaraan dan pejalan kaki melintas di luar tok
 | 4 | mobil mewah, mobil, van, bus | sosialita dan eksekutif di trotoar granit |
 | 5 | mobil antik, mobil, motor, becak, bus; becak dan onthel berangkat dari pangkalan becak melintasi alun-alun | warga dan wisatawan di depan teras |
 
-- Lalu lintas berjalan di lajur kiri, seperti di Indonesia. Kendaraan tidak saling menabrak: yang di belakang melambat, dan kendaraan roda dua menyalip kendaraan yang jauh lebih lambat (gerobak, sepeda, becak) dengan bergeser ke tengah jalan.
+- Lalu lintas berjalan di lajur kiri, seperti di Indonesia. Kendaraan tidak saling menabrak. Kendaraan di belakang mulai melambat sejauh jarak pengeremannya, yaitu selisih kecepatan² / (2 × `StreetLife.BRAKE`) ditambah dua kali jarak aman. Kendaraan yang muncul tepat di belakang kendaraan yang lebih lambat mulai dengan kecepatan kendaraan itu. Kendaraan roda dua menyalip kendaraan yang jauh lebih lambat (gerobak, sepeda, becak) dengan bergeser ke tengah jalan.
 - Jalan sepi saat fajar dan after-hours, dan ramai pada jam berangkat (07:00–09:00) dan pulang kerja (16:00–18:00).
 - Kendaraan muncul dan hilang di ujung jalan yang sudah memudar, dan ikut memudar ke warna latar seperti jalannya (`StreetLife.FADE_LEVELS`). Pengendaranya bagian dari mesh kendaraan.
+- Orang yang berjalan kaki di trotoar memakai garis yang sama dengan jalur pembeli ke pintu (`StreetPaths.walk_z`, Seksi 20.1).
 - Kamera hanya memperlihatkan sekitar toko. Jalan Tier 1–2 tampak di pojok kiri bawah layar, sedangkan jalan raya Tier 3–5 baru tampak saat zoom terjauh. Karena itu tier tersebut terutama diramaikan pejalan kaki, dan di Tier 5 juga becak serta onthel yang melintasi alun-alun.
 - **Tidak pernah menutupi toko** (aturan 1, Seksi 32.5). Setiap lajur dan jalur pejalan kaki cukup jauh dari muka toko untuk kendaraan dan orang tertinggi yang lewat di sana (`ACC_32_STREET_LIFE_CLEAR`).
 - **Murni tontonan**, seperti kejutan (Seksi 31.9). Kendaraan adalah mesh sementara dan pejalan kaki adalah `ActorView` yang tidak didaftarkan ke simulasi. Jadwalnya memakai RNG sendiri (Seksi 116), dan tidak ada yang disimpan. Geraknya memakai detik nyata (kecepatan 2×/3× tidak mempercepatnya) dan berhenti saat game di-pause.
@@ -3250,7 +3269,33 @@ Keputusan maintainer 2026-10-09. Kendaraan dan pejalan kaki melintas di luar tok
 - Preset kualitas mengatur kepadatannya (Seksi 109.2): Low paling banyak 1 pejalan kaki sekaligus, Medium/Auto 2, High 3, dan lalu lintas menjarang dengan faktor yang sama.
 - Satu kendaraan memakai satu draw call dengan material MATTE bersama. Satu pejalan kaki memakai 13 draw call, sama seperti pelanggan.
 
-Kode: `StreetLife` (`gameplay/world/street_life.gd`, anak `WorldView`), `TrafficFactory` (`procedural/meshes/traffic_factory.gd`), lajur di `NeighborhoodFactory.traffic`. Tes: `ACC_32_STREET_LIFE`, `ACC_32_STREET_LIFE_CLEAR`.
+**Pengendara memakai model pembeli** (keputusan maintainer 2026-10-09, permintaan kedua). Pemotor, pembonceng, pesepeda, pengayuh dan penumpang becak, serta pedagang gerobak adalah model karakter yang sama dengan pembeli (`CharacterFactory`), bukan bentuk khusus:
+
+- Pengendara motor berhelm. Driver ojol memakai seragam hijau dan kotak pesanannya. Pengayuh onthel dan becak bertopi pet. Pedagang gerobak berpeci.
+- Mereka diberi pose: memegang setang dengan kaki di pijakan, dibonceng dengan kaki mengangkang, duduk, mengayuh, atau melangkah sambil mendorong gagang gerobak. Lalu mereka dipanggang ke mesh kendaraan, jadi satu kendaraan tetap satu draw call.
+- Sepeda, onthel, becak, dan gerobak punya empat bingkai. Kaki pengayuh selalu diarahkan ke pedal yang berputar (kaki chibi tidak bertekuk), dan kaki pedagang melangkah. Bingkai berganti menurut jarak tempuh (`stride` per putaran).
+- Saat hujan mereka berjas hujan (Seksi 32.8).
+
+**Bentuk kendaraan** (keputusan maintainer 2026-10-09). Kendaraan berbentuk mainan membulat seukuran dunia chibi, tidak lagi kotak dan silinder:
+
+- Skuter matik dengan pelindung kaki, lampu, spion, dan knalpot.
+- Mobil kompak (hatchback), sedan, dan mobil mewah. Masing-masing punya kabin kaca berpilar, lampu, gril, bemper, pelat, spion, dan roda berpelek.
+- Angkot dengan kaca keliling, pintu terbuka, dan rak atap. Van dengan kaca dan garis samping. Bus dua warna.
+- Sepeda, dan onthel dengan keranjang serta boncengan.
+- Gerobak bakso berkaca dengan dandang dan kanopi.
+- Becak dengan kap seperti kap kereta bayi, berlapis dalam supaya tidak tembus pandang (`MeshBuilder.flip_since`).
+- Mobil antik dengan kubah kabin berpita kaca.
+
+Bodi tanpa pengendara paling banyak 2.000 segitiga. Kendaraan parkir di lingkungan (motor, mobil, van, gerobak, becak, onthel sewaan) memakai model yang sama dengan detail rendah (`detail` 0, beberapa ratus segitiga), dan jalan tetap paling banyak 20.000 segitiga. Pohon trotoar Tier 3 digeser ke tepi jalan supaya daunnya tidak menggantung di atas jalur pejalan kaki.
+
+**Tanpa tersendat.** Merakit kendaraan berpengendara mahal, karena satu model karakter memakan sekitar 5 ms di desktop. Karena itu rakitan dibagi menjadi langkah kecil:
+
+1. Bodi, lalu satu pengendara per langkah (`TrafficFactory.plan` dan `plan_step`).
+2. Tiap bingkai lalu disusun murah dari rencananya (`frame_arrays`) dan dipudarkan.
+
+`StreetLife` menyiapkan semua kendaraan lajur tier-nya di latar dengan anggaran sekitar 3 ms per frame (`WORK_USEC`, paling sedikit satu langkah). Rencana dibuang begitu semua bingkai dan tingkat pudarnya jadi mesh. Model karakter dibangun dalam mode tangkap MeshBuilder (`MeshBuilder.capture`), tanpa membuat mesh GPU lalu membacanya balik, karena di WebGL itu sinkron dan mahal.
+
+Kode: `StreetLife` (`gameplay/world/street_life.gd`, anak `WorldView`), `TrafficFactory` (`procedural/meshes/traffic_factory.gd`), lajur di `NeighborhoodFactory.traffic`, dan alat QA `tools/vehicle_lineup.tscn`. Tes: `ACC_32_STREET_LIFE`, `ACC_32_STREET_LIFE_CLEAR`, `ACC_32_STREET_RIDERS`, `ACC_32_STREET_FRAMES`, `ACC_32_VEHICLE_MODELS`, `ACC_32_STREET_BAKE_STEPS`.
 
 ## **32.8 Hujan di Jalan**
 
@@ -3258,7 +3303,7 @@ Keputusan maintainer 2026-10-09. Saat hari hujan (Seksi 26):
 
 - Permukaan dekat tanah (aspal, paving, ubin, dan rumput) tampak lebih gelap karena basah (`NeighborhoodFactory.WET_DARKEN`).
 - Genangan air kebiruan muncul di jalan, trotoar, dan alun-alun dekat toko (`puddle_spots`). Tetes hujan membuat riak cincin di setiap genangan.
-- Pengendara memakai jas hujan berponco, dan pesepeda bertudung. Pejalan kaki memakai jas hujan cerah. Mereka juga berpayung bila jalurnya cukup jauh dari muka toko (Tier 2–5). Di jalan kampung Tier 1 payung akan menutupi muka toko, jadi pejalan kaki di sana cukup berjas hujan.
+- Pengendara, pembonceng, pesepeda, pengayuh dan penumpang becak, serta pedagang gerobak memakai jas hujan (aksesori karakter `jas_hujan`). Driver ojol memakai seragam hujannya (Seksi 3.6). Pejalan kaki memakai jas hujan cerah. Mereka juga berpayung bila jalurnya cukup jauh dari muka toko (Tier 2–5). Di jalan kampung Tier 1 payung akan menutupi muka toko, jadi pejalan kaki di sana cukup berjas hujan.
 - Cuaca berganti pukul 05:00, di balik transisi malam, jadi lingkungan dirakit ulang (sekitar 40–60 ms di desktop) tanpa terlihat tersendat. Lingkungan basah tetap paling banyak 20.000 segitiga.
 
 Kode: `NeighborhoodFactory.build(..., wet)`, `MeshBuilder.darken_ground`, `StreetLife` (riak, jas hujan, dan payung). Tes: `ACC_32_RAIN_STREET`.

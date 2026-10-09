@@ -364,7 +364,12 @@ func _spotlight_ui() -> void:
 	check(_spot(game) == null and not PauseManager.is_paused(), "Got it closes it")
 	# Kejutan.
 	check(world.surprises.start(&"mascot"), "a surprise starts")
-	world.surprises.update(SurpriseDirector.TIP_AFTER_SECONDS + 0.5)
+	# Maskot datang dulu lewat trotoar (GDD 31.9, 20.1); tipnya baru muncul
+	# setelah ia masuk toko.
+	var walked: float = 0.0
+	while _key(sim) != "tut_surprise" and walked < 90.0:
+		world.surprises.update(0.25)
+		walked += 0.25
 	await _frames(3)
 	spot = _spot(game)
 	check(spot != null and spot.marks() != null, "the first surprise gets a spotlight")

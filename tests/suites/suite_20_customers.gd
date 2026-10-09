@@ -117,7 +117,9 @@ func _admit(s: SimulationRoot, archetype: StringName) -> Customer:
 	s.customers.try_admit({"archetype": archetype, "scripted": false, "recipe": &"", "quantity": 0, "patience_override": null})
 	for k: Variant in s.customers.customers.keys():
 		if not before.has(k):
-			return s.customers.customers[k]
+			var c: Customer = s.customers.customers[k]
+			walk_in(s, c)
+			return c
 	return null
 
 
