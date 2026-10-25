@@ -13,8 +13,8 @@
 
 | Status | Bagian v3.1 | Catatan |
 |---|---|---|
-| **Tetap berlaku** | §4 art direction, §12.2–12.5 rendering, kontrol, layar ponsel; §17 grid & navigasi; §28.2 aturan tumpukan modal; §29 input; §30 kamera; §31 visual karakter; §32 perabot, interior, lingkungan, kehidupan jalan; §33 kebijakan audio; §34/§77/§106 mekanisme save atomik & 3 profil; §35 arsitektur dasar; §37 & §109 (termasuk §109.3 MeshBake) performa; §43/§127 teks Inggris; §44 aksesibilitas; §57/§60 template layout & dimensi perabot; §68 portal lantai; §72 Decoration Mode; §96–§101 kontrak teknis; §111 asal aset; §115–§117 cache, RNG, logging; §128–§130 toolchain, batas runtime, spesifikasi visual | Dipakai apa adanya kecuali disebut lain di dokumen ini |
-| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §8/§48 pemasaran; §9/§25 rating; §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
+| **Tetap berlaku** | §4 art direction, §12.2–12.4 rendering & kontrol; §17 grid & navigasi; §28.2 aturan tumpukan modal; §29 input; §30 kamera (kecuali §30.1, lihat Seksi 12.0.4); §31 visual karakter; §32 perabot, interior, lingkungan, kehidupan jalan; §33 kebijakan audio; §34/§77/§106 mekanisme save atomik & 3 profil; §35 arsitektur dasar; §37 & §109 (termasuk §109.3 MeshBake) performa; §43/§127 teks Inggris; §44 aksesibilitas; §57/§60 template layout & dimensi perabot; §68 portal lantai; §72 Decoration Mode; §96–§101 kontrak teknis; §111 asal aset; §115–§117 cache, RNG, logging; §128–§130 toolchain, batas runtime, spesifikasi visual | Dipakai apa adanya kecuali disebut lain di dokumen ini |
+| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §12.5 orientasi & ponsel, §28.4 breakpoint, §30.1 kamera gameplay, §110 matriks resolusi (semuanya menjadi potret, Seksi 12.0); §8/§48 pemasaran; §9/§25 rating; §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
 | **Dihapus** | §18.7 & §62 oven gosong; §19.7–§19.9 kesegaran & roti basi; §20.3 manifest Hari 1–3; §11 & §46 Daily Summary; §15.4 Skip to Open; §15.5 Close Early; §71 kecepatan 2×/3× & Smart Speed; §21.4 kasir manual (popup + OK); §22.5 kemas manual & §22.10 tolak pesanan; §5.2, §24A, §70 pasar bahan & kurir; §5.1.2 beli/ganti/jual alat; §63.2 harga manual; §24.5/§86 utilitas; §24.6/§3.3 gaji; §3.0/§49 bangkrut, talangan, Mode Solo; §104 shutdown 18:00; Ask a Baker | Tidak ada mode lama. Kode dan tesnya ikut dihapus saat implementasi |
 
 ## **0.2 Konvensi**
@@ -31,6 +31,7 @@
 3. **Oven gosong dan roti basi dihapus sepenuhnya.** Tidak ada mode manual.
 4. Pengerjaan di branch `pivot-to-idle-game`. Game asli tetap ada di `main`.
 5. Batasan GDD v3.1 yang menghalangi rancangan idle (terutama larangan progres offline di §90, §112, §113, dan §119) **dicabut**.
+6. **Game dimainkan dalam orientasi potret.** Di layar landscape (laptop, PC, tablet yang dimiringkan) game tetap potret di tengah layar, dan area kosong di sisinya diisi **taplak meja gingham** seperti di layar pembuka dan Main Menu (Seksi 12.0).
 
 ---
 
@@ -117,7 +118,7 @@ Undian cuaca harian dan kalender libur v3.1 §26.6 tetap berlaku dan dihitung pe
 
 - Menu Pause menghentikan simulasi. Waktu pause tidak dihitung sebagai waktu offline.
 - Aplikasi ke latar, tab browser tersembunyi, atau game ditutup: simulasi berhenti, lalu **waktu offline dihitung** (Seksi 9). Ini mengganti v3.1 §90 dan §113: setelah kembali tidak ada lagi layar "Game Paused" yang menunggu Resume. Game langsung jalan, dan popup Selamat Datang muncul bila waktu offline ≥ `offline.popup_min_seconds`.
-- Layar "Rotate your phone" (v3.1 §12.5) tetap menjeda simulasi seperti Pause.
+- Layar pemblokir "Rotate your phone" v3.1 §12.5 dihapus. Game potret tetap berjalan saat ponsel dimiringkan (Seksi 12.0.6).
 
 ---
 
@@ -499,7 +500,84 @@ Pencapaian v3.1 diganti dengan milestone idle (contoh: First Sale, Earn 1K/1M/1B
 
 # **12. UI/UX**
 
+## **12.0 Orientasi Potret & Bingkai Layar — CANONICAL**
+
+Keputusan maintainer 2026-10-25 (Seksi 0.3 no. 6). Mengganti orientasi landscape v3.1 (§12.5, §28.4, §30.1, §110).
+
+### **12.0.1 Orientasi**
+
+- **Satu-satunya orientasi adalah potret.** Resolusi logis dasar **720 × 1280** (9:16).
+- **Android:** orientasi dikunci potret (`display/window/handheld/orientation = portrait` dan preset ekspor Android).
+- **Web:** kanvas tetap mengisi seluruh jendela browser, dan game menggambar bingkai potret di tengahnya (Seksi 12.0.2).
+- **Desktop/editor:** ukuran jendela awal **540 × 960** (`window/size/window_width_override`/`window_height_override`) supaya muat di layar laptop. Jendela bebas di-resize; bingkai menyesuaikan.
+
+### **12.0.2 Bingkai Potret**
+
+- Seluruh game (dunia 3D, HUD, modal, splash, Main Menu, loading, cutscene) digambar **di dalam satu bingkai potret** di tengah jendela. Di luar bingkai hanya ada taplak (Seksi 12.0.3).
+- **Lebar logis bingkai selalu 720.** Tingginya mengikuti layar dengan rasio lebar : tinggi dijepit antara **9:16 dan 9:21**:
+
+| Bentuk layar | Contoh | Hasil |
+|---|---|---|
+| Lebih ramping dari 9:21 | Sangat jarang | Bingkai 9:21 setinggi layar; pita taplak tipis di atas dan bawah |
+| Antara 9:16 dan 9:21 | Sebagian besar HP potret (9:16, 19.5:9, 20:9) | Bingkai mengisi layar penuh (tinggi logis 1280–1680), **tanpa taplak** |
+| Lebih lebar dari 9:16 | Tablet 3:4, laptop, PC, HP yang dimiringkan | Bingkai 9:16 setinggi layar di tengah; **taplak di kiri dan kanan** |
+
+- Ketukan, klik, dan seretan di area taplak diabaikan. Gulir roda mouse di atas taplak juga diabaikan.
+- Bingkai tidak punya bayangan, bingkai foto, atau lekukan (gaya datar v3.1 §130.6). Tepinya bertemu renda taplak (Seksi 12.0.3).
+- **Teknik yang direkomendasikan:** `scenes/main.tscn` menjadi `PortraitShell` (Control layar penuh) yang berisi `TableclothSides` di belakang dan `SubViewportContainer` (stretch) berisi `SubViewport`, dengan `GameRoot` di dalamnya. Ini diperlukan karena dua hal: Camera3D tidak bisa merender hanya ke sebagian viewport, dan pita hitam bawaan mode aspect `keep` Godot tidak bisa digambari.
+  - `SubViewport` memakai `size_2d_override` 720 × H, sehingga koordinat UI logis tetap. Ukuran render mengikuti piksel layar sebenarnya, jadi gambar tetap tajam.
+  - `SubViewportContainer` meneruskan input. Tes yang membuat `GameRoot` langsung (tanpa shell) tetap bekerja seperti sekarang.
+  - Root project: viewport 720 × 1280, stretch `canvas_items`, aspect `expand`; `PortraitShell` menghitung kotak bingkai dari ukuran root.
+- **Web, ketukan Tap to Start:** meminta layar penuh dan mengunci orientasi **potret** bila browser mengizinkan (`WebPlatform.enter_fullscreen_portrait()`, pengganti `enter_fullscreen_landscape`; aturan gestur selesai v3.1 tetap berlaku).
+
+### **12.0.3 Taplak di Sisi Layar**
+
+- Area di luar bingkai diisi **taplak meja gingham** yang sama dengan taplak di tepi bawah layar pembuka (`CozyBackdrop`): warna `Palette.GINGHAM_A` dan `Palette.GINGHAM_B`, petak 22 px logis, pola kotak-kotak bergantian. Taplak memenuhi seluruh tinggi layar di kiri dan kanan, atau seluruh lebar di atas dan bawah untuk layar yang sangat ramping.
+- Di sisi yang bersentuhan dengan bingkai ada **renda krem bergelombang** seperti renda taplak layar pembuka, sehingga game terlihat seperti diletakkan di atas meja bertaplak.
+- Ikon samar yang melayang dari `CozyBackdrop` (roti, koin, bintang, hati) ikut muncul di atas taplak dengan opasitas rendah. Reduced Motion menghentikan gerakannya.
+- Kode gambar gingham dipindahkan dari `CozyBackdrop._draw` ke satu helper bersama (misalnya `ProceduralUIFactory.draw_gingham(canvas, rect, lace_edge)`) yang dipakai `CozyBackdrop` dan `TableclothSides`, sehingga keduanya identik.
+- Taplak murni `_draw()` 2D tanpa tekstur atau gambar (v3.1 §111). Bidang taplak hanya digambar ulang saat ukuran jendela berubah; yang beranimasi hanya ikon melayang.
+- Taplak tidak menampilkan informasi game apa pun, tanpa HUD, iklan, atau tombol.
+
+### **12.0.4 Kamera Gameplay Potret (mengganti v3.1 §30.1)**
+
+- Sudut kamera tetap (yaw dan pitch `camera.*` v3.1). Kamera ortografis memakai **`keep_aspect = KEEP_WIDTH`**: nilai `size` adalah **lebar** dunia yang terlihat. Lebar terlihat sama di semua HP; layar yang lebih tinggi hanya melihat lebih banyak jalan di atas dan bawah toko.
+- `camera.portrait_width_m` (TUNABLE, awal **5,6 m**) memuat lebar lantai Tier 1–3 utuh. Zoom mengikuti rentang `camera.min/max` yang dihitung ulang untuk potret.
+- Lantai Tier 4–5 lebih lebar dari layar: kamera mengikuti pemilik dan bisa digeser dengan seret, seperti aturan lantai besar v3.1 §30.
+- Bingkai menyisakan ruang untuk HUD (kira-kira 130 px logis di atas dan 170 px di bawah). Fokus kamera digeser supaya lantai berada di antara kedua bar.
+- Lingkungan v3.1 §32.5 kini lebih banyak terlihat di atas dan bawah toko. Jangkauan dan jarak pudar `NeighborhoodFactory` diperpanjang seperlunya. Aturan "tidak boleh menutupi lantai" (`ACC_32_NEIGHBORHOOD_CLEAR`) tetap berlaku untuk kamera potret.
+
+### **12.0.5 Tata Letak UI Potret**
+
+- **HUD** (Seksi 12.1): bar atas, bar tab bawah berisi 6 tombol (masing-masing sekitar 110 × 96 px logis, jauh di atas batas 48 px), dan chip level di dunia.
+- **Layar besar** (Upgrades, Menu, Staff, Shop, Decor, Franchise, Stats) menjadi **lembar bawah** selebar bingkai yang naik dari atas bar tab, tingginya maksimal 85% bingkai. Isinya daftar yang hanya bergulir vertikal. Detail item (misalnya staf atau resep) terbuka sebagai halaman berikutnya di lembar yang sama, dengan tombol Back. Tidak ada tabel lebar dan tidak ada gulir menyamping.
+- **Popup kecil** (konfirmasi, Welcome Back, Waralaba): kartu di tengah, lebar maksimal 640 px logis.
+- **Splash dan Main Menu:** logo di sepertiga atas, tombol bertumpuk vertikal, `CozyBackdrop` (dengan taplak di tepi bawah) tetap menjadi latar di dalam bingkai.
+- **Kartu upgrade stasiun** melayang di atas stasiun. Bila tidak muat di atasnya, kartu menempel tepat di atas bar tab.
+- **Decoration Mode:** bar atas dan tab item di bawah mengikuti pola v3.1 §72.2 yang disusun ulang untuk lebar 720.
+- Skala teks 100/125/150% wajib muat di lebar 720 tanpa gulir menyamping (pengganti `ACC_7_*_NO_SCROLL` v3.1).
+- **Safe area:** notch dan kamera lubang di atas serta bar gestur di bawah menggeser bar HUD ke dalam (v3.1 §12.4 berlaku pada bingkai).
+
+### **12.0.6 Ponsel yang Dimiringkan**
+
+- Layar pemblokir "Rotate your phone" v3.1 §12.5 **dihapus**. Bingkai potret dengan taplak di kedua sisi tetap bisa dimainkan.
+- Di browser ponsel yang dipegang landscape, muncul sekali petunjuk yang tidak menghalangi: "Turn your phone upright for a bigger view." Petunjuk hilang sendiri setelah 4 detik.
+- Aplikasi Android dikunci potret, jadi situasi ini hanya terjadi di browser ponsel.
+
+### **12.0.7 Matriks Resolusi (mengganti v3.1 §110)**
+
+| Kelompok | Ukuran |
+|---|---|
+| HP potret | 720 × 1280, 1080 × 1920 (9:16), 1080 × 2340 (19.5:9), 1080 × 2400 (20:9) |
+| Tablet | 1536 × 2048 (3:4 potret), 2048 × 1536 (4:3 landscape) |
+| Laptop/PC landscape | 1280 × 720, 1366 × 768, 1920 × 1080, 2560 × 1440, 2560 × 1080 (ultrawide) |
+| Skala teks | 100%, 125%, 150% di setiap ukuran |
+
+`tools/ui_resolution_sweep.tscn` diperbarui ke matriks ini dan juga memeriksa bahwa tidak ada kontrol game yang muncul di area taplak.
+
 ## **12.1 HUD**
+
+Semua posisi relatif terhadap bingkai potret (Seksi 12.0), di dalam safe area.
 
 - **Kiri atas:** KR besar (`Tx.big`), di bawahnya "+{rate}/s" dari `IdleEconomy`, serta ikon boost aktif dengan sisa waktu.
 - **Kanan atas:** Reputasi ★, Bintang Waralaba, tombol pause/pengaturan.
@@ -521,7 +599,7 @@ Dibuka dengan mengetuk chip level (mengetuk stasiun = Semangat). Kartu melayang 
 |---|---|
 | **Upgrades** | Semua upgrade (stasiun, resep, staf, global), diurutkan "Best value first" = Δ(KR/s) ÷ biaya. Tombol ×1/×10/Max per baris |
 | **Menu** | Daftar resep dengan gambar `BreadArt`: kunci/biaya buka, level, harga jual, tombol upgrade. Juga petak rak, untuk menetapkan resep per petak (atau "Auto") |
-| **Staff** | Pola v3.1 Staff Management (daftar vertikal + detail): rekrut dan level |
+| **Staff** | Daftar staf dan kandidat vertikal; detail sebagai halaman berikutnya di lembar bawah (Seksi 12.0.5): rekrut dan level |
 | **Shop** | Upgrade lokasi (Current → Next seperti v3.1 Store Upgrade), buka stasiun baru, upgrade global |
 | **Decor** | Toko dekorasi (dengan bonus) dan Decoration Mode v3.1 §72 |
 | **Franchise** | Bintang sekarang dan yang akan didapat, pengali, perk (tercapai/terkunci), tombol Sell & Franchise |
@@ -532,7 +610,7 @@ Menu utama, profil, pengaturan, pause, bantuan, dan loading mengikuti v3.1 §89 
 
 ## **12.4 Layar yang Dihapus**
 
-Market (semua tab), Recipe Book lama, Customer Order popup, RotiFood popup & reject confirm, Display Detail (buang roti), Daily Summary, Marketing (diganti Promosi di Upgrades), ReplacePicker, layar Skip/Close Early, Solo Mode, cutscene bangkrut.
+Market (semua tab), Recipe Book lama, Customer Order popup, RotiFood popup & reject confirm, Display Detail (buang roti), Daily Summary, Marketing (diganti Promosi di Upgrades), ReplacePicker, layar Skip/Close Early, Solo Mode, cutscene bangkrut, overlay "Rotate your phone".
 
 ## **12.5 Umpan Balik**
 
@@ -578,6 +656,10 @@ Menggantikan tutorial Hari 1–3 v3.1 (§27, §88). Durasinya sekitar 3 menit da
 | **Baru** | `OfflineManager` | `last_active_unix`, rate tersimpan, perhitungan dan popup offline, jam mundur |
 | **Baru** | `PrestigeManager` | Bintang, perk, reset waralaba |
 | **Baru** | `BoostManager` | Kopi Pak Lurah, promosi, hadiah pencapaian (menggantikan `MarketingManager`) |
+| **Baru** | `PortraitShell` (`scenes/main.tscn`), `TableclothSides` | Bingkai potret, SubViewport berisi `GameRoot`, taplak di luar bingkai (Seksi 12.0.2–12.0.3) |
+| **Diubah** | `CameraRig` | `KEEP_WIDTH`, lebar terlihat `camera.portrait_width_m`, fokus di antara bar HUD (Seksi 12.0.4) |
+| **Diubah** | `WebPlatform`, `OrientationGuard` | Layar penuh + kunci potret; pemblokir "Rotate your phone" diganti petunjuk sekali (Seksi 12.0.6) |
+| **Diubah** | `HUD`, semua layar, `CozyBackdrop`, `project.godot`, `export_presets.cfg` | Tata letak potret (Seksi 12.0.5); helper gingham bersama; viewport 720 × 1280, jendela desktop 540 × 960, Android potret |
 | **Diubah** | `TimeManager` | Jam 24 jam kontinu, tanpa fase; nomor hari pukul 00:00; tanpa kecepatan 2×/3× |
 | **Diubah** | `SimulationRoot` | Tanpa `close_day`, `_begin_day` fase, Skip, Close Early; rollover harian ringan (cuaca, libur, statistik) |
 | **Diubah** | `ProductionManager` | Tanpa `OVERBAKING`/`BURNT`, tanpa pembusukan meja; biaya bahan saat batch dimulai |
@@ -662,7 +744,7 @@ Game akan dibiarkan terbuka lama. Anggaran v3.1 §109 dan §109.3 tetap berlaku:
 
 ## **15.6 Platform**
 
-Web dan Android seperti v3.1. Notifikasi push tidak dibuat (butuh plugin; dilarang engine lock).
+Web dan Android seperti v3.1, tetapi **potret** (Seksi 12.0): Android dikunci potret, web menampilkan bingkai potret dengan taplak di sisi pada layar lebar. Notifikasi push tidak dibuat (butuh plugin; dilarang engine lock).
 
 ---
 
@@ -683,8 +765,12 @@ Web dan Android seperti v3.1. Notifikasi push tidak dibuat (butuh plugin; dilara
 | `ACC_IDLE_SAVE` | Roundtrip skema idle; save v3.1 terdeteksi dan ditolak dengan rapi |
 | `ACC_IDLE_ONBOARDING` | Langkah Seksi 13 terpicu sekali dan tidak menahan ekonomi |
 | `ACC_IDLE_PACING` (lama) | Probe idle mencapai milestone Seksi 1.4 dalam rentang target |
+| `ACC_IDLE_PORTRAIT_FRAME` | Kotak bingkai benar untuk setiap baris tabel Seksi 12.0.2 (lebar logis 720, rasio dijepit 9:16–9:21, berada di tengah); input di luar bingkai diabaikan |
+| `ACC_IDLE_TABLECLOTH_SIDES` | Area di luar bingkai digambar taplak gingham dengan renda di tepi bingkai; tidak ada kontrol game di sana; layar HP 9:16–9:21 tidak menampilkan taplak |
+| `ACC_IDLE_PORTRAIT_CAMERA` | `KEEP_WIDTH`; lantai Tier 1–3 terlihat utuh selebar layar di antara bar HUD; lingkungan tidak menutupi lantai dari kamera potret |
+| `ACC_IDLE_PORTRAIT_UI` | Matriks Seksi 12.0.7: setiap layar terbuka tanpa kontrol keluar bingkai dan tanpa gulir menyamping di 100/125/150% |
 
-Tes v3.1 yang menyangkut sistem yang dihapus ikut dihapus. Tes visual, layout, performa, dan web (§89, §109, §130) dipertahankan.
+Tes v3.1 yang menyangkut sistem yang dihapus ikut dihapus. Tes visual, performa, dan web (§89, §109, §130) dipertahankan. Tes layout dan UI yang mengandaikan 1280 × 720 landscape diubah ke bingkai potret.
 
 ---
 
@@ -694,12 +780,13 @@ Tes v3.1 yang menyangkut sistem yang dihapus ikut dihapus. Tes visual, layout, p
 |---|---|---|
 | **P0** | GDD ini; kerangka `idle.json`; probe pacing analitik (spreadsheet atau skrip) untuk kurva awal | Kurva awal memenuhi Seksi 1.4 di model |
 | **P1** | Hapus sistem anti-idle: gosong, kesegaran, manifest, fase hari, kasir manual, popup pesanan, RotiFood manual, pasar & kurir, gaji, utilitas, talangan, kecepatan | Game berjalan sendiri tanpa macet pada harga lama (`ACC_IDLE_NO_INPUT`, `ACC_IDLE_NO_BURN_NO_STALE`) |
+| **P1b** | Shell potret (Seksi 12.0): `PortraitShell` + SubViewport, taplak gingham di sisi, kamera `KEEP_WIDTH`, HUD dan layar yang ada disusun ulang untuk potret, Android dan web potret. Dikerjakan sebelum UI baru supaya semua UI idle langsung dibangun potret | `ACC_IDLE_PORTRAIT_FRAME`, `ACC_IDLE_TABLECLOTH_SIDES`, `ACC_IDLE_PORTRAIT_CAMERA` |
 | **P2** | Otomatisasi: pemilik pekerja otomatis, resep per petak, pemilihan kerja Seksi 4.3, RotiFood otomatis, Semangat | `ACC_IDLE_AUTOMATION`, `ACC_IDLE_TAP_BOOST` |
 | **P3** | Sistem level: stasiun, resep, staf, lokasi, global; evolusi model; HUD KR/s; kartu upgrade; layar Upgrades/Menu/Shop | `ACC_IDLE_COSTS`, `ACC_IDLE_MILESTONES` |
 | **P4** | `IdleEconomy` + offline + Welcome Back | `ACC_IDLE_MODEL_MATCH`, `ACC_IDLE_OFFLINE` |
 | **P5** | Waralaba & perk | `ACC_IDLE_PRESTIGE` |
 | **P6** | Boost, dekorasi berbonus, pencapaian baru, onboarding, Stats, angka besar | `ACC_IDLE_ONBOARDING`, `ACC_IDLE_BIG_NUMBERS` |
-| **P7** | Balancing dengan `tools/idle_probe.tscn` (bot yang membeli upgrade "best value"), poles UI, save, dokumen, CLAUDE.md, release validator | `ACC_IDLE_PACING`, `ACC_IDLE_SAVE`, semua tes hijau |
+| **P7** | Balancing dengan `tools/idle_probe.tscn` (bot yang membeli upgrade "best value"), poles UI, sapuan resolusi potret (Seksi 12.0.7), save, dokumen, CLAUDE.md, release validator | `ACC_IDLE_PACING`, `ACC_IDLE_PORTRAIT_UI`, `ACC_IDLE_SAVE`, semua tes hijau |
 
 Setiap fase berakhir dengan game yang bisa dimainkan dan tes yang hijau.
 
@@ -746,6 +833,7 @@ Setiap fase berakhir dengan game yang bisa dimainkan dan tes yang hijau.
 | `onb_welcome` | `Your bakery runs itself. Watch your first bread sell!` |
 | `onb_tap_boost` | `Tap a working station to speed it up!` |
 | `ui_classic_save` | `Classic save (not supported)` |
+| `ui_turn_upright` | `Turn your phone upright for a bigger view.` |
 | `ui_number_format` | `Number format` |
 
 Kunci lain ditambahkan selama implementasi, dengan aturan v3.1 §43 dan §127 (lint bahasa Inggris, tanpa teks hardcode).
@@ -767,5 +855,9 @@ Keputusan di bawah diambil untuk melengkapi rancangan dan **perlu dikonfirmasi m
 | 7 | **Save tycoon lama tidak didukung** (hanya bisa dihapus) | Konversi kasar ke idle (misalnya KR → modal awal) |
 | 8 | Bahan dibayar otomatis saat batch dimulai; **Pasar dihapus** | Bahan gratis |
 | 9 | Kejutan, pengunjung lihat-lihat, dan kehidupan jalan tetap kosmetik | — |
+| 10 | Bingkai potret dijepit **9:16 sampai 9:21**: HP modern mengisi layar penuh tanpa taplak; layar yang lebih lebar mendapat taplak di sisi | Selalu tepat 9:16 (HP panjang juga mendapat pita taplak di atas dan bawah) |
+| 11 | Taplak sisi = gingham penuh + renda di tepi bingkai + ikon samar melayang dari `CozyBackdrop` | Gingham polos tanpa renda dan ikon, atau seluruh `CozyBackdrop` (latar krem dengan taplak hanya di bawah) |
+| 12 | HP yang dimiringkan tetap bisa main (bingkai kecil + petunjuk sekali), tanpa layar pemblokir | Layar pemblokir "Rotate your phone" versi potret |
+| 13 | Jendela desktop/editor dibuka 540 × 960 | Ukuran lain |
 
 Pertanyaan terbuka lain: lisensi proyek (masih terbuka sejak v3.1).
