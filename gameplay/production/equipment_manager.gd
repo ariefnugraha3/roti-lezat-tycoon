@@ -9,7 +9,10 @@ var next_iid: int = 1
 ## Biaya utilitas berjalan hari ini (float; dibulatkan saat settlement, GDD 86).
 var utility_today: float = 0.0
 var _list_cache: Dictionary = {}
-var _cache_stamp: float = -1.0
+## [EquipmentInstance, tarif utilitas, kategori] untuk alat terpasang bertarif,
+## urut seperti placed_list() supaya jumlahnya identik (GDD 86). Ikut cache daftar.
+var _utility_rows: Array = []
+var _utility_ready: bool = false
 
 
 func new_game() -> void:
@@ -37,16 +40,17 @@ func get_inst(iid: int) -> EquipmentInstance:
 
 
 ## Daftar hasil query di-cache (read-only) karena dipanggil berkali-kali per
-## tick oleh produksi, staf, dan UI. Cache dikosongkan pada setiap perubahan
-## perabot (invalidate_lists) dan setiap kali jam simulasi bergerak.
+## tick oleh produksi, staf, dan UI. Isinya hanya bergantung pada instance yang
+## ada, status terpasang, dan kategori model, dan setiap perubahan itu memanggil
+## invalidate_lists (langsung atau lewat WorldManager.rebuild_occupancy). Dulu
+## cache juga dibuang setiap tick, sehingga setiap tick menyortir dan menyusun
+## ulang semua daftar (GDD 109).
 func invalidate_lists() -> void:
 	_list_cache.clear()
+	_utility_ready = false
 
 
 func _cached(key: String) -> Variant:
-	if sim.time.sim_seconds != _cache_stamp:
-		_list_cache.clear()
-		_cache_stamp = sim.time.sim_seconds
 	return _list_cache.get(key)
 
 
@@ -144,6 +148,37 @@ func move_blocked(iid: int) -> bool:
 	return _in_use(iid, sim.time.is_open())
 
 
+## Replace terhalang (GDD 5.1.2)? Alat berisi job atau yang titik pakainya
+## dipesan tidak bisa diganti. Rak berisi roti boleh diganti bila rak baru `def`
+## memuat setiap petaknya dan punya tempat sah di lantainya; rotinya ikut pindah
+## apa adanya (keputusan maintainer 2026-10-25). Sebelumnya rak tertua, yang
+## selalu diisi ulang lebih dulu, bisa berhari-hari tidak dapat diganti.
+func replace_blocked(old_iid: int, def: EquipmentDefinition) -> bool:
+	if _in_use(old_iid, false):
+		return true
+	var old: EquipmentInstance = get_inst(old_iid)
+	if old == null or old.category() != &"display" or sim.display.used(old_iid) <= 0:
+		return false
+	if def == null or sim.display.carry_plan(old_iid, def).is_empty():
+		return true
+	return replacement_spot(old, def).is_empty()
+
+
+## Tempat rak baru `def` yang menggantikan `old` berisi roti, seolah `old` sudah
+## diangkat: tempat lama bila muat, selain itu tempat sah terdekat (jejak T3+
+## 2x2 tidak selalu muat di tempat rak 2x1). Rak berisi roti tidak boleh
+## menunggu di inventaris. {} bila tidak ada. Tidak mengubah state.
+func replacement_spot(old: EquipmentInstance, def: EquipmentDefinition) -> Dictionary:
+	var probe := EquipmentInstance.new()
+	probe.iid = old.iid
+	probe.def_id = def.id
+	probe.floor_id = old.floor_id
+	probe.anchor = old.anchor
+	probe.rotation = old.rotation
+	probe.placed = true
+	return sim.world.spot_near(probe, old.floor_id, old.anchor, old.rotation)
+
+
 func _in_use(iid: int, bread_counts: bool) -> bool:
 	var e: EquipmentInstance = get_inst(iid)
 	if e == null:
@@ -202,7 +237,7 @@ func buy_replace(def_id: StringName, old_iid: int) -> Dictionary:
 		return {"ok": false, "reason": "after_hours"}
 	if not tier_allowed(def):
 		return {"ok": false, "reason": "tier_locked"}
-	if is_in_use(old_iid):
+	if replace_blocked(old_iid, def):
 		return {"ok": false, "reason": "in_use"}
 	if not sim.economy.can_afford(def.price_kr):
 		return {"ok": false, "reason": "kr"}
@@ -210,16 +245,28 @@ func buy_replace(def_id: StringName, old_iid: int) -> Dictionary:
 	var floor_id: StringName = old.floor_id
 	var anchor: Vector2i = old.anchor
 	var rot: int = old.rotation
+	# Roti rak lama pindah ke rak baru, yang pasti punya tempat (replace_blocked).
+	var plan: Dictionary = {}
+	if old.category() == &"display" and sim.display.used(old_iid) > 0:
+		plan = sim.display.carry_plan(old_iid, def)
+		var spot: Dictionary = replacement_spot(old, def)
+		floor_id = spot["floor_id"]
+		anchor = spot["anchor"]
+		rot = int(spot["rot"])
 	old.placed = false
 	invalidate_lists()
+	var e: EquipmentInstance = create_instance(def_id)
+	if not plan.is_empty():
+		sim.display.carry_bread(old_iid, e.iid, def.tier, plan)
 	if old.category() == &"display":
 		sim.display.remove_display(old_iid)
 		sim.display.ensure_display(old_iid, old.tier())
-	var e: EquipmentInstance = create_instance(def_id)
 	sim.world.rebuild_occupancy()
 	var reason: StringName = sim.world.validate_placement(e, floor_id, anchor, rot)
 	if reason == &"":
 		_commit_place(e, floor_id, anchor, rot)
+	elif not plan.is_empty():
+		GameLogger.error("PRODUCTION", "replacement shelf %d holds bread but cannot stand in place: %s" % [e.iid, reason])
 	sim.statistics.note_purchase()
 	SaveManager.request_autosave("equipment_replace")
 	return {"ok": true, "reason": "", "iid": e.iid, "placed": e.placed}
@@ -302,12 +349,17 @@ func step(dt: float) -> void:
 	if not sim.time.is_running_phase():
 		return
 	var hours: float = sim.time.ingame_hours(dt)
-	for e: EquipmentInstance in placed_list():
-		var def: EquipmentDefinition = e.def()
-		var rate: float = def.utility_cost_kr_per_ingame_hour
-		if rate <= 0.0:
-			continue
-		match def.category_id:
+	if not _utility_ready:
+		_utility_rows.clear()
+		for e0: EquipmentInstance in placed_list():
+			var d0: EquipmentDefinition = e0.def()
+			if d0.utility_cost_kr_per_ingame_hour > 0.0:
+				_utility_rows.append([e0, d0.utility_cost_kr_per_ingame_hour, d0.category_id])
+		_utility_ready = true
+	for row: Array in _utility_rows:
+		var e: EquipmentInstance = row[0]
+		var rate: float = row[1]
+		match row[2]:
 			&"mixer":
 				if e.job_id >= 0 and sim.production.job_stage(e.job_id) == ProductionJob.MIXING:
 					utility_today += rate * hours

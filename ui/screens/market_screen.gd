@@ -646,7 +646,7 @@ func _equipment_row(def: EquipmentDefinition, w: Dictionary, style: StyleBoxFlat
 		return panel
 	var all_busy: bool = true
 	for iid: int in candidates:
-		all_busy = all_busy and sim.equipment.is_in_use(iid)
+		all_busy = all_busy and sim.equipment.replace_blocked(iid, def)
 	var rep: Button = ProceduralUIFactory.button(Tx.t("ui_equipment_replace"), "secondary")
 	rep.name = "Replace"
 	rep.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

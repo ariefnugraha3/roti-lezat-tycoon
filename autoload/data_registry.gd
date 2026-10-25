@@ -110,6 +110,8 @@ var _sci_threshold: float = 1.0e12
 var _bal_cache: Dictionary = {}
 ## Naik setiap katalog dimuat ulang; cache statis di luar registry memeriksanya.
 var generation: int = 0
+var _patience := PackedFloat64Array()
+var _patience_gen: int = -1
 
 
 func _ready() -> void:
@@ -202,6 +204,20 @@ func _bal_lookup(path: String) -> Variant:
 
 func balf(path: String) -> float:
 	return float(bal(path))
+
+
+## Tuning drain kesabaran (GDD 58) yang dibaca setiap tick untuk setiap pelanggan
+## dan driver yang mengantre: [drain_base, near_full_occupancy_ratio,
+## near_full_multiplier, stall_seconds, stall_multiplier, drain_clamp_min,
+## drain_clamp_max], presisi penuh, disusun ulang saat katalog dimuat ulang.
+func patience_tuning() -> PackedFloat64Array:
+	if _patience_gen != generation:
+		_patience_gen = generation
+		_patience = PackedFloat64Array()
+		for k: String in ["drain_base", "near_full_occupancy_ratio", "near_full_multiplier", "stall_seconds",
+				"stall_multiplier", "drain_clamp_min", "drain_clamp_max"]:
+			_patience.append(balf("patience." + k))
+	return _patience
 
 
 func bali(path: String) -> int:

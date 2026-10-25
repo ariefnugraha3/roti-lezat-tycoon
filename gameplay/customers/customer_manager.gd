@@ -10,6 +10,7 @@ const BROWSE_SECONDS: float = 1.0
 const CELEBRATE_SECONDS: float = 0.8
 
 var customers: Dictionary = {}
+var _sorted_cache: Array[Customer] = []
 var next_num: int = 1
 var next_window_num: int = 1
 var entered_today: int = 0
@@ -39,12 +40,24 @@ func customer(id: StringName) -> Customer:
 	return customers.get(id)
 
 
+## Pelanggan terurut ID (Ids.sort), read-only. Disusun ulang hanya bila
+## himpunannya berubah (ukuran sama dan setiap pelanggan lama masih terdaftar);
+## array lama tidak pernah diubah, jadi loop yang sedang berjalan aman. Dulu
+## disortir ulang setiap tick (GDD 109).
 func sorted() -> Array[Customer]:
-	var keys: Array = Ids.sort(customers.keys())
-	var out: Array[Customer] = []
-	for k: Variant in keys:
-		out.append(customers[k])
-	return out
+	var same: bool = _sorted_cache.size() == customers.size()
+	if same:
+		for c: Customer in _sorted_cache:
+			if customers.get(c.id) != c:
+				same = false
+				break
+	if not same:
+		var out: Array[Customer] = []
+		for k: Variant in Ids.sort(customers.keys()):
+			out.append(customers[k])
+		out.make_read_only()
+		_sorted_cache = out
+	return _sorted_cache
 
 
 func archetype_of(actor_id: StringName) -> StringName:
@@ -349,7 +362,15 @@ func _look_spot_valid(c: Customer) -> bool:
 
 ## Pembeli yang menuju atau berdiri di sel itu (mis. menunggu giliran di rak).
 func _buyer_heading_to(cell: Vector2i) -> bool:
-	return _buyer_goal_cells(sim.world.store_floor()).has(cell)
+	# Sama dengan _buyer_goal_cells(...).has(cell), tanpa menyusun kamus setiap tick.
+	if cell.x < 0:
+		return false
+	var fid: StringName = sim.world.store_floor()
+	for v: Variant in customers.values():
+		var b: Customer = v
+		if not b.window_shopper and b.actor.goal_floor == fid and b.actor.goal_cell == cell:
+			return true
+	return false
 
 
 ## Pembeli selalu didahulukan: bila ada pembeli yang perlu sel tempat ia berdiri,
@@ -487,7 +508,7 @@ func _choose_target(c: Customer) -> void:
 ## bila semua preferensi nol, fallback ke atraksi umum (GDD 69, 84.3).
 func _pick_recipe(c: Customer, avail: Dictionary, def: CustomerArchetypeDefinition) -> StringName:
 	var weights: Dictionary = {}
-	var fallback: Dictionary = {}
+	var accs: Dictionary = {}
 	for rid: Variant in avail.keys():
 		var r: RecipeDefinition = DataRegistry.recipe(rid)
 		var ratio: float = sim.pricing.price_of(rid) / r.base_sell_price_kr
@@ -495,8 +516,15 @@ func _pick_recipe(c: Customer, avail: Dictionary, def: CustomerArchetypeDefiniti
 		var pref: float = def.preference_for(r) * sim.marketing.recipe_preference_multiplier(rid)
 		if pref > 0.0:
 			weights[String(rid)] = pref * maxf(acc, 0.01)
-		fallback[String(rid)] = maxf(acc, 0.01) * _best_quality(rid)
-	var pick: Variant = RNGManager.weighted_pick(sim.rng.stream(&"customer_choice_rng"), weights if not weights.is_empty() else fallback)
+		accs[rid] = acc
+	# Cadangan (tanpa resep yang disukai): penerimaan harga x kualitas terbaik.
+	# Kualitas terbaik semua resep dihitung sekali, hanya bila memang dipakai.
+	var use: Dictionary = weights
+	if weights.is_empty():
+		var best: Dictionary = _best_qualities()
+		for rid2: Variant in avail.keys():
+			use[String(rid2)] = maxf(float(accs[rid2]), 0.01) * maxf(float(best.get(rid2, 0.0)), 0.05)
+	var pick: Variant = RNGManager.weighted_pick(sim.rng.stream(&"customer_choice_rng"), use)
 	return StringName(str(pick)) if pick != null else &""
 
 
@@ -561,13 +589,15 @@ func _best_freshness(recipe_id: StringName, filter: Callable) -> float:
 	return best
 
 
-func _best_quality(recipe_id: StringName) -> float:
-	var best: float = 0.0
+## Kualitas x daya tarik freshness terbaik per resep di semua rak, satu kali
+## lewat semua stack yang laku (resep -> nilai; resep tanpa stok tidak ada).
+func _best_qualities() -> Dictionary:
+	var attract: Dictionary = DataRegistry.bal("freshness.attractiveness")
+	var out: Dictionary = {}
 	for m: Dictionary in sim.display.matching_stacks(Callable()):
 		var st: BreadStack = m["stack"]
-		if st.recipe_id == recipe_id:
-			best = maxf(best, st.bake_quality * float(DataRegistry.bal("freshness.attractiveness")[String(st.freshness_state)]))
-	return maxf(best, 0.05)
+		out[st.recipe_id] = maxf(float(out.get(st.recipe_id, 0.0)), st.bake_quality * float(attract[String(st.freshness_state)]))
+	return out
 
 
 ## Jumlah beli (GDD 84.1): 50% preferred, 20% ±1, sisa berbagi 10%; bulk
@@ -820,12 +850,13 @@ func _drain(c: Customer, dt: float) -> void:
 		return
 	c.queue_wait += dt
 	c.stall_time += dt
-	var m: float = DataRegistry.balf("patience.drain_base")
-	if lane != null and lane.occupancy_ratio() >= DataRegistry.balf("patience.near_full_occupancy_ratio"):
-		m *= DataRegistry.balf("patience.near_full_multiplier")
-	if c.stall_time > DataRegistry.balf("patience.stall_seconds"):
-		m *= DataRegistry.balf("patience.stall_multiplier")
-	m = clampf(m, DataRegistry.balf("patience.drain_clamp_min"), DataRegistry.balf("patience.drain_clamp_max"))
+	var pt: PackedFloat64Array = DataRegistry.patience_tuning()
+	var m: float = pt[0]
+	if lane != null and lane.occupancy_ratio() >= pt[1]:
+		m *= pt[2]
+	if c.stall_time > pt[3]:
+		m *= pt[4]
+	m = clampf(m, pt[5], pt[6])
 	c.patience = maxf(0.0, c.patience - m * dt)
 	if c.patience <= 0.0:
 		abandon(c)
@@ -846,6 +877,14 @@ func _drain(c: Customer, dt: float) -> void:
 ## RotiFood tetap di jalurnya.
 func rebalance_lanes() -> void:
 	if not sim.time.is_open():
+		return
+	# Jalur kosong semua: tidak ada yang bisa dipindah (dipanggil setiap tick).
+	var anyone: bool = false
+	for l0: QueueLane in sim.queue.lanes:
+		if not l0.reservations.is_empty() or not l0.line.is_empty() or l0.service_occupant != &"":
+			anyone = true
+			break
+	if not anyone:
 		return
 	var open: Array[QueueLane] = sim.queue.open_physical_lanes()
 	if open.is_empty():

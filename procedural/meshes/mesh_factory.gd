@@ -66,8 +66,11 @@ const DEFAULT_SPECULAR: float = 0.5
 ## Pasangan tanda +/- untuk iterasi sisi, rusuk, dan sudut pada rounded_slab().
 const SIGNS: Array[float] = [1.0, -1.0]
 
-## Pengali warna verteks kilau sorotan tutorial (`flash_material`).
-const FLASH_BOOST: float = 2.2
+## Pengali warna verteks kilau sorotan tutorial (`flash_material`). Model yang
+## dipanggang MeshBake membawa warna bagiannya di warna verteks, jadi pengalinya
+## cukup besar supaya warna gelap sekalipun (biru dongker, cokelat tua) jenuh
+## menjadi nyaris putih.
+const FLASH_BOOST: float = 5.0
 
 ## Material bantu Decoration Mode yang dipakai bersama (arsiran ubin, jejak
 ## penempatan). Satu instans seumur proses: material baru per tampilan membuat
@@ -123,7 +126,11 @@ static func material(color: Color, rough := 0.85, metal := 0.0, emis := Color.BL
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
 	m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 	m.cull_mode = BaseMaterial3D.CULL_BACK
-	m.vertex_color_use_as_albedo = false
+	# Warna verteks dikalikan ke albedo (primitif tanpa warna verteks terbaca
+	# putih), supaya bagian yang dipanggang MeshBake menjadi satu mesh berwarna
+	# verteks memakai kombinasi shader yang sama persis (GDD 89.5, 109).
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 
 	# Emisi: aktif hanya bila warnanya memang memancar (bukan hitam).
 	var glowing: bool = emis != Color.BLACK and (emis.r + emis.g + emis.b) > 0.0
@@ -303,7 +310,7 @@ static func rounded_slab(size: Vector3, bevel: float, color: Color) -> MeshInsta
 	st.generate_normals()
 	st.index()
 	st.set_material(material(color, 0.85))
-	return _instance(st.commit(), "Slab")
+	return _instance(kept_commit(st), "Slab")
 
 
 ## Memutar profil 2D (x = radius, y = tinggi) mengelilingi sumbu Y.
@@ -390,7 +397,7 @@ static func lathe(profile: PackedVector2Array, segments: int, color: Color) -> M
 	st.generate_normals()
 	st.index()
 	st.set_material(material(color, 0.85))
-	return _instance(st.commit(), "Lathe")
+	return _instance(kept_commit(st), "Lathe")
 
 
 # ---------------------------------------------------------------------------
@@ -525,6 +532,19 @@ static func material_of(mi: MeshInstance3D) -> StandardMaterial3D:
 	if mi.mesh != null and mi.mesh.get_surface_count() > 0:
 		return mi.mesh.surface_get_material(0) as StandardMaterial3D
 	return null
+
+
+## SurfaceTool -> ArrayMesh, dengan isi permukaannya juga disimpan di meta
+## "surface_arrays" mesh, supaya MeshBake bisa memanggangnya tanpa membaca balik
+## buffer GPU (surface_get_arrays sinkron dan mahal di WebGL). `into` menambah
+## permukaan ke mesh yang sudah ada.
+static func kept_commit(st: SurfaceTool, into: ArrayMesh = null) -> ArrayMesh:
+	var arrays: Array = st.commit_to_arrays()
+	var mesh: ArrayMesh = st.commit(into) if into != null else st.commit()
+	var kept: Array = mesh.get_meta("surface_arrays", [])
+	kept.append(arrays)
+	mesh.set_meta("surface_arrays", kept)
+	return mesh
 
 
 static func _instance(mesh: Mesh, node_name: String) -> MeshInstance3D:

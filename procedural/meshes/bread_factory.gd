@@ -58,16 +58,24 @@ static var _material_cache: Dictionary = {}
 ## Prototipe roti per kunci (profil, ember kualitas, freshness); instance baru
 ## hanya menduplikasi node yang berbagi mesh & material.
 static var _proto_cache: Dictionary = {}
+## Isi satu petak rak (1..3 roti sejenis berjajar) sebagai satu mesh, per kunci
+## prototipe dan jumlah roti.
+static var _slot_cache: Dictionary = {}
+## Tata letak roti di petak rak: skala, jarak antarroti, dan selang maju-mundur.
+const SLOT_SCALE: float = 0.45
+const SLOT_SPACING: float = 0.06
+const SLOT_STAGGER: float = 0.03
 
 
 ## Lepas semua sumber daya cache (keluar aplikasi / akhir test) agar tidak ada
 ## node orphan atau RID bocor (GDD 94, 133.3).
 static func clear_caches() -> void:
-	for k: Variant in _proto_cache.keys():
-		var n: Variant = _proto_cache[k]
-		if n is Node and is_instance_valid(n):
-			(n as Node).free()
-	_proto_cache.clear()
+	for cache: Dictionary in [_proto_cache, _slot_cache]:
+		for k: Variant in cache.keys():
+			var n: Variant = cache[k]
+			if n is Node and is_instance_valid(n):
+				(n as Node).free()
+		cache.clear()
 	_material_cache.clear()
 
 
@@ -85,14 +93,36 @@ static func quality_to_t(bake_quality: float) -> float:
 	return clampf(0.62 + (0.95 - bake_quality) / 0.35 * 0.22, 0.60, 0.90)
 
 
-## Satu roti dari cache (bucket kualitas 0.05). `visual_profile` = field
+## Satu roti dari cache (bucket kualitas 0.05), satu mesh (MeshBake). `visual_profile` = field
 ## visual_profile_id resep (data/catalog/recipes.json).
 static func build_cached(visual_profile: String, bake_quality: float, freshness: StringName) -> Node3D:
 	var bucket: int = int(round(bake_quality * 20.0))
 	var key: String = "%s|%d|%s" % [visual_profile, bucket, freshness]
 	if not _proto_cache.has(key):
-		_proto_cache[key] = build(visual_profile, float(bucket) / 20.0, freshness)
+		var proto: Node3D = build(visual_profile, float(bucket) / 20.0, freshness)
+		# Bagian roti dijahit menjadi satu mesh (MeshBake): satu draw call per roti.
+		# Roti selalu kecil di layar, jadi beda kilau antarbagian tidak terlihat.
+		MeshBake.bake(proto, [], true)
+		_proto_cache[key] = proto
 	return (_proto_cache[key] as Node3D).duplicate()
+
+
+## Isi satu petak rak display: `count` roti sejenis berjajar, dipanggang menjadi
+## satu mesh, sehingga satu petak = satu draw call berapa pun rotinya (GDD 109).
+static func slot_cached(visual_profile: String, bake_quality: float, freshness: StringName, count: int) -> Node3D:
+	var bucket: int = int(round(bake_quality * 20.0))
+	var key: String = "%s|%d|%s|%d" % [visual_profile, bucket, freshness, count]
+	if not _slot_cache.has(key):
+		var root := Node3D.new()
+		root.name = "Bread_slot"
+		for k in count:
+			var b: Node3D = build_cached(visual_profile, bake_quality, freshness)
+			b.scale = Vector3(SLOT_SCALE, SLOT_SCALE, SLOT_SCALE)
+			b.position = Vector3((float(k) - float(count - 1) * 0.5) * SLOT_SPACING, 0.0, float(k % 2) * SLOT_STAGGER)
+			root.add_child(b)
+		MeshBake.bake(root, [], true)
+		_slot_cache[key] = root
+	return (_slot_cache[key] as Node3D).duplicate()
 
 
 ## Bangun satu roti utuh. Selalu mengembalikan Node3D; profil tak dikenal jatuh
@@ -746,9 +776,12 @@ static func _material(color: Color, rough: float) -> StandardMaterial3D:
 	mat.albedo_color = color
 	mat.roughness = r
 	mat.metallic = 0.0
-	# Lambert seperti ProceduralMeshFactory.material(): roti berbagi shader
-	# dengan perabot, jadi tidak ada shader tambahan yang harus dikompilasi.
+	# Lambert dan warna verteks seperti ProceduralMeshFactory.material(): roti
+	# berbagi shader dengan perabot (juga setelah dipanggang MeshBake), jadi
+	# tidak ada shader tambahan yang harus dikompilasi.
 	mat.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
 	_material_cache[key] = mat
 	return mat
 

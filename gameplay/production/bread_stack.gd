@@ -55,12 +55,23 @@ static var _good_max: float = 0.7
 static var _unsale: float = 1.0
 
 
-static func state_for_ratio(r: float) -> StringName:
+static func _load_thresholds() -> void:
 	if _gen != DataRegistry.generation:
 		_gen = DataRegistry.generation
 		_fresh_max = DataRegistry.balf("freshness.fresh_max_ratio")
 		_good_max = DataRegistry.balf("freshness.good_max_ratio")
 		_unsale = DataRegistry.balf("freshness.unsaleable_ratio")
+
+
+## [batas FRESH, batas GOOD, ambang UNSALEABLE] yang dipakai state_for_ratio,
+## dalam presisi penuh (Vector3 hanya 32-bit dan bisa menggeser batasnya).
+static func thresholds() -> PackedFloat64Array:
+	_load_thresholds()
+	return PackedFloat64Array([_fresh_max, _good_max, _unsale])
+
+
+static func state_for_ratio(r: float) -> StringName:
+	_load_thresholds()
 	if r >= _unsale:
 		return &"UNSALEABLE"
 	if r > _good_max:

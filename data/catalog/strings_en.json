@@ -252,6 +252,7 @@
   "ui_equipment_recipes": "Unlocks recipes: {recipes}",
   "ui_equipment_slots_full": "All slots are in use. Replace one?",
   "ui_equipment_pick_replace": "Choose the equipment to replace",
+  "ui_equipment_bread_moves": "Bread moves to the new shelf",
   "ui_equipment_stored_list": "Stored equipment",
   "ui_equipment_tier_locked": "Needs a Tier {tier} store",
   "ui_upgrade_current": "Current location",

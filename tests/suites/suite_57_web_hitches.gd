@@ -11,7 +11,7 @@ func tests() -> Array:
 		{"id": "ACC_89_SHADER_WARMUP", "name": "89.5 loading draws one of every late-appearing visual below the floor, keeps one material per shader combination, and leaves nothing behind", "fn": _warmup},
 		{"id": "ACC_89_SHARED_HELPER_MATERIALS", "name": "89.5 placement ghosts and tile overlays reuse shared materials, so moving a held piece never needs a new shader", "fn": _shared_materials},
 		{"id": "ACC_33_SOUNDS_PREBUILT", "name": "33.6 the menu and the loading screen build every short sound, so tapping furniture never synthesizes audio", "fn": _sounds},
-		{"id": "ACC_89_FEW_SHADERS", "name": "89.5 the whole game uses a dozen shader combinations and no lit transparent one; bread shares the furniture shader and thin glass the overlay shader", "fn": _few_shaders},
+		{"id": "ACC_89_FEW_SHADERS", "name": "89.5 the whole game uses a dozen shader combinations and no lit transparent one, baked models (MeshBake) included; bread shares the furniture shader and thin glass the overlay shader", "fn": _few_shaders},
 	]
 
 
@@ -194,6 +194,15 @@ func _few_shaders() -> void:
 	for loc: Variant in DataRegistry.locations():
 		for fd: FloorDefinition in (loc as LocationDefinition).floors:
 			root.add_child(RoomFactory.build_floor(loc as LocationDefinition, fd, "Shader Bakery", {}))
+			# Ruangan dan alat yang dipanggang MeshBake memakai kombinasi yang sama.
+			var baked_room: Node3D = RoomFactory.build_floor(loc as LocationDefinition, fd, "Shader Bakery", {})
+			WorldView._bake_room(baked_room)
+			root.add_child(baked_room)
+	for t2 in range(1, 6):
+		for cat: StringName in [&"mixer", &"oven", &"display", &"storage"]:
+			root.add_child(EquipmentFactory.build_cached(DataRegistry.equipment_for(cat, t2), t2))
+		root.add_child(EquipmentFactory.build_cached(DataRegistry.table_definition(), t2))
+	root.add_child(BreadFactory.slot_cached("loaf.plain", 1.0, &"FRESH", 3))
 	var w: ShaderWarmup = ShaderWarmup.start(game.world)
 	MaterialKeep.clear()
 	MaterialKeep.scan(game.world)

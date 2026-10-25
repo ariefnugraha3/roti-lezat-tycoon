@@ -173,6 +173,45 @@ static func divider_register_x(index: int, count: int, span: float) -> float:
 ## Batas jumlah mesin kasir di atas meja pembatas (anggaran tris GDD 12.2).
 const MAX_REGISTERS: int = 4
 
+## Prototipe model perabot yang sudah dipanggang MeshBake, per model (dan tier
+## lokasi untuk Meja Tunggu). Instance baru hanya menduplikasi node yang berbagi
+## mesh dan material, jadi membangun ulang perabot setelah ditata murah.
+static var _proto_cache: Dictionary = {}
+
+
+static func clear_caches() -> void:
+	for k: Variant in _proto_cache.keys():
+		var n: Variant = _proto_cache[k]
+		if n is Node and is_instance_valid(n):
+			(n as Node).free()
+	_proto_cache.clear()
+
+
+## Model alat `def` siap pakai di dunia: bagian statisnya satu mesh (MeshBake),
+## bagian yang bergerak (pengaduk, pintu, petak roti) tetap node sendiri. Kotak
+## mesh aslinya disimpan sebagai meta "bounds".
+static func build_cached(def: EquipmentDefinition, location_tier: int) -> Node3D:
+	var key: String = "%s|%d" % [def.id, location_tier if def.category_id == &"table" else 0]
+	if not _proto_cache.has(key):
+		var node: Node3D
+		match def.category_id:
+			&"mixer":
+				node = build_mixer(def.tier)
+			&"oven":
+				node = build_oven(def.tier)
+			&"display":
+				node = build_display(def.tier)
+			&"table":
+				node = build_holding_table(location_tier)
+			&"chair":
+				node = build_staff_chair()
+			_:
+				node = build_storage(def.tier)
+		MeshBake.bake(node)
+		node.set_meta("bounds", _mesh_bounds(node))
+		_proto_cache[key] = node
+	return (_proto_cache[key] as Node3D).duplicate()
+
 
 # ---------------------------------------------------------------------------
 # MIXER (GDD 5.1)
@@ -2253,7 +2292,7 @@ static func _checker_plane(width: float, height: float, cell_target: float, colo
 		# tidak boleh menentukan terlihat atau tidaknya permukaan.
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		st.set_material(mat)
-		st.commit(mesh)
+		ProceduralMeshFactory.kept_commit(st, mesh)
 
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
@@ -2291,7 +2330,7 @@ static func _plank_plane(width: float, depth: float, plank: float, length: float
 		var mat: StandardMaterial3D = ProceduralMeshFactory.material(colors[pass_idx], 0.94)
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		st.set_material(mat)
-		st.commit(mesh)
+		ProceduralMeshFactory.kept_commit(st, mesh)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.name = "Planks"

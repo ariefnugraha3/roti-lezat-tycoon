@@ -439,6 +439,8 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 	var prev_placed: Array[EquipmentInstance] = equipment.placed_list()
 	for e: EquipmentInstance in equipment.all_sorted():
 		e.placed = false
+	# Dekorasi menunggu sampai semua perabot punya tempat (GDD 105 no. 4, 12).
+	var lifted: Array[int] = decoration.lift_all()
 	# Gudang sepaket bangunan: berganti tier bersama lokasi (GDD 5.1.1).
 	var storage: EquipmentInstance = null
 	for e2: EquipmentInstance in equipment.all_sorted():
@@ -476,7 +478,7 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 		var d: EquipmentInstance = equipment.get_inst(int(iid))
 		if d != null and display.used(d.iid) > 0 and not d.placed:
 			return false
-	decoration.enforce_rules()
+	decoration.replace_lifted(lifted)
 	player.place_at_start()
 	demand.pending.clear()
 	return world.layout_valid()

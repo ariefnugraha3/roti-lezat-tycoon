@@ -201,6 +201,16 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   bread and ghosts, and does picking. `CameraRig` frames floors that fit the viewport
   whole and follows the player on larger floors. A floor change uses a 0.20 s
   crossfade (GDD 30).
+- Baked models (GDD 109.3): `procedural/meshes/mesh_bake.gd` stitches the static parts
+  of an assembled model into one vertex-coloured `ArrayMesh` with one surface per
+  material group, using the same shader combination as the parts. Furniture comes
+  from `EquipmentFactory.build_cached` (one baked prototype per model, duplicated),
+  bread from `BreadFactory.build_cached` and `slot_cached` (a display slot of up to
+  three breads is one mesh), and `WorldView._bake_room` bakes each counter, the
+  tablet and the stairs door on their own (their boxes are used for taps and tutorial
+  spotlights) and the rest of a floor as one mesh. Moving parts keep their own nodes
+  (`MeshBake.KEEP_NAMES`/`KEEP_PREFIXES`); display slots (`Slot*`) are left alone.
+  `ShaderWarmup` places the baked models, so their prototypes are ready at loading.
 - UI: `ModalHost` keeps a stack of `UIScreen`s registered in `ScreenRegistry`. A
   blocking screen pushes a pause reason and cleans up in `on_closed()`. Every visible
   text goes through `Tx.t(key, params)` → `strings_en.json` (GDD 43, 127).
@@ -439,5 +449,16 @@ of starting a broken game.
   GDD 110 window sizes and text scales, saves half-size PNGs to `LINEUP_OUT`, and prints
   `SWEEP OFF` for every visible control outside the screen and `SWEEP done, N issues`
   at the end. It uses its own save folder.
+- Performance tools (GDD 109.3, added 2026-10-25): `tools/render_probe.tscn` (windowed)
+  stages a fully equipped, stocked shop at every tier and prints draw calls, objects and
+  triangles a frame plus where the visible mesh surfaces come from (`--tier=N`, `--why`
+  lists parts that are not baked and why, `--surfaces` lists each baked model's
+  groups). `tools/bake_compare.tscn` (windowed) renders every model with the old
+  materials, unbaked and baked, and prints the pixel differences (`BAKE_OUT` saves the
+  strips). `tools/sim_profile.tscn -- --tier=N [--detail]` (headless) times every
+  manager over a busy open day. `tools/soak_trace.tscn -- --days=N` (headless) prints a
+  per-day state hash of the TEST_LONGRUN_100 game, to prove an optimization changes
+  nothing. `tools/loading_probe.tscn` runs `main.tscn`, starts a new game and prints how
+  long each loading stage takes (`--menu=N` waits in the Main Menu first).
 - `.github/workflows/tests.yml` runs the compile check, the tests without the soaks
   and the quick release validator on every push and pull request to `main`.

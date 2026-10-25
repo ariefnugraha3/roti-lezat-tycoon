@@ -25,6 +25,7 @@ func ensure_display(iid: int, tier: int) -> void:
 	if displays.has(iid):
 		var d: Dictionary = displays[iid]
 		d["tier"] = tier
+		d.erase("rate")
 		var slots: Array = d["slots"]
 		while slots.size() < def.slot_count:
 			slots.append({"recipe": &"", "stacks": []})
@@ -40,6 +41,57 @@ func ensure_display(iid: int, tier: int) -> void:
 
 func remove_display(iid: int) -> void:
 	displays.erase(iid)
+
+
+## Replace rak berisi roti (GDD 5.1.2, keputusan maintainer 2026-10-25): petak
+## lama -> petak rak baru `def`. Setiap petak berisi pindah utuh ke petak yang
+## sama nomornya bila ada, selain itu ke petak kosong terendah. {} bila rak baru
+## tidak memuat semuanya (jumlah petak, isi per petak, atau kapasitas).
+func carry_plan(from_iid: int, def: EquipmentDefinition) -> Dictionary:
+	if def == null or used(from_iid) > def.capacity:
+		return {}
+	var sl: Array = slots(from_iid)
+	var plan: Dictionary = {}
+	var taken: Dictionary = {}
+	var rest: Array[int] = []
+	for i in sl.size():
+		var n: int = slot_units(from_iid, i)
+		if n <= 0:
+			continue
+		if n > def.max_per_slot:
+			return {}
+		if i < def.slot_count:
+			plan[i] = i
+			taken[i] = true
+		else:
+			rest.append(i)
+	var next: int = 0
+	for i2: int in rest:
+		while next < def.slot_count and taken.has(next):
+			next += 1
+		if next >= def.slot_count:
+			return {}
+		plan[i2] = next
+		taken[next] = true
+	return plan
+
+
+## Pindahkan isi rak `from_iid` ke rak `to_iid` menurut `carry_plan`. Umur,
+## kualitas, dan batch setiap stack tetap; hanya rak dan petaknya yang berubah.
+func carry_bread(from_iid: int, to_iid: int, to_tier: int, plan: Dictionary) -> void:
+	ensure_display(to_iid, to_tier)
+	var src: Array = slots(from_iid)
+	var dst: Array = slots(to_iid)
+	for k: Variant in plan.keys():
+		var a: Dictionary = src[int(k)]
+		var b: Dictionary = dst[int(plan[k])]
+		b["recipe"] = a["recipe"]
+		b["stacks"] = a["stacks"]
+		for st: BreadStack in b["stacks"]:
+			st.slot_id = StringName("%d:%d" % [to_iid, int(plan[k])])
+			st.display_tier = to_tier
+		a["recipe"] = &""
+		a["stacks"] = []
 
 
 func has_display(iid: int) -> bool:
@@ -216,12 +268,18 @@ func matching_stacks(filter: Callable, only_iid: int = -1) -> Array[Dictionary]:
 	return out
 
 
+## Jumlah unit `recipe_id` yang laku dan lolos `filter`. Ditulis langsung (tanpa
+## daftar perantara) karena dipanggil untuk setiap rak setiap kali pelanggan
+## memilih; filternya murni, jadi memeriksa resepnya lebih dulu tidak mengubah hasil.
 func count_matching(recipe_id: StringName, filter: Callable, only_iid: int = -1) -> int:
 	var n: int = 0
-	for m: Dictionary in matching_stacks(filter, only_iid):
-		var st: BreadStack = m["stack"]
-		if st.recipe_id == recipe_id:
-			n += st.quantity
+	for iid: Variant in display_ids():
+		if only_iid >= 0 and int(iid) != only_iid:
+			continue
+		for s: Dictionary in slots(int(iid)):
+			for st: BreadStack in s["stacks"]:
+				if st.recipe_id == recipe_id and st.is_sellable() and (not filter.is_valid() or bool(filter.call(st))):
+					n += st.quantity
 	return n
 
 
@@ -361,17 +419,40 @@ func step(dt: float) -> void:
 	age_all(sim.time.ingame_hours(dt), false)
 
 
+## Dipanggil setiap tick untuk setiap stack di rak, jadi perhitungannya ditulis
+## langsung: rasio umur dibandingkan dengan ambang GDD 19.7.1 persis seperti
+## BreadStack.state_for_ratio, dan state baru dihitung ulang hanya bila rasionya
+## melewati batas state sekarang (umur hanya bertambah). Hasilnya identik dengan
+## refresh_state() per stack per tick (GDD 109).
 func age_all(hours: float, _overnight: bool) -> void:
+	var th: PackedFloat64Array = BreadStack.thresholds()
+	var fresh_max: float = th[0]
+	var good_max: float = th[1]
+	var unsale: float = th[2]
 	for iid: Variant in displays.keys():
 		var d: Dictionary = displays[iid]
-		var rate: float = def_of(int(iid)).aging_rate
+		# Laju penuaan rak di-cache di dict-nya (tidak ikut capture; dihapus saat tier berubah).
+		if not d.has("rate"):
+			d["rate"] = def_of(int(iid)).aging_rate
+		var add: float = hours * float(d["rate"])
 		for s: Dictionary in d["slots"]:
 			for st: BreadStack in s["stacks"]:
-				st.age_ingame_hours += hours * rate
-				var before: StringName = st.freshness_state
-				st.refresh_state()
-				if before != st.freshness_state:
-					sim.tutorial.on_freshness_changed(st.freshness_state, int(iid))
+				st.age_ingame_hours += add
+				var r: float = st.age_ingame_hours / maxf(st.base_expiry_hours, 0.0001)
+				var state: StringName = st.freshness_state
+				var crossed: bool
+				if state == &"FRESH":
+					crossed = r > fresh_max
+				elif state == &"GOOD":
+					crossed = r > good_max
+				elif state == &"STALE":
+					crossed = r >= unsale
+				else:
+					crossed = state != &"UNSALEABLE" or r < unsale
+				if crossed:
+					st.freshness_state = BreadStack.state_for_ratio(r)
+					if state != st.freshness_state:
+						sim.tutorial.on_freshness_changed(st.freshness_state, int(iid))
 
 
 ## Rollover 18:00 -> 05:00 (GDD 19.7.3). Tepat sekali per hari, dijaga

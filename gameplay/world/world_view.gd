@@ -209,6 +209,7 @@ func rebuild_all() -> void:
 	_lamps.clear()
 	for fd: FloorDefinition in sim.world.location.floors:
 		var node: Node3D = RoomFactory.build_floor(sim.world.location, fd, sim.bakery_name, skins)
+		_bake_room(node)
 		add_child(node)
 		floors[fd.id] = node
 		var pend: Node3D = node.find_child(DecorFactory.SWING_NODE, true, false) as Node3D
@@ -229,6 +230,20 @@ func rebuild_all() -> void:
 	_update_counter_aabbs()
 	_apply_floor_visibility()
 	MaterialKeep.scan(self)
+
+
+## Ruangan satu lantai menjadi beberapa mesh saja (MeshBake, GDD 109): setiap
+## meja kasir, tablet RotiFood, dan pintu tangga sendiri-sendiri, karena kotaknya
+## dipakai untuk ketukan dan sorotan tutorial; sisanya (lantai, dinding,
+## jendela, papan nama) satu mesh. Bandul jam dinding tetap bergerak.
+static func _bake_room(node: Node3D) -> void:
+	var own: Array = []
+	for c: Node in node.get_children():
+		var nm: String = String(c.name)
+		if c is Node3D and (nm.begins_with("Counter_") or nm == "Tablet" or nm == "Portal"):
+			MeshBake.bake(c as Node3D)
+			own.append(c)
+	MeshBake.bake(node, own)
 
 
 ## Rakit lingkungan lokasi sekarang, basah bila hari ini hujan (GDD 32.8), lalu
@@ -322,27 +337,13 @@ func _build_furniture(e: EquipmentInstance) -> Node3D:
 	return node
 
 
-## Model alat menurut kategori dan tier-nya, belum diletakkan. Kotak mesh
-## aslinya disimpan sebagai meta "bounds" untuk _pose_furniture.
+## Model alat menurut kategori dan tier-nya, belum diletakkan: duplikat
+## prototipe yang sudah dipanggang (EquipmentFactory.build_cached), dengan kotak
+## mesh aslinya di meta "bounds" untuk _pose_furniture.
 func _equipment_model(e: EquipmentInstance) -> Node3D:
-	var def: EquipmentDefinition = e.def()
-	var node: Node3D
-	match def.category_id:
-		&"mixer":
-			node = EquipmentFactory.build_mixer(def.tier)
-		&"oven":
-			node = EquipmentFactory.build_oven(def.tier)
-		&"display":
-			node = EquipmentFactory.build_display(def.tier)
-		&"table":
-			node = EquipmentFactory.build_holding_table(sim.world.location.tier)
-		&"chair":
-			node = EquipmentFactory.build_staff_chair()
-		_:
-			node = EquipmentFactory.build_storage(def.tier)
+	var node: Node3D = EquipmentFactory.build_cached(e.def(), sim.world.location.tier)
 	node.name = "Equip_%d" % e.iid
 	node.set_meta("iid", e.iid)
-	node.set_meta("bounds", EquipmentFactory._mesh_bounds(node))
 	return node
 
 
@@ -1063,11 +1064,7 @@ func _update_bread() -> void:
 			var r: RecipeDefinition = DataRegistry.recipe(s["recipe"])
 			var first: BreadStack = (s["stacks"] as Array)[0]
 			var n: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
-			for k in n:
-				var b: Node3D = BreadFactory.build_cached(String(r.visual_profile_id), first.bake_quality, first.freshness_state)
-				b.scale = Vector3(0.45, 0.45, 0.45)
-				b.position = Vector3((float(k) - float(n - 1) * 0.5) * 0.06, 0.0, float(k % 2) * 0.03)
-				slot_node.add_child(b)
+			slot_node.add_child(BreadFactory.slot_cached(String(r.visual_profile_id), first.bake_quality, first.freshness_state, n))
 
 
 ## Isi Meja Tunggu (GDD 5.1.3): mangkuk adonan dan loyang di atas daun meja,

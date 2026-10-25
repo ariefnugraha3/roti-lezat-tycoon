@@ -317,6 +317,35 @@ func enforce_rules() -> int:
 	return removed
 
 
+## Pindah lokasi (GDD 105 no. 4 dan 12): semua dekorasi terpasang dilepas dulu
+## supaya perabot ditempatkan di denah baru tanpa terhalang dekorasi lantai yang
+## masih tercatat di sel lamanya. Sebelumnya pot tanaman atau keset di sel itu
+## bisa menutup tempat Gudang, sehingga upgrade gagal dengan alasan "rak".
+## Mengembalikan uid yang dilepas untuk `replace_lifted`.
+func lift_all() -> Array[int]:
+	var out: Array[int] = []
+	for o: Dictionary in owned:
+		if bool(o["placed"]):
+			o["placed"] = false
+			out.append(int(o["uid"]))
+	return out
+
+
+## Pasang lagi dekorasi dari `lift_all` di tempat lamanya bila masih sah di
+## denah baru; yang tidak sah kembali ke inventaris (`enforce_rules`). Peta ubin
+## dan graf navigasi disusun ulang sesudahnya. Mengembalikan jumlah yang disimpan.
+func replace_lifted(uids: Array[int]) -> int:
+	if uids.is_empty():
+		return 0
+	for uid: int in uids:
+		var o: Dictionary = item(uid)
+		if not o.is_empty():
+			o["placed"] = true
+	var removed: int = enforce_rules()
+	sim.world.rebuild_occupancy()
+	return removed
+
+
 func capture() -> Dictionary:
 	return {"owned": owned.duplicate(true), "next_uid": next_uid, "equipped": equipped.duplicate()}
 

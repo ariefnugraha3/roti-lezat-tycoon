@@ -11,6 +11,7 @@ func tests() -> Array:
 		{"id": "ACC_72_DECOR_CAPS", "name": "72.3 decorations go on the shop floor only, up to the location's cap per type; wall/counter slots cannot be shared", "fn": _caps},
 		{"id": "ACC_72_DECOR_RUGS", "name": "72.1 rugs cover their tile footprint in the shop area, may lie on walkways, never block, rotate, and do not overlap", "fn": _rugs},
 		{"id": "ACC_72_DECOR_ENFORCE", "name": "72.3 loading or moving shop puts back decorations that break the slot rules; the older one keeps its place", "fn": _enforce},
+		{"id": "ACC_105_UPGRADE_WITH_DECOR", "name": "105 a floor decoration on any shop tile never blocks a location upgrade; it stays where the new plan allows it, otherwise goes back to the inventory", "fn": _upgrade_with_decor},
 		{"id": "TEST_VIS_DECOR_MODELS", "name": "72.1 every placeable decoration has its own procedural model inside the triangle budget and its slot", "fn": _models},
 		{"id": "TEST_VIS_DECOR_WORLD", "name": "72.3 placed decorations are drawn, pickable in Decoration Mode, and slot markers answer taps; wall windows and clock face the room", "fn": _world},
 		{"id": "TEST_UI_DECOR_SLOTS", "name": "72.2-72.3 Decoration Mode lights free slots, a tap tries the decoration there and Place hangs it, full types explain the cap, rugs rotate before Place", "fn": _ui},
@@ -304,6 +305,82 @@ func _enforce() -> void:
 		if str(o3["deco_id"]) == "decor_family_photo_wall" and int(o3["uid"]) >= base:
 			check(bool(o3["placed"]) and int(o3["slot"]) == 1, "a valid wall decoration keeps its spot after moving shop")
 	free_sim(t2)
+	free_sim(t)
+	free_sim(s)
+
+
+## Ditemukan 2026-10-14: dekorasi lantai lama masih menempati selnya saat Gudang
+## ditempatkan di denah baru, jadi upgrade dibatalkan dengan alasan "rak"
+## (T2->T3 pot di [5,2]; T3->T4 keset [0,3], pot [4,2], keranjang roti [0,2]).
+func _upgrade_with_decor() -> void:
+	var s: SimulationRoot = new_sim(7204)
+	s.tutorial.skip()
+	s.debug_add_kr(5000000.0)
+	var plant: int = int(s.decoration._add(&"decor_potted_plant")["uid"])
+	var basket: int = int(s.decoration._add(&"decor_bread_basket_stack")["uid"])
+	var mat: int = int(s.decoration._add(&"decor_floor_mat_smooth")["uid"])
+	var total: int = 0
+	for tier in range(1, 5):
+		s.time.set_phase(TimeManager.AFTER_HOURS)
+		for uid0: int in [plant, basket, mat]:
+			s.decoration.put_away(uid0)
+		var sf: StringName = s.decoration.store_floor()
+		var fg: FloorGrid = s.world.grid(sf)
+		var snap: Dictionary = s.capture_save()
+		# Hanya pot di ubin yang tidak sah untuknya di denah baru (perabot, tile
+		# akses, antrean, jalur wajib) yang bisa menghalangi penempatan.
+		eq(s.upgrade_location(), "", "T%d -> T%d upgrades without decorations" % [tier, tier + 1])
+		var hot: Dictionary = {}
+		var nsf: StringName = s.decoration.store_floor()
+		var ng: FloorGrid = s.world.grid(nsf)
+		for hz in ng.size.y:
+			for hx in ng.size.x:
+				if s.decoration.check_place(plant, nsf, Vector2i(hx, hz), -1, 0) != &"":
+					hot[Vector2i(hx, hz)] = true
+		s.load_from_save(snap)
+		var tried: int = 0
+		var failed: PackedStringArray = PackedStringArray()
+		for z in fg.size.y:
+			for x in fg.size.x:
+				var c := Vector2i(x, z)
+				if not hot.has(c) or s.decoration.check_place(plant, sf, c, -1, 0) != &"":
+					continue
+				tried += 1
+				eq(s.decoration.place(plant, sf, c, -1), &"", "T%d plant on %s" % [tier, c])
+				var r: String = s.upgrade_location()
+				if r != "":
+					failed.append("%s: %s" % [c, r])
+				else:
+					var o: Dictionary = s.decoration.item(plant)
+					var nf: FloorGrid = s.world.grid(s.decoration.store_floor())
+					var kept: Vector2i = SimManager.arr_to_cell(o["cell"])
+					check(not bool(o["placed"]) or int(nf.decor_at.get(kept, -1)) == plant,
+						"T%d plant from %s either stands on its tile or is in the inventory" % [tier, c])
+					check(s.world.layout_valid(), "T%d layout valid with the plant from %s" % [tier, c])
+					check(s.equipment.storage_instance().placed, "T%d storage placed with the plant from %s" % [tier, c])
+				s.load_from_save(snap)
+		total += tried
+		eq(failed, PackedStringArray(), "T%d -> T%d upgrades with the plant on every tile" % [tier, tier + 1])
+		# Semua dekorasi lantai terpasang sekaligus, setinggi batas tier.
+		for uid: int in [plant, basket]:
+			var c2: Vector2i = _first_ok(s, uid)
+			if c2.x >= 0:
+				s.decoration.place(uid, sf, c2, -1)
+		var anchor: Vector2i = _first_rug_anchor(s, mat)
+		if anchor.x >= 0:
+			s.decoration.place(mat, sf, anchor, -1)
+		eq(s.upgrade_location(), "", "T%d -> T%d upgrades with every floor decoration placed" % [tier, tier + 1])
+		eq(s.check_invariants(), "", "T%d invariants after the upgrade" % (tier + 1))
+	check(total > 0, "some shop tiles are taken by the next floor plan")
+	# Kasus yang dilaporkan: pot di [5,2] Tier 2.
+	var t: SimulationRoot = new_sim(7205)
+	t.tutorial.skip()
+	jump_to_tier(t, 2)
+	t.time.set_phase(TimeManager.AFTER_HOURS)
+	t.debug_add_kr(t.next_location().upgrade_cost_kr)
+	var p2: int = int(t.decoration._add(&"decor_potted_plant")["uid"])
+	if t.decoration.place(p2, t.decoration.store_floor(), Vector2i(5, 2), -1) == &"":
+		eq(t.upgrade_location(), "", "the reported T2 plant on [5,2] no longer blocks the upgrade")
 	free_sim(t)
 	free_sim(s)
 

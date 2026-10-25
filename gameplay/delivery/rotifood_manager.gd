@@ -15,10 +15,22 @@ var cancelled_today: int = 0
 var rejected_today: int = 0
 var received_today: int = 0
 var tips_today: float = 0.0
+## Dinaikkan setiap kali isi `orders` berubah; cache di bawah mengikutinya.
+var _orders_version: int = 0
+var _ids_cache: Array = []
+var _ids_version: int = -1
+var _active_cache: Array[DeliveryOrder] = []
+var _active_version: int = -1
+var _leaving_cache: Array[DeliveryOrder] = []
+var _leaving_version: int = -1
+var _leaving_dirty: bool = true
+var _approach_cache: Dictionary = {}
+var _approach_loc: StringName = &""
 
 
 func new_game() -> void:
 	orders.clear()
+	_orders_version += 1
 	next_order_id = 1
 	reset_day()
 
@@ -32,21 +44,50 @@ func reset_day() -> void:
 	for k: Variant in orders.keys():
 		if not (orders[k] as DeliveryOrder).is_active():
 			orders.erase(k)
+			_orders_version += 1
 
 
 func order(order_id: int) -> DeliveryOrder:
 	return orders.get(order_id)
 
 
+## Pesanan aktif terurut ID, read-only. Dipanggil setiap tick, jadi disimpan:
+## disusun ulang dari semua pesanan hanya bila `orders` berubah (`_orders_version`),
+## dan selain itu hanya disaring, karena pesanan yang selesai, kedaluwarsa, atau
+## batal tidak pernah aktif lagi. Array lama tidak pernah diubah (GDD 109).
 func active_orders() -> Array[DeliveryOrder]:
-	var ids: Array = orders.keys()
-	ids.sort()
-	var out: Array[DeliveryOrder] = []
-	for i: Variant in ids:
-		var o: DeliveryOrder = orders[i]
-		if o.is_active():
-			out.append(o)
-	return out
+	if _active_version != _orders_version:
+		var out: Array[DeliveryOrder] = []
+		for i: Variant in _order_ids():
+			var o: DeliveryOrder = orders[i]
+			if o.is_active():
+				out.append(o)
+		_set_active(out)
+		_active_version = _orders_version
+	else:
+		for o2: DeliveryOrder in _active_cache:
+			if not o2.is_active():
+				var kept: Array[DeliveryOrder] = []
+				for o3: DeliveryOrder in _active_cache:
+					if o3.is_active():
+						kept.append(o3)
+				_set_active(kept)
+				break
+	return _active_cache
+
+
+func _set_active(list: Array[DeliveryOrder]) -> void:
+	list.make_read_only()
+	_active_cache = list
+
+
+## ID semua pesanan hari ini terurut, disusun ulang hanya bila `orders` berubah.
+func _order_ids() -> Array:
+	if _ids_version != _orders_version:
+		_ids_cache = orders.keys()
+		_ids_cache.sort()
+		_ids_version = _orders_version
+	return _ids_cache
 
 
 func driver_count() -> int:
@@ -142,6 +183,7 @@ func _create(items: Dictionary, prep_window: float, scripted: bool) -> DeliveryO
 	o.driver_patience = o.driver_patience_max
 	o.state = DeliveryOrder.NOTIFIED
 	orders[o.order_id] = o
+	_orders_version += 1
 	received_today += 1
 	sim.statistics.add(&"total_rotifood_orders_received", 1)
 	EventBus.delivery_order_created.emit(o.order_id)
@@ -293,15 +335,31 @@ func step(dt: float) -> void:
 			o2.driver_phase = &"gone"
 
 
+## Driver yang sedang berjalan pulang, urut ID. Hanya `_driver_leave` yang
+## memulai fase itu, jadi daftar ini cukup disusun ulang saat `orders` berubah
+## atau ada driver baru yang pulang, lalu disaring sampai kosong.
 func _leaving() -> Array[DeliveryOrder]:
-	var out: Array[DeliveryOrder] = []
-	var ids: Array = orders.keys()
-	ids.sort()
-	for i: Variant in ids:
-		var o: DeliveryOrder = orders[i]
-		if o.driver_phase == &"leaving" and o.driver != null:
-			out.append(o)
-	return out
+	if _leaving_dirty or _leaving_version != _orders_version:
+		var out: Array[DeliveryOrder] = []
+		for i: Variant in _order_ids():
+			var o: DeliveryOrder = orders[i]
+			if o.driver_phase == &"leaving" and o.driver != null:
+				out.append(o)
+		out.make_read_only()
+		_leaving_cache = out
+		_leaving_dirty = false
+		_leaving_version = _orders_version
+		return _leaving_cache
+	for o2: DeliveryOrder in _leaving_cache:
+		if o2.driver_phase != &"leaving" or o2.driver == null:
+			var kept: Array[DeliveryOrder] = []
+			for o3: DeliveryOrder in _leaving_cache:
+				if o3.driver_phase == &"leaving" and o3.driver != null:
+					kept.append(o3)
+			kept.make_read_only()
+			_leaving_cache = kept
+			break
+	return _leaving_cache
 
 
 func _try_admit_driver(o: DeliveryOrder) -> void:
@@ -348,7 +406,16 @@ func _side(o: DeliveryOrder) -> int:
 ## Lama driver berjalan dari ujung trotoar ke pintu (detik-simulasi). Ia berangkat
 ## selama itu sebelum `driver_arrival_time`, jadi tiba di pintu tepat waktu.
 func approach_seconds(o: DeliveryOrder) -> float:
-	return StreetPaths.approach_seconds(sim.world.location, _side(o), float(DataRegistry.driver_def().get("movement_speed_mps", 1.25)))
+	# Hanya bergantung pada lokasi dan sisi trotoar; dihitung sekali per pasangan,
+	# karena diperiksa setiap tick untuk setiap pesanan yang drivernya belum berangkat.
+	if _approach_loc != sim.world.location.id:
+		_approach_cache.clear()
+		_approach_loc = sim.world.location.id
+	var side: int = _side(o)
+	if not _approach_cache.has(side):
+		_approach_cache[side] = StreetPaths.approach_seconds(sim.world.location, side,
+			float(DataRegistry.driver_def().get("movement_speed_mps", 1.25)))
+	return _approach_cache[side]
 
 
 func _go_tail(o: DeliveryOrder, lane: QueueLane) -> void:
@@ -391,12 +458,13 @@ func _driver_queued(o: DeliveryOrder) -> void:
 func _drain(o: DeliveryOrder, dt: float) -> void:
 	o.driver_stall += dt
 	var lane: QueueLane = sim.queue.lane_of(o.driver_id())
-	var m: float = DataRegistry.balf("patience.drain_base")
-	if lane != null and lane.occupancy_ratio() >= DataRegistry.balf("patience.near_full_occupancy_ratio"):
-		m *= DataRegistry.balf("patience.near_full_multiplier")
-	if o.driver_stall > DataRegistry.balf("patience.stall_seconds"):
-		m *= DataRegistry.balf("patience.stall_multiplier")
-	m = clampf(m, DataRegistry.balf("patience.drain_clamp_min"), DataRegistry.balf("patience.drain_clamp_max"))
+	var pt: PackedFloat64Array = DataRegistry.patience_tuning()
+	var m: float = pt[0]
+	if lane != null and lane.occupancy_ratio() >= pt[1]:
+		m *= pt[2]
+	if o.driver_stall > pt[3]:
+		m *= pt[4]
+	m = clampf(m, pt[5], pt[6])
 	o.driver_patience = maxf(0.0, o.driver_patience - m * dt)
 	o.preparation_deadline = sim.time.sim_seconds + o.driver_patience / m
 	if o.driver_patience <= 0.0:
@@ -482,6 +550,7 @@ func _driver_leave(o: DeliveryOrder) -> void:
 	sim.queue.release(o.driver_id())
 	sim.world.release_all_for(o.driver_id())
 	o.driver_phase = &"leaving"
+	_leaving_dirty = true
 	if o.driver != null and o.driver.outside:
 		# Masih di trotoar (order dibatalkan atau ditolak): berbalik pulang.
 		o.driver.walk_path(sim.world.store_floor(), StreetPaths.retreat(sim.world.location, _side(o), o.driver.pos))
@@ -533,6 +602,7 @@ func capture() -> Dictionary:
 
 func restore(d: Dictionary) -> void:
 	orders.clear()
+	_orders_version += 1
 	next_order_id = int(d.get("next_order_id", 1))
 	completed_today = int(d.get("completed_today", 0))
 	cancelled_today = int(d.get("cancelled_today", 0))
@@ -547,6 +617,7 @@ func restore(d: Dictionary) -> void:
 			o.driver.nav_class = FloorGrid.NAV_PUBLIC
 			o.driver.speed_mps = float(DataRegistry.driver_def().get("movement_speed_mps", 1.25))
 		orders[o.order_id] = o
+		_orders_version += 1
 		next_order_id = maxi(next_order_id, o.order_id + 1)
 
 

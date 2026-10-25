@@ -178,6 +178,44 @@ func cylinder(xf: Transform3D, h: float, r_top: float, r_bottom: float, color: C
 	lathe(xf, p, color, radial)
 
 
+## Silinder / kerucut terpotong bertepi tegas seperti CylinderMesh Godot: sisi
+## dengan normal miring, tutup datar dengan verteks sendiri. 4 x radial segitiga
+## (MeshBake memanggang CylinderMesh perabot dengan ini).
+func cylinder_hard(xf: Transform3D, h: float, r_top: float, r_bottom: float, color: Color, radial: int,
+		cap_top: bool = true, cap_bottom: bool = true) -> void:
+	radial = maxi(3, radial)
+	var nb: Basis = xf.basis.inverse().transposed()
+	var slope: float = (r_bottom - r_top) / maxf(h, 0.0001)
+	var bottom := PackedInt32Array()
+	var top := PackedInt32Array()
+	for j in radial:
+		var phi: float = TAU * float(j) / float(radial)
+		var s: float = sin(phi)
+		var c: float = cos(phi)
+		var nl := Vector3(s, slope, c)
+		bottom.append(_vert(xf * Vector3(s * r_bottom, -h * 0.5, c * r_bottom), nb * nl, color))
+		top.append(_vert(xf * Vector3(s * r_top, h * 0.5, c * r_top), nb * nl, color))
+	for j2 in radial:
+		var k: int = (j2 + 1) % radial
+		_tri(bottom[j2], bottom[k], top[k])
+		_tri(bottom[j2], top[k], top[j2])
+	for cap in 2:
+		if (cap == 0 and not cap_bottom) or (cap == 1 and not cap_top):
+			continue
+		var y: float = -h * 0.5 if cap == 0 else h * 0.5
+		var r: float = r_bottom if cap == 0 else r_top
+		if r <= 0.00001:
+			continue
+		var up: Vector3 = nb * (Vector3.DOWN if cap == 0 else Vector3.UP)
+		var center: int = _vert(xf * Vector3(0.0, y, 0.0), up, color)
+		var ring := PackedInt32Array()
+		for j3 in radial:
+			var phi2: float = TAU * float(j3) / float(radial)
+			ring.append(_vert(xf * Vector3(sin(phi2) * r, y, cos(phi2) * r), up, color))
+		for j4 in radial:
+			_tri(center, ring[j4], ring[(j4 + 1) % radial])
+
+
 ## Torus di bidang XZ lokal. `arc_from/to` (radian, 0 = depan) membuat busur.
 ## `color_fn` = Callable(phi) -> Color (motif kotak-kotak, manik-manik).
 func torus(xf: Transform3D, ring_r: float, tube_r: float, color: Color, segs: int, tube_segs: int,
@@ -338,12 +376,14 @@ func rounded_box(xf: Transform3D, size: Vector3, radius: float, color: Color, k:
 ## ditransformasi `xf`: dipakai untuk "memanggang" model karakter yang sudah
 ## berpose ke dalam mesh kendaraan (satu draw call, GDD 32.7). Urutan segitiga
 ## asal dipertahankan.
-func append_arrays(arrays: Array, xf: Transform3D) -> void:
+func append_arrays(arrays: Array, xf: Transform3D, tint: Color = Color.WHITE) -> void:
 	var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var n: Variant = arrays[Mesh.ARRAY_NORMAL]
 	var c: Variant = arrays[Mesh.ARRAY_COLOR]
 	var idx: Variant = arrays[Mesh.ARRAY_INDEX]
 	var base: int = _v.size()
+	# Basis bercermin membalik urutan verteks: sisi depan harus tetap di luar.
+	var mirrored: bool = xf.basis.determinant() < 0.0
 	# Transformasi seluruh array sekaligus (bawaan engine, jauh lebih cepat dari
 	# loop GDScript per verteks).
 	var moved: PackedVector3Array = xf * v
@@ -360,20 +400,34 @@ func append_arrays(arrays: Array, xf: Transform3D) -> void:
 	else:
 		for k in v.size():
 			_n.append(Vector3.UP)
-	if c != null:
+	if c != null and tint == Color.WHITE:
 		_c.append_array(c as PackedColorArray)
+	elif c != null:
+		for col: Color in c as PackedColorArray:
+			_c.append(col * tint)
 	else:
 		for k2 in v.size():
-			_c.append(Color.WHITE)
+			_c.append(tint)
 	for p: Vector3 in moved:
 		_min = _min.min(p)
 		_max = _max.max(p)
+	var order: PackedInt32Array
 	if idx != null:
-		for i: int in idx as PackedInt32Array:
+		order = idx as PackedInt32Array
+	else:
+		order = PackedInt32Array()
+		for i2 in v.size():
+			order.append(i2)
+	if not mirrored:
+		for i: int in order:
 			_i.append(base + i)
 	else:
-		for i2 in v.size():
-			_i.append(base + i2)
+		var t: int = 0
+		while t + 2 < order.size():
+			_i.append(base + order[t])
+			_i.append(base + order[t + 2])
+			_i.append(base + order[t + 1])
+			t += 3
 
 
 ## Permukaan datar dekat tanah (normal menghadap ke atas, di bawah `max_y`)

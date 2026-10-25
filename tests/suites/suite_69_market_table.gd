@@ -12,7 +12,7 @@ func tests() -> Array:
 		{"id": "ACC_7_MARKET_TABLE", "name": "7 the Market's ingredient table lines up: a header (Ingredient, Price, In Storage, Amount) over fixed columns, prices right-aligned, stock centred in its row, and the minus/amount/plus/Max controls in the same place on every row, at 100, 125 and 150% text scale", "fn": _table},
 		{"id": "ACC_7_MARKET_EQUIPMENT_TABLE", "name": "5.1.2, 7 the Equipment tab is one chalk table per category whose columns (speed or capacity, utility, size, price, action) line up with their header on every row at 100, 125 and 150%; each row offers one action: Buy, Replace, a tier lock, or Owned", "fn": _equipment},
 		{"id": "ACC_7_MARKET_UPGRADE_TABLE", "name": "6, 7 Store Upgrade compares the current and next location side by side in one table that fits the popup at 100%, gains in yellow with the difference, the button with its reason below; the top tier shows the current location only", "fn": _upgrade},
-		{"id": "ACC_5_EQUIPMENT_REPLACE_PICK", "name": "5.1.2 with every slot full, Replace asks which placed item to swap out when there is more than one, never offers swapping an item for the same model, and greys out items in use", "fn": _replace_pick},
+		{"id": "ACC_5_EQUIPMENT_REPLACE_PICK", "name": "5.1.2 with every slot full, Replace asks which placed item to swap out when there is more than one, never offers swapping an item for the same model, greys out items in use, and lets a shelf holding bread go when the new shelf holds it", "fn": _replace_pick},
 	]
 
 
@@ -344,7 +344,8 @@ func _replace_pick() -> void:
 	eq(t3.size(), 1, "a Tier 3 mixer was bought in its place")
 	if t3.size() == 1 and not t3[0].placed:
 		check(game.modals.is_open(&"decoration"), "and Decoration Mode opens to place it")
-	# Alat yang sedang dipakai tidak bisa dipilih.
+	# Rak berisi roti boleh dipilih bila rotinya muat di rak baru (keputusan
+	# maintainer 2026-10-25); rotinya ikut pindah.
 	var shelf: int = sim.equipment.placed_list(&"display")[0].iid
 	stock(sim, &"recipe_plain_loaf", 3, 0, shelf)
 	check(sim.equipment.is_in_use(shelf), "a shelf with bread is in use")
@@ -355,9 +356,21 @@ func _replace_pick() -> void:
 		"on_pick": func(i: int) -> void: picked.append(i)}) as ReplacePicker
 	await runner.get_tree().process_frame
 	var b: Button = p2.find_child("Pick_%d" % shelf, true, false) as Button
-	check(b != null and b.disabled, "a shelf holding bread cannot be chosen")
-	check(b != null and b.text.ends_with(Tx.t("ui_feedback_in_use")), "and says it is in use")
+	check(b != null and not b.disabled, "a shelf holding bread can be chosen when the new shelf holds it")
+	check(b != null and b.text.ends_with(Tx.t("ui_equipment_bread_moves")), "and says its bread moves along")
 	(p2.find_child("Cancel", true, false) as Button).pressed.emit()
 	await runner.get_tree().process_frame
 	check(not game.modals.is_open(&"replace_picker") and picked.is_empty(), "Cancel closes it without a choice")
+	# Alat dengan job tetap tidak bisa dipilih.
+	var mixer: EquipmentInstance = sim.equipment.placed_list(&"mixer")[0]
+	mixer.job_id = 999
+	var p4: ReplacePicker = game.modals.open(&"replace_picker", {"def_id": &"mixer_t3", "candidates": [mixer.iid],
+		"on_pick": func(i: int) -> void: picked.append(i)}) as ReplacePicker
+	await runner.get_tree().process_frame
+	var b4: Button = p4.find_child("Pick_%d" % mixer.iid, true, false) as Button
+	check(b4 != null and b4.disabled, "a mixer with a job cannot be chosen")
+	check(b4 != null and b4.text.ends_with(Tx.t("ui_feedback_in_use")), "and says it is in use")
+	mixer.job_id = -1
+	(p4.find_child("Cancel", true, false) as Button).pressed.emit()
+	await runner.get_tree().process_frame
 	await _finish(game)

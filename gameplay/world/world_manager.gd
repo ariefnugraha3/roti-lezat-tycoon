@@ -454,6 +454,30 @@ func auto_place(e: EquipmentInstance) -> bool:
 	return false
 
 
+## Tempat sah terdekat untuk `e` di `floor_id`, mulai dari `anchor`/`rot`:
+## jangkar itu dulu (putaran yang sama lebih dulu), lalu jangkar lain urut jarak.
+## {floor_id, anchor, rot}, atau {} bila tidak ada. Tidak mengubah state.
+func spot_near(e: EquipmentInstance, floor_id: StringName, anchor: Vector2i, rot: int) -> Dictionary:
+	var fg: FloorGrid = grid(floor_id)
+	if fg == null:
+		return {}
+	var cands: Array[Dictionary] = []
+	for z in fg.size.y:
+		for x in fg.size.x:
+			var a := Vector2i(x, z)
+			var dist: int = absi(a.x - anchor.x) + absi(a.y - anchor.y)
+			for r in 4:
+				cands.append({"anchor": a, "rot": r, "score": dist * 4 + posmod(r - rot, 4), "order": cands.size()})
+	cands.sort_custom(func(p: Dictionary, q: Dictionary) -> bool:
+		if int(p["score"]) != int(q["score"]):
+			return int(p["score"]) < int(q["score"])
+		return int(p["order"]) < int(q["order"]))
+	for c: Dictionary in cands:
+		if validate_placement(e, floor_id, c["anchor"], int(c["rot"])) == &"":
+			return {"floor_id": floor_id, "anchor": c["anchor"], "rot": int(c["rot"])}
+	return {}
+
+
 ## Kandidat: zona anjuran lebih dulu, lalu sel yang menempel tepi ruangan.
 func _candidates(fg: FloorGrid, e: EquipmentInstance) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -569,30 +593,48 @@ func _floor_route(fg: FloorGrid, floor_id: StringName, start: Vector2i, goal: Ve
 func _smooth(fg: FloorGrid, cells: Array[Vector2i], nav_class: int) -> Array[Vector2i]:
 	if cells.size() <= 2:
 		return cells
+	# Hasil uji sel selama satu penghalusan (0 = belum, 1 = bisa dilalui, 2 =
+	# tidak): peta tidak berubah di tengah panggilan, dan garis-garis yang dicoba
+	# melewati sel yang sama berulang kali (GDD 109).
+	var memo := PackedByteArray()
+	memo.resize(fg.size.x * fg.size.y)
 	var out: Array[Vector2i] = [cells[0]]
 	var i: int = 0
 	while i < cells.size() - 1:
 		var j: int = cells.size() - 1
-		while j > i + 1 and not _line_clear(fg, cells[i], cells[j], nav_class):
+		while j > i + 1 and not _line_clear(fg, cells[i], cells[j], nav_class, memo):
 			j -= 1
 		out.append(cells[j])
 		i = j
 	return out
 
 
-func _line_clear(fg: FloorGrid, a: Vector2i, b: Vector2i, nav_class: int) -> bool:
+## Titik uji di sekitar setiap sampel garis: pusatnya dan empat sudut kecil.
+const LINE_PROBES: Array[Vector2] = [Vector2.ZERO, Vector2(0.3, 0.3), Vector2(-0.3, 0.3), Vector2(0.3, -0.3), Vector2(-0.3, -0.3)]
+
+
+func _line_clear(fg: FloorGrid, a: Vector2i, b: Vector2i, nav_class: int, memo: PackedByteArray) -> bool:
 	var pa: Vector2 = Vector2(a) + Vector2(0.5, 0.5)
 	var pb: Vector2 = Vector2(b) + Vector2(0.5, 0.5)
 	var dist: float = pa.distance_to(pb)
 	var steps: int = maxi(1, int(ceil(dist / 0.12)))
+	var w: int = fg.size.x
+	var h: int = fg.size.y
 	for s in steps + 1:
 		var p: Vector2 = pa.lerp(pb, float(s) / float(steps))
 		# Uji sel yang dilalui titik ini dan keempat sudut kecil di sekitarnya,
 		# supaya aktor tidak memotong sudut perabot.
-		for off: Vector2 in [Vector2.ZERO, Vector2(0.3, 0.3), Vector2(-0.3, 0.3), Vector2(0.3, -0.3), Vector2(-0.3, -0.3)]:
+		for off: Vector2 in LINE_PROBES:
 			var c := Vector2i(int(floor(p.x + off.x)), int(floor(p.y + off.y)))
-			var ok: bool = fg.is_walkable(c) if nav_class == FloorGrid.NAV_STAFF else fg.is_public_walkable(c)
-			if not ok:
+			if c.x < 0 or c.y < 0 or c.x >= w or c.y >= h:
+				return false
+			var k: int = c.y * w + c.x
+			var v: int = memo[k]
+			if v == 0:
+				var ok: bool = fg.is_walkable(c) if nav_class == FloorGrid.NAV_STAFF else fg.is_public_walkable(c)
+				v = 1 if ok else 2
+				memo[k] = v
+			if v == 2:
 				return false
 	return true
 

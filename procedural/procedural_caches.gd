@@ -8,6 +8,8 @@ static func clear_all() -> void:
 	MaterialKeep.clear()
 	ProceduralMeshFactory.clear_caches()
 	BreadFactory.clear_caches()
+	EquipmentFactory.clear_caches()
+	MeshBake.clear_caches()
 	FX.clear_caches()
 	ProceduralUIFactory.clear_caches()
 	MeshBuilder.clear_materials()

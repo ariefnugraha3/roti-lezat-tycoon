@@ -417,9 +417,9 @@ Berbeda dari mixer, oven, dan rak display, **Gudang Penyimpanan tidak pernah dij
   - daftar resep yang membutuhkan tier tersebut (Seksi 61.5);
   - satu aksi: **Buy** (slot masih ada), **Replace** (slot penuh), tulisan kunci tier, atau **Owned ×N** bila semua alat terpasang sudah alat yang sama persis. Jumlah alat yang sudah dimiliki tertulis hijau di bawah aksinya.
 - **Slot:** jumlah alat terpasang per kategori tidak boleh melebihi slot lokasi (Seksi 6). Alat yang baru dibeli masuk `unplaced_owned_furniture`, lalu Decoration Mode terbuka otomatis untuk menempatkannya.
-- **Replace:** bila semua slot kategori itu penuh, pembelian menawarkan Replace. Pemain memilih alat terpasang yang diganti, dan alat lama pindah ke `unplaced_owned_furniture` (tidak hilang). Bila calonnya lebih dari satu, dialog pilihan (`ReplacePicker`, overlay di atas Pasar) menampilkan satu tombol per alat terpasang; alat yang sedang dipakai (`IN_USE`) tampil abu-abu. Alat yang sama persis dengan yang dibeli tidak pernah ditawarkan untuk diganti, karena menggantinya hanya membuang uang. Bila jejak alat baru tidak muat di tempat lama, ia menunggu di `unplaced_owned_furniture` dan Decoration Mode terbuka untuk menempatkannya.
+- **Replace:** bila semua slot kategori itu penuh, pembelian menawarkan Replace. Pemain memilih alat terpasang yang diganti, dan alat lama pindah ke `unplaced_owned_furniture` (tidak hilang). Bila calonnya lebih dari satu, dialog pilihan (`ReplacePicker`, overlay di atas Pasar) menampilkan satu tombol per alat terpasang; alat yang sedang dipakai (`IN_USE`) tampil abu-abu, kecuali rak berisi roti yang boleh diganti (lihat di bawah). Alat yang sama persis dengan yang dibeli tidak pernah ditawarkan untuk diganti, karena menggantinya hanya membuang uang. Bila jejak alat baru tidak muat di tempat lama, ia menunggu di `unplaced_owned_furniture` dan Decoration Mode terbuka untuk menempatkannya.
 - **Sell:** alat yang tidak terpasang dapat dijual kembali seharga **50%** harga beli (half-up ke KR utuh). Alat Tier 1 bernilai 0. Ledger: `EQUIPMENT_SALE`.
-- Alat yang masih berisi job, roti, atau tray (`IN_USE`, Seksi 72) tidak dapat diganti maupun dijual.
+- Alat yang masih berisi job atau tray (`IN_USE`, Seksi 72) tidak dapat diganti maupun dijual. Rak berisi roti tidak dapat dijual atau disimpan, tetapi **boleh diganti** (keputusan maintainer 2026-10-25) bila rak baru memuat setiap petaknya (jumlah petak, isi per petak, kapasitas) dan punya tempat sah: tempat rak lama bila muat, selain itu tempat sah terdekat di lantai yang sama (jejak Tier 3+ 2 × 2 tidak selalu muat di tempat rak 2 × 1), karena rak berisi roti tidak boleh menunggu di `unplaced_owned_furniture`. Rotinya pindah ke rak baru apa adanya: setiap petak utuh ke petak bernomor sama bila ada, selain itu ke petak kosong terendah, dengan umur, kualitas, dan batch yang sama (`EquipmentManager.replace_blocked`/`replacement_spot`, `DisplayInventoryManager.carry_plan`). Di `ReplacePicker` rak seperti itu bertuliskan `ui_equipment_bread_moves`. Sebelumnya rak tertua, yang selalu diisi ulang lebih dulu, bisa berhari-hari tidak dapat diganti.
 - Konfirmasi pembelian mahal mengikuti setting Seksi 75.3.
 - **Starter:** New Game memberi 1 Mixer T1, 1 Oven T1, dan 1 Display T1 yang sudah terpasang. Salinan Tier 1 tambahan boleh dibeli seharga 0 KR selama slot tersedia.
 - **Save:** alat terpasang maupun `unplaced_owned_furniture` disimpan di `equipment_states` (Seksi 106).
@@ -6370,7 +6370,7 @@ Migration order:
 1. Freeze commands and create recovery snapshot.
 2. Deduct upgrade KR only after validation succeeds.
 3. Preserve all ingredient inventory.
-4. Preserve all owned equipment and decorations that remain legal in the new location.
+4. Preserve all owned equipment and decorations that remain legal in the new location. Placed decorations are lifted before any furniture is placed in the new floor plan and put back afterwards where the new plan allows them, otherwise they return to the inventory (fix 2026-10-25): a decoration left on its old cell must never block the storage, the equipment, a protected route or the upgrade itself.
 5. Preserve bread stacks/freshness exactly; migrate to available display capacity.
 6. If new display capacity is insufficient, upgrade must be blocked with a clear UI explanation; no bread may be silently deleted.
 7. Preserve hired staff and duty settings subject to larger capacity; upgrade never fires staff.
@@ -6567,6 +6567,16 @@ Only cosmetic/rendering features may change: shadow quality, particle counts, re
 `Auto` selects a conservative initial preset and may downgrade cosmetic quality on sustained performance pressure; it may never alter gameplay rules.
 
 Street life (Section 32.7) reads `decor_density`: Low shows at most one walker at a time, Medium and Auto two, High three, and traffic thins out by the same factor.
+
+## **109.3 Draw Calls & Simulation Cost (2026-10-25)**
+
+Keputusan maintainer 2026-10-25 ("perbaiki semuanya"). Di renderer Compatibility, terutama WebGL dan Android kelas bawah, jumlah draw call adalah biaya render utama. Toko Tier 5 yang lengkap dulu menggambar lebih dari 2.500 draw call per frame, karena setiap primitif perabot, ruangan, dan roti adalah mesh sendiri.
+
+- **Model dipanggang (`MeshBake`).** Bagian statis setiap perabot, setiap meja kasir/tablet/pintu tangga, sisa ruangan satu lantai, setiap roti, dan isi satu petak rak (sampai tiga roti) dijahit menjadi satu mesh berwarna verteks dengan satu permukaan per kelompok material. Warna bagian pindah ke warna verteks, dan material kelompoknya sama persis dengan material bagian aslinya selain albedo putih, jadi tidak ada kombinasi shader baru (Seksi 89.5). Roti menyatukan kelompok roughness-nya karena selalu kecil di layar.
+- **Bagian yang bergerak tetap node sendiri** dan dipanggang di dalam node-nya: pengaduk (`Whisk`/`Beater`/`Agitator`), pintu oven (`Door`/`OvenDoor`), pintu gudang (`Pintu*`), dan bandul jam (`Pendulum`). Petak roti (`Slot*`) tidak disentuh. Model baru dengan bagian bergerak harus memakai salah satu nama itu atau meta `live`.
+- Prototipe yang dipanggang di-cache per model; dunia memakai duplikatnya (mesh dan material dibagi). Geometri dibangun dari parameter primitif atau dari isi mesh SurfaceTool yang disimpan saat dibuat, tidak pernah dibaca balik dari GPU.
+- Anggaran yang diuji: toko Tier 5 lengkap berisi roti paling banyak 700 permukaan mesh di ruangan, perabot, dan roti (`ACC_109_DRAW_CALL_BUDGET`).
+- **Biaya simulasi.** Daftar, urutan ID, dan konstanta yang dibaca setiap tick disimpan sampai isinya berubah, bukan disusun ulang setiap tick. Semua optimasi ini harus identik bit-per-bit dengan perhitungan sebelumnya: golden fixture (Seksi 106) dan jejak hash state 100 hari tidak berubah.
 
 ---
 
@@ -7701,6 +7711,7 @@ Tabel tab Equipment dan Store Upgrade di Pasar (Seksi 5.1.2, 6, 7), perbaikan 20
 | `ui_equipment_owned_count` | `Owned ×{count}` |
 | `ui_equipment_no_slot` | `No free slot` |
 | `ui_equipment_replace_note` | `Buy {item} for {price}. The one you replace goes to storage, so nothing is lost.` |
+| `ui_equipment_bread_moves` | `Bread moves to the new shelf` |
 | `ui_upgrade_row_mixers` | `Mixers` |
 | `ui_upgrade_row_ovens` | `Ovens` |
 | `ui_upgrade_row_displays` | `Display shelves` |

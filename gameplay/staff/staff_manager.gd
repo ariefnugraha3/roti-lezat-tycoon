@@ -30,6 +30,7 @@ const CLAIM_TASKS: Array[String] = ["start_mixing", "pickup_dough", "pickup_tray
 var contracts: Dictionary = {}
 ## staff_id -> SimActor (hanya staf yang sedang bekerja).
 var actors: Dictionary = {}
+var _ids_cache: Array = []
 ## staff_id -> task {type, job_id, iid, wait}
 var tasks: Dictionary = {}
 ## staff_id -> lane_id untuk kasir yang bekerja.
@@ -433,8 +434,7 @@ func activity(staff_id: StringName) -> StringName:
 func step(dt: float) -> void:
 	if not sim.time.is_running_phase():
 		return
-	var ids: Array = Ids.sort(actors.keys())
-	for k: Variant in ids:
+	for k: Variant in _actor_ids():
 		var sid: StringName = StringName(str(k))
 		var a: SimActor = actors[sid]
 		a.step(dt, sim.world)
@@ -450,6 +450,21 @@ func step(dt: float) -> void:
 					a.facing = Vector2(lane.service_point - lane.cashier_point).normalized()
 		else:
 			_baker_step(sid, a, dt)
+
+
+## ID aktor staf terurut (Ids.sort), disusun ulang hanya bila himpunannya
+## berubah: ukurannya sama dan semua ID lama masih ada berarti himpunannya sama.
+## Dulu disortir ulang setiap tick (GDD 109).
+func _actor_ids() -> Array:
+	var same: bool = _ids_cache.size() == actors.size()
+	if same:
+		for k: Variant in _ids_cache:
+			if not actors.has(k):
+				same = false
+				break
+	if not same:
+		_ids_cache = Ids.sort(actors.keys())
+	return _ids_cache
 
 
 ## Staf yang menganggur/terblokir/salah posisi tidak menghitung ulang rute dan

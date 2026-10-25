@@ -2,7 +2,8 @@ class_name ReplacePicker
 extends UIScreen
 ## Pilih alat terpasang yang diganti (GDD 5.1.2 Replace): satu tombol per alat
 ## sekategori yang terpasang. Alat yang sedang dipakai (IN_USE, Seksi 72) tidak
-## bisa dipilih. Berada di atas Pasar sebagai overlay (GDD 28.2), jadi Pasar
+## bisa dipilih, kecuali rak berisi roti yang rotinya muat di rak baru: rotinya
+## ikut pindah (EquipmentManager.replace_blocked). Berada di atas Pasar sebagai overlay (GDD 28.2), jadi Pasar
 ## tetap terbuka di bawahnya.
 
 
@@ -22,10 +23,12 @@ func build() -> void:
 		var e: EquipmentInstance = sim.equipment.get_inst(iid)
 		if e == null:
 			continue
-		var busy: bool = sim.equipment.is_in_use(iid)
+		var busy: bool = sim.equipment.replace_blocked(iid, def)
 		var text: String = "%s · T%d" % [Tx.item_name(e.def_id), e.tier()]
 		if busy:
 			text += " · " + Tx.t("ui_feedback_in_use")
+		elif e.category() == &"display" and sim.display.used(iid) > 0:
+			text += " · " + Tx.t("ui_equipment_bread_moves")
 		var b: Button = btn(list, text, "secondary", _pick.bind(iid))
 		b.name = "Pick_%d" % iid
 		b.custom_minimum_size = Vector2(0.0, 56.0)

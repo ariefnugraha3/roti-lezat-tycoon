@@ -35,6 +35,10 @@ var commands: CommandLayer = null
 var playing: bool = false
 var _splash: Control = null
 var _loader: LoadingScreen = null
+## Pencatat lama tahap loading (log BOOT).
+var _load_started_usec: int = 0
+var _stage_started_usec: int = 0
+var _stage_key: String = ""
 var _orientation: OrientationGuard = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
@@ -231,6 +235,8 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	if warm != null:
 		warm.finish()
 	MaterialKeep.scan(world)
+	_note_stage("")
+	GameLogger.important("BOOT", "loading total: %d ms" % ((Time.get_ticks_usec() - _load_started_usec) / 1000))
 	playing = true
 	_end_loading(false)
 	EventBus.profile_loaded.emit(profile_id)
@@ -565,15 +571,28 @@ func _begin_loading(stage_key: String, progress_value: float) -> void:
 	_end_loading(true)
 	_loader = LoadingScreen.new()
 	add_child(_loader)
+	_load_started_usec = Time.get_ticks_usec()
+	_stage_started_usec = _load_started_usec
+	_stage_key = ""
 	await _loading_stage(stage_key, progress_value)
 
 
 ## Tampilkan tahap berikutnya dan beri satu frame agar teks & bar tergambar
-## sebelum pekerjaan berat tahap itu berjalan (GDD 114).
+## sebelum pekerjaan berat tahap itu berjalan (GDD 114). Lama setiap tahap
+## dicatat di log (kategori BOOT), untuk mengukur loading di perangkat nyata.
 func _loading_stage(stage_key: String, progress_value: float) -> void:
+	_note_stage(stage_key)
 	if _loader != null:
 		_loader.set_stage(Tx.t(stage_key), progress_value)
 	await get_tree().process_frame
+
+
+func _note_stage(next_key: String) -> void:
+	var now: int = Time.get_ticks_usec()
+	if _stage_key != "":
+		GameLogger.info("BOOT", "loading %s: %d ms" % [_stage_key, (now - _stage_started_usec) / 1000])
+	_stage_key = next_key
+	_stage_started_usec = now
 
 
 func _end_loading(immediate: bool) -> void:

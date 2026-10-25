@@ -16,7 +16,8 @@ func tests() -> Array:
 		{"id": "ACC_81_SPEED", "name": "81.7/81.8 speed, menu pause, smart speed safety", "fn": _speed},
 		{"id": "ACC_81_RECIPES", "name": "81.9/81.10 no unlock flags, batch revenue", "fn": _recipes},
 		{"id": "ACC_81_IN_USE", "name": "81.14 in-use furniture cannot move", "fn": _in_use},
-		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 while the shop is not open a shelf holding bread moves and turns with its bread; while open it stays IN_USE; Put Away and replace still refuse it", "fn": _stocked_shelf},
+		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 while the shop is not open a shelf holding bread moves and turns with its bread; while open it stays IN_USE; Put Away still refuses it", "fn": _stocked_shelf},
+		{"id": "ACC_5_REPLACE_STOCKED_SHELF", "name": "5.1.2 after closing a shelf holding bread can be replaced by one that holds every slot: the bread moves over unchanged, the new shelf stands in the old place or the nearest free one; a shelf whose bread would not fit stays", "fn": _replace_stocked},
 		{"id": "ACC_16_COMMANDS", "name": "16.4 retargeting mixes equipment, cashier and portal taps", "fn": _mixed_taps},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
@@ -365,9 +366,74 @@ func _stocked_shelf() -> void:
 		eq(s.equipment.place(disp.iid, disp.floor_id, turn["anchor"], turn["rot"]), &"", "after closing it may turn too")
 		eq(disp.rotation, int(turn["rot"]), "the shelf faces its new way")
 		eq(JSON.stringify(s.display.capture()), bread, "with its bread untouched")
-	var r: Dictionary = s.equipment.buy_replace(DataRegistry.equipment_for(&"display", 1).id, disp.iid)
-	eq(str(r.get("reason", "")), "in_use", "a shelf holding bread cannot be replaced (GDD 5.1.2)")
 	free_sim(s)
+
+
+## Keputusan maintainer 2026-10-25 (open decision 7): Replace memindahkan roti
+## rak lama ke rak baru, supaya rak tertua yang terus diisi ulang bisa diganti.
+func _replace_stocked() -> void:
+	var s: SimulationRoot = new_sim(4321)
+	s.tutorial.skip()
+	jump_to_tier(s, 3)
+	s.time.set_phase(TimeManager.AFTER_HOURS)
+	s.debug_add_kr(200000.0)
+	var old: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	eq(old.def_id, &"display_t1", "the starter shelf")
+	stock(s, &"recipe_plain_loaf", 5, 0, old.iid)
+	s.display.place(old.iid, 3, &"recipe_sugar_donut", 4, 0.8, s.time.sim_seconds, 777, 2.5)
+	var before: Array = _stack_rows(s, old.iid)
+	eq(before.size(), 2, "two batches on the old shelf")
+	var units: int = s.display.total_units()
+	var t2: EquipmentDefinition = DataRegistry.equipment(&"display_t2")
+	check(s.equipment.is_in_use(old.iid), "a shelf holding bread is in use")
+	check(not s.equipment.replace_blocked(old.iid, t2), "but it may be replaced by a shelf that holds its bread")
+	var r: Dictionary = s.equipment.buy_replace(&"display_t2", old.iid)
+	check(bool(r.get("ok", false)) and bool(r.get("placed", false)), "the Tier 2 shelf replaces it and stands in the shop")
+	var n2: int = int(r.get("iid", -1))
+	var e2: EquipmentInstance = s.equipment.get_inst(n2)
+	eq(_stack_rows(s, n2), before, "the bread moved over: same slots, recipes, units, age, quality and batch")
+	eq(e2.anchor, old.anchor, "a shelf of the same size takes the old place")
+	eq(s.display.used(old.iid), 0, "the old shelf is empty")
+	check(not old.placed, "and waits in storage")
+	eq(s.display.total_units(), units, "no bread lost or added")
+	for st: BreadStack in (s.display.slots(n2)[0] as Dictionary)["stacks"]:
+		eq(st.display_tier, 2, "the bread now counts as on a Tier 2 shelf")
+	eq(s.check_invariants(), "", "invariants after the replacement")
+	# Rak Tier 3 berjejak 2x2: berdiri di tempat sah terdekat bila tempat lama sempit.
+	var r3: Dictionary = s.equipment.buy_replace(&"display_t3", n2)
+	check(bool(r3.get("ok", false)) and bool(r3.get("placed", false)), "a bigger Tier 3 shelf replaces it and stands in the shop")
+	var n3: int = int(r3.get("iid", -1))
+	eq(_stack_rows(s, n3), before, "the bread moved over again")
+	check(s.world.layout_valid() and not s.world.access_of(n3).is_empty(), "the layout stays valid and the shelf can be reached")
+	eq(s.check_invariants(), "", "invariants after the second replacement")
+	# Petak di luar jumlah petak rak baru pindah ke petak kosong terendah.
+	stock(s, &"recipe_plain_loaf", 3, 7, n3)
+	eq(s.display.carry_plan(n3, t2), {0: 0, 3: 3, 7: 1}, "slot 7 moves to the lowest free slot of a six-slot shelf")
+	# Roti yang tidak muat menahan rak di tempatnya.
+	for i in s.display.slots(n3).size():
+		var rid: StringName = (s.display.slots(n3)[i] as Dictionary)["recipe"]
+		stock(s, rid if rid != &"" else &"recipe_plain_loaf", 50, i, n3)
+	eq(s.display.free_units(n3), 0, "the Tier 3 shelf is full")
+	check(s.equipment.replace_blocked(n3, t2), "a shelf whose bread would not fit cannot be replaced")
+	var bal: float = s.economy.balance
+	eq(str(s.equipment.buy_replace(&"display_t2", n3).get("reason", "")), "in_use", "Replace refuses it")
+	near(s.economy.balance, bal, 0.001, "and charges nothing")
+	eq(s.equipment.put_away(n3), &"in_use", "a shelf holding bread still cannot be put away")
+	# Save/load menyimpan hasilnya apa adanya.
+	var t: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	eq(_stack_rows(t, n3), _stack_rows(s, n3), "the moved bread survives save/load")
+	free_sim(t)
+	free_sim(s)
+
+
+## [petak, resep, unit, umur, kualitas, batch] untuk setiap stack di rak `iid`.
+func _stack_rows(s: SimulationRoot, iid: int) -> Array:
+	var out: Array = []
+	var sl: Array = s.display.slots(iid)
+	for i in sl.size():
+		for st: BreadStack in (sl[i] as Dictionary)["stacks"]:
+			out.append([i, String(st.recipe_id), st.quantity, snappedf(st.age_ingame_hours, 0.0001), snappedf(st.bake_quality, 0.0001), st.source_job_id])
+	return out
 
 
 ## Tempat sah lain untuk rak `e` di lantainya: {anchor, rot}; `turn` meminta

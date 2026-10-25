@@ -63,17 +63,19 @@ func _place(n: Node3D, scale_k: float = MODEL_SCALE) -> void:
 func _fill(world: WorldView) -> void:
 	var sim: SimulationRoot = world.sim
 	# Alat: semua kategori sampai tier tertinggi yang bisa dibeli di lokasi ini
-	# (GDD 5.1.2), plus isi yang muncul saat bekerja.
-	var max_tier: int = clampi(sim.world.location.tier, 1, 5)
+	# (GDD 5.1.2), plus isi yang muncul saat bekerja. Modelnya yang sudah
+	# dipanggang (MeshBake), jadi prototipenya juga siap sebelum alat dibeli.
+	var loc_tier: int = sim.world.location.tier
+	var max_tier: int = clampi(loc_tier, 1, 5)
 	for t in range(1, max_tier + 1):
-		_place(EquipmentFactory.build_mixer(t))
-		_place(EquipmentFactory.build_oven(t))
-		_place(EquipmentFactory.build_display(t))
-		_place(EquipmentFactory.build_storage(t))
-	_place(EquipmentFactory.build_holding_table())
-	_place(EquipmentFactory.build_staff_chair())
+		for cat: StringName in [&"mixer", &"oven", &"display", &"storage"]:
+			var def: EquipmentDefinition = DataRegistry.equipment_for(cat, t)
+			if def != null:
+				_place(EquipmentFactory.build_cached(def, loc_tier))
+	_place(EquipmentFactory.build_cached(DataRegistry.table_definition(), loc_tier))
+	_place(EquipmentFactory.build_cached(DataRegistry.equipment(&"staff_chair"), loc_tier))
 	# Kilau kedip sorotan tutorial (GDD 27.5) di atas satu alat.
-	var lit: Node3D = EquipmentFactory.build_mixer(1)
+	var lit: Node3D = EquipmentFactory.build_cached(DataRegistry.equipment_for(&"mixer", 1), loc_tier)
 	_place(lit)
 	for n: Node in lit.find_children("*", "MeshInstance3D", true, false):
 		(n as MeshInstance3D).material_overlay = ProceduralMeshFactory.flash_material()
@@ -82,6 +84,7 @@ func _fill(world: WorldView) -> void:
 	_place(EquipmentFactory.bread_tray(profile, 1.0, &"FRESH"), 1.0)
 	for f: StringName in [&"FRESH", &"STALE"]:
 		_place(BreadFactory.build_cached(profile, 0.5, f), 1.0)
+	_place(BreadFactory.slot_cached(profile, 1.0, &"FRESH", 3), 1.0)
 	_place(BreadFactory.build_paper_bag(), 1.0)
 	# Semua dekorasi (Decor Shop dan hadiah achievement) dan penanda slotnya.
 	for x: Variant in DataRegistry.decorations():

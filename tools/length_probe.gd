@@ -502,8 +502,9 @@ class LengthBot extends SimBot:
 
 	func _empty_low_display(below: int) -> EquipmentInstance:
 		var low: EquipmentInstance = null
+		var nd: EquipmentDefinition = DataRegistry.equipment_for(&"display", below)
 		for d: EquipmentInstance in sim.equipment.placed_list(&"display"):
-			if d.tier() < below and not sim.equipment.is_in_use(d.iid) and (low == null or d.tier() < low.tier()):
+			if d.tier() < below and not sim.equipment.replace_blocked(d.iid, nd) and (low == null or d.tier() < low.tier()):
 				low = d
 		return low
 
@@ -557,10 +558,11 @@ class LengthBot extends SimBot:
 		_drain.clear()
 		var need: bool = false
 		if sim.world.location.tier == 5 and eq_tier() == 5 and not _needs_t5(&"mixer") and not _needs_t5(&"oven"):
+			var t5: EquipmentDefinition = DataRegistry.equipment_for(&"display", 5)
 			for d: EquipmentInstance in sim.equipment.placed_list(&"display"):
-				if d.tier() < 5 and sim.equipment.is_in_use(d.iid):
+				if d.tier() < 5 and sim.equipment.replace_blocked(d.iid, t5):
 					sim.display.discard(d.iid, true)
-					if sim.equipment.is_in_use(d.iid):
+					if sim.equipment.replace_blocked(d.iid, t5):
 						_drain[d.iid] = true
 						need = true
 		for bid: StringName in sim.staff.employed_ids(&"baker"):
