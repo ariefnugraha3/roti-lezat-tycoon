@@ -1,6 +1,6 @@
 # **Roti Lezat Tycoon — GDD Idle Arcade v1.0 (DRAFT)**
 
-> **Status:** rancangan, 2026-10-25, branch `pivot-to-idle-game`. Implementasi belum dimulai.
+> **Status:** rancangan 2026-10-25; ke-13 keputusan Seksi 19 dikonfirmasi maintainer dan implementasi dimulai 2026-10-26 di branch `pivot-to-idle-game` (catatan implementasi di Seksi 20).
 > **Peran dokumen:** GDD ini mengubah Roti Lezat Tycoon dari tycoon manajemen harian menjadi **game idle arcade**. Untuk semua hal yang diatur di sini, dokumen ini menggantikan GDD v3.1 (`docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md`). Hal yang tidak disebut di sini tetap mengikuti v3.1 (Seksi 0.1).
 > **Engine lock tetap:** Godot 4.7-stable Standard, GDScript, renderer Compatibility, 100% aset prosedural, teks pemain berbahasa Inggris (v3.1 §4, §43, §96, §111, §127, §128).
 > **Nilai bertanda TUNABLE** adalah nilai awal. Semuanya hidup di katalog `data/catalog/idle.json` (Seksi 15.2) dan disetel dengan probe pacing (Seksi 17, fase P7).
@@ -861,3 +861,16 @@ Keputusan di bawah diambil untuk melengkapi rancangan dan **perlu dikonfirmasi m
 | 13 | Jendela desktop/editor dibuka 540 × 960 | Ukuran lain |
 
 Pertanyaan terbuka lain: lisensi proyek (masih terbuka sejak v3.1).
+
+---
+
+# **20. Catatan Implementasi**
+
+Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincinya. Semuanya bisa diubah maintainer; nilai angkanya hidup di `data/catalog/idle.json`.
+
+| No | Topik | Keputusan |
+|---|---|---|
+| 1 | P0, model pacing analitik | Model kasar (skrip di luar repo) menunjukkan nilai awal tumbuh jauh lebih cepat dari target Seksi 1.4 dan membuat resep kedua kalah menarik dari level resep. Penyetelan akhir dilakukan di P7 dengan probe simulasi hidup (`tools/idle_probe.tscn`). |
+| 2 | `start_kr` | 400, bukan 50: batch x1 Roti Tawar Polos berbiaya bahan 340 KR (v3.1 §61.5), jadi 50 KR membuat toko macet sebelum penjualan pertama. |
+| 3 | Jam awal New Game | 08:00 Hari 1 (`clock.start_seconds`), supaya menit pertama berlangsung siang hari. |
+

@@ -65,8 +65,14 @@ const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
 	"locations.json", "weather.json", "marketing.json", "opening.json", "balance.json",
 	"achievements.json", "decorations.json", "audio_events.json", "quality_presets.json",
-	"strings_en.json",
+	"strings_en.json", "idle.json",
 ]
+## Upgrade global yang dikenal (GDD idle 8.9).
+const GLOBAL_UPGRADES: Array[String] = ["global_offline_hours", "global_offline_efficiency", "global_tap_power",
+	"global_walk_speed", "global_queue_patience"]
+## Perk waralaba yang dikenal (GDD idle 10.4).
+const PERKS: Array[String] = ["perk_offline_plus", "perk_head_start", "perk_free_baker", "perk_tap_double",
+	"perk_offline_efficiency", "perk_ruko_start", "perk_recipe_memory", "perk_milestone_triple"]
 
 var loaded: bool = false
 var errors: Array[String] = []
@@ -75,6 +81,9 @@ var catalog_versions: Dictionary = {"catalog_schema_version": 1, "content_versio
 var _raw: Dictionary = {}
 var _strings: Dictionary = {}
 var _balance: Dictionary = {}
+## Katalog nilai TUNABLE GDD idle (data/catalog/idle.json, GDD idle 15.2).
+var _idle: Dictionary = {}
+var _idle_cache: Dictionary = {}
 
 var _ingredients: Array[IngredientDefinition] = []
 var _ingredient_map: Dictionary = {}
@@ -122,6 +131,7 @@ func _ready() -> void:
 func load_catalogs() -> bool:
 	errors.clear()
 	_bal_cache.clear()
+	_idle_cache.clear()
 	generation += 1
 	_raw.clear()
 	for file_name: String in CATALOG_FILES:
@@ -226,6 +236,50 @@ func bali(path: String) -> int:
 
 func balance_section(section: String) -> Dictionary:
 	return _balance.get(section, {})
+
+
+## Satu nilai TUNABLE GDD idle lewat path bertitik, mis. "station.mixer.cost_base"
+## (data/catalog/idle.json, GDD idle 15.2). Di-cache seperti `bal`.
+func idle(path: String) -> Variant:
+	if _idle_cache.has(path):
+		return _idle_cache[path]
+	var node: Variant = _idle
+	for part: String in path.split("."):
+		if node is Dictionary and (node as Dictionary).has(part):
+			node = (node as Dictionary)[part]
+		else:
+			push_error("[DATA] missing idle path: %s" % path)
+			return null
+	_idle_cache[path] = node
+	return node
+
+
+func idlef(path: String) -> float:
+	return float(idle(path))
+
+
+func idlei(path: String) -> int:
+	return int(idle(path))
+
+
+func idle_raw() -> Dictionary:
+	return _idle
+
+
+## Baris upgrade global `id` dari idle.json, atau {} (GDD idle 8.9).
+func global_upgrade(id: StringName) -> Dictionary:
+	for g: Variant in _idle.get("global_upgrades", []):
+		if StringName(str((g as Dictionary).get("id", ""))) == id:
+			return g
+	return {}
+
+
+## Baris perk `id` dari idle.json, atau {} (GDD idle 10.4).
+func perk(id: StringName) -> Dictionary:
+	for p: Variant in _idle.get("perks", []):
+		if StringName(str((p as Dictionary).get("id", ""))) == id:
+			return p
+	return {}
 
 
 func economy_sci_threshold() -> float:
@@ -514,6 +568,7 @@ func _build() -> void:
 	}
 	_strings = (_raw["strings_en.json"] as Dictionary).get("strings", {})
 	_balance = _raw["balance.json"]
+	_idle = _raw["idle.json"]
 	_sci_threshold = float(_balance["economy"]["hud_scientific_threshold_kr"])
 
 	_ingredients.clear()
@@ -659,6 +714,7 @@ func _validate() -> void:
 	_validate_opening()
 	_validate_meta()
 	_validate_balance()
+	_validate_idle()
 
 
 func _validate_ingredients() -> void:
@@ -1128,3 +1184,144 @@ func _validate_balance() -> void:
 	_check_text(&"tut_window_shopper", "window_shopper")
 	for k5: String in WINDOW_SHOPPER_LINES:
 		_check_text(StringName(k5), "window_shopper")
+
+
+# ===========================================================================
+# VALIDASI idle.json (GDD idle 15.2)
+# ===========================================================================
+
+static func _rising(arr: Variant, strict: bool = true) -> bool:
+	if not arr is Array or (arr as Array).is_empty():
+		return false
+	var prev: float = -INF
+	for v: Variant in arr:
+		if not (v is float or v is int):
+			return false
+		if float(v) < prev or (strict and float(v) == prev):
+			return false
+		prev = float(v)
+	return true
+
+
+func _idle_num(path: String) -> float:
+	var node: Variant = _idle
+	for part: String in path.split("."):
+		if node is Dictionary and (node as Dictionary).has(part):
+			node = (node as Dictionary)[part]
+		else:
+			_err("idle.json is missing %s" % path)
+			return NAN
+	if not (node is float or node is int):
+		_err("idle.json %s must be a number" % path)
+		return NAN
+	return float(node)
+
+
+func _validate_idle() -> void:
+	if not (_idle_num("start_kr") >= 0.0):
+		_err("idle start_kr must not be negative")
+	var night_from: float = _idle_num("night.from_hour")
+	var night_to: float = _idle_num("night.to_hour")
+	if not (night_from >= 0.0 and night_from <= 23.0 and night_to >= 0.0 and night_to <= 23.0):
+		_err("idle night hours must be 0..23")
+	for k: String in ["night.arrival_mult", "night.rotifood_mult", "tap.progress_seconds", "tap.min_interval_seconds",
+			"owner.focus_seconds", "clock.autosave_interval_seconds", "rotifood.price_mult", "rotifood.rain_mult"]:
+		if not (_idle_num(k) > 0.0):
+			_err("idle %s must be positive" % k)
+	var start_s: float = _idle_num("clock.start_seconds")
+	if not (start_s >= 0.0 and start_s < 86400.0):
+		_err("idle clock.start_seconds must be inside one day")
+	var st: Dictionary = _idle.get("station", {})
+	if not _rising(st.get("milestones")):
+		_err("idle station.milestones must rise")
+	var th: Variant = st.get("model_tier_thresholds")
+	if not _rising(th) or (th as Array).size() != 4:
+		_err("idle station.model_tier_thresholds needs four rising levels (T2..T5)")
+	var caps: Variant = st.get("level_cap_by_location")
+	if not _rising(caps) or (caps as Array).size() != 5:
+		_err("idle station.level_cap_by_location needs five rising caps")
+	for cat: String in ["mixer", "oven", "display", "counter"]:
+		if not (_idle_num("station.%s.cost_base" % cat) > 0.0) or not (_idle_num("station.%s.cost_growth" % cat) > 1.0):
+			_err("idle station.%s needs cost_base > 0 and cost_growth > 1" % cat)
+	for cat2: String in ["mixer", "oven", "display"]:
+		if not (_idle_num("station.open_cost.%s" % cat2) > 0.0):
+			_err("idle station.open_cost.%s must be positive" % cat2)
+	if not (_idle_num("station.open_growth") >= 1.0) or not (_idle_num("station.extra_instance_cost_mult") >= 1.0):
+		_err("idle station open_growth and extra_instance_cost_mult must be >= 1")
+	if not (_idle_num("station.counter.checkout_min_seconds") > 0.0) or _idle_num("station.counter.checkout_base_seconds") < _idle_num("station.counter.checkout_min_seconds"):
+		_err("idle station.counter checkout seconds must be positive with base >= min")
+	var rc: Dictionary = _idle.get("recipe", {})
+	if not _rising(rc.get("milestones")):
+		_err("idle recipe.milestones must rise")
+	if not (_idle_num("recipe.unlock_mult") > 0.0) or not (_idle_num("recipe.level_cost_mult") > 0.0) or not (_idle_num("recipe.level_cost_growth") > 1.0):
+		_err("idle recipe costs need positive multipliers and growth > 1")
+	var hire: Variant = (_idle.get("staff", {}) as Dictionary).get("hire_cost")
+	var most_staff: int = 0
+	for l: LocationDefinition in _locations:
+		most_staff = maxi(most_staff, l.staff_capacity(&"cashier") + l.staff_capacity(&"baker"))
+	if not _rising(hire) or (hire as Array).size() < most_staff:
+		_err("idle staff.hire_cost needs %d rising entries" % most_staff)
+	if not (_idle_num("staff.level_cost_base") > 0.0) or not (_idle_num("staff.level_cost_growth") > 1.0):
+		_err("idle staff level costs need base > 0 and growth > 1")
+	var loc: Dictionary = _idle.get("location", {})
+	var up: Variant = loc.get("upgrade_cost")
+	if not _rising(up) or (up as Array).size() != 5 or float((up as Array)[0]) != 0.0:
+		_err("idle location.upgrade_cost needs five rising costs starting at 0")
+	for k2: String in ["base_arrivals_per_hour", "rotifood_orders_per_hour"]:
+		var arr: Variant = loc.get(k2)
+		if not _rising(arr, false) or (arr as Array).size() != 5:
+			_err("idle location.%s needs five non-falling rates" % k2)
+	var rep_min: float = _idle_num("reputation.min")
+	var rep_max: float = _idle_num("reputation.max")
+	var rep_start: float = _idle_num("reputation.start")
+	if not (rep_min < rep_max and rep_start >= rep_min and rep_start <= rep_max):
+		_err("idle reputation start must lie inside min..max")
+	var dec: Variant = (_idle.get("decor", {}) as Dictionary).get("price_mult_by_tier")
+	if not _rising(dec, false) or (dec as Array).size() != 5:
+		_err("idle decor.price_mult_by_tier needs five values")
+	if not (_idle_num("offline.base_cap_hours") > 0.0 and _idle_num("offline.base_cap_hours") <= _idle_num("offline.max_cap_hours")):
+		_err("idle offline caps must satisfy 0 < base <= max")
+	if not (_idle_num("offline.base_efficiency") <= _idle_num("offline.max_efficiency") and _idle_num("offline.max_efficiency") <= 1.0):
+		_err("idle offline efficiency must satisfy base <= max <= 1")
+	if _idle_num("offline.min_away_seconds") > _idle_num("offline.popup_min_seconds"):
+		_err("idle offline.min_away_seconds must not exceed popup_min_seconds")
+	if not (_idle_num("prestige.stars_divisor_kr") > 0.0) or not (_idle_num("prestige.stars_exponent") > 0.0):
+		_err("idle prestige needs a positive divisor and exponent")
+	var prev_stars: float = 0.0
+	var seen_p: Dictionary = {}
+	for p: Variant in _idle.get("perks", []):
+		var pid: String = str((p as Dictionary).get("id", ""))
+		if not PERKS.has(pid) or seen_p.has(pid):
+			_err("idle perk %s is unknown or listed twice" % pid)
+		seen_p[pid] = true
+		var stars: float = float((p as Dictionary).get("stars", 0))
+		if stars <= prev_stars:
+			_err("idle perks must need rising star counts")
+		prev_stars = stars
+	if seen_p.size() != PERKS.size():
+		_err("idle perks must list every perk once")
+	var seen_g: Dictionary = {}
+	for g: Variant in _idle.get("global_upgrades", []):
+		var gd: Dictionary = g
+		var gid: String = str(gd.get("id", ""))
+		if not GLOBAL_UPGRADES.has(gid) or seen_g.has(gid):
+			_err("idle global upgrade %s is unknown or listed twice" % gid)
+		seen_g[gid] = true
+		if float(gd.get("cost_base", 0)) <= 0.0 or float(gd.get("cost_growth", 0)) <= 1.0 or int(gd.get("max_level", 0)) < 1 or float(gd.get("per_level", 0)) <= 0.0:
+			_err("idle global upgrade %s needs cost_base > 0, cost_growth > 1, max_level >= 1, per_level > 0" % gid)
+	if seen_g.size() != GLOBAL_UPGRADES.size():
+		_err("idle global_upgrades must list every global upgrade once")
+	var bo: Dictionary = _idle.get("boosts", {})
+	for b: String in ["daily_gift", "achievement"]:
+		if not (_idle_num("boosts.%s.mult" % b) > 1.0) or not (_idle_num("boosts.%s.minutes" % b) > 0.0):
+			_err("idle boosts.%s needs mult > 1 and minutes > 0" % b)
+	var seen_pr: Dictionary = {}
+	for pr: Variant in bo.get("promo", []):
+		var prd: Dictionary = pr
+		var prid: String = str(prd.get("id", ""))
+		if prid == "" or seen_pr.has(prid):
+			_err("idle promo %s is empty or listed twice" % prid)
+		seen_pr[prid] = true
+		for k3: String in ["arrival_mult", "rotifood_mult", "minutes", "cost_income_minutes", "cooldown_minutes"]:
+			if float(prd.get(k3, 0)) <= 0.0:
+				_err("idle promo %s needs a positive %s" % [prid, k3])
