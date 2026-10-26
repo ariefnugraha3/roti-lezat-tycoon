@@ -52,8 +52,7 @@ func _manage() -> void:
 				sim.staff.hire(def.id)
 				return
 	for cat: StringName in [&"display", &"mixer", &"oven"]:
-		var c: float = sim.upgrades.open_station_cost(cat)
-		if c >= 0.0 and sim.economy.can_afford(c):
+		if sim.upgrades.open_station_block(cat) == &"":
 			sim.upgrades.open_station(cat)
 			return
 	var best: StringName = sim.auto_recipe()

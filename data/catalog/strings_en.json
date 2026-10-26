@@ -669,6 +669,19 @@
   "ui_shop_open_full": "All open",
   "ui_open_station": "Open a new {station} for {price}",
   "ui_shop_open_for": "Open · {price}",
-  "ui_shop_global": "Shop upgrades"
+  "ui_shop_global": "Shop upgrades",
+  "ui_shop_open_no_room": "No free spot. Move furniture in Decor to make room.",
+  "ui_welcome_back_title": "Welcome back!",
+  "ui_welcome_back_body": "You were away for {time}. Your bakery earned {amount}.",
+  "ui_welcome_back_lurah": "Pak Lurah: \"I kept an eye on the shop for you. The ovens never stopped!\"",
+  "ui_welcome_back_capped": "Your bakery earns for the first {hours} h you are away.",
+  "ui_collect": "Collect",
+  "ui_offline_cap": "Earns while you are away for up to {hours} h at {percent}%",
+  "ui_offline_toast": "+{amount} while you were away",
+  "ui_dur_min": "{m} min",
+  "ui_dur_h": "{h} h",
+  "ui_dur_hm": "{h} h {m} min",
+  "ui_dur_d": "{d} d",
+  "ui_dur_dh": "{d} d {h} h"
  }
 }

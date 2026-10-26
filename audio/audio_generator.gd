@@ -519,7 +519,7 @@ const RECIPES: Array[String] = [
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "rain_loop", "sunny_ambience", "room_tone",
+	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "coin_shower", "welcome_back_chime", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -609,6 +609,10 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _level_up()
 		"milestone_fanfare":
 			return _milestone_fanfare()
+		"coin_shower":
+			return _coin_shower()
+		"welcome_back_chime":
+			return _welcome_back_chime()
 		"rain_loop":
 			return _rain_loop()
 		"sunny_ambience":
@@ -789,6 +793,32 @@ static func _milestone_fanfare() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.33, 1.1, 523.25, 523.25, "triangle", 0.2,
 			{"attack": 0.02, "decay": 0.2, "sustain": 0.5, "release": 0.5})
 	return _to_stream(_normalize(buf, 0.65), false)
+
+
+## Hujan koin (GDD idle 9.5, Collect): denting koin kecil yang makin rapat lalu
+## mereda, nadanya berganti dalam tangga nada pentatonik supaya tetap manis.
+static func _coin_shower() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(1.5)
+	var notes: Array = [1567.98, 1760.0, 2093.0, 2349.32, 2637.02]
+	var t: float = 0.0
+	for i in 22:
+		var f: float = float(notes[(i * 3 + i / 4) % notes.size()])
+		buf = _add_osc(buf, t, 0.14, f, f, "triangle", 0.35 - 0.008 * float(i),
+				{"attack": 0.002, "decay": 0.05, "sustain": 0.15, "release": 0.07})
+		t += 0.035 + 0.025 * absf(sin(float(i) * 1.7))
+	buf = _lowpass(buf, 8000.0)
+	return _to_stream(_normalize(buf, 0.6), false)
+
+
+## Selamat datang kembali (GDD idle 9.5): lonceng pintu hangat tiga nada naik.
+static func _welcome_back_chime() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(1.3)
+	var notes: Array = [783.99, 987.77, 1174.66]
+	for i in notes.size():
+		buf = _add_bell(buf, 0.16 * float(i), 0.95, float(notes[i]), 0.4, 3.8)
+	buf = _add_osc(buf, 0.0, 0.9, 392.0, 392.0, "sine", 0.18,
+			{"attack": 0.03, "decay": 0.2, "sustain": 0.4, "release": 0.4})
+	return _to_stream(_normalize(buf, 0.6), false)
 
 
 static func _happy_chirp() -> AudioStreamWAV:

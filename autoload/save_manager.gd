@@ -340,6 +340,8 @@ func save_now() -> bool:
 		return false
 	if not bool(simulation.call("is_stable_checkpoint")):
 		return false
+	# Acuan waktu offline ikut setiap save (GDD idle 9.2).
+	simulation.call("note_active")
 	var data: Dictionary = simulation.call("capture_save")
 	var ok: bool = write_profile(active_profile, data)
 	_last_autosave_msec = Time.get_ticks_msec()

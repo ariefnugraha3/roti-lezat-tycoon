@@ -441,17 +441,26 @@ func floors_for_category(category: StringName) -> Array[StringName]:
 
 ## Menempatkan satu instance pada posisi sah pertama menurut urutan tetap.
 func auto_place(e: EquipmentInstance) -> bool:
+	var spot: Dictionary = find_spot(e)
+	if spot.is_empty():
+		return false
+	e.floor_id = spot["floor_id"]
+	e.anchor = spot["anchor"]
+	e.rotation = int(spot["rot"])
+	e.placed = true
+	rebuild_occupancy()
+	return true
+
+
+## Posisi sah pertama untuk `e` menurut urutan auto_place: {floor_id, anchor,
+## rot}, atau {} bila tidak ada. Tidak mengubah state.
+func find_spot(e: EquipmentInstance) -> Dictionary:
 	for fid: StringName in floors_for_category(e.category()):
 		var fg: FloorGrid = grid(fid)
 		for cand: Dictionary in _candidates(fg, e):
 			if validate_placement(e, fid, cand["anchor"], int(cand["rot"])) == &"":
-				e.floor_id = fid
-				e.anchor = cand["anchor"]
-				e.rotation = int(cand["rot"])
-				e.placed = true
-				rebuild_occupancy()
-				return true
-	return false
+				return {"floor_id": fid, "anchor": cand["anchor"], "rot": int(cand["rot"])}
+	return {}
 
 
 ## Tempat sah terdekat untuk `e` di `floor_id`, mulai dari `anchor`/`rot`:

@@ -86,12 +86,16 @@ func _open_row(parent: Control, cat: StringName) -> void:
 	if cost < 0.0:
 		lbl(h, Tx.t("ui_shop_open_full"), 15, Palette.TEXT_MUTED)
 		return
+	if not sim.upgrades.has_room_for(cat):
+		var nr: Label = lbl(h, Tx.t("ui_shop_open_no_room"), 15, Palette.TEXT_MUTED, true)
+		nr.name = "NoRoom"
+		return
 	var text: String = Tx.t("ui_open_station", {"station": station, "price": Tx.kr(cost)})
 	var b: Button = ProceduralUIFactory.button(Tx.t("ui_shop_open_for", {"price": Tx.kr(cost)}), "primary")
 	b.name = "Open"
 	b.tooltip_text = text
 	b.custom_minimum_size = Vector2(maxf(150.0, ProceduralUIFactory._text_width(b.text, 18, true) + 40.0), 52)
-	b.disabled = not sim.economy.can_afford(cost)
+	b.disabled = sim.upgrades.open_station_block(cat) != &""
 	b.pressed.connect(func() -> void:
 		if sim.upgrades.open_station(cat) >= 0:
 			refresh())
@@ -138,5 +142,4 @@ func tick_page() -> void:
 	for cat: Variant in _open_buttons.keys():
 		var ob: Button = _open_buttons[cat]
 		if is_instance_valid(ob):
-			var c: float = sim.upgrades.open_station_cost(cat)
-			ob.disabled = c < 0.0 or not sim.economy.can_afford(c)
+			ob.disabled = sim.upgrades.open_station_block(cat) != &""

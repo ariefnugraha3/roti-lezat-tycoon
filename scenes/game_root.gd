@@ -243,6 +243,7 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	_prewarm_day_music()
 	_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
 	_show_tutorial_prompt()
+	check_offline()
 	await get_tree().process_frame
 
 
@@ -432,13 +433,34 @@ func _notification(what: int) -> void:
 func _on_lifecycle_paused() -> void:
 	if not playing:
 		return
+	sim.offline.freeze()
 	SaveManager.request_autosave("lifecycle", true)
 
 
 ## Fokus kembali: game langsung jalan lagi tanpa layar "Game Paused"
-## (GDD idle 3.4).
+## (GDD idle 3.4), lalu waktu pergi dihitung (GDD idle 9.3).
 func _on_lifecycle_resumed() -> void:
-	pass
+	if not playing or sim == null:
+		return
+	_show_offline(sim.offline.thaw())
+
+
+## Penghasilan saat pergi sejak acuan terakhir (GDD idle 9.3): dipanggil saat
+## profil dimuat.
+func check_offline() -> void:
+	if sim == null:
+		return
+	_show_offline(sim.offline.settle())
+
+
+## Popup Selamat Datang bila ada penghasilan yang menunggu Collect; pergi
+## sebentar cukup diberi toast kecil (KR-nya sudah masuk).
+func _show_offline(r: Dictionary) -> void:
+	if not sim.offline.pending.is_empty():
+		if not modals.is_open(&"welcome_back"):
+			modals.open(&"welcome_back")
+	elif float(r.get("amount", 0.0)) > 0.0:
+		EventBus.notify.emit(2, "ui_offline_toast", {"amount": Tx.kr(float(r["amount"]))}, &"coin")
 
 
 func _on_settings_changed(key: String) -> void:

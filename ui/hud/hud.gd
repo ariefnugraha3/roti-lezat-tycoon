@@ -344,8 +344,7 @@ func has_affordable(id: StringName) -> bool:
 			if sim.upgrade_block_reason() == "":
 				return true
 			for cat2: StringName in [&"mixer", &"oven", &"display"]:
-				var c: float = up.open_station_cost(cat2)
-				if c >= 0.0 and sim.economy.can_afford(c):
+				if up.open_station_block(cat2) == &"":
 					return true
 			return false
 		&"staff":
@@ -467,6 +466,17 @@ func _on_tap_boost(iid: int, cell: Vector2i, floor_id: StringName) -> void:
 	if at == Vector3.INF:
 		return
 	FX.coin_pop(_root, game.world.camera_rig.world_to_screen(at), 0.0)
+
+
+## Hujan koin setelah Collect di popup Selamat Datang (GDD idle 9.5).
+func coin_shower() -> void:
+	FX.coin_shower(_root, _root.size)
+	var chip: Control = cash_chip()
+	if chip != null:
+		chip.pivot_offset = chip.size * 0.5
+		var tw := chip.create_tween()
+		tw.tween_property(chip, "scale", Vector2(1.15, 1.15), 0.12).set_delay(0.6)
+		tw.tween_property(chip, "scale", Vector2.ONE, 0.2)
 
 
 func _on_caption(key: String) -> void:

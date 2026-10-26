@@ -197,6 +197,15 @@ func _shop() -> void:
 	# Buka stasiun baru.
 	sheet = game.modals.open(&"shop", {}) as ShopScreen
 	await _frames(2)
+	sim.upgrades._room_cache[&"mixer"] = false
+	sheet = game.modals.open(&"shop", {}) as ShopScreen
+	await _frames(2)
+	var nr_row: Node = sheet.content().find_child("Open_mixer", true, false)
+	check(nr_row != null and nr_row.find_child("NoRoom", true, false) != null and nr_row.find_child("Open", true, false) == null,
+		"with no free spot the Shop says so instead of offering Open")
+	sim.world.rebuild_occupancy()
+	sheet = game.modals.open(&"shop", {}) as ShopScreen
+	await _frames(2)
 	var open_row: Node = sheet.content().find_child("Open_mixer", true, false)
 	var open_b: Button = open_row.find_child("Open", true, false) as Button if open_row != null else null
 	check(open_b != null, "Tier 2 offers a second mixer")

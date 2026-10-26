@@ -31,6 +31,7 @@ extends RefCounted
 const STEAM_AMOUNT: int = 12
 const SPARKLE_AMOUNT: int = 18
 const COIN_AMOUNT: int = 10
+const SHOWER_AMOUNT: int = 36
 const SWEAT_AMOUNT: int = 5
 const RAIN_AMOUNT: int = 24
 
@@ -41,6 +42,7 @@ const RAIN_AMOUNT: int = 24
 const STEAM_LIFETIME: float = 2.3
 const SPARKLE_LIFETIME: float = 0.85
 const COIN_LIFETIME: float = 0.95
+const SHOWER_LIFETIME: float = 1.5
 const SWEAT_LIFETIME: float = 0.9
 const RAIN_LIFETIME: float = 1.7
 
@@ -359,6 +361,51 @@ static func coin_pop(parent: CanvasItem, pos: Vector2, amount: float) -> void:
 	if amount > 0.0:
 		var text: String = "+" + Tx.kr(amount)
 		ProceduralAnimationSystem.float_text(parent, pos + Vector2(0.0, -22.0), text, Palette.GOLD_STAR)
+
+
+## Hujan koin satu layar (GDD idle 9.5, Collect di popup Selamat Datang): koin
+## yang sama dengan coin_pop jatuh dari tepi atas sambil berjungkir.
+static func coin_shower(parent: CanvasItem, area: Vector2) -> void:
+	if parent == null or not is_instance_valid(parent) or not parent.is_inside_tree():
+		return
+	if at_capacity():
+		return
+	var p := CPUParticles2D.new()
+	p.name = "CoinShowerFX"
+	p.emitting = false
+	p.one_shot = true
+	p.amount = SHOWER_AMOUNT
+	p.lifetime = SHOWER_LIFETIME
+	p.lifetime_randomness = 0.2
+	p.explosiveness = 0.55
+	p.randomness = 0.5
+	p.local_coords = true
+	p.z_index = COIN_Z_INDEX
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(area.x * 0.5, 8.0)
+	p.direction = Vector2(0.0, 1.0)
+	p.spread = 20.0
+	p.initial_velocity_min = 120.0
+	p.initial_velocity_max = 260.0
+	p.gravity = Vector2(0.0, 900.0)
+	p.angular_velocity_min = -300.0
+	p.angular_velocity_max = 300.0
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 1.6
+	p.split_scale = true
+	p.scale_curve_x = _curve(PackedVector2Array([
+		Vector2(0.0, 1.0), Vector2(0.25, 0.14), Vector2(0.5, 1.0), Vector2(0.75, 0.14), Vector2(1.0, 1.0),
+	]))
+	p.scale_curve_y = _curve(PackedVector2Array([Vector2(0.0, 1.0), Vector2(1.0, 1.0)]))
+	p.color = Color.WHITE
+	p.color_ramp = _gradient(PackedFloat32Array([0.0, 0.8, 1.0]),
+		PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]))
+	p.texture = _coin_texture()
+	parent.add_child(p)
+	_track(p)
+	p.position = Vector2(area.x * 0.5, -16.0)
+	p.emitting = true
+	_auto_free(p, SHOWER_LIFETIME * 1.2 + AUTO_FREE_MARGIN)
 
 
 ## Lapisan hujan 2D satu layar penuh untuk hari hujan (GDD 10.2).

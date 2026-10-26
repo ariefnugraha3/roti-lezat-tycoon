@@ -40,6 +40,7 @@ var statistics: StatisticsManager
 var achievements: AchievementManager
 var tutorial: TutorialManager
 var idle_economy: IdleEconomyManager
+var offline: OfflineManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Roti Lezat"
@@ -78,6 +79,7 @@ func _init() -> void:
 	weather = _add(WeatherManager.new(), "WeatherManager")
 	tutorial = _add(TutorialManager.new(), "TutorialManager")
 	idle_economy = _add(IdleEconomyManager.new(), "IdleEconomyManager")
+	offline = _add(OfflineManager.new(), "OfflineManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -503,8 +505,15 @@ func capture_save() -> Dictionary:
 		"flags": {"economy_overflowed": economy.overflowed},
 		"achievements": achievements.capture(),
 		"stats": statistics.capture(),
+		"offline": offline.capture(),
 		"rng_states": rng.capture(),
 	}
+
+
+## SaveManager memanggil ini tepat sebelum setiap save: acuan waktu offline
+## (GDD idle 9.2).
+func note_active() -> void:
+	offline.mark_active()
 
 
 ## Rekonstruksi otoritas dari save yang sudah divalidasi (v3.1 89.5, 114.10).
@@ -547,6 +556,7 @@ func load_from_save(d: Dictionary) -> void:
 	reputation.restore(d.get("reputation", {}))
 	weather.restore(d.get("weather", {}))
 	tutorial.restore(d.get("tutorial", {}))
+	offline.restore(d.get("offline", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).
 	production.recover_orphans()

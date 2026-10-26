@@ -106,6 +106,20 @@ static func clock(time_seconds: float) -> String:
 	return "%02d:%02d" % [h, m]
 
 
+## Lama nyata untuk teks pemain (GDD idle 9.5): "45 min", "2 h 5 min", "3 d 4 h".
+static func duration(seconds: float) -> String:
+	var total_min: int = int(floor(maxf(seconds, 0.0) / 60.0))
+	if total_min < 60:
+		return t("ui_dur_min", {"m": maxi(total_min, 1)})
+	var h: int = total_min / 60
+	if h < 24:
+		var m: int = total_min % 60
+		return t("ui_dur_h", {"h": h}) if m == 0 else t("ui_dur_hm", {"h": h, "m": m})
+	var d: int = h / 24
+	var hh: int = h % 24
+	return t("ui_dur_d", {"d": d}) if hh == 0 else t("ui_dur_dh", {"d": d, "h": hh})
+
+
 static func rating(v: float) -> String:
 	return "%.1f" % v
 

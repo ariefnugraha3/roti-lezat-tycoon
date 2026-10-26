@@ -71,6 +71,18 @@ func _costs() -> void:
 	eq(s.upgrades.open_station_cost(&"oven"), -1.0, "Tier 2 has no third oven slot")
 	var mixer_open: float = s.upgrades.open_station_cost(&"mixer")
 	near(mixer_open, DataRegistry.idlef("station.open_cost.mixer"), 1e-9, "the first extra mixer costs open_cost")
+	# Tanpa posisi sah di lantai, Open ditolak tanpa memotong KR (GDD idle 20 no. 21).
+	check(s.upgrades.has_room_for(&"mixer"), "the Tier 2 floor has room for a second mixer")
+	eq(s.upgrades.open_station_block(&"mixer"), &"", "so it may open")
+	s.upgrades._room_cache[&"mixer"] = false
+	eq(s.upgrades.open_station_block(&"mixer"), &"room", "with no legal spot it is blocked")
+	var bal_nr: float = s.economy.balance
+	var mixers_nr: int = s.equipment.placed_count(&"mixer")
+	eq(s.upgrades.open_station(&"mixer"), -1, "and Open does nothing")
+	near(s.economy.balance, bal_nr, 0.001, "nor charges anything")
+	eq(s.equipment.placed_count(&"mixer"), mixers_nr, "no mixer appears")
+	s.world.rebuild_occupancy()
+	check(s.upgrades.has_room_for(&"mixer"), "a layout change measures the room again")
 	# Resep: buka dan level tanpa batas lokasi (8.5).
 	var donut: RecipeDefinition = DataRegistry.recipe(&"recipe_sugar_donut")
 	near(UpgradeManager.unlock_cost(donut), donut.base_sell_price_kr * DataRegistry.idlef("recipe.unlock_mult"), 1e-9, "unlock = price x recipe.unlock_mult")

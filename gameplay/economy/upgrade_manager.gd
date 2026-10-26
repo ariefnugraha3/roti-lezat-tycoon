@@ -15,9 +15,17 @@ var recipe_levels: Dictionary = {}
 var staff_levels: Dictionary = {}
 ## upgrade global -> jumlah level yang dibeli (0..max_level, GDD idle 8.9).
 var global_levels: Dictionary = {}
+## Kategori -> masih ada tempat untuk stasiun baru (dihitung ulang saat tata letak berubah).
+var _room_cache: Dictionary = {}
+
+
+func setup(s: SimulationRoot) -> void:
+	super.setup(s)
+	sim.world.layout_changed.connect(func() -> void: _room_cache.clear())
 
 
 func new_game() -> void:
+	_room_cache.clear()
 	station_levels.clear()
 	counter_level = 1
 	recipe_levels.clear()
@@ -432,12 +440,35 @@ func open_station_cost(category: StringName) -> float:
 	return DataRegistry.idlef("station.open_cost.%s" % category) * pow(DataRegistry.idlef("station.open_growth"), float(opened_count(category)))
 
 
+## &"" bila stasiun kategori itu boleh dibuka sekarang; selain itu alasan:
+## full (slot lokasi habis), room (tidak ada tempat sah di lantai), kr.
+func open_station_block(category: StringName) -> StringName:
+	var cost: float = open_station_cost(category)
+	if cost < 0.0:
+		return &"full"
+	if not has_room_for(category):
+		return &"room"
+	if not sim.economy.can_afford(cost):
+		return &"kr"
+	return &""
+
+
+## Masih ada tempat sah untuk satu stasiun baru (model Tier 1) kategori itu.
+func has_room_for(category: StringName) -> bool:
+	if not _room_cache.has(category):
+		var probe := EquipmentInstance.new()
+		probe.iid = -1
+		probe.def_id = StringName("%s_t1" % category)
+		_room_cache[category] = not sim.world.find_spot(probe).is_empty()
+	return bool(_room_cache[category])
+
+
 ## Buka stasiun baru: dibayar KR (STATION_OPEN), mulai Lv 1, ditempatkan otomatis.
 ## Mengembalikan iid baru atau -1.
 func open_station(category: StringName) -> int:
-	var cost: float = open_station_cost(category)
-	if cost < 0.0 or not sim.economy.can_afford(cost):
+	if open_station_block(category) != &"":
 		return -1
+	var cost: float = open_station_cost(category)
 	var e: EquipmentInstance = sim.equipment.create_instance(StringName("%s_t1" % category))
 	if not sim.world.auto_place(e):
 		sim.equipment.instances.erase(e.iid)

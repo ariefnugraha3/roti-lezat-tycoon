@@ -36,11 +36,11 @@
   "bar_update_hz": 8.0
  },
  "queue": {
-  "_gdd": "v3.1 66, 67, 129",
+  "_gdd": "v3.1 66, 67, 129; idle 6.1 (admission every 0.5 s so arrivals are not capped at 60 an hour)",
   "physical_max_pending_seconds": 30.0,
   "rotifood_max_pending_seconds": 40.0,
-  "pending_retry_seconds": 2.0,
-  "min_admission_interval_seconds": 2.0,
+  "pending_retry_seconds": 0.5,
+  "min_admission_interval_seconds": 0.5,
   "pending_pool_capacity_multiplier": 3,
   "max_pending_physical": 128,
   "max_visible_customer_actors": 96
