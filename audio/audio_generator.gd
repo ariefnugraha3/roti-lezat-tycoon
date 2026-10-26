@@ -518,8 +518,8 @@ const RECIPES: Array[String] = [
 	"oven_open", "oven_close", "oven_loop", "oven_ting",
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
-	"stamp_confirm", "box_drop", "sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "rain_loop", "sunny_ambience", "room_tone",
+	"sparkle_chime", "whoosh", "achievement_flourish",
+	"upgrade_sting", "tap_pop", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -595,10 +595,6 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _handover_ping()
 		"tablet_cancel":
 			return _tablet_cancel()
-		"stamp_confirm":
-			return _stamp_confirm()
-		"box_drop":
-			return _box_drop()
 		"sparkle_chime":
 			return _sparkle_chime()
 		"whoosh":
@@ -607,6 +603,8 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _flourish()
 		"upgrade_sting":
 			return _upgrade_sting()
+		"tap_pop":
+			return _tap_pop()
 		"rain_loop":
 			return _rain_loop()
 		"sunny_ambience":
@@ -760,6 +758,16 @@ static func _place_display() -> AudioStreamWAV:
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
+## Semangat (GDD idle 5.2, 14): "pop" pendek yang membal, diikuti kilau tipis.
+static func _tap_pop() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(0.16)
+	buf = _add_osc(buf, 0.0, 0.06, 520.0, 980.0, "sine", 0.7,
+			{"attack": 0.002, "decay": 0.03, "sustain": 0.3, "release": 0.03})
+	buf = _add_osc(buf, 0.045, 0.08, 1568.0, 2093.0, "triangle", 0.25,
+			{"attack": 0.003, "decay": 0.03, "sustain": 0.2, "release": 0.04})
+	return _to_stream(_normalize(buf, 0.55), false)
+
+
 static func _happy_chirp() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(0.22)
 	buf = _add_osc(buf, 0.0, 0.1, 880.0, 1320.0, "sine", 0.6,
@@ -816,27 +824,6 @@ static func _tablet_cancel() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.17, 0.3, 739.99, 739.99, "sine", 0.5,
 			{"attack": 0.005, "decay": 0.05, "sustain": 0.5, "release": 0.12})
 	buf = _lowpass(buf, 3000.0)
-	return _to_stream(_normalize(buf, 0.6), false)
-
-
-static func _stamp_confirm() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.5)
-	var stamp: PackedFloat32Array = _noise_buffer(0.05, 0.8,
-			{"attack": 0.001, "decay": 0.03, "sustain": 0.0, "release": 0.015}, 120.0, 1800.0)
-	buf = _mix_into(buf, stamp, 0.0)
-	buf = _add_osc(buf, 0.0, 0.06, 140.0, 90.0, "sine", 0.5,
-			{"attack": 0.001, "decay": 0.03, "sustain": 0.0, "release": 0.02})
-	buf = _add_bell(buf, 0.12, 0.35, 1318.51, 0.4, 8.0)
-	return _to_stream(_normalize(buf, 0.65), false)
-
-
-static func _box_drop() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.35)
-	var thud: PackedFloat32Array = _noise_buffer(0.1, 0.8,
-			{"attack": 0.002, "decay": 0.06, "sustain": 0.0, "release": 0.03}, 80.0, 1100.0)
-	buf = _mix_into(buf, thud, 0.0)
-	buf = _add_osc(buf, 0.0, 0.12, 120.0, 80.0, "sine", 0.6,
-			{"attack": 0.002, "decay": 0.06, "sustain": 0.0, "release": 0.04})
 	return _to_stream(_normalize(buf, 0.6), false)
 
 

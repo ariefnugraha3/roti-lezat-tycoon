@@ -884,4 +884,6 @@ Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincin
 | 12 | UI Scale v3.1 §75.2 | Dihapus dari Settings karena lebar logis bingkai selalu 720 (Seksi 12.0.2). Ukuran teks 100/125/150% tetap ada. Resolution Scale kini berlaku pada SubViewport bingkai. |
 | 13 | Scene utama | `scenes/main.tscn` adalah `PortraitShell`; GameRoot pindah ke `scenes/game_root.tscn`, yang dipakai tes dan alat yang membuat GameRoot langsung. |
 | 14 | Popup dan tab | Popup kecil paling lebar 640 px (`ProceduralUIFactory.POPUP_MAX_WIDTH`). Bar tab turun ke baris berikutnya bila tidak muat. Baris Settings menaruh label di atas slider dan pilihan. Kartu profil bertumpuk satu per baris. Baki item Decoration Mode tetap carousel mendatar seperti v3.1 §72.2. |
+| 15 | Umpan balik Semangat | Kilau gula di atas stasiun, pop kenyal pada modelnya, koin kecil tanpa angka, dan bunyi `tap_boost_pop`. Reduced Motion hanya menyisakan kilau dan bunyi. |
+| 16 | Layar Menu (P2) | Petak rak di atas, daftar resep di bawah. "Change" membuka halaman pilihan (Auto + resep yang bisa dibuat). Resep yang belum terjangkau tier alatnya hanya menyebut syaratnya, tanpa tombol Unlock. Level resep dan tombol upgrade ditambahkan di P3. |
 

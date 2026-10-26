@@ -88,6 +88,7 @@ func _ready() -> void:
 	EventBus.notify.connect(_on_notify)
 	EventBus.feedback.connect(_on_feedback)
 	EventBus.coin_popup.connect(_on_coin)
+	EventBus.tap_boost.connect(_on_tap_boost)
 	AudioManager.caption_requested.connect(_on_caption)
 	_refresh_all()
 
@@ -419,6 +420,16 @@ func _on_coin(amount: float, cell: Vector2i, floor_id: StringName) -> void:
 		return
 	var pos: Vector2 = game.world.camera_rig.world_to_screen(GridMath.cell_center3(cell, 1.0))
 	FX.coin_pop(_root, pos, amount)
+
+
+## Semangat (GDD idle 5.2): koin kecil melompat dari stasiun yang diketuk.
+func _on_tap_boost(iid: int, cell: Vector2i, floor_id: StringName) -> void:
+	if game.world == null or floor_id != game.world.camera_rig.active_floor or SettingsManager.reduced_motion():
+		return
+	var at: Vector3 = game.world.top_of_iid(iid) if iid >= 0 else GridMath.cell_center3(cell, 1.0)
+	if at == Vector3.INF:
+		return
+	FX.coin_pop(_root, game.world.camera_rig.world_to_screen(at), 0.0)
 
 
 func _on_caption(key: String) -> void:

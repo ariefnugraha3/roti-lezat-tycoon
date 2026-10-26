@@ -355,8 +355,10 @@ static func coin_pop(parent: CanvasItem, pos: Vector2, amount: float) -> void:
 	_auto_free(p, COIN_LIFETIME * (1.0 + 0.25) + AUTO_FREE_MARGIN)
 
 	# Angka pendapatan menyertai koinnya (GDD 4.3 "koin emas melompat gembira (+KR)").
-	var text: String = "+" + Tx.kr(amount)
-	ProceduralAnimationSystem.float_text(parent, pos + Vector2(0.0, -22.0), text, Palette.GOLD_STAR)
+	# Tanpa jumlah (Semangat, GDD idle 5.2) hanya koinnya yang melompat.
+	if amount > 0.0:
+		var text: String = "+" + Tx.kr(amount)
+		ProceduralAnimationSystem.float_text(parent, pos + Vector2(0.0, -22.0), text, Palette.GOLD_STAR)
 
 
 ## Lapisan hujan 2D satu layar penuh untuk hari hujan (GDD 10.2).

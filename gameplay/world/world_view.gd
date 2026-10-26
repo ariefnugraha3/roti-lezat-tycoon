@@ -172,6 +172,7 @@ func setup(s: SimulationRoot) -> void:
 	EventBus.storage_door.connect(_on_storage_door)
 	EventBus.weather_changed.connect(func(_a: StringName, _b: StringName) -> void: _apply_weather())
 	EventBus.sale_completed.connect(_on_sale)
+	EventBus.tap_boost.connect(_on_tap_boost)
 	SettingsManager.settings_changed.connect(func(_k: String) -> void: _apply_brightness())
 	rebuild_all()
 	# Kamera mulai di lantai toko (GDD idle 5.1): pemilik boleh di dapur atas.
@@ -1140,6 +1141,20 @@ func _on_storage_door(iid: int, open: bool) -> void:
 
 func _on_sale(_amount: float, _channel: StringName) -> void:
 	pass
+
+
+## Semangat (GDD idle 5.2): kilau di atas stasiun yang diketuk dan pop kenyal
+## pada modelnya (Reduced Motion: kilau saja). Koin kecilnya digambar HUD.
+func _on_tap_boost(iid: int, cell: Vector2i, floor_id: StringName) -> void:
+	if floor_id != camera_rig.active_floor or not floors.has(floor_id):
+		return
+	var at: Vector3 = top_of_iid(iid) if iid >= 0 else GridMath.cell_center3(cell, 1.0)
+	if at == Vector3.INF:
+		return
+	FX.sugar_sparkle(floors[floor_id], at)
+	var node: Node3D = furniture.get(iid) if iid >= 0 else null
+	if node != null and not SettingsManager.reduced_motion():
+		ProceduralAnimationSystem.squash_pop(node, 1.06, 0.16)
 
 
 func _apply_weather() -> void:

@@ -599,6 +599,21 @@
   "onb_offline": "Welcome back! Your bakery kept earning while you were away.",
   "onb_location": "A bigger shop is in reach. Open Shop to move there.",
   "onb_franchise": "You can franchise now: sell this bakery for Franchise Stars that boost every new branch.",
-  "ui_turn_upright": "Turn your phone upright for a bigger view."
+  "ui_turn_upright": "Turn your phone upright for a bigger view.",
+  "ui_menu_slots": "Shelf slots",
+  "ui_menu_shelf": "Shelf {n} · holds {capacity} per slot",
+  "ui_menu_slot_stock": "Slot {n} · {units}/{capacity} on the shelf",
+  "ui_menu_slot_none": "Nothing to bake yet",
+  "ui_slot_auto": "Auto",
+  "ui_slot_auto_now": "Auto · {recipe}",
+  "ui_slot_auto_desc": "Always sells your most profitable recipe (now {recipe})",
+  "ui_menu_change": "Change",
+  "ui_menu_choose_title": "Slot {n}",
+  "ui_menu_choose": "Choose",
+  "ui_menu_selected": "Selected",
+  "ui_menu_recipes": "Recipes",
+  "ui_menu_price": "{price} each",
+  "ui_menu_needs_tier": "Needs a Tier {tier} mixer and oven",
+  "ui_recipe_unlock": "Unlock for {price}"
  }
 }
