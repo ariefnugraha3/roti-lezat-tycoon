@@ -28,13 +28,26 @@ func _ready() -> void:
 	var per_hour: int = int(round(sim.time.sim_seconds_for_hours(1.0) / sim.tick_seconds))
 	var t0: int = Time.get_ticks_usec()
 	var first_sale: float = -1.0
+	var last_tx: int = 0
 	for h in int(ceil(_hours)):
+		var model_rate: float = sim.idle_economy.rate()
 		for i in per_hour:
 			bot.think()
 			sim.step(sim.tick_seconds)
 			if first_sale < 0.0 and sim.statistics.get_stat("total_bread_sold") > 0.0:
 				first_sale = DataRegistry.real_seconds(sim.time.sim_seconds)
 		var inv: String = sim.check_invariants()
+		# Laba bersih nyata jam ini (penjualan − bahan), untuk dibandingkan dengan model.
+		var net: float = 0.0
+		for e: Dictionary in sim.economy.ledger:
+			if int(e["tx_id"]) <= last_tx:
+				continue
+			if str(e["category"]) in ["SALE_PHYSICAL", "SALE_ROTIFOOD", "INGREDIENT_COST"]:
+				net += float(e["amount"])
+		last_tx = sim.economy.tx_sequence
+		var real_hour: float = DataRegistry.real_seconds(sim.time.sim_seconds_for_hours(1.0))
+		print("MODEL h=%d model=%.2f/s live=%.2f/s units/h=%.1f demand/h=%.1f prod/h=%.1f" % [h + 1, model_rate, net / real_hour,
+			float(sim.idle_economy.model()["units_per_hour"]), float(sim.idle_economy.model()["demand"]), float(sim.idle_economy.model()["production"])])
 		print("PROBE h=%d day=%d %s kr=%s earned=%s sold=%d served=%d lost=%d missed=%d rep=%.2f staff=%d tier=%d jobs=%d table=%d %s" % [
 			h + 1, sim.time.day, Tx.clock(sim.time.time_seconds), Tx.big(sim.economy.balance),
 			Tx.big(sim.statistics.get_stat("run_earned_kr")), int(sim.statistics.get_stat("total_bread_sold")),

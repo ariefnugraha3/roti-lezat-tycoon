@@ -307,6 +307,8 @@ func _upgrade() -> void:
 	var bot := SimBot.new(s)
 	bot.manage = true
 	run_hours(s, 2.0, bot)
+	# Dari sini test yang memindah lokasi; bot hanya bermain, tidak membeli.
+	bot.manage = false
 	s.debug_add_kr(1.0e12)
 	for tier in range(2, 6):
 		run_hours(s, 0.5, bot)

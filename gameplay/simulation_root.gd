@@ -39,6 +39,7 @@ var prestige: PrestigeManager
 var statistics: StatisticsManager
 var achievements: AchievementManager
 var tutorial: TutorialManager
+var idle_economy: IdleEconomyManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Roti Lezat"
@@ -76,6 +77,7 @@ func _init() -> void:
 	reputation = _add(ReputationManager.new(), "ReputationManager")
 	weather = _add(WeatherManager.new(), "WeatherManager")
 	tutorial = _add(TutorialManager.new(), "TutorialManager")
+	idle_economy = _add(IdleEconomyManager.new(), "IdleEconomyManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -260,9 +262,9 @@ func price_mult() -> float:
 	return decoration.bonus_mult(&"price") * prestige.income_mult() * boost_income_mult()
 
 
-## KR per detik nyata (GDD idle 9.1) untuk HUD; diisi IdleEconomyManager.
+## KR per detik nyata (GDD idle 9.1) untuk HUD, dari model IdleEconomyManager.
 func income_rate() -> float:
-	return 0.0
+	return idle_economy.rate()
 
 
 ## Pengali penghasilan dari boost aktif (GDD idle 11). Diisi BoostManager.

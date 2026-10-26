@@ -24,7 +24,7 @@ func build_page(body: VBoxContainer) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	match _tab:
 		0:
-			_pair(list, Tx.t("ui_stat_rate"), Tx.t("ui_kr_per_second", {"amount": Tx.big(sim.income_rate())}))
+			_pair(list, Tx.t("ui_stat_rate"), Tx.t("ui_kr_per_second", {"amount": Tx.rate(sim.income_rate())}))
 			for k: String in StatisticsManager.STAT_KEYS:
 				var v: float = sim.statistics.get_stat(k)
 				var text: String = Tx.big(v)

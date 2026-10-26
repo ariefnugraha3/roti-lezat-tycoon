@@ -55,6 +55,16 @@ static func big(v: float, scientific: int = -1) -> String:
 	return _fmt3(mant) + _suffix(g)
 
 
+## Laju KR/s (GDD idle 12.1): tiga angka penting di bawah 100 ("0.36", "4.25",
+## "28.4"), selebihnya seperti `big`.
+static func rate(v: float) -> String:
+	if is_nan(v) or is_inf(v) or v >= 100.0 or v < 0.0:
+		return big(v)
+	if v < 10.0:
+		return "%.2f" % v
+	return "%.1f" % v
+
+
 static func _round3(m: float) -> float:
 	if m < 10.0:
 		return snappedf(m, 0.01)

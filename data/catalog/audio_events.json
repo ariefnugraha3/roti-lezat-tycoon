@@ -24,6 +24,8 @@
   {"id": "customer_pick_bread", "bus": "SFX", "priority": 3, "generator": "paper_rustle", "loop": false, "cooldown": 0.2, "volume_db": -14.0},
   {"id": "customer_happy", "bus": "SFX", "priority": 3, "generator": "happy_chirp", "loop": false, "cooldown": 0.3, "volume_db": -12.0},
   {"id": "tap_boost_pop", "bus": "SFX", "priority": 2, "generator": "tap_pop", "loop": false, "cooldown": 0.06, "volume_db": -9.0},
+  {"id": "level_up", "bus": "UI", "priority": 1, "generator": "level_up", "loop": false, "cooldown": 0.05, "volume_db": -7.0},
+  {"id": "milestone_fanfare", "bus": "UI", "priority": 0, "generator": "milestone_fanfare", "loop": false, "cooldown": 0.3, "volume_db": -5.0},
   {"id": "customer_impatient", "bus": "SFX", "priority": 3, "generator": "impatient_tap", "loop": false, "cooldown": 1.5, "volume_db": -14.0},
   {"id": "customer_leave_angry", "bus": "SFX", "priority": 1, "generator": "sad_soft", "loop": false, "cooldown": 0.5, "volume_db": -9.0},
   {"id": "cashier_pack", "bus": "SFX", "priority": 2, "generator": "paper_rustle", "loop": false, "cooldown": 0.2, "volume_db": -10.0},

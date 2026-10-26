@@ -7,6 +7,8 @@ extends UISheet
 
 ## Tombol Hire yang tampil: sid -> Button, diperbarui tiap tick saat KR berubah.
 var _hire_buttons: Dictionary = {}
+## Tombol level staf di halaman detail (GDD idle 8.6).
+var _level_buttons: BuyButtons = null
 
 
 func sheet_title() -> String:
@@ -74,6 +76,7 @@ func _hire_button(def: StaffDefinition) -> Button:
 ## rekrut atau level.
 func _detail(body: VBoxContainer, sid: StringName) -> void:
 	_hire_buttons.clear()
+	_level_buttons = null
 	var def: StaffDefinition = DataRegistry.staff(sid)
 	var list: VBoxContainer = scroll_box(body)
 	var top := HBoxContainer.new()
@@ -94,7 +97,14 @@ func _detail(body: VBoxContainer, sid: StringName) -> void:
 	if not sim.staff.is_employed(sid):
 		list.add_child(_hire_button(def))
 	else:
-		lbl(list, Tx.t("ui_level_chip", {"level": sim.upgrades.staff_level(sid)}), 18, Palette.UI_WOOD_DEEP)
+		# Level staf (GDD idle 5.5, 8.6): lebih cepat jalan dan bekerja.
+		var o: Dictionary = sim.upgrades.offer(&"staff", sid)
+		var t: Label = lbl(list, UpgradeInfo.title(sim, o), 18, Palette.UI_WOOD_DEEP)
+		t.name = "Level"
+		lbl(list, UpgradeInfo.effect(sim, o), 15, Palette.TEXT_MUTED, true)
+		_level_buttons = BuyButtons.new().setup(sim, &"staff", sid)
+		_level_buttons.bought.connect(func(_n: int) -> void: refresh())
+		list.add_child(_level_buttons)
 
 
 ## Kegiatan staf yang sedang bekerja, sebagai kalimat; kosong bila tidak.
@@ -111,8 +121,10 @@ func activity_text(def: StaffDefinition) -> String:
 	return ""
 
 
-## KR terus berubah: tombol Hire menyala begitu terjangkau.
+## KR terus berubah: tombol Hire dan level menyala begitu terjangkau.
 func tick_page() -> void:
+	if is_instance_valid(_level_buttons):
+		_level_buttons.refresh()
 	for sid: Variant in _hire_buttons.keys():
 		var b: Button = _hire_buttons[sid]
 		if is_instance_valid(b):

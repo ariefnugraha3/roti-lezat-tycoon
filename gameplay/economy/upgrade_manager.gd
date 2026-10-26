@@ -322,6 +322,7 @@ func buy_offer(o: Dictionary, n: int) -> bool:
 		&"global":
 			global_levels[StringName(str(o["id"]))] = after
 	_note_levels(o, before, after)
+	sim.idle_economy.invalidate()
 	SaveManager.request_autosave("upgrade")
 	return true
 

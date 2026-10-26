@@ -173,6 +173,7 @@ func setup(s: SimulationRoot) -> void:
 	EventBus.weather_changed.connect(func(_a: StringName, _b: StringName) -> void: _apply_weather())
 	EventBus.sale_completed.connect(_on_sale)
 	EventBus.tap_boost.connect(_on_tap_boost)
+	EventBus.station_evolved.connect(_on_station_evolved)
 	SettingsManager.settings_changed.connect(func(_k: String) -> void: _apply_brightness())
 	rebuild_all()
 	# Kamera mulai di lantai toko (GDD idle 5.1): pemilik boleh di dapur atas.
@@ -1141,6 +1142,35 @@ func _on_storage_door(iid: int, open: bool) -> void:
 
 func _on_sale(_amount: float, _channel: StringName) -> void:
 	pass
+
+
+## Evolusi model (GDD idle 8.2, 14): model lama mengecil sambil berkilau lalu
+## model baru melompat keluar dengan squash & stretch. Reduced Motion: kilau saja.
+func _on_station_evolved(iid: int, from_tier: int, _to_tier: int) -> void:
+	var e: EquipmentInstance = sim.equipment.get_inst(iid)
+	if e == null or not e.placed or not floors.has(e.floor_id):
+		return
+	var parent: Node3D = floors[e.floor_id]
+	var node: Node3D = furniture.get(iid)
+	var top: Vector3 = top_of_iid(iid)
+	if top != Vector3.INF:
+		FX.sugar_sparkle(parent, top)
+	if node == null or SettingsManager.reduced_motion():
+		return
+	var old_def: EquipmentDefinition = DataRegistry.equipment_for(e.category(), from_tier)
+	if old_def != null:
+		var ghost: Node3D = EquipmentFactory.build_cached(old_def, sim.world.location.tier)
+		ghost.name = "EvolveGhost_%d" % iid
+		_pose_furniture(ghost, old_def, e.anchor, e.rotation)
+		parent.add_child(ghost)
+		var tw: Tween = ghost.create_tween()
+		tw.tween_property(ghost, "scale", ghost.scale * 0.05, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tw.tween_callback(ghost.queue_free)
+	var full: Vector3 = node.scale
+	node.scale = full * 0.05
+	var tw2: Tween = node.create_tween()
+	tw2.tween_interval(0.22)
+	tw2.tween_property(node, "scale", full, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Semangat (GDD idle 5.2): kilau di atas stasiun yang diketuk dan pop kenyal

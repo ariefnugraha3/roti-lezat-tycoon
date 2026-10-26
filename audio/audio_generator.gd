@@ -519,7 +519,7 @@ const RECIPES: Array[String] = [
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "tap_pop", "rain_loop", "sunny_ambience", "room_tone",
+	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -605,6 +605,10 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _upgrade_sting()
 		"tap_pop":
 			return _tap_pop()
+		"level_up":
+			return _level_up()
+		"milestone_fanfare":
+			return _milestone_fanfare()
 		"rain_loop":
 			return _rain_loop()
 		"sunny_ambience":
@@ -766,6 +770,25 @@ static func _tap_pop() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.045, 0.08, 1568.0, 2093.0, "triangle", 0.25,
 			{"attack": 0.003, "decay": 0.03, "sustain": 0.2, "release": 0.04})
 	return _to_stream(_normalize(buf, 0.55), false)
+
+
+## Naik level (GDD idle 14): dua nada bel naik yang cerah dan pendek.
+static func _level_up() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(0.6)
+	buf = _add_bell(buf, 0.0, 0.45, 987.77, 0.35, 5.0)
+	buf = _add_bell(buf, 0.07, 0.5, 1318.51, 0.35, 4.5)
+	return _to_stream(_normalize(buf, 0.55), false)
+
+
+## Milestone (GDD idle 14): arpeggio fanfare empat nada dengan dasar hangat.
+static func _milestone_fanfare() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(1.6)
+	var notes: Array = [523.25, 659.25, 783.99, 1046.5]
+	for i in notes.size():
+		buf = _add_bell(buf, 0.11 * float(i), 1.1, float(notes[i]), 0.4, 3.2)
+	buf = _add_osc(buf, 0.33, 1.1, 523.25, 523.25, "triangle", 0.2,
+			{"attack": 0.02, "decay": 0.2, "sustain": 0.5, "release": 0.5})
+	return _to_stream(_normalize(buf, 0.65), false)
 
 
 static func _happy_chirp() -> AudioStreamWAV:

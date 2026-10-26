@@ -10,6 +10,8 @@ const ART_LIST: float = 44.0
 
 ## Tombol Unlock yang tampil: recipe_id -> Button, diperbarui tiap tick.
 var _unlock_buttons: Dictionary = {}
+## Tombol level resep yang tampil, diperbarui tiap tick.
+var _level_rows: Array[BuyButtons] = []
 
 
 func sheet_title() -> String:
@@ -18,6 +20,7 @@ func sheet_title() -> String:
 
 func build_page(body: VBoxContainer) -> void:
 	_unlock_buttons.clear()
+	_level_rows.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "MenuList"
 	lbl(list, Tx.t("ui_menu_slots"), 15, Palette.TEXT_MUTED)
@@ -80,7 +83,8 @@ func _choice_row(parent: Control, title: String, sub: String, left: Control, sel
 	h.add_child(b)
 
 
-## Satu resep: gambar, harga jual (atau syarat alat), dan tombol buka.
+## Satu resep: gambar, harga jual (atau syarat alat), lalu tombol buka atau
+## level resep dengan ×1 / ×10 / Max (GDD idle 8.5).
 func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	var owned: bool = sim.upgrades.is_unlocked(r.id)
 	var sub: String = Tx.t("ui_menu_price", {"price": Tx.kr(sim.recipe_price(r.id))})
@@ -89,8 +93,28 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	var art: BreadArt = BreadArt.for_recipe(r.id, ART_LIST)
 	if not owned:
 		art.modulate = Color(1.0, 1.0, 1.0, 0.45)
-	var h: HBoxContainer = UISheet.row(parent, Tx.recipe_name(r.id), sub, art)
+	var title: String = Tx.recipe_name(r.id)
+	if owned:
+		var o: Dictionary = sim.upgrades.offer(&"recipe", r.id)
+		title = UpgradeInfo.title(sim, o)
+		var m: Dictionary = UpgradeInfo.milestone(sim, o)
+		if not m.is_empty():
+			sub += " · " + str(m["text"])
+	var h: HBoxContainer = UISheet.row(parent, title, sub, art)
 	h.get_parent().name = "Recipe_" + String(r.id)
+	if owned:
+		var buy: BuyButtons = BuyButtons.new().setup(sim, &"recipe", r.id, 96.0)
+		buy.size_flags_horizontal = Control.SIZE_SHRINK_END
+		buy.bought.connect(func(_n: int) -> void: refresh())
+		var holder := VBoxContainer.new()
+		holder.add_theme_constant_override("separation", 6)
+		var pc: Node = h.get_parent()
+		pc.remove_child(h)
+		holder.add_child(h)
+		holder.add_child(buy)
+		pc.add_child(holder)
+		_level_rows.append(buy)
+		return
 	# Resep yang belum bisa dibuat alat mana pun hanya menyebut syaratnya.
 	if owned or not sim.production.owns_equipment_for(r):
 		return
@@ -107,8 +131,11 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	_unlock_buttons[rid] = b
 
 
-## KR terus berubah: tombol Unlock menyala begitu terjangkau.
+## KR terus berubah: tombol Unlock dan level menyala begitu terjangkau.
 func tick_page() -> void:
+	for lb: BuyButtons in _level_rows:
+		if is_instance_valid(lb):
+			lb.refresh()
 	for rid: Variant in _unlock_buttons.keys():
 		var b: Button = _unlock_buttons[rid]
 		if is_instance_valid(b):

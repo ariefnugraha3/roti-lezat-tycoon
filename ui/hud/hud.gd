@@ -46,6 +46,8 @@ var _toasts: VBoxContainer = null
 var _caption: Label = null
 var _refresh: float = 0.0
 var _recent_notices: Dictionary = {}
+## Chip level di atas stasiun (GDD idle 12.1).
+var level_chips: LevelChips = null
 
 
 func _ready() -> void:
@@ -69,6 +71,12 @@ func _ready() -> void:
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(frame)
+	# Chip level lebih dulu: bar atas dan bar tab tergambar di atasnya.
+	level_chips = LevelChips.new()
+	level_chips.game = game
+	level_chips.sim = sim
+	_root.add_child(level_chips)
+	_root.move_child(level_chips, 0)
 	_build_top_left(frame)
 	_build_top_right(frame)
 	_build_top_center(frame)
@@ -299,7 +307,7 @@ func _refresh_all() -> void:
 	_root.visible = not decoration_active
 	_kr.text = Tx.big(sim.economy.balance)
 	var rate: float = sim.income_rate()
-	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.big(rate)}) if rate > 0.0 else ""
+	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
 	_rep.text = Tx.rating(sim.reputation.reputation)
 	_stars_chip.visible = sim.prestige.stars > 0
 	_stars.text = Tx.big(float(sim.prestige.stars))
@@ -309,12 +317,41 @@ func _refresh_all() -> void:
 	for id: Variant in _tabs.keys():
 		var b: Button = _tabs[id]
 		(b.get_node("Dot") as Control).visible = b.visible and has_affordable(StringName(str(id)))
+	level_chips.refresh()
 
 
 ## Ada sesuatu yang terjangkau di tab `id` (titik hijau, GDD idle 12.1).
 func has_affordable(id: StringName) -> bool:
+	var up: UpgradeManager = sim.upgrades
 	match id:
+		&"upgrades":
+			for cat: StringName in [&"mixer", &"oven", &"display"]:
+				for e: EquipmentInstance in sim.equipment.placed_list(cat):
+					if up.offer_count(up.offer(&"station", e.iid), &"x1") > 0:
+						return true
+			if up.offer_count(up.offer(&"counter", &"counter"), &"x1") > 0:
+				return true
+			for rid: StringName in up.unlocked_recipes():
+				if up.offer_count(up.offer(&"recipe", rid), &"x1") > 0:
+					return true
+			return false
+		&"menu":
+			for r: RecipeDefinition in DataRegistry.recipes():
+				if up.unlock_block(r.id) == &"":
+					return true
+			return false
+		&"shop":
+			if sim.upgrade_block_reason() == "":
+				return true
+			for cat2: StringName in [&"mixer", &"oven", &"display"]:
+				var c: float = up.open_station_cost(cat2)
+				if c >= 0.0 and sim.economy.can_afford(c):
+					return true
+			return false
 		&"staff":
+			for sid: StringName in sim.staff.employed_ids():
+				if up.offer_count(up.offer(&"staff", sid), &"x1") > 0:
+					return true
 			var cost: float = sim.staff.next_hire_cost()
 			if cost < 0.0 or not sim.economy.can_afford(cost):
 				return false

@@ -2,8 +2,9 @@ class_name SimBot
 extends RefCounted
 ## Pemain otomatis untuk test integrasi, soak, dan probe (GDD idle 17 P7). Toko
 ## idle berjalan sendiri, jadi bot hanya melakukan yang dilakukan pemain lewat
-## UI: menutup tip onboarding, merekrut staf, dan (dengan `manage`) membeli
-## upgrade "best value". Ia tidak pernah memutasi state gameplay secara langsung.
+## UI: menutup tip onboarding dan (dengan `manage`) pindah lokasi, merekrut
+## staf, membuka stasiun, membuka resep yang lebih untung, dan membeli upgrade
+## "best value". Ia tidak pernah memutasi state gameplay secara langsung.
 
 var sim: SimulationRoot
 ## true = merekrut staf dan membeli upgrade bila kas cukup.
@@ -15,6 +16,10 @@ var decisions: int = 0
 ## beberapa kali per detik, bukan 20 kali.
 var think_interval: int = 10
 var _cooldown: int = 0
+## Upgrade "best value" dipertimbangkan paling sering tiap sekian detik-simulasi
+## (urutan model mahal dihitung).
+var upgrade_every_seconds: float = 5.0
+var _next_upgrade_at: float = 0.0
 
 
 func _init(s: SimulationRoot) -> void:
@@ -34,8 +39,11 @@ func think() -> void:
 	_manage()
 
 
-## Satu langkah pengelolaan: rekrut staf yang terjangkau.
+## Satu langkah pengelolaan, seperti pemain lewat tab Shop, Staff, Menu, dan
+## Upgrades: paling banyak satu pembelian per langkah.
 func _manage() -> void:
+	if sim.upgrade_block_reason() == "" and sim.upgrade_location() == "":
+		return
 	for role: StringName in [&"baker", &"cashier"]:
 		if sim.staff.employed_ids(role).size() >= sim.staff.capacity(role):
 			continue
@@ -43,6 +51,26 @@ func _manage() -> void:
 			if def.role_id == role and sim.staff.hire_block(def.id) == &"":
 				sim.staff.hire(def.id)
 				return
+	for cat: StringName in [&"display", &"mixer", &"oven"]:
+		var c: float = sim.upgrades.open_station_cost(cat)
+		if c >= 0.0 and sim.economy.can_afford(c):
+			sim.upgrades.open_station(cat)
+			return
+	var best: StringName = sim.auto_recipe()
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if sim.upgrades.unlock_block(r.id) == &"" and (best == &"" or sim.net_per_unit(r.id) > sim.net_per_unit(best)):
+			sim.upgrades.unlock_recipe(r.id)
+			return
+	if sim.time.sim_seconds < _next_upgrade_at:
+		return
+	_next_upgrade_at = sim.time.sim_seconds + upgrade_every_seconds
+	for item: Dictionary in sim.idle_economy.ranked_offers():
+		if float(item["delta"]) <= 0.0:
+			break
+		var o: Dictionary = item["offer"]
+		if sim.upgrades.offer_count(o, &"x1") > 0:
+			sim.upgrades.buy_offer(o, 1)
+		return
 
 
 ## Majukan simulasi `seconds` detik-simulasi sambil berpikir tiap tick.
