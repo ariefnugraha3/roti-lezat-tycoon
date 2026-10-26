@@ -1,10 +1,13 @@
 class_name CameraRig
 extends Node3D
-## CameraManager (GDD 30, 98, 130.1) — kamera isometrik ortografis yang mengikuti
-## karakter pemain. Yaw 45°, pitch 35°, rotasi dikunci. Lantai aktif selalu
-## lantai tempat pemain berada; perpindahan lantai memakai crossfade 0,20 detik
-## nyata tanpa menambah waktu in-game. Event rutin tidak pernah memindahkan
-## kamera (GDD 30.7).
+## CameraManager (v3.1 30, 98, 130.1; GDD idle 12.0.4) — kamera isometrik
+## ortografis potret. Yaw 45°, pitch 35°, rotasi dikunci. `keep_aspect` =
+## KEEP_WIDTH: `ortho_size` adalah LEBAR dunia yang terlihat, sama di semua HP;
+## layar yang lebih tinggi hanya melihat lebih banyak jalan di atas dan bawah
+## toko. Fokus digeser supaya lantai berada di antara bar HUD atas dan bawah.
+## Lantai yang lebih lebar dari layar (Tier 4–5) mengikuti pemilik dan boleh
+## digeser. Perpindahan lantai memakai crossfade 0,20 detik nyata tanpa
+## menambah waktu in-game. Event rutin tidak pernah memindahkan kamera (v3.1 30.7).
 
 signal active_floor_changed(floor_id: StringName)
 
@@ -15,7 +18,8 @@ var free_pan: bool = false
 ## Seberapa jauh fokus boleh keluar dari tepi lantai saat pan bebas (meter).
 const FREE_PAN_MARGIN_M: float = 2.0
 var floor_size_m: Vector2 = Vector2(3.0, 6.0)
-var ortho_size: float = 6.6
+## Lebar dunia yang terlihat (meter, KEEP_WIDTH).
+var ortho_size: float = 6.8
 var pan_offset: Vector3 = Vector3.ZERO
 var follow_target: Vector3 = Vector3.ZERO
 var _focus: Vector3 = Vector3.ZERO
@@ -31,11 +35,12 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	camera.name = "Camera"
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.keep_aspect = Camera3D.KEEP_WIDTH
 	camera.near = 0.05
 	camera.far = 200.0
 	add_child(camera)
 	camera.current = true
-	ortho_size = DataRegistry.balf("camera.default_ortho_size")
+	ortho_size = DataRegistry.balf("camera.portrait_width_m")
 	camera.size = ortho_size
 	_fade_layer = CanvasLayer.new()
 	_fade_layer.layer = 5
@@ -82,11 +87,9 @@ func set_free_pan(on: bool, inset_left_px: float = 0.0) -> void:
 	free_pan = on
 	pan_offset = Vector3.ZERO
 	if on and inset_left_px > 0.0:
-		var vp: Vector2 = get_viewport().get_visible_rect().size
-		var m_per_px: float = ortho_size / maxf(vp.y, 1.0)
 		var right: Vector3 = camera.global_transform.basis.x
 		right.y = 0.0
-		pan_offset = -right.normalized() * (inset_left_px * 0.5 * m_per_px)
+		pan_offset = -right.normalized() * (inset_left_px * 0.5 * m_per_px())
 
 
 ## Pan bebas (Decoration Mode): arahkan tampilan ke titik dunia `p`.
@@ -112,32 +115,58 @@ func _apply() -> void:
 	camera.global_position = _focus + offset
 	camera.look_at(_focus, Vector3.UP)
 	camera.size = ortho_size
+	# Titik fokus tampil di tengah ruang antara bar HUD atas dan bawah, bukan di
+	# tengah layar: kamera turun sejauh selisihnya, jadi gambar naik (idle 12.0.4).
+	camera.global_position -= camera.global_transform.basis.y * hud_shift_px() * m_per_px()
+
+
+## Meter dunia per piksel layar logis (KEEP_WIDTH: lebar menentukan skala).
+func m_per_px() -> float:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	return ortho_size / maxf(vp.x, 1.0)
+
+
+## Seberapa jauh (px) titik fokus tampil di atas tengah layar: setengah selisih
+## bar HUD bawah dan atas (`camera.portrait_hud_*_px`).
+static func hud_shift_px() -> float:
+	return (DataRegistry.balf("camera.portrait_hud_bottom_px") - DataRegistry.balf("camera.portrait_hud_top_px")) * 0.5
+
+
+## Kotak layar logis di antara bar HUD atas dan bawah.
+func free_rect() -> Rect2:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var top: float = DataRegistry.balf("camera.portrait_hud_top_px")
+	var bottom: float = DataRegistry.balf("camera.portrait_hud_bottom_px")
+	return Rect2(0.0, top, vp.x, maxf(1.0, vp.y - top - bottom))
 
 
 ## Pan dengan drag (hanya bila lantai lebih besar dari viewport, GDD 30.1).
 func pan_by_screen(delta_px: Vector2) -> void:
 	if not free_pan and not _floor_exceeds_view():
 		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var m_per_px: float = ortho_size / maxf(vp.y, 1.0)
+	var k: float = m_per_px()
 	var right: Vector3 = camera.global_transform.basis.x
 	var fwd: Vector3 = Vector3(camera.global_transform.basis.z.x, 0.0, camera.global_transform.basis.z.z).normalized()
-	pan_offset += (-right * delta_px.x + fwd * -delta_px.y) * m_per_px
+	pan_offset += (-right * delta_px.x + fwd * -delta_px.y) * k
 	pan_offset.y = 0.0
 	var lim: float = maxf(floor_size_m.x, floor_size_m.y)
 	pan_offset = pan_offset.limit_length(lim)
 	_pan_idle = 0.0
 
 
+## Lantai aktif lebih besar dari ruang di antara bar HUD (Tier 4–5): kamera
+## mengikuti pemilik dan boleh digeser (v3.1 30.1, 30.6).
 func _floor_exceeds_view() -> bool:
-	var diag: float = (floor_size_m.x + floor_size_m.y) * 0.7071
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var view_w: float = ortho_size * vp.x / maxf(vp.y, 1.0)
-	return diag > view_w * 0.8 or floor_size_m.length() > ortho_size * 1.2
+	var pitch: float = deg_to_rad(DataRegistry.balf("camera.pitch_degrees"))
+	var across: float = (floor_size_m.x + floor_size_m.y) * 0.7071
+	var depth: float = across * sin(pitch)
+	var fr: Rect2 = free_rect()
+	var view_h: float = fr.size.y * m_per_px()
+	return across > ortho_size or depth > view_h
 
 
 func zoom(step: float) -> void:
-	ortho_size = clampf(ortho_size + step, DataRegistry.balf("camera.min_ortho_size"), DataRegistry.balf("camera.max_ortho_size"))
+	ortho_size = clampf(ortho_size + step, DataRegistry.balf("camera.min_width_m"), DataRegistry.balf("camera.max_width_m"))
 	camera.size = ortho_size
 
 

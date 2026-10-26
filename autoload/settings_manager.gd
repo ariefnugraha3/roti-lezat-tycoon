@@ -18,7 +18,6 @@ const DEFAULTS: Dictionary = {
 	"mute_when_unfocused": true,
 	"fullscreen": false,
 	"resolution_scale": 100,
-	"ui_scale": 100,
 	"brightness": 100,
 	"fps_cap": 60,
 	"quality": "auto",
@@ -41,7 +40,7 @@ const DEFAULTS: Dictionary = {
 const RANGES: Dictionary = {
 	"master_volume": [0, 100], "music_volume": [0, 100], "sfx_volume": [0, 100],
 	"ui_volume": [0, 100], "ambient_volume": [0, 100],
-	"resolution_scale": [70, 100], "ui_scale": [80, 150], "brightness": [80, 120],
+	"resolution_scale": [70, 100], "brightness": [80, 120],
 	"screen_shake": [0, 100], "text_scale": [100, 150], "confirm_threshold": [0, 1000000000],
 }
 const CHOICES: Dictionary = {
@@ -176,9 +175,9 @@ func _apply(key: String) -> void:
 				DisplayServer.window_set_mode(mode)
 		"fps_cap":
 			Engine.max_fps = get_int(key)
-		"ui_scale":
-			get_tree().root.content_scale_factor = float(get_int(key)) / 100.0
 		"resolution_scale":
-			get_tree().root.scaling_3d_scale = float(get_int(key)) / 100.0
+			# Dunia 3D dirender di SubViewport bingkai potret (GDD idle 12.0.2).
+			var vp: Viewport = PortraitShell.current.viewport if PortraitShell.current != null else get_tree().root
+			vp.scaling_3d_scale = float(get_int(key)) / 100.0
 		_:
 			pass

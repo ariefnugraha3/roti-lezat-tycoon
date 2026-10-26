@@ -36,7 +36,7 @@ var _pinch_dist: float = 0.0
 
 
 func _threshold() -> float:
-	return DataRegistry.balf("input.tap_max_move_px") * float(SettingsManager.get_int("ui_scale")) / 100.0
+	return DataRegistry.balf("input.tap_max_move_px")
 
 
 ## true selama barang yang ditangkap sedang di-drag.

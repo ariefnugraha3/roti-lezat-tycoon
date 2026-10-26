@@ -1,5 +1,5 @@
 extends Node
-## Alat ukur loading sungguhan (GDD 89.5, 109, 114): main.tscn dijalankan, audio
+## Alat ukur loading sungguhan (GDD 89.5, 109, 114): game_root.tscn dijalankan, audio
 ## dibuka seperti ketukan Tap to Start, lalu game baru dimulai dari Main Menu
 ## dan lama setiap tahap loading dicetak (log BOOT GameRoot). `--menu=N` menunggu
 ## N detik di Main Menu dulu (pemain mengisi nama toko sementara musik dan bunyi
@@ -52,7 +52,7 @@ func _ready() -> void:
 					print("LOADING_PROBE exp %s alive %d ms jobs=%s backlog=%d" % [ab, Time.get_ticks_msec() - tb, AudioManager.has_pending_jobs(), AudioManager._sfx_backlog.size()])
 			print("LOADING_PROBE done")
 			return
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	_game = game
 	add_child(game)
 	await get_tree().process_frame

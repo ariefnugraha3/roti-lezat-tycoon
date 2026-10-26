@@ -19,7 +19,7 @@ func _boot(warmup: bool) -> GameRoot:
 	SaveManager.dir = "user://test_saves_web_hitches"
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	game.shader_warmup = warmup
 	runner.add_child(game)
 	await runner.get_tree().process_frame

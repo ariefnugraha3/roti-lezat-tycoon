@@ -16,6 +16,7 @@ const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", 
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings"]
 
 var game: GameRoot = null
+var shell: PortraitShell = null
 var _out: String = ""
 var _issues: int = 0
 
@@ -28,8 +29,10 @@ func _ready() -> void:
 	PauseManager.lifecycle_enabled = false
 	# Folder save uji sendiri: jangan pernah menyentuh save pemain.
 	SaveManager.dir = "user://test_saves_sweep"
-	game = (load("res://scenes/main.tscn") as PackedScene).instantiate()
-	add_child(game)
+	# Scene utama sungguhan: bingkai potret dengan taplak di sisinya (GDD idle 12.0).
+	shell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	add_child(shell)
+	game = shell.game
 	await _frames(2)
 	game.skip_splash_for_tests()
 	await _frames(4)
@@ -79,7 +82,7 @@ func _ready() -> void:
 func _resize(r: Vector2i) -> void:
 	get_window().size = r
 	await _frames(6)
-	print("SWEEP window %s -> visible %s" % [r, get_viewport().get_visible_rect().size])
+	print("SWEEP window %s -> frame %s, logical %s" % [r, shell.frame, shell.viewport.size_2d_override])
 
 
 func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
@@ -106,8 +109,10 @@ func _inside_clip(c: Control) -> bool:
 	return false
 
 
+## Setiap kontrol yang tampak harus berada di dalam bingkai potret (isi
+## SubViewport); tidak ada yang boleh keluar ke area taplak (GDD idle 12.0.7).
 func _check(root: Node, label: String, r: Vector2i, sc: int) -> void:
-	var vis: Rect2 = get_viewport().get_visible_rect()
+	var vis: Rect2 = game.get_viewport().get_visible_rect()
 	var found: int = 0
 	for n: Node in root.find_children("*", "Control", true, false):
 		var c: Control = n

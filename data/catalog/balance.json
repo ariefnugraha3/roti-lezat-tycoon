@@ -86,14 +86,16 @@
   "tap_max_duration_seconds": 0.35
  },
  "camera": {
-  "_gdd": "30, 130.1",
+  "_gdd": "v3.1 30, 130.1; idle 12.0.4",
   "yaw_degrees": 45.0,
   "pitch_degrees": 35.0,
   "crossfade_seconds": 0.2,
-  "default_ortho_size": 6.6,
-  "min_ortho_size": 5.6,
-  "max_ortho_size": 9.5,
-  "zoom_step": 0.6
+  "portrait_width_m": 6.8,
+  "min_width_m": 5.6,
+  "max_width_m": 11.0,
+  "zoom_step": 0.6,
+  "portrait_hud_top_px": 130,
+  "portrait_hud_bottom_px": 170
  },
  "settings": {
   "_gdd": "75",

@@ -8,7 +8,7 @@ var _body: VBoxContainer = null
 
 
 func build() -> void:
-	var body: VBoxContainer = make_popup(Tx.t("ui_main_settings"), Vector2(920, 620))
+	var body: VBoxContainer = make_popup(Tx.t("ui_main_settings"), Vector2(640, 900))
 	var labels: Array = []
 	for key: String in ["ui_settings_audio", "ui_settings_display", "ui_settings_gameplay", "ui_settings_accessibility"]:
 		labels.append(Tx.t(key))
@@ -29,13 +29,12 @@ func _render() -> void:
 			_toggle("mute_when_unfocused", "ui_settings_mute_unfocused")
 		1:
 			if WebPlatform.is_mobile_web():
-				# Browser HP: layar penuh + landscape lagi setelah pemain keluar darinya.
-				var fs: Button = btn(_body, Tx.t("ui_settings_fullscreen_enter"), "secondary", func() -> void: WebPlatform.enter_fullscreen_landscape())
+				# Browser HP: layar penuh + potret lagi setelah pemain keluar darinya.
+				var fs: Button = btn(_body, Tx.t("ui_settings_fullscreen_enter"), "secondary", func() -> void: WebPlatform.enter_fullscreen_portrait())
 				fs.custom_minimum_size = Vector2(280, 56)
 			elif not OS.has_feature("mobile"):
 				_toggle("fullscreen", "ui_settings_fullscreen")
 			_choice("resolution_scale", "ui_settings_resolution_scale", [70, 85, 100], ["70%", "85%", "100%"])
-			_slider("ui_scale", "ui_settings_ui_scale", 80, 150, 5)
 			_slider("brightness", "ui_settings_brightness", 80, 120, 5)
 			_choice("fps_cap", "ui_settings_fps_cap", [30, 60, 0], ["30", "60", Tx.t("ui_settings_fps_unlimited")])
 			_choice("quality", "ui_settings_quality", ["auto", "quality_low", "quality_medium", "quality_high"],
@@ -60,27 +59,37 @@ func _render() -> void:
 			_toggle("sound_captions", "ui_settings_captions")
 
 
-func _row(label_key: String) -> HBoxContainer:
+## Satu baris pengaturan untuk lebar potret (GDD idle 12.0.5): `stacked` menaruh
+## label di atas kontrolnya (slider, pilihan); selain itu label mengisi sisa
+## lebar dan kontrol di kanan (toggle).
+func _row(label_key: String, stacked: bool = false) -> HBoxContainer:
+	if stacked:
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 4)
+		_body.add_child(v)
+		lbl(v, Tx.t(label_key), 18, Palette.TEXT, true)
+		var under: HBoxContainer = hbox(v, 10)
+		under.custom_minimum_size = Vector2(0, 52)
+		return under
 	var row: HBoxContainer = hbox(_body, 12)
 	row.custom_minimum_size = Vector2(0, 52)
-	var l: Label = lbl(row, Tx.t(label_key), 18)
-	l.custom_minimum_size = Vector2(320, 0)
+	lbl(row, Tx.t(label_key), 18, Palette.TEXT, true)
 	return row
 
 
 func _slider(key: String, label_key: String, lo: int, hi: int, step: int) -> void:
-	var row: HBoxContainer = _row(label_key)
+	var row: HBoxContainer = _row(label_key, true)
 	var sl := HSlider.new()
 	sl.focus_mode = Control.FOCUS_NONE
 	sl.min_value = lo
 	sl.max_value = hi
 	sl.step = step
 	sl.value = SettingsManager.get_int(key)
-	sl.custom_minimum_size = Vector2(300, 48)
+	sl.custom_minimum_size = Vector2(240, 48)
 	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(sl)
 	var v: Label = lbl(row, str(SettingsManager.get_int(key)), 18, Palette.UI_WOOD)
-	v.custom_minimum_size = Vector2(80, 0)
+	v.custom_minimum_size = Vector2(64, 0)
 	sl.value_changed.connect(func(x: float) -> void:
 		SettingsManager.set_value(key, int(x))
 		v.text = str(SettingsManager.get_int(key)))
@@ -94,7 +103,7 @@ func _toggle(key: String, label_key: String) -> void:
 
 
 func _choice(key: String, label_key: String, values: Array, labels: Array) -> void:
-	var row: HBoxContainer = _row(label_key)
+	var row: HBoxContainer = _row(label_key, true)
 	for i in values.size():
 		var val: Variant = values[i]
 		var active: bool = str(SettingsManager.get_value(key)) == str(val)

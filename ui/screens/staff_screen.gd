@@ -59,7 +59,8 @@ func _hire_button(def: StaffDefinition) -> Button:
 	var b: Button = ProceduralUIFactory.icon_text_button("coin", text, "primary", 20, 16)
 	b.name = "Hire"
 	b.disabled = reason != &""
-	b.custom_minimum_size = Vector2(170, 52)
+	# Lebar mengikuti teksnya, supaya skala teks 150% tetap muat (GDD idle 12.0.5).
+	b.custom_minimum_size = Vector2(maxf(150.0, ProceduralUIFactory._text_width(text, 16, true) + 20.0 + 8.0 + 36.0), 52)
 	var sid: StringName = def.id
 	_hire_buttons[sid] = b
 	b.pressed.connect(func() -> void:

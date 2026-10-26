@@ -79,7 +79,9 @@ func _ready() -> void:
 	_caption.name = "Caption"
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_caption.offset_bottom = -TAB_BAR_H - 70.0
+	_caption.offset_top = _caption.offset_bottom - 40.0
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_caption.modulate.a = 0.0
 	frame.add_child(_caption)

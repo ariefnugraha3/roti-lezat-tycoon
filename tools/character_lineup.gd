@@ -224,7 +224,9 @@ func _game_camera() -> void:
 	var yaw: float = deg_to_rad(DataRegistry.balf("camera.yaw_degrees"))
 	var pitch: float = deg_to_rad(DataRegistry.balf("camera.pitch_degrees"))
 	var offset := Vector3(-sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch)) * 30.0
-	_cam.size = DataRegistry.balf("camera.default_ortho_size")
+	# Skala karakter seperti di game: lebar terlihat `camera.portrait_width_m`.
+	_cam.keep_aspect = Camera3D.KEEP_WIDTH
+	_cam.size = DataRegistry.balf("camera.portrait_width_m")
 	var focus := Vector3(0.0, 0.3, 0.0)
 	_cam.position = focus + offset
 	_cam.look_at(focus, Vector3.UP)

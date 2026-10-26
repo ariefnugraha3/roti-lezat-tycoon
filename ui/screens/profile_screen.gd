@@ -14,28 +14,33 @@ func build() -> void:
 	bg.color = Color(Palette.BG, 0.96)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(1100, 560))
-	var row: HBoxContainer = hbox(body, 18)
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(640, 760))
+	# Bingkai potret (GDD idle 12.0.5): tiga kartu bertumpuk, satu per baris.
+	var list: VBoxContainer = scroll_box(body)
+	list.add_theme_constant_override("separation", 14)
 	var headers: Array[Dictionary] = SaveManager.scan_headers()
 	for i in headers.size():
-		row.add_child(_card(i + 1, headers[i]))
+		list.add_child(_card(i + 1, headers[i]))
 
 
 func _card(n: int, h: Dictionary) -> Control:
 	var pid: StringName = h["profile_id"]
 	var card: PanelContainer = ProceduralUIFactory.card(Tx.t("ui_profile_slot", {"n": n}))
-	card.custom_minimum_size = Vector2(320, 380)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var body: VBoxContainer = ProceduralUIFactory.content_of(card)
+	var content: VBoxContainer = ProceduralUIFactory.content_of(card)
+	var row: HBoxContainer = hbox(content, 14)
 	var mode: String = str(params.get("mode", "load"))
 	var exists: bool = bool(h.get("exists", false))
 	var corrupt: bool = bool(h.get("corrupt", false))
 	var classic: bool = bool(h.get("classic", false))
 	var ic := CenterContainer.new()
-	ic.add_child(ProceduralUIFactory.icon("shop", 56, Palette.GOLDEN_CRUST if exists else Palette.TEXT_MUTED))
-	body.add_child(ic)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ic.add_child(ProceduralUIFactory.icon("shop", 48, Palette.GOLDEN_CRUST if exists else Palette.TEXT_MUTED))
+	row.add_child(ic)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 4)
+	row.add_child(body)
 	if not exists:
 		lbl(body, Tx.t("ui_profile_empty"), 20, Palette.TEXT_MUTED)
 	elif classic:
@@ -54,15 +59,18 @@ func _card(n: int, h: Dictionary) -> Control:
 		if medals != null:
 			body.add_child(medals)
 		lbl(body, Tx.t("ui_profile_last_played", {"when": str(h.get("last_played_at", "")).replace("T", " ").replace("Z", "")}), 14, Palette.TEXT_MUTED, true)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(spacer)
+	var actions := VBoxContainer.new()
+	actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	actions.add_theme_constant_override("separation", 8)
+	row.add_child(actions)
 	if mode == "new":
-		btn(body, Tx.t("ui_main_new_game"), "primary", _on_new.bind(pid, exists))
+		btn(actions, Tx.t("ui_main_new_game"), "primary", _on_new.bind(pid, exists))
 	elif exists and not corrupt and not classic:
-		btn(body, Tx.t("ui_main_continue"), "primary", _on_load.bind(pid))
+		btn(actions, Tx.t("ui_main_continue"), "primary", _on_load.bind(pid))
 	if exists:
-		btn(body, Tx.t("ui_profile_delete"), "danger", _on_delete.bind(pid))
+		btn(actions, Tx.t("ui_profile_delete"), "danger", _on_delete.bind(pid))
+	for b: Node in actions.get_children():
+		(b as Control).custom_minimum_size = Vector2(170, 52)
 	return card
 
 

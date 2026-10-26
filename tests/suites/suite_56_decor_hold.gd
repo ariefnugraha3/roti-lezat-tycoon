@@ -21,7 +21,7 @@ func _boot(profile_name: String) -> GameRoot:
 	SaveManager.dir = "user://test_saves_decor_hold"
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()

@@ -22,7 +22,7 @@ func build() -> void:
 	bg.color = Color(Palette.BG, 0.97)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	_body = make_popup(Tx.t("ui_new_game_title"), Vector2(900, 580))
+	_body = make_popup(Tx.t("ui_new_game_title"), Vector2(640, 640))
 	_render()
 
 
@@ -41,10 +41,12 @@ func _render_character() -> void:
 	lbl(_body, Tx.t("ui_character_title"), 24, Palette.UI_WOOD)
 	var row: HBoxContainer = hbox(_body, 24)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	for g: String in ["male", "female"]:
 		row.add_child(_char_card(g))
 	lbl(_body, Tx.t("ui_character_note"), 16, Palette.TEXT_MUTED, true)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(spacer)
 	var nav: HBoxContainer = hbox(_body, 16)
 	nav.alignment = BoxContainer.ALIGNMENT_END
 	btn(nav, Tx.t("ui_back"), "secondary", on_back)

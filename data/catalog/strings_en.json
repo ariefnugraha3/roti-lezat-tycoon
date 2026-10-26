@@ -47,9 +47,6 @@
   "ui_loading_music": "Tuning the radio...",
   "ui_loading_counter": "Arranging the counter...",
   "ui_loading_ovens": "Warming up the ovens...",
-  "ui_rotate_title": "Rotate your phone",
-  "ui_rotate_body": "Roti Lezat Tycoon is played in landscape. Turn your phone sideways to continue.",
-  "ui_rotate_tap": "Auto-rotate turned off? Tap anywhere to switch to landscape.",
   "ui_settings_fullscreen_enter": "Play in full screen",
   "ui_save_error": "Save data could not be loaded.",
   "ui_start_new_here": "Start New Game Here",
@@ -162,7 +159,6 @@
   "ui_settings_mute_unfocused": "Mute when the game is in the background",
   "ui_settings_fullscreen": "Fullscreen",
   "ui_settings_resolution_scale": "Resolution Scale",
-  "ui_settings_ui_scale": "UI Scale",
   "ui_settings_brightness": "Brightness",
   "ui_settings_fps_cap": "FPS Cap",
   "ui_settings_fps_unlimited": "Unlimited",
@@ -602,6 +598,7 @@
   "onb_recipe": "A new recipe is in reach. Open Menu, unlock it and put it on a shelf slot.",
   "onb_offline": "Welcome back! Your bakery kept earning while you were away.",
   "onb_location": "A bigger shop is in reach. Open Shop to move there.",
-  "onb_franchise": "You can franchise now: sell this bakery for Franchise Stars that boost every new branch."
+  "onb_franchise": "You can franchise now: sell this bakery for Franchise Stars that boost every new branch.",
+  "ui_turn_upright": "Turn your phone upright for a bigger view."
  }
 }

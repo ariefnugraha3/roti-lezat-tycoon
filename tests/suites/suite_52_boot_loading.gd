@@ -13,7 +13,7 @@ func tests() -> Array:
 		{"id": "ACC_33_MUSIC_BUILD", "name": "33 music beds are built in small slices with exactly the same result as building at once", "fn": _music_build},
 		{"id": "ACC_33_MUSIC_NO_STALL", "name": "33 a music change never builds a bed on the spot: the old music plays until the new bed is ready", "fn": _music_no_stall},
 		{"id": "TEST_UI_LOADING_STAGES", "name": "89.5/114 new game and load show staged text and a forward-only bar, keep the clock still, and fade after the world is drawn", "fn": _loading_stages},
-		{"id": "ACC_12_ORIENTATION_GUARD", "name": "12.5 on a phone browser a portrait screen covers the game and pauses it until the phone turns sideways", "fn": _orientation_guard},
+		{"id": "ACC_12_ORIENTATION_HINT", "name": "idle 12.0.6 a phone browser held sideways gets a one-time 'Turn your phone upright' hint that blocks and pauses nothing and goes away after 4 s; upright phones and desktops get none", "fn": _orientation_hint},
 		{"id": "TEST_UI_SPLASH_TAP", "name": "12.1 Tap to Start reacts when the finger lifts, which browsers need to allow full screen", "fn": _splash_tap},
 	]
 
@@ -73,7 +73,7 @@ func _loading_stages() -> void:
 		SaveManager.delete_profile(pid)
 	var was_unlocked: bool = AudioManager.unlocked
 	AudioManager.unlocked = true
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
@@ -161,54 +161,66 @@ static func _texts(keys: Array[String]) -> Array[String]:
 	return out
 
 
-func _orientation_guard() -> void:
+func _orientation_hint() -> void:
 	SaveManager.dir = "user://test_saves_ui"
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
-	# Desktop: tidak ada penjaga orientasi.
-	var desk: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	PauseManager.clear_all()
+	# Desktop: tidak ada petunjuk orientasi.
+	var desk: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(desk)
 	await runner.get_tree().process_frame
-	check(desk.find_child("OrientationGuard", true, false) == null, "desktop browsers and apps get no rotate screen")
+	check(desk.find_child("OrientationHint", true, false) == null, "desktop browsers and apps get no orientation hint")
 	desk.queue_free()
 	await runner.get_tree().process_frame
+	# HP tegak: tidak ada petunjuk dan tidak ada pause.
 	WebPlatform.force_mobile_web = true
 	WebPlatform.forced_portrait = 1
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
-	var guard: OrientationGuard = game.find_child("OrientationGuard", true, false) as OrientationGuard
-	check(guard != null, "phone browsers get the rotate screen")
-	await runner.get_tree().process_frame
-	check(guard.is_blocking() and PauseManager.has(OrientationGuard.REASON), "portrait: the rotate screen covers everything and pauses")
-	check(guard.layer > game.modals.layer, "it sits above menus and the loading screen")
+	var hint: OrientationHint = game.find_child("OrientationHint", true, false) as OrientationHint
+	check(hint != null, "phone browsers get the orientation hint layer")
+	if hint == null:
+		WebPlatform.force_mobile_web = false
+		WebPlatform.forced_portrait = -1
+		game.queue_free()
+		return
+	for i in 5:
+		await runner.get_tree().process_frame
+	check(not hint.is_showing() and not hint.was_shown(), "an upright phone gets no hint")
+	check(not PauseManager.is_paused(), "and nothing is paused")
 	game.skip_splash_for_tests()
 	await game.start_new_game(&"profile_1", "male", "Phone Bakery")
 	game.modals.close_all()
 	game.sim.tutorial.skip()
-	await runner.get_tree().process_frame
-	check(PauseManager.is_paused(), "still paused in portrait after the game loads")
-	var t0: float = game.sim.time.time_seconds
-	for i in 30:
-		await runner.get_tree().process_frame
-	near(game.sim.time.time_seconds, t0, 0.0001, "the clock does not move while the phone is upright")
+	PauseManager.lifecycle_enabled = false
+	# Dimiringkan: petunjuk sekali, tanpa pause; game tetap jalan di bingkai potret.
 	WebPlatform.forced_portrait = 0
 	await runner.get_tree().process_frame
-	check(not guard.is_blocking() and not PauseManager.has(OrientationGuard.REASON), "landscape: the rotate screen goes away")
-	for i2 in 30:
+	check(hint.is_showing(), "held sideways: the hint shows")
+	check(not PauseManager.is_paused(), "the hint never pauses the game")
+	var t0: float = game.sim.time.time_seconds
+	for i2 in 10:
 		await runner.get_tree().process_frame
-	check(game.sim.time.time_seconds > t0, "and the day runs again")
+	check(game.sim.time.time_seconds > t0, "the day keeps running under the hint")
+	hint._process(OrientationHint.SHOW_SECONDS + 0.1)
+	check(not hint.is_showing(), "it goes away by itself after 4 s")
+	# Tegak lalu miring lagi: tidak muncul untuk kedua kalinya.
 	WebPlatform.forced_portrait = 1
 	await runner.get_tree().process_frame
-	check(guard.is_blocking() and PauseManager.is_paused(), "turning back to portrait pauses again")
+	WebPlatform.forced_portrait = 0
+	for i3 in 3:
+		await runner.get_tree().process_frame
+	check(not hint.is_showing(), "only once per session")
 	WebPlatform.force_mobile_web = false
 	WebPlatform.forced_portrait = -1
 	game.return_to_menu()
 	await runner.get_tree().process_frame
 	game.queue_free()
 	await runner.get_tree().process_frame
-	check(not PauseManager.has(OrientationGuard.REASON), "leaving the game drops its pause reason")
 	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
 	for pid2: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid2)
 	SaveManager.dir = "user://saves"
@@ -216,7 +228,7 @@ func _orientation_guard() -> void:
 
 func _splash_tap() -> void:
 	var was_unlocked: bool = AudioManager.unlocked
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	var layer: CanvasLayer = game._splash.get_parent() as CanvasLayer

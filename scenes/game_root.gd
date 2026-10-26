@@ -10,9 +10,12 @@ extends Node
 ##
 ## Masuk gameplay berjalan bertahap di balik LoadingScreen (GDD 89.5, 114): tiap
 ## tahap berat diberi satu frame supaya teks dan bar kemajuannya tergambar, lalu
-## overlay baru memudar setelah frame dunia yang stabil. Di browser HP,
-## OrientationGuard menahan permainan selama HP tegak, dan ketukan "Tap to Start"
-## memasukkan game ke layar penuh landscape (keputusan maintainer 2026-09-30).
+## overlay baru memudar setelah frame dunia yang stabil. Di browser HP, ketukan
+## "Tap to Start" memasukkan game ke layar penuh potret, dan HP yang dipegang
+## landscape mendapat petunjuk sekali tanpa layar pemblokir (GDD idle 12.0.6).
+##
+## GameRoot hidup di dalam bingkai potret PortraitShell (scenes/main.tscn); tes
+## boleh membuatnya langsung dari scenes/game_root.tscn.
 
 const BUSY_CUSTOMERS: int = 4
 ## Anggaran perakitan musik per frame selama layar loading (mikrodetik).
@@ -33,7 +36,7 @@ var _loader: LoadingScreen = null
 var _load_started_usec: int = 0
 var _stage_started_usec: int = 0
 var _stage_key: String = ""
-var _orientation: OrientationGuard = null
+var _orientation: OrientationHint = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
 ## Autosave berkala (GDD idle 9.2: rate dan last_active_unix ikut tersimpan).
@@ -50,6 +53,7 @@ func _ready() -> void:
 	InputActions.register()
 	ProceduralUIFactory.text_scale = SettingsManager.text_scale()
 	SettingsManager.settings_changed.connect(_on_settings_changed)
+	_on_settings_changed("resolution_scale")
 	modals = ModalHost.new()
 	modals.game = self
 	add_child(modals)
@@ -59,7 +63,7 @@ func _ready() -> void:
 	PauseManager.lifecycle_resumed.connect(_on_lifecycle_resumed)
 	EventBus.economy_overflowed.connect(func() -> void: modals.open(&"overflow"))
 	if WebPlatform.is_mobile_web():
-		_orientation = OrientationGuard.new()
+		_orientation = OrientationHint.new()
 		add_child(_orientation)
 	if not DataRegistry.is_valid():
 		# Katalog rusak: berhenti dengan layar galat berbahasa Inggris (GDD 114, 117).
@@ -84,17 +88,21 @@ func _show_splash() -> void:
 	layer.add_child(_splash)
 	ProceduralUIFactory.apply_theme(_splash)
 	_splash.add_child(ProceduralUIFactory.backdrop())
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_splash.add_child(center)
+	# Potret (GDD idle 12.0.5): logo di sepertiga atas, "Tap to Start" di bawahnya.
 	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.anchor_right = 1.0
+	box.anchor_top = MainMenuScreen.LOGO_TOP
+	box.anchor_bottom = 1.0
+	box.offset_bottom = -110.0
+	box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 30)
-	center.add_child(box)
+	box.add_theme_constant_override("separation", 72)
+	_splash.add_child(box)
+	var logo_box := CenterContainer.new()
+	logo_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(logo_box)
 	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 124)
-	box.add_child(lockup)
+	logo_box.add_child(lockup)
 	ProceduralAnimationSystem.idle_wobble(lockup.get_meta("bread"))
 	# "Tap to Start" dalam pil krem berbibir yang berdenyut pelan.
 	var tap_row := CenterContainer.new()
@@ -125,7 +133,7 @@ func _on_splash_input(event: InputEvent, layer: CanvasLayer) -> void:
 	if not tapped:
 		return
 	if WebPlatform.is_mobile_web():
-		WebPlatform.enter_fullscreen_landscape()
+		WebPlatform.enter_fullscreen_portrait()
 	AudioManager.unlock()
 	layer.queue_free()
 	_splash = null
@@ -436,6 +444,8 @@ func _on_lifecycle_resumed() -> void:
 func _on_settings_changed(key: String) -> void:
 	if key == "text_scale" or key == "":
 		ProceduralUIFactory.text_scale = SettingsManager.text_scale()
+	if key == "resolution_scale" or key == "":
+		get_viewport().scaling_3d_scale = float(SettingsManager.get_int("resolution_scale")) / 100.0
 
 
 # ===========================================================================

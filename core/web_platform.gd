@@ -1,13 +1,13 @@
 class_name WebPlatform
 extends RefCounted
-## Satu-satunya tempat yang bicara dengan browser (GDD 12.5, 128.3; keputusan
-## maintainer 2026-09-30): deteksi browser HP, posisi layar, serta layar penuh
-## plus kunci landscape lewat JavaScriptBridge bawaan Godot (hanya berfungsi di
-## build Web; di platform lain semua fungsi di sini tidak berbuat apa-apa).
+## Satu-satunya tempat yang bicara dengan browser (GDD idle 12.0; v3.1 12.5,
+## 128.3): deteksi browser HP, posisi layar, serta layar penuh plus kunci
+## potret lewat JavaScriptBridge bawaan Godot (hanya berfungsi di build Web; di
+## platform lain semua fungsi di sini tidak berbuat apa-apa).
 ##
 ## Browser hanya mengizinkan layar penuh dari gestur pemain yang SELESAI
 ## (touchend/mouseup, bukan saat jari baru menempel), jadi panggil
-## `enter_fullscreen_landscape()` dari ketukan yang dilepas.
+## `enter_fullscreen_portrait()` dari ketukan yang dilepas.
 
 ## Paksa perilaku browser HP tanpa browser sungguhan (test).
 static var force_mobile_web: bool = false
@@ -15,18 +15,18 @@ static var force_mobile_web: bool = false
 static var forced_portrait: int = -1
 
 ## Chrome Android: layar penuh tersedia dan orientasi bisa dikunci. Safari iPhone
-## tidak punya keduanya untuk kanvas, jadi di sana pemain memutar HP sendiri.
+## tidak punya keduanya untuk kanvas, jadi di sana pemain memegang HP sendiri.
 const JS_CAN_LOCK: String = "!!((document.fullscreenEnabled || document.webkitFullscreenEnabled) && window.screen && screen.orientation && screen.orientation.lock)"
 ## Kanvas masuk layar penuh (tanpa bilah navigasi), lalu orientasi dikunci ke
-## landscape setelah permintaan layar penuh diterima. Semua kegagalan diabaikan:
-## layar "putar HP" tetap menjadi jalan keluarnya.
-const JS_FULLSCREEN_LANDSCAPE: String = """(function () {
+## potret setelah permintaan layar penuh diterima. Semua kegagalan diabaikan:
+## bingkai potret tetap bisa dimainkan dalam posisi apa pun (GDD idle 12.0.6).
+const JS_FULLSCREEN_PORTRAIT: String = """(function () {
 	var d = document;
 	var c = d.getElementById('canvas') || d.querySelector('canvas');
 	function lock() {
 		try {
 			if (window.screen && screen.orientation && screen.orientation.lock) {
-				screen.orientation.lock('landscape').catch(function () {});
+				screen.orientation.lock('portrait').catch(function () {});
 			}
 		} catch (e) {}
 	}
@@ -65,8 +65,8 @@ static func is_portrait() -> bool:
 	return s.y > s.x
 
 
-## Browser ini bisa masuk layar penuh dan mengunci landscape.
-static func can_lock_landscape() -> bool:
+## Browser ini bisa masuk layar penuh dan mengunci orientasi.
+static func can_lock_orientation() -> bool:
 	if not is_web():
 		return false
 	return bool(JavaScriptBridge.eval(JS_CAN_LOCK, true))
@@ -76,9 +76,9 @@ static func is_fullscreen() -> bool:
 	return DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 
 
-## Masuk layar penuh dan kunci landscape (bila browser mengizinkan). Hanya dari
+## Masuk layar penuh dan kunci potret (bila browser mengizinkan). Hanya dari
 ## ketukan yang dilepas; di luar Web tidak berbuat apa-apa.
-static func enter_fullscreen_landscape() -> void:
+static func enter_fullscreen_portrait() -> void:
 	if not is_web():
 		return
-	JavaScriptBridge.eval(JS_FULLSCREEN_LANDSCAPE, true)
+	JavaScriptBridge.eval(JS_FULLSCREEN_PORTRAIT, true)

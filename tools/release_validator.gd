@@ -103,7 +103,11 @@ func _check_engine() -> void:
 	var r: String = str(ProjectSettings.get_setting("rendering/renderer/rendering_method", ""))
 	var rm: String = str(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile", ""))
 	_add("Compatibility renderer (GDD 96, 128)", r == "gl_compatibility" and rm == "gl_compatibility", "%s / %s" % [r, rm])
-	_add("Android landscape orientation", int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)) == 0)
+	_add("Android portrait orientation (GDD idle 12.0.1)", int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)) == 1)
+	var vw: int = int(ProjectSettings.get_setting("display/window/size/viewport_width", 0))
+	var vh: int = int(ProjectSettings.get_setting("display/window/size/viewport_height", 0))
+	_add("portrait base resolution 720 x 1280 (GDD idle 12.0.1)", vw == 720 and vh == 1280, "%d x %d" % [vw, vh])
+	_add("main scene is the portrait shell (GDD idle 12.0.2)", str(ProjectSettings.get_setting("application/run/main_scene", "")) == "res://scenes/main.tscn")
 	_add("no addons folder (GDD 128.1)", not DirAccess.dir_exists_absolute("res://addons"))
 
 
@@ -248,9 +252,12 @@ func _free(s: SimulationRoot) -> void:
 func _check_boot() -> void:
 	SaveManager.dir = "user://validator_saves"
 	_errors.reset()
-	var game: GameRoot = (load("res://scenes/main.tscn") as PackedScene).instantiate()
-	add_child(game)
+	# Scene utama sungguhan: bingkai potret dengan GameRoot di dalamnya (GDD idle 12.0.2).
+	var shell: PortraitShell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	add_child(shell)
 	await get_tree().process_frame
+	var game: GameRoot = shell.game
+	_add("the portrait frame is 720 logical px wide (GDD idle 12.0.2)", shell.viewport.size_2d_override.x == 720, str(shell.viewport.size_2d_override))
 	game.skip_splash_for_tests()
 	game.show_main_menu()
 	await get_tree().process_frame
@@ -268,7 +275,7 @@ func _check_boot() -> void:
 	_add("no console error during the Tier 1 vertical slice", _errors.count == 0, "; ".join(_errors.first))
 	game.return_to_menu()
 	await get_tree().process_frame
-	game.queue_free()
+	shell.queue_free()
 	await get_tree().process_frame
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)

@@ -60,15 +60,20 @@ const PANTRY_WARN: float = 0.75
 ## Rasio isi gudang saat bar kapasitas berwarna bahaya (hampir penuh).
 const PANTRY_FULL: float = 0.92
 
-## Ukuran baku kartu popup dalam piksel GUI pada resolusi acuan 1280x720
-## (GDD 12.5). Sengaja jauh lebih kecil dari layar: popup harus menyisakan
-## dapur dan HUD tetap terlihat di belakangnya.
-const POPUP_SIZE: Vector2 = Vector2(760.0, 520.0)
+## Ukuran baku kartu popup dalam piksel GUI pada bingkai potret 720 px
+## (GDD idle 12.0.5): kartu di tengah yang menyisakan toko dan HUD di
+## belakangnya.
+const POPUP_SIZE: Vector2 = Vector2(640.0, 560.0)
+## Lebar maksimal popup kecil (GDD idle 12.0.5).
+const POPUP_MAX_WIDTH: float = 640.0
 ## Jarak isi dari tepi kartu popup.
 const POPUP_PAD: int = 18
 ## Jarak antara isi yang digulir dan scrollbar-nya (px), supaya scrollbar
 ## tidak menempel di daftar (keputusan maintainer 2026-10-07).
 const SCROLLBAR_GAP: int = 10
+## Petak taplak gingham dan jarak lengkung rendanya, px logis (GDD idle 12.0.3).
+const GINGHAM_CELL: float = 22.0
+const LACE_SCALLOP: float = 18.0
 
 ## Gaya FLAT (eksperimen maintainer 2026-10-02): seluruh UI berupa bidang warna
 ## polos bersudut membulat, tanpa bayangan jatuh, bibir timbul, kilap, garis tepi
@@ -1122,6 +1127,9 @@ static func safe_area_margin() -> Vector4:
 	var top: float = maxf(float(safe.position.y), 0.0)
 	var right: float = maxf(float(win.x - safe.end.x), 0.0)
 	var bottom: float = maxf(float(win.y - safe.end.y), 0.0)
+	# Di dalam bingkai potret: hanya bagian notch/bar gestur yang menimpa bingkai.
+	if PortraitShell.current != null:
+		return PortraitShell.current.frame_insets(Vector4(left, top, right, bottom))
 	var k: float = _gui_scale(Vector2(win))
 	return Vector4(left / k, top / k, right / k, bottom / k)
 
@@ -1225,6 +1233,76 @@ static func backdrop() -> Control:
 	var b: CozyBackdrop = CozyBackdrop.new()
 	b.name = "Backdrop"
 	return b
+
+
+## Taplak gingham (GDD idle 12.0.3): petak `GINGHAM_CELL` px berselang-seling
+## dua warna `Palette.GINGHAM_A`/`GINGHAM_B`, dengan renda krem bergelombang di
+## sisi `lace_side` (SIDE_LEFT/TOP/RIGHT/BOTTOM; -1 = tanpa renda). Lengkung renda
+## berpusat di garis tepi itu, jadi separuhnya menutup tepi taplak. Dipakai
+## CozyBackdrop (tepi bawah layar pembuka) dan TableclothSides (sisi bingkai
+## potret), sehingga keduanya identik.
+static func draw_gingham(canvas: CanvasItem, rect: Rect2, lace_side: int = -1) -> void:
+	for cell: Array in gingham_cells(rect):
+		canvas.draw_rect(cell[0], cell[1])
+	for c: Vector2 in lace_points(rect, lace_side):
+		canvas.draw_circle(c, LACE_SCALLOP * 0.62, Palette.GINGHAM_B)
+	if not flat_style and lace_side == SIDE_TOP:
+		canvas.draw_rect(Rect2(rect.position.x, rect.position.y - 3.0, rect.size.x, 3.0), Color(Palette.UI_WOOD, 0.10))
+
+
+## Petak taplak di dalam `rect`: [[Rect2, Color], ...], berpola dari sudut kiri
+## atasnya (baris dan kolom genap paling tua, ganjil-genap campuran, ganjil krem).
+static func gingham_cells(rect: Rect2) -> Array:
+	var out: Array = []
+	if rect.size.x < 0.5 or rect.size.y < 0.5:
+		return out
+	var cell: float = GINGHAM_CELL
+	var y: float = rect.position.y
+	var row: int = 0
+	while y < rect.end.y:
+		var x: float = rect.position.x
+		var col_i: int = 0
+		var hgt: float = minf(cell, rect.end.y - y)
+		while x < rect.end.x:
+			var a: bool = row % 2 == 0
+			var b: bool = col_i % 2 == 0
+			var tone: Color = Palette.GINGHAM_B
+			if a and b:
+				tone = Palette.GINGHAM_A.darkened(0.06)
+			elif a or b:
+				tone = Palette.GINGHAM_A.lerp(Palette.GINGHAM_B, 0.45)
+			out.append([Rect2(x, y, minf(cell, rect.end.x - x) + 0.5, hgt + 0.5), tone])
+			x += cell
+			col_i += 1
+		y += cell
+		row += 1
+	return out
+
+
+## Pusat lengkung renda di sepanjang sisi `lace_side` dari `rect` (kosong bila
+## tanpa renda). Lengkungnya berpusat di garis tepi itu.
+static func lace_points(rect: Rect2, lace_side: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if lace_side < 0 or rect.size.x < 0.5 or rect.size.y < 0.5:
+		return out
+	var vertical: bool = lace_side == SIDE_LEFT or lace_side == SIDE_RIGHT
+	var edge: float = 0.0
+	match lace_side:
+		SIDE_LEFT:
+			edge = rect.position.x
+		SIDE_RIGHT:
+			edge = rect.end.x
+		SIDE_TOP:
+			edge = rect.position.y
+		_:
+			edge = rect.end.y
+	var from: float = rect.position.y if vertical else rect.position.x
+	var to: float = rect.end.y if vertical else rect.end.x
+	var t: float = from
+	while t < to + LACE_SCALLOP:
+		out.append(Vector2(edge, t) if vertical else Vector2(t, edge))
+		t += LACE_SCALLOP * 1.1
+	return out
 
 
 ## Logo judul bertumpuk: ikon roti besar yang memantul, kata pertama judul
@@ -1643,7 +1721,7 @@ static func paper_grain() -> TextureRect:
 
 ## Faktor skala piksel layar nyata -> piksel GUI (stretch canvas_items/expand).
 static func _gui_scale(window_size: Vector2) -> float:
-	var base: Vector2 = Vector2(1280.0, 720.0)
+	var base: Vector2 = Vector2(720.0, 1280.0)
 	var loop: MainLoop = Engine.get_main_loop()
 	var tree: SceneTree = loop as SceneTree
 	if tree != null and tree.root != null:
@@ -1718,13 +1796,19 @@ class CozyTabs extends PanelContainer:
 		name = "Tabs"
 		_on_select = on_select
 		active = active_index
-		size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		# Selebar induknya: di bingkai potret 720 px tab yang tidak muat (skala teks
+		# besar) turun ke baris berikutnya, tidak pernah digulir ke samping
+		# (GDD idle 12.0.5).
+		size_flags_horizontal = Control.SIZE_FILL
 		var sb: StyleBoxFlat = ProceduralUIFactory._inset_box(Palette.UI_CREAM_DEEP, 26)
 		sb.set_content_margin_all(4.0)
 		sb.content_margin_top = 4.0 if ProceduralUIFactory.flat_style else 5.0
 		add_theme_stylebox_override("panel", sb)
-		var row: HBoxContainer = HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
+		var row: HFlowContainer = HFlowContainer.new()
+		row.name = "Row"
+		row.alignment = FlowContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("h_separation", 4)
+		row.add_theme_constant_override("v_separation", 4)
 		add_child(row)
 		for i in labels.size():
 			var idx: int = i
@@ -1814,34 +1898,7 @@ class CozyBackdrop extends Control:
 			draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35))
 		# Taplak gingham bergelombang di tepi bawah.
 		var band: float = minf(96.0, h * 0.14)
-		var top_y: float = h - band
-		var cell: float = 22.0
-		var y: float = top_y
-		var row: int = 0
-		while y < h:
-			var x: float = 0.0
-			var col_i: int = 0
-			while x < w:
-				var a: bool = row % 2 == 0
-				var b: bool = col_i % 2 == 0
-				var tone: Color = Palette.GINGHAM_B
-				if a and b:
-					tone = Palette.GINGHAM_A.darkened(0.06)
-				elif a or b:
-					tone = Palette.GINGHAM_A.lerp(Palette.GINGHAM_B, 0.45)
-				draw_rect(Rect2(x, y, cell + 0.5, cell + 0.5), tone)
-				x += cell
-				col_i += 1
-			y += cell
-			row += 1
-		# Tepi atas taplak: lengkung renda.
-		var scallop: float = 18.0
-		var x2: float = 0.0
-		while x2 < w + scallop:
-			draw_circle(Vector2(x2, top_y), scallop * 0.62, Palette.GINGHAM_B)
-			x2 += scallop * 1.1
-		if not ProceduralUIFactory.flat_style:
-			draw_rect(Rect2(0.0, top_y - 3.0, w, 3.0), Color(Palette.UI_WOOD, 0.10))
+		ProceduralUIFactory.draw_gingham(self, Rect2(0.0, h - band, w, band), SIDE_TOP)
 
 
 ## Bar kapasitas gudang: jalur membulat + isian berwarna + teks "N / M".
