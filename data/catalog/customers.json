@@ -39,15 +39,6 @@
     "family": 0.4,
     "practical": 0.3
    },
-   "quality_requirement": 0.6,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD",
-    "STALE"
-   ],
-   "max_unit_price_kr": 300,
-   "price_sensitivity": 1.25,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.3,
     0.25,
@@ -60,8 +51,6 @@
     "afternoon": 2.0
    },
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": false,
    "localization_key": "customer_school_child",
    "visual_profile_id": "customer_school_child"
   },
@@ -80,15 +69,6 @@
     "savory": 0.8,
     "sweet": 0.3
    },
-   "quality_requirement": 0.6,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD",
-    "STALE"
-   ],
-   "max_unit_price_kr": 1000,
-   "price_sensitivity": 1.0,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.2,
     0.25,
@@ -100,8 +80,6 @@
     "morning": 2.0
    },
    "time_modifier_default": 0.6,
-   "substitution_allowed": true,
-   "premium_rules": false,
    "localization_key": "customer_office_worker",
    "visual_profile_id": "customer_office_worker"
   },
@@ -121,15 +99,6 @@
     "sweet": 0.6,
     "savory": 0.6
    },
-   "quality_requirement": 0.6,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD",
-    "STALE"
-   ],
-   "max_unit_price_kr": 0,
-   "price_sensitivity": 1.0,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.3,
     0.3,
@@ -139,8 +108,6 @@
    ],
    "time_modifiers": {},
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": false,
    "localization_key": "customer_generic",
    "visual_profile_id": "customer_generic"
   },
@@ -160,15 +127,6 @@
     "sweet": 0.6,
     "practical": 0.4
    },
-   "quality_requirement": 0.6,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD",
-    "STALE"
-   ],
-   "max_unit_price_kr": 0,
-   "price_sensitivity": 1.1,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.1,
     0.1,
@@ -178,8 +136,6 @@
    ],
    "time_modifiers": {},
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": false,
    "localization_key": "customer_bulk_buyer",
    "visual_profile_id": "customer_bulk_buyer"
   },
@@ -201,15 +157,6 @@
     "premium": 0.5,
     "artisan": 0.5
    },
-   "quality_requirement": 0.6,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD",
-    "STALE"
-   ],
-   "max_unit_price_kr": 0,
-   "price_sensitivity": 1.0,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.1,
     0.1,
@@ -219,8 +166,6 @@
    ],
    "time_modifiers": {},
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": false,
    "localization_key": "customer_indecisive",
    "visual_profile_id": "customer_indecisive"
   },
@@ -238,14 +183,6 @@
     "premium": 1.0,
     "artisan": 0.8
    },
-   "quality_requirement": 0.95,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD"
-   ],
-   "max_unit_price_kr": 0,
-   "price_sensitivity": 0.35,
-   "min_recipe_tier": 3,
    "spawn_weight_by_tier": [
     0.0,
     0.0,
@@ -255,8 +192,6 @@
    ],
    "time_modifiers": {},
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": true,
    "localization_key": "customer_snob",
    "visual_profile_id": "customer_snob"
   },
@@ -274,14 +209,6 @@
     "premium": 1.0,
     "artisan": 1.0
    },
-   "quality_requirement": 0.8,
-   "allowed_freshness_states": [
-    "FRESH",
-    "GOOD"
-   ],
-   "max_unit_price_kr": 0,
-   "price_sensitivity": 0.6,
-   "min_recipe_tier": 1,
    "spawn_weight_by_tier": [
     0.0,
     0.0,
@@ -291,19 +218,6 @@
    ],
    "time_modifiers": {},
    "time_modifier_default": 1.0,
-   "substitution_allowed": true,
-   "premium_rules": true,
-   "daily_chance_by_tier": [
-    0.0,
-    0.05,
-    0.1,
-    0.15,
-    0.2
-   ],
-   "arrival_window": [
-    32400,
-    57600
-   ],
    "localization_key": "customer_critic",
    "visual_profile_id": "customer_critic"
   }
@@ -315,21 +229,9 @@
   "movement_speed_mps": 1.25,
   "visual_profile_id": "driver_rotifood"
  },
- "courier_supply": {
-  "id": "courier_supply",
-  "localization_key": "courier_supply",
-  "movement_speed_mps": 1.4,
-  "visual_profile_id": "courier_supply"
- },
  "quantity_weights": {
   "preferred": 0.5,
   "adjacent": 0.2,
   "remaining_total": 0.1
- },
- "vip_rules": {
-  "success_max_wait_ratio": 0.5,
-  "success_min_bake_quality": 0.95,
-  "failure_wait_ratio": 0.8,
-  "failure_bake_quality": 0.8
  }
 }

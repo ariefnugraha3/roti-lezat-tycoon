@@ -19,7 +19,7 @@ extends RefCounted
 ## - Fungsi yang **mengembalikan** emitter (`steam`, `rain_overlay`) bersifat
 ##   menerus (`one_shot = false`). Pemanggil yang memilikinya dan wajib
 ##   memanggil `queue_free()` saat efek tidak dibutuhkan lagi.
-## - Fungsi ledakan sekali jalan (`sugar_sparkle`, `burn_smoke`, `coin_pop`,
+## - Fungsi ledakan sekali jalan (`sugar_sparkle`, `coin_pop`,
 ##   `sweat_drop`) memakai `one_shot = true` dan **membebaskan dirinya sendiri**
 ##   lewat SceneTreeTimer setelah partikel terakhir habis. Jangan menyimpan
 ##   referensinya tanpa `is_instance_valid()`.
@@ -30,7 +30,6 @@ extends RefCounted
 
 const STEAM_AMOUNT: int = 12
 const SPARKLE_AMOUNT: int = 18
-const SMOKE_AMOUNT: int = 14
 const COIN_AMOUNT: int = 10
 const SWEAT_AMOUNT: int = 5
 const RAIN_AMOUNT: int = 24
@@ -41,7 +40,6 @@ const RAIN_AMOUNT: int = 24
 
 const STEAM_LIFETIME: float = 2.3
 const SPARKLE_LIFETIME: float = 0.85
-const SMOKE_LIFETIME: float = 2.6
 const COIN_LIFETIME: float = 0.95
 const SWEAT_LIFETIME: float = 0.9
 const RAIN_LIFETIME: float = 1.7
@@ -218,65 +216,6 @@ static func sugar_sparkle(parent: Node3D, pos: Vector3) -> CPUParticles3D:
 	p.position = pos
 	p.emitting = true
 	_auto_free(p, SPARKLE_LIFETIME * (1.0 + 0.4) + AUTO_FREE_MARGIN)
-	return p
-
-
-## Asap jelaga gelap untuk roti gosong (GDD 4.3). Ledakan sekali jalan yang
-## membebaskan dirinya sendiri; panggil ulang bila oven masih terus membakar.
-static func burn_smoke(parent: Node3D, pos: Vector3) -> CPUParticles3D:
-	if parent == null or not is_instance_valid(parent):
-		return null
-	if at_capacity():
-		return null
-
-	var p := CPUParticles3D.new()
-	p.name = "BurnSmokeFX"
-	p.emitting = false
-	p.one_shot = true
-	p.amount = SMOKE_AMOUNT
-	p.lifetime = SMOKE_LIFETIME
-	p.lifetime_randomness = 0.3
-	p.explosiveness = 0.35
-	p.randomness = 0.55
-	p.local_coords = false
-	p.draw_order = CPUParticles3D.DRAW_ORDER_VIEW_DEPTH
-	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	p.emission_sphere_radius = 0.07
-	p.direction = Vector3.UP
-	p.spread = 20.0
-	p.initial_velocity_min = 0.35
-	p.initial_velocity_max = 0.7
-	p.gravity = Vector3(0.0, 0.28, 0.0)
-	p.damping_min = 0.4
-	p.damping_max = 0.8
-	p.scale_amount_min = 0.6
-	p.scale_amount_max = 1.1
-	p.scale_amount_curve = _curve(PackedVector2Array([
-		Vector2(0.0, 0.35), Vector2(0.35, 1.05), Vector2(1.0, 1.70),
-	]))
-
-	# Jelaga = hitam gosong yang sedikit dicerahkan agar tetap terbaca.
-	var soot: Color = Palette.BURNT_BLACK.lerp(Color.WHITE, 0.32)
-	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.12, 0.55, 1.0]),
-		PackedColorArray([
-			Color(soot.r, soot.g, soot.b, 0.0),
-			Color(soot.r, soot.g, soot.b, 0.72),
-			Color(soot.r, soot.g, soot.b, 0.40),
-			Color(soot.r, soot.g, soot.b, 0.0),
-		])
-	)
-
-	p.mesh = _puff_mesh(0.07, 0.14, 8, 3, _particle_material(false))
-
-	parent.add_child(p)
-	_track(p)
-	p.position = pos
-	p.emitting = true
-	_auto_free(p, SMOKE_LIFETIME * (1.0 + 0.3) + SMOKE_LIFETIME * 0.65 + AUTO_FREE_MARGIN)
 	return p
 
 

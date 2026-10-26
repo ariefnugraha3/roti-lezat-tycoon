@@ -1,88 +1,53 @@
 class_name ReputationManager
 extends SimManager
-## ReputationManager — dua rating terpisah: toko fisik dan RotiFood Stars
-## (GDD 9, 25, 98). Tidak pernah digabung menjadi satu skor (GDD 13.3).
+## ReputationManager — satu Reputasi ★ 1,0–5,0, ID `reputation` (GDD idle 6.6).
+## Menggantikan dua rating v3.1 (toko dan RotiFood Stars).
+##
+## Setiap pembeli atau pesanan yang terlayani menambah `reputation.served_delta`;
+## setiap yang pergi tanpa terlayani mengurangi `reputation.lost_delta`.
+## Pengali kedatangan = mult_base + mult_per_star × reputasi.
 
-var physical: float = 3.0
-var rotifood: float = 3.0
-var day_start_physical: float = 3.0
-var day_start_rotifood: float = 3.0
-## Hasil penilaian Food Vlogger, diterapkan 05:00 esok hari (GDD 25.2).
-var pending_vip: Array[StringName] = []
-var vip_today: bool = false
+var reputation: float = 3.0
 
 
 func new_game() -> void:
-	physical = DataRegistry.balf("rating.start_physical")
-	rotifood = DataRegistry.balf("rating.start_rotifood")
-	day_start_physical = physical
-	day_start_rotifood = rotifood
-	pending_vip.clear()
-	vip_today = false
+	reputation = DataRegistry.idlef("reputation.start")
 
 
 func _clamp(v: float) -> float:
-	return clampf(v, DataRegistry.balf("rating.min"), DataRegistry.balf("rating.max"))
+	return clampf(v, DataRegistry.idlef("reputation.min"), DataRegistry.idlef("reputation.max"))
 
 
-## Event fisik bernama; `scale` = tier_scale untuk event per pelanggan.
-func physical_event(event: StringName, scale: float) -> void:
-	var ev: Dictionary = DataRegistry.bal("rating.physical_events")
-	var delta: float = float(ev.get(String(event), 0.0)) * scale
-	add_physical(delta)
-
-
-func add_physical(delta: float) -> void:
+func add(delta: float) -> void:
 	if is_nan(delta) or delta == 0.0:
 		return
-	physical = _clamp(physical + delta)
-	sim.statistics.note_rating(physical, rotifood)
-	EventBus.rating_changed.emit(physical, rotifood)
+	var before: float = reputation
+	reputation = _clamp(reputation + delta)
+	if reputation != before:
+		sim.statistics.note_reputation(reputation)
+		EventBus.reputation_changed.emit(reputation)
 
 
-func rotifood_event(delta: float) -> void:
-	if delta == 0.0:
-		return
-	rotifood = _clamp(rotifood + delta)
-	sim.statistics.note_rating(physical, rotifood)
-	EventBus.rating_changed.emit(physical, rotifood)
-	if rotifood >= DataRegistry.balf("rating.max") - 0.0001:
-		sim.achievements.check_condition(&"rotifood_five_stars")
+func on_served() -> void:
+	add(DataRegistry.idlef("reputation.served_delta"))
 
 
-func queue_vip(outcome: StringName) -> void:
-	vip_today = true
-	pending_vip.append(outcome)
+func on_lost() -> void:
+	add(-DataRegistry.idlef("reputation.lost_delta"))
 
 
-## 05:00: terapkan ulasan VIP kemarin (tidak diskalakan tier).
-func begin_day() -> void:
-	for outcome: StringName in pending_vip:
-		physical_event(outcome, 1.0)
-	pending_vip.clear()
-	vip_today = false
-	day_start_physical = physical
-	day_start_rotifood = rotifood
+## Pengali kedatangan (GDD idle 6.6): ★1 = ×0,8; ★5 = ×1,6.
+func mult() -> float:
+	return mult_for(reputation)
 
 
-func trusted_badge() -> bool:
-	return rotifood >= DataRegistry.balf("rating.trusted_badge_stars")
+static func mult_for(rep: float) -> float:
+	return DataRegistry.idlef("reputation.mult_base") + DataRegistry.idlef("reputation.mult_per_star") * rep
 
 
 func capture() -> Dictionary:
-	var pv: Array = []
-	for p: StringName in pending_vip:
-		pv.append(String(p))
-	return {"physical": physical, "rotifood": rotifood, "day_start_physical": day_start_physical,
-		"day_start_rotifood": day_start_rotifood, "pending_vip": pv, "vip_today": vip_today}
+	return {"reputation": reputation}
 
 
 func restore(d: Dictionary) -> void:
-	physical = _clamp(float(d.get("physical", 3.0)))
-	rotifood = _clamp(float(d.get("rotifood", 3.0)))
-	day_start_physical = float(d.get("day_start_physical", physical))
-	day_start_rotifood = float(d.get("day_start_rotifood", rotifood))
-	pending_vip.clear()
-	for p: Variant in d.get("pending_vip", []):
-		pending_vip.append(StringName(str(p)))
-	vip_today = bool(d.get("vip_today", false))
+	reputation = _clamp(float(d.get("reputation", DataRegistry.idlef("reputation.start"))))

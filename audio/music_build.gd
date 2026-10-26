@@ -23,7 +23,7 @@ const KIND_RHODES: int = 1
 const KIND_NYLON: int = 2
 const KIND_SHAKER: int = 3
 
-## Kunci cache: bed yang identik berbagi satu stream (bailout_cue = music_after_hours).
+## Kunci cache: bed yang identik berbagi satu stream.
 var key: String = ""
 var result: AudioStreamWAV = null
 
@@ -70,7 +70,7 @@ static func mood_of(generator_id: String) -> String:
 			return "cozy"
 		"music_rain":
 			return "rain"
-		"music_after_hours", "bailout_cue":
+		"music_after_hours":
 			return "summary"
 		"music_busy_layer":
 			return "busy_layer"

@@ -94,20 +94,16 @@ func _fill(world: WorldView) -> void:
 	for t2: StringName in [&"wall", &"counter_prop"]:
 		_place(DecorFactory.slot_marker(t2, false), 0.5)
 		_place(DecorFactory.slot_marker(t2, true), 0.5)
-	# Penanda stasiun: bar progres, tanda seru, dan tanda gosong berapi.
+	# Penanda stasiun: bar progres.
 	var progress := StationMarker.new()
 	_place(progress, 0.5)
 	progress.show_progress(0.5)
-	var alert := StationMarker.new()
-	_place(alert, 0.5)
-	alert.show_alert(0.6)
 	# Karakter: setiap tipe pelanggan, pengemudi RotiFood saat hujan, kurir,
 	# karyawan, dan pemain; lengkap dengan bar kesabaran, balon, dan bawaan.
 	var specs: Array[Dictionary] = []
 	for arch: Variant in CharacterFactory.ARCHETYPE_VISUAL.keys():
 		specs.append(CharacterFactory.spec_for_customer(str(arch), 7, false))
 	specs.append(CharacterFactory.spec_for_customer("driver_rotifood", 7, true))
-	specs.append(CharacterFactory.spec_for_customer("courier_supply", 7, false))
 	var roles: Dictionary = {}
 	for sd: StaffDefinition in DataRegistry.staff_list():
 		if not roles.has(sd.role_id):
@@ -122,7 +118,6 @@ func _fill(world: WorldView) -> void:
 		v.set_carry(carries[i % carries.size()], profile, 1.0, 2)
 		if i == 0:
 			v.set_patience(0.2, true, false)
-			v.set_alert(true)
 			v.set_thought("?")
 		if i == 1:
 			v._show_cloth(true)
@@ -141,12 +136,11 @@ func _fill(world: WorldView) -> void:
 				prop.visible = true
 				v.add_child(prop)
 				prop.position = Vector3(-0.1, 0.6, 0.0)
-	# Partikel (GDD 4.1): uap, kilau gula, asap gosong, keringat.
+	# Partikel (GDD 4.1): uap, kilau gula, keringat.
 	var fx_root := Node3D.new()
 	_place(fx_root, 1.0)
 	FX.steam(fx_root, Vector3.ZERO)
 	FX.sugar_sparkle(fx_root, Vector3(0.1, 0.0, 0.0))
-	FX.burn_smoke(fx_root, Vector3(-0.1, 0.0, 0.0))
 	# Decoration Mode: jejak penempatan sah/tidak sah dan arsiran ubin.
 	_place(WorldView.ghost_tile(true), 1.0)
 	_place(WorldView.ghost_tile(false), 1.0)

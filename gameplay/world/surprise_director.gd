@@ -157,21 +157,13 @@ func update(delta: float) -> void:
 			if float(e["at"]) > now - LATE_SECONDS:
 				_todo.append(e)
 	if _kind != &"":
-		if not sim.time.is_open():
-			abort()
-			return
 		_apply_visibility()
 		var paused: bool = PauseManager.is_paused()
 		if not paused:
 			_step(delta)
-			# Kejutan pertama dijelaskan sekali oleh tutorial (GDD 88.1). Hanya
-			# catatan tip yang berubah; adegannya tetap tontonan murni.
-			if _kind != &"" and not _tipped and _t >= TIP_AFTER_SECONDS and _cast_inside():
-				_tipped = true
-				sim.tutorial.on_surprise()
 		_place_bubbles(0.0 if paused else delta)
 		return
-	if PauseManager.is_paused() or not sim.time.is_open():
+	if PauseManager.is_paused():
 		return
 	while not _todo.is_empty() and sim.time.time_seconds > float(_todo[0]["at"]) + LATE_SECONDS:
 		_todo.pop_front()

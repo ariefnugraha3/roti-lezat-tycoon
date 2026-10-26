@@ -5,7 +5,6 @@ extends RefCounted
 var id: StringName
 var localization_key: StringName
 var tier: int = 1
-var upgrade_cost_kr: float = 0.0
 ## category -> jumlah slot (mixer, oven, display, cashier).
 var slots: Dictionary = {}
 ## Jenis penempatan dekorasi -> jumlah slot yang boleh dipakai (GDD 72.3):
@@ -14,13 +13,10 @@ var decor_slots: Dictionary = {}
 var staff_capacity_by_role: Dictionary = {}
 ## Gaji harian satu staf, kasir maupun koki, di lokasi ini (GDD 3.3, 87;
 ## keputusan maintainer 2026-10-02).
-var staff_daily_wage_kr: float = 0.0
 var queue_capacity_physical: int = 0
 var queue_capacity_rotifood: int = 0
 var shared_rotifood_queue: bool = true
 var storage_id: StringName
-var base_physical_rate: float = 0.0
-var base_rotifood_rate: float = 0.0
 var active_actor_budget: int = 25
 var entrance_floor: StringName
 var floors: Array[FloorDefinition] = []
@@ -33,7 +29,6 @@ static func from_dict(d: Dictionary) -> LocationDefinition:
 	l.id = StringName(str(d.get("id", "")))
 	l.localization_key = StringName(str(d.get("localization_key", "")))
 	l.tier = int(d.get("tier", 0))
-	l.upgrade_cost_kr = float(d.get("upgrade_cost_kr", 0.0))
 	var sl: Dictionary = d.get("slots", {})
 	for k: Variant in sl.keys():
 		l.slots[StringName(str(k))] = int(sl[k])
@@ -43,13 +38,10 @@ static func from_dict(d: Dictionary) -> LocationDefinition:
 	var sc: Dictionary = d.get("staff_capacity_by_role", {})
 	for k2: Variant in sc.keys():
 		l.staff_capacity_by_role[StringName(str(k2))] = int(sc[k2])
-	l.staff_daily_wage_kr = float(d.get("staff_daily_wage_kr", 0.0))
 	l.queue_capacity_physical = int(d.get("queue_capacity_physical", 0))
 	l.queue_capacity_rotifood = int(d.get("queue_capacity_rotifood", 0))
 	l.shared_rotifood_queue = bool(d.get("shared_rotifood_queue", true))
 	l.storage_id = StringName(str(d.get("storage_id", "")))
-	l.base_physical_rate = float(d.get("base_physical_rate", 0.0))
-	l.base_rotifood_rate = float(d.get("base_rotifood_rate", 0.0))
 	l.active_actor_budget = int(d.get("active_actor_budget", 25))
 	l.entrance_floor = StringName(str(d.get("entrance_floor", "floor_1")))
 	for f: Variant in d.get("floors", []):

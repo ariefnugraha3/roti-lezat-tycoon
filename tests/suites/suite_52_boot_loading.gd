@@ -20,7 +20,6 @@ func tests() -> Array:
 
 func _music_build() -> void:
 	check(MusicBuild.for_generator("tap_soft") == null, "short sounds are not music jobs")
-	eq(MusicBuild.cache_key("bailout_cue"), MusicBuild.cache_key("music_after_hours"), "identical beds share one stream")
 	var sliced: MusicBuild = MusicBuild.for_generator("music_morning")
 	var steps: int = 0
 	var last: float = -1.0
@@ -88,12 +87,12 @@ func _loading_stages() -> void:
 	eq(rec["stages"], _texts(NEW_GAME_STAGES), "new game walks through the loading stages in order")
 	check(bool(rec["forward"]), "the bar never moves backwards")
 	check(int(rec["music_frames"]) >= 3, "the radio stage kept the bar moving over several frames (%d)" % int(rec["music_frames"]))
-	check(bool(rec["still"]), "the clock stays at 05:00 and the game is not running while loading")
+	check(bool(rec["still"]), "the clock stays still and the game is not running while loading")
 	near(float(rec["last"]), 1.0, 0.0001, "the bar is full at the end")
 	check(game.playing and game.loading_screen() == null, "play starts once the overlay fades")
 	check(AudioManager.is_stream_ready(&"shop_music_morning") and AudioManager.is_stream_ready(&"shop_ambience_room"),
 		"today's music and ambience were prepared behind the overlay")
-	near(game.sim.time.time_seconds, 5.0 * 3600.0, 0.001, "the day starts at 05:00 sharp")
+	near(game.sim.time.time_seconds, DataRegistry.idlef("clock.start_seconds"), 0.001, "a new game starts at 08:00 sharp (GDD idle 3.1)")
 	check(not AudioManager._ambient.is_empty(), "the shop ambience plays in the game")
 	# Muat profil (Continue): tahap bacaan save lebih dulu.
 	game.return_to_menu()

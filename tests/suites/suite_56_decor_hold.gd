@@ -12,8 +12,8 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_72_DECOR_DRAG", "name": "72.2 dragging furniture moves it tile by tile under the finger, the shop changes only on Place, and Cancel or Back puts it back", "fn": _drag},
 		{"id": "ACC_72_DECOR_TAP_THROUGH", "name": "72.2 while holding, a tap lands on the floor under the finger (also behind other furniture), never picks another piece and never drops the held one; dragging the floor pans the camera", "fn": _tap_through},
-		{"id": "ACC_72_DECOR_NEW_ITEM", "name": "72.2 an item from the tray appears on a free spot on screen and stays in storage until placed; Done places a validly held item", "fn": _new_item},
-		{"id": "ACC_72_DECOR_STOCKED_SHELF", "name": "72.2 before opening, dragging a shelf that holds bread lifts it with its bread and Place moves both, with Put Away hidden; while open the shelf is not picked up and IN_USE shows", "fn": _stocked_shelf},
+		{"id": "ACC_72_DECOR_NEW_ITEM", "name": "72.2 a decoration from the tray appears on a free spot on screen and stays in the inventory until placed; Done places a validly held item", "fn": _new_item},
+		{"id": "ACC_72_DECOR_STOCKED_SHELF", "name": "72.2 dragging a shelf that holds bread lifts it with its bread and Place moves both; stations have no Put Away", "fn": _stocked_shelf},
 	]
 
 
@@ -288,43 +288,33 @@ func _new_item() -> void:
 	var game: GameRoot = await _boot("New Item Bakery")
 	var deco: DecorationScreen = await _open(game)
 	var world: WorldView = game.world
-	var e: EquipmentInstance = null
-	for x: EquipmentInstance in game.sim.equipment.placed_list():
-		if not EquipmentManager.is_fixture(x.category()) and not game.sim.equipment.is_in_use(x.iid):
-			e = x
-			break
-	check(e != null, "some furniture can be put away")
-	if e == null:
-		await _finish(game)
-		return
-	deco._hold_equipment(e.iid)
-	deco._put_away()
-	check(not e.placed and not deco.has_selection(), "Put Away stores it")
-	# Kartu baki: barang muncul di tempat sah di layar, tetap di gudang sampai Place.
-	deco._set_tab(DecorationScreen.TAB_EQUIPMENT)
+	var uid: int = int(game.sim.decoration._add(&"decor_potted_plant")["uid"])
+	var o: Dictionary = game.sim.decoration.item(uid)
+	check(not bool(o["placed"]), "the new plant waits in the inventory")
+	# Kartu baki: barang muncul di tempat sah di layar, tetap di inventaris sampai Place.
+	deco._set_tab(DecorationScreen.TAB_OWNED)
 	await runner.get_tree().process_frame
-	deco._pick_equipment_card(e.iid)
+	deco._pick_decor_card(uid)
 	await runner.get_tree().process_frame
-	eq(deco._sel_iid, e.iid, "the tray card picks the stored item up")
+	eq(deco._sel_decor, uid, "the tray card picks the plant up")
 	eq(deco._cand_reason, &"", "it appears on a free spot")
-	check(not e.placed, "it stays in storage until it is placed")
+	check(not bool(game.sim.decoration.item(uid)["placed"]), "it stays in the inventory until it is placed")
 	var node: Node3D = world.hold_node()
-	check(node != null and node.visible and not world.furniture.values().has(node), "a preview model shows it in the room")
+	check(node != null and node.visible, "a preview model shows it in the room")
 	var at: Vector2 = world.camera_rig.world_to_screen(world.hold_top())
 	check(runner.get_viewport().get_visible_rect().has_point(at), "on screen (%s)" % at)
-	eq(deco._status.text, Tx.t("ui_decor_place_hint"), "the hint says to drag it or tap a tile, then Place")
 	var spot: Vector2i = world.held()["cell"]
 	# Done menaruh barang yang dipegang di tempat yang sah, lalu menutup mode.
 	deco._done()
 	await runner.get_tree().process_frame
-	check(e.placed and e.anchor == spot, "Done puts the held item down where it was shown")
+	var placed: Dictionary = game.sim.decoration.item(uid)
+	check(bool(placed["placed"]) and SimManager.arr_to_cell(placed["cell"]) == spot, "Done puts the held plant down where it was shown")
 	check(not game.modals.is_open(&"decoration"), "and closes Decoration Mode")
-	check(node == null or not is_instance_valid(node) or node.is_queued_for_deletion(), "the preview model is gone")
 	await _finish(game)
 
 
-## Rak berisi roti diangkat dan dipindah bersama rotinya selama toko belum buka
-## (keputusan maintainer 2026-10-04, GDD 72). Saat buka ia tetap IN_USE.
+## Rak berisi roti diangkat dan dipindah bersama rotinya (v3.1 72; toko idle
+## selalu buka, jadi kapan saja). Stasiun tidak bisa disimpan (GDD idle 8.4).
 func _stocked_shelf() -> void:
 	var game: GameRoot = await _boot("Stocked Shelf Bakery")
 	var sim: SimulationRoot = game.sim
@@ -345,15 +335,15 @@ func _stocked_shelf() -> void:
 		await _finish(game)
 		return
 	var a0: Vector2i = disp.anchor
-	# 1. Sebelum buka: seret badan rak, rak terangkat bersama rotinya.
+	# Seret badan rak: rak terangkat bersama rotinya.
 	_drag_gesture(from, _shift(world, from, d))
 	await runner.get_tree().process_frame
-	eq(world.lifted_iid(), disp.iid, "before opening, dragging the shelf holding bread picks it up")
+	eq(world.lifted_iid(), disp.iid, "dragging the shelf holding bread picks it up")
 	eq(Vector2i(world.held()["cell"]), a0 + d, "it follows the finger by one tile")
 	check(world.hold_node() == world.furniture.get(disp.iid) and _bread_on(world, disp.iid) > 0,
 		"the lifted model is the shelf itself, with its bread on it")
 	check(deco._tb_place.visible and deco._tb_rotate.visible and not deco._tb_store.visible,
-		"Place and Rotate show, Put Away hides while it holds bread")
+		"Place and Rotate show; a station has no Put Away")
 	deco._tb_place.pressed.emit()
 	await runner.get_tree().process_frame
 	eq(disp.anchor, a0 + d, "Place moves the shelf")
@@ -369,16 +359,4 @@ func _stocked_shelf() -> void:
 			var p: Vector3 = node.get_parent().to_local((b as Node3D).global_position)
 			inside = inside and p.x >= box.position.x and p.x <= box.end.x and p.z >= box.position.z and p.z <= box.end.z
 	check(inside, "and that bread sits on the shelf's new tiles")
-	# 2. Saat buka: rak berisi roti tidak terangkat, alasannya tampil.
-	sim.time.phase = TimeManager.OPEN
-	from = _body_point(world, disp.iid)
-	_tap(from)
-	await runner.get_tree().process_frame
-	check(not deco.has_selection() and world.lifted_iid() == -1, "while open a tap does not pick up a shelf holding bread")
-	eq(deco._status.text, Tx.t("ui_feedback_in_use"), "the hint says it is in use")
-	_drag_gesture(from, _shift(world, from, -d))
-	await runner.get_tree().process_frame
-	check(not deco.has_selection(), "and a drag does not pick it up either")
-	eq(disp.anchor, a0 + d, "the shelf stays put")
-	sim.time.phase = TimeManager.PREPARATION
 	await _finish(game)

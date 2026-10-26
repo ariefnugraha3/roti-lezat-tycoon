@@ -1,6 +1,6 @@
 class_name GameRoot
 extends Node
-## GameRoot — titik masuk & orkestrasi sesi (GDD 36, 89, 90, 113, 114).
+## GameRoot — titik masuk & orkestrasi sesi (GDD idle 3.4, 9.3; v3.1 36, 89, 114).
 ##
 ## Boot bertahap: katalog divalidasi (DataRegistry), InputMap didaftarkan, lalu
 ## layar "Tap to Start" membuka kunci audio web (GDD 12.1, 33.4). Main Menu
@@ -15,16 +15,10 @@ extends Node
 ## memasukkan game ke layar penuh landscape (keputusan maintainer 2026-09-30).
 
 const BUSY_CUSTOMERS: int = 4
-## "Skip to Open" (GDD 15.4): waktu nyata per frame untuk tick lompatan, supaya
-## dunia tetap tergambar seperti time-lapse dan tab web tidak membeku.
-const SKIP_FRAME_BUDGET_USEC: int = 12000
-const SKIP_TICKS_PER_CHUNK: int = 20
 ## Anggaran perakitan musik per frame selama layar loading (mikrodetik).
 const LOADING_AUDIO_BUDGET_USEC: int = 30000
 ## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
 const STABLE_FRAME_MS: float = 80.0
-## Dua ketukan pada perabot yang sama secepat ini = ketukan ganda tak sengaja.
-const DOUBLE_TAP_MS: int = 350
 const MAX_SETTLE_FRAMES: int = 12
 
 var sim: SimulationRoot = null
@@ -42,10 +36,8 @@ var _stage_key: String = ""
 var _orientation: OrientationGuard = null
 var _music_timer: float = 0.0
 var _tutorial_modal_shown: String = ""
-var _skip_overlay: SkipOverlay = null
-## Ketukan terakhir pada perabot: {iid, ms}. Ketukan kedua pada perabot yang sama
-## dalam DOUBLE_TAP_MS dianggap satu ketukan, bukan pembatalan (GDD 16.4).
-var _last_equipment_tap: Dictionary = {}
+## Autosave berkala (GDD idle 9.2: rate dan last_active_unix ikut tersimpan).
+var _autosave_timer: float = 0.0
 ## Pemanasan shader saat loading dan setelah upgrade lokasi (ShaderWarmup).
 ## Mati di headless (tanpa GPU tidak ada yang dikompilasi); tes boleh menyalakannya.
 var shader_warmup: bool = DisplayServer.get_name() != "headless"
@@ -64,6 +56,7 @@ func _ready() -> void:
 	ScreenRegistry.register_all(modals)
 	modals.stack_changed.connect(_on_modal_stack_changed)
 	PauseManager.lifecycle_paused.connect(_on_lifecycle_paused)
+	PauseManager.lifecycle_resumed.connect(_on_lifecycle_resumed)
 	EventBus.economy_overflowed.connect(func() -> void: modals.open(&"overflow"))
 	if WebPlatform.is_mobile_web():
 		_orientation = OrientationGuard.new()
@@ -215,8 +208,6 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	commands.world_tapped.connect(_on_world_tap)
 	commands.back_requested.connect(_on_back)
 	commands.pause_requested.connect(_on_pause_key)
-	commands.speed_requested.connect(func(s: int) -> void: sim.time.set_speed(s))
-	commands.floor_alert_requested.connect(func() -> void: hud.focus_floor_alert())
 	hud = HUD.new()
 	hud.game = self
 	hud.sim = sim
@@ -242,22 +233,12 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	EventBus.profile_loaded.emit(profile_id)
 	_update_music()
 	_prewarm_day_music()
-	# Modal yang harus muncul lagi setelah load.
-	if sim.time.phase == TimeManager.SUMMARY or sim.time.phase == TimeManager.CLOSING:
-		modals.open(&"daily_summary", {"report": sim.reports.last_report})
-	elif sim.bailout.cutscene_pending:
-		modals.open(&"bailout", {"repeat": sim.bailout.repeat_visit})
+	_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
 	_show_tutorial_prompt()
 	await get_tree().process_frame
 
 
 func _connect_sim_requests() -> void:
-	_connect_bus(EventBus.recipe_book_requested, func() -> void: modals.open(&"recipe_book"))
-	_connect_bus(EventBus.slot_picker_requested, func(iid: int) -> void: modals.open(&"slot_picker", {"display": iid}))
-	_connect_bus(EventBus.display_detail_requested, func(iid: int) -> void: modals.open(&"display_detail", {"display": iid}))
-	_connect_bus(EventBus.customer_order_requested, func(_id: int) -> void: modals.open(&"customer_order", {"customer": sim.ui_requests.customer_order}))
-	_connect_bus(EventBus.daily_summary_ready, func(_day: int) -> void: modals.open(&"daily_summary", {"report": sim.reports.last_report}))
-	_connect_bus(EventBus.bailout_cutscene_requested, func(repeat: bool) -> void: modals.open(&"bailout", {"repeat": repeat}))
 	_connect_bus(EventBus.tutorial_step_changed, func(_s: StringName) -> void: _show_tutorial_prompt())
 
 
@@ -280,9 +261,6 @@ func _disconnect_bus() -> void:
 
 func _teardown() -> void:
 	playing = false
-	if _skip_overlay != null and is_instance_valid(_skip_overlay):
-		_skip_overlay.queue_free()
-	_skip_overlay = null
 	_disconnect_bus()
 	PauseManager.lifecycle_enabled = false
 	SaveManager.simulation = null
@@ -320,19 +298,20 @@ func _process(delta: float) -> void:
 	if not playing or sim == null:
 		return
 	var was_paused: bool = PauseManager.is_paused()
-	if _skip_overlay != null:
-		_run_skip_to_open()
-	else:
-		sim.advance(delta)
+	sim.advance(delta)
 	if not was_paused:
 		sim.statistics.add_play_time(delta)
+		_autosave_timer -= delta
+		if _autosave_timer <= 0.0:
+			_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
+			SaveManager.request_autosave("interval")
 	_music_timer -= delta
 	if _music_timer <= 0.0:
 		_music_timer = 1.0
 		_update_music()
 	if world != null and hud != null:
 		var top: UIScreen = modals.top()
-		commands.enabled = _skip_overlay == null and (top == null or top.world_input or not modals.has_blocking())
+		commands.enabled = top == null or top.world_input or not modals.has_blocking()
 		# Loop mixer/oven mengikuti state (GDD 93).
 		var mixing: bool = false
 		var baking: bool = false
@@ -352,27 +331,23 @@ func _update_music() -> void:
 	EventBus.music_state_changed.emit(_music_state())
 
 
-## Suasana musik untuk keadaan toko saat ini (GDD 33.1).
+## Suasana musik mengikuti jam toko yang selalu buka (GDD idle 3.1; v3.1 33.1):
+## pagi, siang, ramai, hujan, atau malam.
 func _music_state() -> StringName:
-	var state: StringName = &"STORE_OPEN_CALM"
-	match sim.time.phase:
-		TimeManager.PREPARATION:
-			state = &"MORNING_PREP"
-		TimeManager.OPEN:
-			if sim.weather.is_rain():
-				state = &"RAIN"
-			elif sim.customers.active_count() >= BUSY_CUSTOMERS or sim.rotifood.active_orders().size() >= 2:
-				state = &"STORE_OPEN_BUSY"
-		_:
-			state = &"DAILY_SUMMARY"
-	if modals.is_open(&"bailout"):
-		state = &"BAILOUT_CUTSCENE"
-	return state
+	if sim.weather.is_rain():
+		return &"RAIN"
+	if sim.time.is_night():
+		return &"NIGHT"
+	if sim.time.time_seconds < 10.0 * 3600.0:
+		return &"MORNING_PREP"
+	if sim.customers.active_count() >= BUSY_CUSTOMERS or sim.rotifood.active_orders().size() >= 2:
+		return &"STORE_OPEN_BUSY"
+	return &"STORE_OPEN_CALM"
 
 
-## Bed yang akan dibutuhkan hari ini dirakit di latar, jauh sebelum 08:00/18:00.
+## Bed yang akan dibutuhkan dirakit di latar, jauh sebelum dipakai (v3.1 33.6).
 func _prewarm_day_music() -> void:
-	var ids: Array = [&"shop_music_after_hours"]
+	var ids: Array = [&"shop_music_after_hours", &"shop_music_morning"]
 	if sim.weather.is_rain():
 		ids.push_front(&"shop_music_rain")
 	else:
@@ -382,93 +357,25 @@ func _prewarm_day_music() -> void:
 
 
 # ===========================================================================
-# SKIP TO OPEN (GDD 15.4)
-# ===========================================================================
-
-func is_skipping_to_open() -> bool:
-	return _skip_overlay != null
-
-
-## Tombol HUD "Skip to Open": minta konfirmasi, atau jelaskan kenapa belum bisa.
-func request_skip_to_open() -> void:
-	if sim == null or _skip_overlay != null:
-		return
-	match sim.skip_to_open_block():
-		&"":
-			modals.confirm(Tx.t("ui_skip_open_confirm", {"time": Tx.clock(sim.time.open_time)}), begin_skip_to_open)
-		&"oven":
-			EventBus.notify.emit(1, "ui_skip_open_oven", {}, &"fire")
-		_:
-			pass
-
-
-## "Close Early" (GDD 15.5): konfirmasi dulu (dialog menjeda simulasi, jadi
-## penalti yang tertulis tepat), lalu toko tutup, jam maju ke 18:00, dan Daily
-## Summary terbuka lewat alur penutupan biasa.
-func request_close_early() -> void:
-	if sim == null or sim.close_early_block() != &"":
-		return
-	var stars: String = "%.2f" % sim.close_early_penalty()
-	modals.confirm(Tx.t("ui_close_early_confirm", {"time": Tx.clock(sim.time.close_time), "stars": stars}), func() -> void:
-		if sim != null and sim.close_early():
-			EventBus.sfx.emit(&"ui_confirm", &""))
-
-
-## Mulai lompatan. Simulasi berjalan tick demi tick seperti biasa, hanya jauh
-## lebih cepat, sampai 08:00 atau sampai ada oven yang butuh pemain.
-func begin_skip_to_open() -> void:
-	if sim == null or _skip_overlay != null or sim.skip_to_open_block() != &"":
-		return
-	_skip_overlay = SkipOverlay.new()
-	add_child(_skip_overlay)
-	_skip_overlay.begin(sim.time.time_seconds, sim.time.open_time)
-	EventBus.sfx.emit(&"ui_confirm", &"")
-
-
-func _run_skip_to_open() -> void:
-	# Modal yang muncul di tengah lompatan (tutorial, lifecycle) menahannya dulu.
-	if PauseManager.is_paused():
-		return
-	var t0: int = Time.get_ticks_usec()
-	var result: StringName = &""
-	while result == &"" and Time.get_ticks_usec() - t0 < SKIP_FRAME_BUDGET_USEC:
-		result = sim.skip_to_open_step(SKIP_TICKS_PER_CHUNK)
-	_skip_overlay.show_time(sim.time.time_seconds)
-	if result != &"":
-		_end_skip_to_open(result)
-
-
-func _end_skip_to_open(result: StringName) -> void:
-	_skip_overlay.finish()
-	_skip_overlay = null
-	if result == &"oven":
-		EventBus.notify.emit(1, "ui_skip_open_stopped", {}, &"fire")
-
-
-# ===========================================================================
 # INPUT DUNIA -> PERINTAH (GDD 12.4, 29)
 # ===========================================================================
 
+## Ketukan dunia (GDD idle 5.1, 5.2): stasiun dan kasir menjadi prioritas
+## pemilik sebentar dan yang sedang bekerja mendapat Semangat. Pintu tangga
+## memindahkan pandangan kamera ke lantai lain.
 func _on_world_tap(pos: Vector2) -> void:
-	if sim == null or not sim.is_running():
+	if sim == null:
 		return
 	var p: Dictionary = world.pick(pos)
 	match p.get("kind", &"none"):
 		&"equipment":
-			var iid: int = int(p["iid"])
-			var now: int = Time.get_ticks_msec()
-			if int(_last_equipment_tap.get("iid", -1)) == iid and now - int(_last_equipment_tap.get("ms", 0)) < DOUBLE_TAP_MS:
-				return
-			_last_equipment_tap = {"iid": iid, "ms": now}
-			sim.player.tap_equipment(iid)
+			sim.player.tap_station(int(p["iid"]))
 		&"cashier":
-			sim.player.tap_cashier(StringName(str(p["lane"])), false)
+			sim.player.tap_cashier(StringName(str(p["lane"])))
 		&"customer":
 			sim.player.tap_customer(StringName(str(p["customer"])))
-		&"tablet":
-			modals.open(&"rotifood", {})
 		&"portal":
-			sim.player.tap_portal()
+			world.toggle_view_floor()
 		_:
 			pass
 
@@ -496,22 +403,8 @@ func _on_pause_key() -> void:
 		modals.open(&"pause")
 
 
-## Pengaman (GDD 11.5-11.6): selama fase Summary nota harian selalu ada di
-## layar. Bila tumpukan modal kosong padahal hari belum dilanjutkan, nota dibuka
-## lagi supaya permainan tidak pernah macet tanpa tombol lanjut.
 func _on_modal_stack_changed() -> void:
-	if _summary_missing():
-		_reopen_summary.call_deferred()
-
-
-func _summary_missing() -> bool:
-	return playing and sim != null and sim.time.phase == TimeManager.SUMMARY \
-		and not modals.is_open(&"daily_summary") and not modals.has_blocking()
-
-
-func _reopen_summary() -> void:
-	if _summary_missing():
-		modals.open(&"daily_summary", {"report": sim.reports.last_report})
+	pass
 
 
 func _exit_tree() -> void:
@@ -526,14 +419,18 @@ func _notification(what: int) -> void:
 			SaveManager.save_now()
 
 
-## Fokus hilang: pause sudah didorong PauseManager; simpan prioritas setelah
-## pause stabil, lalu tampilkan "Game Paused" (GDD 90, 113).
+## Fokus hilang: simulasi berhenti (PauseManager) dan profil disimpan segera
+## supaya waktu offline dihitung dari saat ini (GDD idle 3.4, 9.2).
 func _on_lifecycle_paused() -> void:
 	if not playing:
 		return
 	SaveManager.request_autosave("lifecycle", true)
-	if not modals.is_open(&"lifecycle"):
-		modals.open(&"lifecycle")
+
+
+## Fokus kembali: game langsung jalan lagi tanpa layar "Game Paused"
+## (GDD idle 3.4).
+func _on_lifecycle_resumed() -> void:
+	pass
 
 
 func _on_settings_changed(key: String) -> void:
@@ -545,26 +442,23 @@ func _on_settings_changed(key: String) -> void:
 # TUTORIAL & LOADING
 # ===========================================================================
 
+## Prompt onboarding (GDD idle 13): popup, sorotan, atau petunjuk HUD.
 func _show_tutorial_prompt() -> void:
 	if sim == null or hud == null:
 		return
 	var p: Dictionary = sim.tutorial.prompt
 	if p.is_empty():
-		hud.show_tutorial_hint("", &"", -1)
-		world.highlight(&"", -1)
+		hud.show_tutorial_hint("", &"")
 		return
-	if bool(p.get("modal", false)):
-		# Tip yang mem-pause game: popup biasa, atau sorotan (GDD 27.5) bila
-		# prompt-nya menyebut satu.
-		var spot: String = str(p.get("spotlight", ""))
-		var screen: StringName = &"tutorial_spotlight" if spot != "" else &"tutorial"
+	var style: String = str(p.get("style", "hint"))
+	if style == "popup" or style == "spotlight":
+		var screen: StringName = &"tutorial_spotlight" if style == "spotlight" else &"tutorial"
 		if _tutorial_modal_shown != str(p["key"]) or not modals.is_open(screen):
 			_tutorial_modal_shown = str(p["key"])
-			hud.show_tutorial_hint("", &"", -1)
-			modals.open(screen, {"key": p["key"], "spotlight": spot, "target_iid": int(p.get("target_iid", -1))})
+			hud.show_tutorial_hint("", &"")
+			modals.open(screen, {"key": p["key"], "target": str(p.get("target", ""))})
 	else:
-		hud.show_tutorial_hint(str(p["key"]), StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
-	world.highlight(StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
+		hud.show_tutorial_hint(str(p["key"]), StringName(str(p.get("target", ""))))
 
 
 func _begin_loading(stage_key: String, progress_value: float) -> void:

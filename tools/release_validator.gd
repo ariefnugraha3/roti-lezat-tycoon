@@ -214,8 +214,7 @@ func _check_locations() -> void:
 	var s: SimulationRoot = _new_sim(1)
 	for tier in range(1, 6):
 		if tier > 1:
-			s.time.set_phase(TimeManager.AFTER_HOURS)
-			s.debug_add_kr(s.next_location().upgrade_cost_kr)
+			s.debug_add_kr(SimulationRoot.location_cost(tier))
 			var r: String = s.upgrade_location()
 			if r != "":
 				bad.append("T%d upgrade: %s" % [tier, r])
@@ -256,18 +255,16 @@ func _check_boot() -> void:
 	game.show_main_menu()
 	await get_tree().process_frame
 	_add("headless boot reaches the main menu", game.modals.is_open(&"main_menu"))
-	# Irisan vertikal Tier 1: New Game, satu hari penuh, Daily Summary.
+	# Irisan vertikal Tier 1 (GDD idle 2.3): New Game lalu 30 menit nyata tanpa
+	# input apa pun; toko harus menjual sendiri.
 	await game.start_new_game(&"profile_1", "female", "Validator Bakery")
-	var bot := SimBot.new(game.sim)
-	var frames: int = 0
-	while game.sim.is_running() and frames < 200000:
-		bot.think()
+	var ticks: int = int(30.0 * 60.0 * DataRegistry.sim_seconds_per_real_second() / game.sim.tick_seconds)
+	for i in ticks:
 		game.sim.step(game.sim.tick_seconds)
-		frames += 1
-		if frames % 600 == 0:
+		if i % 2000 == 0:
 			await get_tree().process_frame
 	await get_tree().process_frame
-	_add("Tier 1 vertical slice reaches the Daily Summary", game.modals.is_open(&"daily_summary"))
+	_add("Tier 1 vertical slice sells bread with no input (GDD idle 2.3)", game.sim.statistics.get_stat("total_bread_sold") > 0.0 and game.sim.economy.balance >= 0.0)
 	_add("no console error during the Tier 1 vertical slice", _errors.count == 0, "; ".join(_errors.first))
 	game.return_to_menu()
 	await get_tree().process_frame
@@ -297,7 +294,7 @@ func _check_profiles() -> void:
 
 
 func _check_golden() -> void:
-	const GOLDEN: String = "res://tests/fixtures/golden_v3_day4.json"
+	const GOLDEN: String = "res://tests/fixtures/golden_idle_v1.json"
 	if not FileAccess.file_exists(GOLDEN):
 		_add("golden save loads and re-saves idempotently", false, "missing fixture")
 		return

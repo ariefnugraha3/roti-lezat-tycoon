@@ -1,11 +1,10 @@
 class_name TutorialModal
 extends UIScreen
-## Langkah tutorial yang mem-pause game (GDD 88: "game pause ketika tutorial
-## modal aktif"). Teksnya dari katalog English (GDD 127.5). Tombol Skip
-## melewati tutorial tanpa mengubah demand terjadwal (GDD 27.6).
+## Langkah onboarding berbentuk popup (GDD idle 13, mis. sapaan Pak Lurah).
+## Teksnya dari katalog English (v3.1 127). Tombol Skip melewati onboarding.
 
 
-## Tip tutorial tampil di atas layar yang sedang dijelaskannya, mis. Daily Summary.
+## Tip tampil di atas layar yang sedang dijelaskannya.
 func _init() -> void:
 	super._init()
 	overlay = true
@@ -21,7 +20,7 @@ func build() -> void:
 	body.add_child(spacer)
 	var nav: HBoxContainer = hbox(body, 12)
 	nav.alignment = BoxContainer.ALIGNMENT_END
-	if sim != null and sim.tutorial.active():
+	if sim != null and not sim.tutorial.skipped:
 		btn(nav, Tx.t("ui_tutorial_skip"), "ghost", func() -> void:
 			host.confirm(Tx.t("ui_tutorial_skip_confirm"), _skip))
 	var ok: Button = btn(nav, Tx.t("ui_tutorial_got_it"), "primary", _ok)

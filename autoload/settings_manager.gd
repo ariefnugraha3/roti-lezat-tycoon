@@ -1,5 +1,5 @@
 extends Node
-## SettingsManager — pengaturan & aksesibilitas (GDD 44, 75), disimpan terpisah
+## SettingsManager — pengaturan & aksesibilitas (v3.1 44, 75; GDD idle 7.5), disimpan terpisah
 ## dari profil karier di user://settings.json (GDD 106). File rusak diganti
 ## default aman tanpa menghentikan boot (GDD 114 tahap 2).
 
@@ -22,7 +22,7 @@ const DEFAULTS: Dictionary = {
 	"brightness": 100,
 	"fps_cap": 60,
 	"quality": "auto",
-	"smart_speed": true,
+	"number_format": "short",
 	"edge_scroll": false,
 	"confirm_expensive": true,
 	"confirm_threshold": 5000,
@@ -47,6 +47,7 @@ const RANGES: Dictionary = {
 const CHOICES: Dictionary = {
 	"fps_cap": [30, 60, 0],
 	"quality": ["auto", "quality_low", "quality_medium", "quality_high"],
+	"number_format": ["short", "scientific"],
 	"resolution_scale": [70, 85, 100],
 	"text_scale": [100, 125, 150],
 }

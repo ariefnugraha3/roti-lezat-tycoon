@@ -36,7 +36,7 @@ func _ready() -> void:
 func _run() -> void:
 	var bot := SimBot.new(sim)
 	var lane: QueueLane = sim.queue.main_lane()
-	# 1. Urutan membungkus di meja kasir (GDD 21.4, manual, pemain berjaga):
+	# 1. Urutan membungkus di meja kasir (v3.1 21.4, pemilik melayani jalur A):
 	# buka kantong, roti melompat masuk, pita diikat, kantong disodorkan, lalu
 	# menunggu bayaran. Titik fotonya dihitung dari jumlah roti yang dibungkus.
 	var ok: bool = await _advance(bot, func() -> bool: return sim.cashier.packing_progress(lane.id) >= 0.0)
@@ -106,18 +106,16 @@ func _run() -> void:
 	await _shot("world_thought")
 	# 3. Pemain menganggur lama: terkantuk-kantuk (tanpa gelembung).
 	world._quiet_real = 0.0
-	sim.time.phase = TimeManager.PREPARATION
 	var pv: ActorView = world.views.get(sim.player.actor.id)
 	if pv != null:
 		pv._idle_real = 27.0
 	await _frames(90)
 	await _shot("world_doze")
-	# 4. Meja Tunggu berisi adonan dan loyang dengan kesegaran berbeda (GDD 5.1.3).
+	# 4. Meja Tunggu berisi adonan dan loyang (GDD idle 4.7).
 	if pv != null:
 		pv._idle_real = 0.0
 	var table: EquipmentInstance = sim.equipment.table_instance()
 	var recipes: Array[StringName] = [&"recipe_plain_loaf", &"recipe_plain_loaf", &"recipe_sugar_donut", &"recipe_plain_fried_bread", &"recipe_sugar_donut"]
-	var ages: Array[float] = [0.0, 1.0, 4.5, 3.0, 9.0]
 	for i in recipes.size():
 		var j := ProductionJob.new()
 		j.job_id = 90000 + i
@@ -126,8 +124,8 @@ func _run() -> void:
 		j.carried_units = j.quantity_output
 		j.stage = ProductionJob.DOUGH_ON_TABLE if i % 2 == 0 else ProductionJob.TRAY_ON_TABLE
 		j.table_seq = i + 1
-		j.table_age_hours = ages[i]
 		sim.production.jobs[j.job_id] = j
+		sim.production._sorted_dirty = true
 	var acc: Dictionary = sim.world.access_of(table.iid)
 	sim.player.actor.place_at(acc["floor"], acc["cell"])
 	rig.ortho_size = 2.4
@@ -147,7 +145,7 @@ func _run() -> void:
 ## Majukan simulasi (bot bermain) sampai `cond` benar, sambil tetap merender.
 func _advance(bot: SimBot, cond: Callable) -> bool:
 	var ticks: int = 0
-	while ticks < 400000 and sim.is_running():
+	while ticks < 400000:
 		for i in 40:
 			bot.think()
 			sim.step(sim.tick_seconds)

@@ -61,7 +61,6 @@ func _entries() -> Array:
 		e.append(["generic %d" % seed_i, CharacterFactory.spec_for_customer("customer_generic", seed_i)])
 	e.append(["RotiFood driver", CharacterFactory.spec_for_driver(false)])
 	e.append(["RotiFood driver (rain)", CharacterFactory.spec_for_driver(true)])
-	e.append(["Supply courier", CharacterFactory.spec_for_courier()])
 	e.append(["Pak Lurah", CharacterFactory.spec_for_lurah()])
 	return e
 

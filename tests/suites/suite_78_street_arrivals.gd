@@ -1,6 +1,6 @@
 extends TestSuite
 ## Kedatangan dari ujung trotoar (keputusan maintainer 2026-10-09, GDD 20.1):
-## pembeli, pengunjung lihat-lihat, driver RotiFood, kurir, dan pemeran kejutan
+## pembeli, pengunjung lihat-lihat, driver RotiFood, dan pemeran kejutan
 ## berjalan dari ujung jalan ke pintu, dan yang pulang berjalan kembali ke ujung.
 
 
@@ -8,25 +8,29 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_20_STREET_ARRIVAL", "name": "20.1 buyers come from either end of the pavement, walk along it and turn in at the door; only then they ring the bell, count as entered and choose their bread; their queue slot is kept and their patience does not drain on the way", "fn": _arrival},
 		{"id": "ACC_20_STREET_PATHS", "name": "20.1 at every tier the walk from both ends of the pavement to the door is clear of everything in the neighbourhood and the holiday decorations, and starts off the shop's sides", "fn": _paths_clear},
-		{"id": "ACC_22_DRIVER_ARRIVAL", "name": "22.6 a RotiFood driver sets off from the end of the pavement early by the length of the walk, so he reaches the door at the scheduled time; his patience starts at the door; a rejected order turns him back to the end of the pavement", "fn": _driver},
-		{"id": "ACC_24_COURIER_ARRIVAL", "name": "5.2.3 the supply courier sets off from the end of the pavement early by the length of the walk and reaches the door at the Market's ETA", "fn": _courier},
+		{"id": "ACC_22_DRIVER_ARRIVAL", "name": "22.6 a RotiFood driver sets off from the end of the pavement early by the length of the walk, so he reaches the door at the scheduled time; his patience starts at the door", "fn": _driver},
 		{"id": "ACC_20_STREET_LEAVERS", "name": "20.1 a buyer who walks out of the door keeps walking along the pavement to its end, as a view only: the simulation has already let them go", "fn": _leavers},
 		{"id": "ACC_31_SURPRISE_STREET", "name": "31.9 a surprise performer who walks comes from the end of the pavement, goes into the shop and leaves along the pavement again", "fn": _surprise},
 	]
 
 
+## Toko tanpa kedatangan acak dan tanpa produksi baru.
 func _open_store(seed_value: int) -> SimulationRoot:
 	var s: SimulationRoot = new_sim(seed_value)
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	s.demand.scripted_window_shoppers.clear()
-	run_until(s, 8.0 * 3600.0 + 10.0)
+	freeze_production(s)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
 	return s
+
+
+func _entered(s: SimulationRoot) -> int:
+	return int(s.statistics.get_stat("total_customers_entered"))
 
 
 func _admit(s: SimulationRoot, archetype: StringName) -> Customer:
 	var before: Array = s.customers.customers.keys()
-	s.customers.try_admit({"archetype": archetype, "scripted": false, "recipe": &"", "quantity": 0, "patience_override": null})
+	s.customers.try_admit({"archetype": archetype})
 	for k: Variant in s.customers.customers.keys():
 		if not before.has(k):
 			return s.customers.customers[k]
@@ -60,7 +64,7 @@ func _arrival() -> void:
 	var walk_z: float = StreetPaths.walk_z(loc.tier)
 	var sides: Dictionary = {}
 	for i in 2:
-		var entered: int = s.customers.entered_today
+		var entered: int = _entered(s)
 		var c: Customer = _admit(s, &"customer_generic")
 		if not check(c != null, "buyer %d is admitted" % (i + 1)):
 			break
@@ -70,7 +74,7 @@ func _arrival() -> void:
 		var side: int = -1 if c.actor.pos.x < door.x else 1
 		sides[side] = true
 		check(s.queue.lane_of(c.id) != null, "holds its queue slot from the start")
-		eq(s.customers.entered_today, entered, "not counted as entered on the pavement")
+		eq(_entered(s), entered, "not counted as entered on the pavement")
 		var t0: float = s.time.sim_seconds
 		var drained: bool = false
 		var off_line: bool = false
@@ -87,7 +91,7 @@ func _arrival() -> void:
 		check(not drained, "patience does not drain on the pavement")
 		check(not off_line, "walks the pavement line, then straight in to the door")
 		eq(c.actor.cell(), s.world.entrance_cell(), "steps in through the front door")
-		eq(s.customers.entered_today, entered + 1, "counted when stepping in")
+		eq(_entered(s), entered + 1, "counted when stepping in")
 		near(took, StreetPaths.approach_seconds(loc, side, c.actor.speed_mps), 0.3, "the walk takes as long as the path is long")
 		eq(c.target_recipe, &"recipe_plain_loaf", "chooses its bread once inside")
 	check(sides.has(-1) and sides.has(1), "buyers come from both ends of the pavement")
@@ -167,14 +171,14 @@ func _paths_clear() -> void:
 
 
 # ===========================================================================
-# DRIVER DAN KURIR
+# DRIVER
 # ===========================================================================
 
 func _driver() -> void:
 	var s: SimulationRoot = _open_store(7803)
 	var loc: LocationDefinition = s.world.location
-	var o: DeliveryOrder = s.rotifood.create_scripted_order(&"recipe_plain_loaf", 1)
-	o.driver_arrival_time = s.time.sim_seconds + 60.0
+	var o: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 1}, 60.0)
+	near(o.driver_arrival_time, s.time.sim_seconds + 60.0, 0.0001, "the driver is due at the end of the prep window")
 	var lead: float = s.rotifood.approach_seconds(o)
 	check(lead > 3.0, "the driver has a walk from the end of the pavement (%.1f s)" % lead)
 	var set_off: float = -1.0
@@ -196,60 +200,6 @@ func _driver() -> void:
 	check(not drained, "patience starts at the door")
 	if o.driver != null:
 		eq(o.driver.cell(), s.world.entrance_cell(), "comes in through the front door")
-	# Order ditolak saat driver masih di trotoar: ia berbalik ke ujung trotoar.
-	var o2: DeliveryOrder = s.rotifood.create_scripted_order(&"recipe_plain_loaf", 1)
-	o2.driver_arrival_time = s.time.sim_seconds + 40.0
-	guard = 0
-	while o2.driver_phase != &"approaching" and guard < 2000:
-		s.step(s.tick_seconds)
-		guard += 1
-	s.run_for(2.0)
-	if not check(o2.driver_phase == &"approaching" and o2.driver != null, "the second driver is on his way"):
-		free_sim(s)
-		return
-	check(s.rotifood.reject(o2.order_id), "the order is rejected while he walks")
-	eq(o2.driver_phase, &"leaving", "the driver turns back")
-	check(o2.driver != null and o2.driver.outside, "on the pavement")
-	var last: Vector2 = o2.driver.pos
-	guard = 0
-	while o2.driver != null and guard < 4000:
-		last = o2.driver.pos
-		s.step(s.tick_seconds)
-		guard += 1
-	eq(o2.driver_phase, &"gone", "and is gone once at the end")
-	check(_end_distance(loc, last) < 0.3, "at the end of the pavement (%s)" % last)
-	eq(s.check_invariants(), "", "invariants")
-	free_sim(s)
-
-
-func _courier() -> void:
-	var s: SimulationRoot = new_sim(7804)
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	s.demand.scripted_window_shoppers.clear()
-	s.supply.unlock_market()
-	run_until(s, 9.0 * 3600.0)
-	var r: Dictionary = s.supply.purchase({&"ingredient_flour": 1})
-	check(bool(r["ok"]) and not bool(r["instant"]), "a daytime purchase goes to a courier")
-	var o: Dictionary = s.supply.orders[s.supply.orders.size() - 1]
-	var oid: int = int(o["order_id"])
-	var eta: float = float(o["arrival_game_time"])
-	var lead: float = s.supply.approach_game_seconds(oid)
-	check(lead > 60.0, "the courier has a walk from the end of the pavement (%.0f in-game s)" % lead)
-	run_until(s, eta - lead - 120.0)
-	eq(s.supply.couriers.size(), 0, "no courier before he sets off")
-	var set_off: float = -1.0
-	var at_door: float = -1.0
-	while at_door < 0.0 and s.time.time_seconds < eta + 900.0:
-		s.step(s.tick_seconds)
-		if set_off < 0.0 and s.supply.couriers.has(oid):
-			set_off = s.time.time_seconds
-			var a: SimActor = s.supply.couriers[oid]
-			check(a.outside and _end_distance(s.world.location, a.pos) < 0.3, "sets off at the end of the pavement")
-		if str(o["state"]) == String(SupplyOrderManager.COURIER_ENTERING):
-			at_door = s.time.time_seconds
-	near(set_off, eta - lead, 6.0, "sets off early by the length of the walk")
-	near(at_door, eta, 12.0, "reaches the door at the Market's ETA")
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
 

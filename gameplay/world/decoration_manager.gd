@@ -2,7 +2,7 @@ class_name DecorationManager
 extends SimManager
 ## DecorationManager — dekorasi kosmetik milik pemain (GDD 72, 72.1, 72.3, 92.1).
 ## Murni kosmetik: tidak mengubah demand, rating, kecepatan, atau interaksi.
-## Decor Shop hanya aktif after-hours; menata ulang boleh kapan saja.
+## Toko dekorasi dan menata ulang boleh kapan saja (toko idle selalu buka).
 ##
 ## Aturan slot (GDD 72.3, keputusan maintainer 2026-09-30): semua dekorasi
 ## dipasang di lantai toko, dan jumlah yang terpasang per jenis dibatasi
@@ -63,8 +63,6 @@ func can_buy(deco_id: StringName) -> StringName:
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
 	if def == null or def.source != &"shop":
 		return &"invalid"
-	if not sim.time.is_after_hours():
-		return &"after_hours"
 	if (def.placement_type == &"skin") and owns(deco_id):
 		return &"owned"
 	if not sim.economy.can_afford(def.price_kr):
@@ -77,12 +75,18 @@ func buy(deco_id: StringName) -> StringName:
 	if reason != &"":
 		return reason
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
-	sim.economy.spend(def.price_kr, &"OTHER_ADJUSTMENT", deco_id, {"decor": true})
+	sim.economy.spend(def.price_kr, &"DECOR_PURCHASE", deco_id, {})
 	_add(deco_id)
 	if def.placement_type == &"skin":
 		equip(deco_id)
 	SaveManager.request_autosave("decor_purchase")
 	return &""
+
+
+## Pengali bonus dekorasi sejenis (GDD idle 8.8): 1 + Σ nilai bonus `kind`
+## (arrival, price, rotifood) dari dekorasi berbonus yang dibeli putaran ini.
+func bonus_mult(_kind: StringName) -> float:
+	return 1.0
 
 
 func equip(deco_id: StringName) -> void:
@@ -179,7 +183,6 @@ func place(uid: int, floor_id: StringName, cell: Vector2i, slot: int, rot: int =
 	if type_of(o) == &"floor_overlay":
 		o["rot"] = r
 	sim.world.rebuild_occupancy()
-	sim.tutorial.on_event(&"furniture_placed")
 	return &""
 
 

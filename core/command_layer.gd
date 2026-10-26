@@ -15,8 +15,6 @@ extends Node
 signal world_tapped(screen_pos: Vector2)
 signal back_requested()
 signal pause_requested()
-signal speed_requested(speed: int)
-signal floor_alert_requested()
 
 var world: WorldView = null
 var enabled: bool = true
@@ -94,13 +92,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("pause_toggle"):
 		pause_requested.emit()
-		return
-	for s in 3:
-		if event.is_action_pressed("game_speed_%d" % (s + 1)):
-			speed_requested.emit(s + 1)
-			return
-	if event.is_action_pressed("floor_alert_focus"):
-		floor_alert_requested.emit()
 		return
 	if not enabled or world == null:
 		return

@@ -10,7 +10,7 @@ signal queue_slot_freed()
 
 var lanes: Array[QueueLane] = []
 var rotifood_lane: QueueLane = null
-var highest_occupancy_today: int = 0
+var highest_occupancy: int = 0
 
 
 func build_from_location() -> void:
@@ -42,7 +42,7 @@ func build_from_location() -> void:
 
 func new_game() -> void:
 	build_from_location()
-	highest_occupancy_today = 0
+	highest_occupancy = 0
 
 
 func lane(lane_id: StringName) -> QueueLane:
@@ -70,19 +70,20 @@ func staff_lanes() -> Array[QueueLane]:
 	return out
 
 
-## Lane fisik terbuka (GDD 21.2, 57.6; keputusan maintainer 2026-10-02): jalur
-## kasir terbuka selama Asisten Kasirnya bertugas; jalur utama milik pemain
-## terbuka selama pemain berjaga di sana, atau bila tidak ada jalur lain yang
-## terbuka (antrean menunggu pemain). Antrean hanya terbentuk di jalur terbuka.
+## Lane fisik terbuka (GDD idle 5.1, 5.4; v3.1 21.2, 57.6): jalur kasir terbuka
+## selama ada Asisten Kasirnya; jalur A milik pemilik terbuka selama pemilik
+## melayaninya, bila tidak ada jalur kasir lain yang terbuka, atau bila semua
+## jalur kasir yang terbuka sudah penuh (pemilik ikut melayani). Antrean hanya
+## terbentuk di jalur terbuka.
 func is_open(l: QueueLane) -> bool:
 	if l.kind == QueueLane.KIND_ROTIFOOD:
 		return true
 	if not l.main:
 		return sim.staff.cashier_for_lane(l.id) != null
-	if sim.player.is_manning_lane(l.id):
+	if sim.player.manning_lane == l.id:
 		return true
 	for o: QueueLane in lanes:
-		if not o.main and sim.staff.cashier_for_lane(o.id) != null:
+		if not o.main and sim.staff.cashier_for_lane(o.id) != null and o.free_capacity() > 0:
 			return false
 	return true
 
@@ -135,12 +136,11 @@ func physical_capacity_open() -> int:
 	return n
 
 
-## Estimasi total waktu tunggu (GDD 84.4): sisa transaksi berjalan, satu
+## Estimasi total waktu tunggu (v3.1 84.4): sisa transaksi berjalan, satu
 ## transaksi untuk tiap pembeli yang sudah antre dan untuk dirinya, plus jalan.
-## Semua transaksi sama lamanya (GDD 21.4), jadi tipe pembeli tidak berpengaruh.
 func estimated_wait(l: QueueLane, walk_seconds: float) -> float:
 	var t: float = sim.cashier.remaining_time(l)
-	t += float(l.reservations.size() + 1) * CashierManager.transaction_seconds()
+	t += float(l.reservations.size() + 1) * sim.cashier.transaction_seconds()
 	return t + walk_seconds
 
 
@@ -236,7 +236,7 @@ func _track_occupancy() -> void:
 	var n: int = 0
 	for l: QueueLane in all_lanes():
 		n += l.reservations.size()
-	highest_occupancy_today = maxi(highest_occupancy_today, n)
+	highest_occupancy = maxi(highest_occupancy, n)
 	sim.statistics.note_queue_occupancy(n)
 
 
@@ -261,14 +261,14 @@ func capture() -> Dictionary:
 	var out: Dictionary = {}
 	for l: QueueLane in all_lanes():
 		out[String(l.id)] = l.to_dict()
-	return {"lanes": out, "highest_occupancy_today": highest_occupancy_today}
+	return {"lanes": out, "highest_occupancy": highest_occupancy}
 
 
 ## Antrean direkonstruksi dari daftar logis; aktor ditempatkan ulang ke slot
 ## kanonik oleh CustomerManager/RotiFoodManager (GDD 77.2).
 func restore(d: Dictionary) -> void:
 	build_from_location()
-	highest_occupancy_today = int(d.get("highest_occupancy_today", 0))
+	highest_occupancy = int(d.get("highest_occupancy", 0))
 	var ld: Dictionary = d.get("lanes", {})
 	for l: QueueLane in all_lanes():
 		var src: Variant = ld.get(String(l.id))

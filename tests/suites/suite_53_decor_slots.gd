@@ -315,13 +315,12 @@ func _enforce() -> void:
 func _upgrade_with_decor() -> void:
 	var s: SimulationRoot = new_sim(7204)
 	s.tutorial.skip()
-	s.debug_add_kr(5000000.0)
+	s.debug_add_kr(1.0e12)
 	var plant: int = int(s.decoration._add(&"decor_potted_plant")["uid"])
 	var basket: int = int(s.decoration._add(&"decor_bread_basket_stack")["uid"])
 	var mat: int = int(s.decoration._add(&"decor_floor_mat_smooth")["uid"])
 	var total: int = 0
 	for tier in range(1, 5):
-		s.time.set_phase(TimeManager.AFTER_HOURS)
 		for uid0: int in [plant, basket, mat]:
 			s.decoration.put_away(uid0)
 		var sf: StringName = s.decoration.store_floor()
@@ -376,8 +375,7 @@ func _upgrade_with_decor() -> void:
 	var t: SimulationRoot = new_sim(7205)
 	t.tutorial.skip()
 	jump_to_tier(t, 2)
-	t.time.set_phase(TimeManager.AFTER_HOURS)
-	t.debug_add_kr(t.next_location().upgrade_cost_kr)
+	t.debug_add_kr(SimulationRoot.location_cost(3))
 	var p2: int = int(t.decoration._add(&"decor_potted_plant")["uid"])
 	if t.decoration.place(p2, t.decoration.store_floor(), Vector2i(5, 2), -1) == &"":
 		eq(t.upgrade_location(), "", "the reported T2 plant on [5,2] no longer blocks the upgrade")

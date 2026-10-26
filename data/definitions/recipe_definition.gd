@@ -20,6 +20,8 @@ var batch_cost_kr: float = 0.0
 var required_station_ids: Array[StringName] = []
 var customer_tags: Array[StringName] = []
 var visual_profile_id: StringName
+## Terbuka sejak awal tanpa biaya (GDD idle 8.5: hanya Roti Tawar Polos).
+var unlock_free: bool = false
 
 ## Batas slider harga (GDD 63.2), dihitung DataRegistry saat boot.
 var min_price_kr: float = 0.0
@@ -50,6 +52,7 @@ static func from_dict(d: Dictionary) -> RecipeDefinition:
 	for t: Variant in d.get("customer_tags", []):
 		r.customer_tags.append(StringName(str(t)))
 	r.visual_profile_id = StringName(str(d.get("visual_profile_id", "")))
+	r.unlock_free = bool(d.get("unlock_free", false))
 	return r
 
 

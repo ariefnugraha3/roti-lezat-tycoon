@@ -5,8 +5,6 @@ extends Node
 
 # --- GDD 35.4 minimum -------------------------------------------------------
 signal time_changed(day: int, time_seconds: float)
-signal shop_opened(day: int)
-signal shop_closed(day: int)
 signal production_job_created(job_id: int)
 signal station_completed(equipment_id: int, stage: StringName)
 signal bread_added_to_display(equipment_id: int, recipe_id: StringName, quantity: int)
@@ -16,18 +14,14 @@ signal sale_completed(amount_kr: float, channel: StringName)
 signal delivery_order_created(order_id: int)
 signal delivery_order_completed(order_id: int)
 signal balance_changed(balance_kr: float)
-signal rating_changed(physical: float, rotifood: float)
+signal reputation_changed(reputation: float)
 signal staff_state_changed(staff_id: StringName)
 signal weather_changed(today: StringName, tomorrow: StringName)
-signal day_settled(day: int)
 
 # --- Alur hari & sesi -------------------------------------------------------
-signal phase_changed(phase: StringName)
 signal day_started(day: int)
-signal speed_changed(speed: int)
 signal profile_loaded(profile_id: StringName)
 signal profile_unloaded()
-signal simulation_rebuilt()
 
 # --- Umpan balik & presentasi (P7, GDD 102) ---------------------------------
 ## Umpan balik tap gagal/berhasil di dunia (GDD 16.7). kind: path_blocked,
@@ -43,19 +37,17 @@ signal tutorial_step_changed(step_id: StringName)
 signal economy_overflowed()
 signal location_changed(location_id: StringName)
 signal active_floor_changed(floor_id: StringName)
-signal off_floor_alerts_changed()
-signal supply_delivered(order_id: int)
 signal coin_popup(amount_kr: float, world_cell: Vector2i, floor_id: StringName)
+## Ketukan Semangat berhasil pada stasiun `equipment_id` (-1 = kasir, GDD idle 5.2).
+signal tap_boost(equipment_id: int, world_cell: Vector2i, floor_id: StringName)
+## Resep pilihan petak rak berubah (layar Menu, GDD idle 4.2).
+signal slot_recipes_changed(equipment_id: int)
+## Level dibeli (GDD idle 8): kind station/counter/recipe/staff/global.
+signal level_up(kind: StringName, id: Variant, level: int, milestone: bool)
+## Model stasiun berevolusi ke tier baru (GDD idle 8.2, 14).
+signal station_evolved(equipment_id: int, from_tier: int, to_tier: int)
+signal station_opened(equipment_id: int)
+signal recipe_unlocked(recipe_id: StringName)
 
 # --- Permintaan UI dari lapisan tugas pemain (bukan mutasi) -----------------
-## Karakter tiba di Storage: buka Recipe Book.
-signal recipe_book_requested()
-## Karakter tiba di rak sambil membawa loyang: buka Display Slot Picker.
-signal slot_picker_requested(equipment_id: int)
-## Pembeli terdepan siap dilayani manual: buka popup pesanan.
-signal customer_order_requested(customer_id: int)
-signal rotifood_order_requested(order_id: int)
-signal display_detail_requested(equipment_id: int)
-signal daily_summary_ready(day: int)
-signal bailout_cutscene_requested(repeat_visit: bool)
 signal storage_door(equipment_id: int, open: bool)

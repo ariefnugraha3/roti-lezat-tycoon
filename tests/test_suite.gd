@@ -1,8 +1,8 @@
 class_name TestSuite
 extends RefCounted
-## Basis suite test headless (GDD 107). Setiap suite mengembalikan daftar
-## {id, name, fn, long} dari `tests()`; runner memanggil `fn` dengan suite ini
-## sebagai konteks assert.
+## Basis suite test headless (v3.1 107; GDD idle 16). Setiap suite mengembalikan
+## daftar {id, name, fn, long} dari `tests()`; runner memanggil `fn` dengan suite
+## ini sebagai konteks assert.
 
 var failures: Array[String] = []
 var checks: int = 0
@@ -28,6 +28,11 @@ func near(a: float, b: float, eps: float, msg: String) -> bool:
 	return check(absf(a - b) <= eps, "%s (got %s, expected %s ±%s)" % [msg, a, b, eps])
 
 
+## Jadwal kedatangan "tidak pernah" untuk test yang mematikan kedatangan acak.
+## Angka besar yang terbatas, bukan INF, supaya save tetap JSON yang sah.
+const NEVER: float = 1.0e12
+
+
 ## SimulationRoot baru dengan New Game deterministik.
 func new_sim(seed_value: int = 12345, pid: StringName = &"profile_test") -> SimulationRoot:
 	var s := SimulationRoot.new()
@@ -42,40 +47,74 @@ func free_sim(s: SimulationRoot) -> void:
 		s.free()
 
 
-## Majukan ke jam in-game tertentu (detik sejak 00:00) memakai tick kanonik.
+## Majukan `seconds` detik-simulasi memakai tick kanonik (bot boleh berpikir).
+func run_for(s: SimulationRoot, seconds: float, bot: SimBot = null) -> void:
+	var t: float = 0.0
+	while t < seconds:
+		if bot != null:
+			bot.think()
+		s.step(s.tick_seconds)
+		t += s.tick_seconds
+
+
+## Majukan `hours` jam in-game.
+func run_hours(s: SimulationRoot, hours: float, bot: SimBot = null) -> void:
+	run_for(s, s.time.sim_seconds_for_hours(hours), bot)
+
+
+## Majukan sampai jam in-game `clock_seconds` (detik sejak 00:00) berikutnya.
 func run_until(s: SimulationRoot, clock_seconds: float, bot: SimBot = null) -> void:
-	while s.is_running() and s.time.time_seconds < clock_seconds:
+	var target_day: int = s.time.day + (1 if s.time.time_seconds >= clock_seconds else 0)
+	while s.time.day < target_day or (s.time.day == target_day and s.time.time_seconds < clock_seconds):
 		if bot != null:
 			bot.think()
 		s.step(s.tick_seconds)
 
 
-func run_day(s: SimulationRoot, bot: SimBot) -> void:
-	while s.is_running():
+## Majukan sampai hari in-game berikutnya dimulai (00:00).
+func run_day(s: SimulationRoot, bot: SimBot = null) -> void:
+	var day: int = s.time.day
+	while s.time.day == day:
 		if bot != null:
 			bot.think()
 		s.step(s.tick_seconds)
 
 
-## Lompat ke lokasi tier `tier` lewat alur upgrade sungguhan (after-hours,
-## KR cukup), lalu mulai hari berikutnya pukul 05:00.
+## Lompat ke lokasi tier `tier` lewat alur upgrade sungguhan (KR cukup).
 func jump_to_tier(s: SimulationRoot, tier: int) -> void:
 	while s.world.location.tier < tier:
-		s.time.set_phase(TimeManager.AFTER_HOURS)
-		s.debug_add_kr(s.next_location().upgrade_cost_kr)
+		s.debug_add_kr(SimulationRoot.location_cost(s.world.location.tier + 1))
 		var r: String = s.upgrade_location()
 		if r != "":
 			push_error("[TEST] upgrade to tier %d failed: %s" % [s.world.location.tier + 1, r])
 			return
-	s.time.set_phase(TimeManager.AFTER_HOURS)
-	s.continue_to_next_day()
 
 
-## Pembeli dan pengunjung lihat-lihat datang dulu dari ujung trotoar (GDD 20.1):
+## Semua slot alat dibuka dan dinaikkan ke `level` (atau batas lokasi), staf
+## penuh, dan semua resep yang bisa dibuat dibuka: toko yang mapan.
+func equip_shop(s: SimulationRoot, level: int = -1) -> void:
+	s.debug_add_kr(1.0e15)
+	for cat: StringName in [&"display", &"oven", &"mixer"]:
+		while s.upgrades.open_station(cat) >= 0:
+			pass
+		for e: EquipmentInstance in s.equipment.placed_list(cat):
+			s.upgrades.set_station_level(e.iid, level if level > 0 else s.upgrades.level_cap())
+	for role: StringName in [&"cashier", &"baker"]:
+		for st: StaffDefinition in DataRegistry.staff_list():
+			if s.staff.employed_ids(role).size() >= s.staff.capacity(role):
+				break
+			if st.role_id == role and not s.staff.is_employed(st.id):
+				s.staff.hire(st.id, true)
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if s.upgrades.unlock_block(r.id) == &"":
+			s.upgrades.unlock_recipe(r.id)
+
+
+## Pembeli dan pengunjung lihat-lihat datang dulu dari ujung trotoar (v3.1 20.1):
 ## majukan tick kanonik sampai `c` melewati pintu. false bila belum sampai.
 func walk_in(s: SimulationRoot, c: Customer, limit: float = 60.0) -> bool:
 	var t: float = 0.0
-	while c.state == Customer.APPROACHING and t < limit and s.is_running():
+	while c.state == Customer.APPROACHING and t < limit:
 		s.step(s.tick_seconds)
 		t += s.tick_seconds
 	return c.state != Customer.APPROACHING
@@ -84,17 +123,31 @@ func walk_in(s: SimulationRoot, c: Customer, limit: float = 60.0) -> bool:
 ## Stok rak langsung (tanpa produksi) di petak `index` rak pertama.
 func stock(s: SimulationRoot, recipe_id: StringName, qty: int, index: int = 0, iid: int = -1) -> int:
 	var d: int = iid if iid >= 0 else s.equipment.placed_list(&"display")[0].iid
-	return s.display.place(d, index, recipe_id, qty, 1.0, s.time.sim_seconds, 999)
+	return s.display.place(d, index, recipe_id, qty, s.time.sim_seconds, 999)
+
+
+## Hentikan produksi otomatis untuk test yang menyusun stok sendiri: semua
+## petak rak menjual resep yang belum dibuka, jadi tidak ada batch baru.
+func freeze_production(s: SimulationRoot) -> void:
+	for e: EquipmentInstance in s.equipment.placed_list(&"display"):
+		for i in s.display.slot_count(e.iid):
+			(s.display.slots(e.iid)[i] as Dictionary)["assign"] = &"recipe_golden_artisan"
+
+
+## Pemilik berhenti bekerja (test yang butuh antrean tanpa pelayan): tugas
+## tunggu tanpa akhir di tempatnya, jadi ia tidak melayani, memasak, atau mengemas.
+func park_owner(s: SimulationRoot) -> void:
+	s.player.cancel_all()
+	s.player.manning_lane = &""
+	s.player.task = {"type": "park", "wait": INF}
 
 
 ## Sidik jari state untuk perbandingan determinisme: seluruh save tanpa
-## field yang memang bergantung pada waktu dinding atau UI.
+## field yang memang bergantung pada waktu dinding.
 static func fingerprint(s: SimulationRoot) -> String:
 	var d: Dictionary = s.capture_save()
 	d.erase("created_at")
-	d.erase("ui_restore")
-	(d["clock"] as Dictionary).erase("speed")
-	(d["statistics"] as Dictionary).erase("stats")
+	d.erase("stats")
 	return JSON.stringify(d, "", true, true)
 
 
@@ -118,12 +171,10 @@ static func state_of(s: SimulationRoot) -> Dictionary:
 
 static func normalize_save(d: Dictionary) -> Dictionary:
 	var c: Dictionary = json_copy(d)
-	for k: String in ["created_at", "last_played_at", "last_played_unix", "game_version", "ui_restore"]:
+	for k: String in ["created_at", "last_played_at", "last_played_unix", "game_version"]:
 		c.erase(k)
-	if c.has("clock"):
-		(c["clock"] as Dictionary).erase("speed")
-	if c.has("statistics"):
-		(c["statistics"] as Dictionary).erase("stats")
+	if c.has("stats"):
+		((c["stats"] as Dictionary).get("stats", {}) as Dictionary).erase("total_play_time_real_seconds")
 	return c
 
 
@@ -176,35 +227,29 @@ func same_state(a: Dictionary, b: Dictionary, msg: String) -> bool:
 
 
 ## State logis untuk perbandingan save/load. Transform aktor (posisi, arah,
-## rute, tugas staf yang sedang berjalan) dikanonisasi saat load (GDD 77.2,
-## 81 no.16) sehingga dikeluarkan; semua timer, stage, uang, stok, antrean,
-## pesanan, dan RNG tetap dibandingkan persis.
+## rute) dikanonisasi saat load (v3.1 77.2, 81 no.16) sehingga dikeluarkan;
+## klaim pekerja dan pengemasan RotiFood yang sedang berjalan dimulai ulang dari
+## state otoritatif. Semua timer, stage, uang, stok, antrean, pesanan, dan RNG
+## tetap dibandingkan persis.
 static func logical_state(d: Dictionary) -> Dictionary:
 	var c: Dictionary = normalize_save(d)
 	_strip_keys(c, ["actor", "driver", "facing", "stall_time"])
-	if c.has("player"):
-		var p: Dictionary = c["player"]
-		var cmds: Array = []
-		var cur: Dictionary = p.get("current", {})
-		if not cur.is_empty():
-			cmds.append([cur["kind"], cur["target"]])
-		for x: Variant in p.get("commands", []):
-			cmds.append([(x as Dictionary)["kind"], (x as Dictionary)["target"]])
-		p["commands"] = cmds
-		p.erase("current")
-		p.erase("next_command_id")
 	if c.has("staff"):
 		(c["staff"] as Dictionary).erase("actors")
-		(c["staff"] as Dictionary).erase("tasks")
-	# Pemilih petak yang terbuka saat disimpan kembali ke loyang yang dibawa saat
-	# load (PlayerTaskManager.reconstruct), seperti transform aktor.
 	if c.has("production_jobs"):
 		for j: Variant in (c["production_jobs"] as Dictionary).get("jobs", []):
-			if str((j as Dictionary).get("stage", "")) == "PLACEMENT_UI":
-				(j as Dictionary)["stage"] = "CARRIED_TO_DISPLAY"
-	if c.has("supply_orders"):
-		(c["supply_orders"] as Dictionary).erase("couriers")
-	c.erase("active_floor_id")
+			(j as Dictionary)["claimed_by"] = ""
+			if str((j as Dictionary).get("stage", "")) == "MIX_DONE_WAITING_PICKUP":
+				(j as Dictionary)["oven_id"] = -1
+	if c.has("rotifood_orders"):
+		for o: Variant in (c["rotifood_orders"] as Dictionary).get("orders", []):
+			var od: Dictionary = o
+			if str(od.get("state", "")) == "PACKING":
+				od["state"] = "TO_PACK"
+				od["packer_id"] = ""
+				od["pack_elapsed"] = 0.0
+	if c.has("player"):
+		(c["player"] as Dictionary).erase("focus_until")
 	return c
 
 

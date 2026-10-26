@@ -1,6 +1,6 @@
 class_name StringLint
 extends RefCounted
-## Kelengkapan kunci string & lint bahasa Inggris (GDD 43, 127, 133.1). Dipakai
+## Kelengkapan kunci string & lint bahasa Inggris (v3.1 43, 127, 133.1; GDD idle 18). Dipakai
 ## TEST_UI_001 dan tools/release_validator.gd.
 
 ## Literal "ui_*"/"tut_*"/"dlg_*"/"npc_*" di skrip yang bukan kunci teks.
@@ -49,17 +49,12 @@ static func run(include_runtime: bool) -> Dictionary:
 		derived.append(String(ing.unit_label_key))
 	for e: EquipmentDefinition in DataRegistry.equipment_list():
 		derived.append(String(e.localization_key))
-		if e.for_sale:
-			derived.append("equipment_category_" + String(e.category_id))
 	for a: CustomerArchetypeDefinition in DataRegistry.archetypes():
 		derived.append(String(a.id))
 	for st: StaffDefinition in DataRegistry.staff_list():
 		derived.append(String(st.id))
 	for loc: LocationDefinition in DataRegistry.locations():
 		derived.append(String(loc.localization_key))
-	for c: Variant in DataRegistry.campaigns():
-		derived.append(String((c as MiscDefinitions.MarketingCampaignDefinition).localization_key))
-		derived.append(String((c as MiscDefinitions.MarketingCampaignDefinition).id))
 	for d: Variant in DataRegistry.decorations():
 		var dd: MiscDefinitions.DecorationDefinition = d
 		derived.append(String(dd.localization_key))
@@ -73,7 +68,7 @@ static func run(include_runtime: bool) -> Dictionary:
 		derived.append(String((w as MiscDefinitions.WeatherDefinition).localization_key))
 	for k3: String in StatisticsManager.STAT_KEYS:
 		derived.append("ui_stat_" + k3)
-	for sc: Script in [HUD, DecorationScreen, RecipeBookScreen, StatsScreen]:
+	for sc: Script in [HUD, DecorationScreen, StatsScreen]:
 		for cv: Variant in sc.get_script_constant_map().values():
 			if cv is Dictionary:
 				for v: Variant in (cv as Dictionary).values():

@@ -367,11 +367,6 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 		driver["skin"] = _pick_color(_skin_tones(), rng)
 		driver["hair"] = _pick_color(_hair_tones(), rng)
 		return driver
-	if customer_id == "courier_supply":
-		var courier: Dictionary = spec_for_courier()
-		courier["skin"] = _pick_color(_skin_tones(), rng)
-		courier["hair"] = _pick_color(_hair_tones(), rng)
-		return courier
 
 	var archetype: String = str(ARCHETYPE_VISUAL.get(customer_id, "warga"))
 	var spec: Dictionary = {
@@ -499,24 +494,6 @@ static func spec_for_driver(rainy: bool) -> Dictionary:
 		"height": 1.0,
 	}
 
-
-## Kurir paket bahan baku (GDD 5.2.3.C): seragam cokelat kardus dan topi pet.
-static func spec_for_courier() -> Dictionary:
-	return {
-		"kind": "courier", "role": "courier", "tier": 1,
-		"skin": SKIN_MID, "hair": HAIR_BLACK, "hair_style": "cepak",
-		"hat": "topi_pet", "apron": null,
-		"accessory": PackedStringArray(),
-		"chubby": 0.15,
-		"cloth": Color(0.620, 0.447, 0.286),
-		"pants": Color(0.408, 0.314, 0.231),
-		"shoes": SHOE_BROWN,
-		"sleeve": "short",
-		"prop": _pack(["kardus"]),
-		"rainy": false,
-		"mood": "netral",
-		"height": 1.0,
-	}
 
 
 ## Pak Lurah (GDD 3.0.A): chibi tambun ramah, berpeci, koper dan amplop resmi.

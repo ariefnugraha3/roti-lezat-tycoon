@@ -20,14 +20,12 @@ const MUSIC_FOR_STATE: Dictionary = {
 	&"STORE_OPEN_CALM": &"shop_music_day",
 	&"STORE_OPEN_BUSY": &"shop_music_day",
 	&"RAIN": &"shop_music_rain",
-	&"DAILY_SUMMARY": &"shop_music_after_hours",
-	&"BAILOUT_CUTSCENE": &"bailout_scene",
+	&"NIGHT": &"shop_music_after_hours",
 }
 const CAPTIONS: Dictionary = {
 	&"oven_done": "caption_oven_ding",
 	&"rotifood_incoming": "caption_order_arrived",
 	&"customer_leave_angry": "caption_customer_upset",
-	&"oven_burn_warning": "caption_burn_warning",
 	&"door_bell_enter": "caption_door_bell",
 }
 const DUCK_DB: float = -7.0

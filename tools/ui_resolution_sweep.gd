@@ -1,19 +1,19 @@
 extends Node
-## Sapuan resolusi dan skala teks GDD 110: membuka layar-layar utama (menu dan
-## dalam game, saat buka dan after-hours) di setiap ukuran jendela 16:9, 16:10,
-## 18:9, 19,5:9, 20:9 dan 4:3, pada skala teks 100/125/150%, memotretnya, dan
+## Sapuan resolusi dan skala teks (GDD idle 12.0.7, menggantikan v3.1 110):
+## membuka layar-layar utama (menu dan dalam game) di setiap ukuran matriks
+## potret, tablet, dan laptop/PC, pada skala teks 100/125/150%, memotretnya, dan
 ## mencetak "SWEEP OFF" untuk setiap Control yang tampak tetapi keluar dari layar
 ## (di luar ScrollContainer). Save memakai folder uji sendiri. Jalankan dengan
 ## jendela (perlu renderer), lalu baca baris "SWEEP done, N issues":
-##   godot --path . --resolution 1280x720 res://tools/ui_resolution_sweep.tscn
+##   godot --path . --resolution 540x960 res://tools/ui_resolution_sweep.tscn
 ## Folder potret: env LINEUP_OUT, atau user://lineup bila tidak diisi.
 
-const RES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1280, 800), Vector2i(1440, 720),
-	Vector2i(1560, 720), Vector2i(1600, 720), Vector2i(1024, 768)]
+const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
+	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
+	Vector2i(2560, 1440), Vector2i(2560, 1080)]
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
-const OPEN_SCREENS: Array = [[&"recipe_book", {}], [&"market", {"tab": 0}], [&"market", {"tab": 1}], [&"market", {"tab": 2}],
-	[&"staff", {}], [&"marketing", {}], [&"rotifood", {}], [&"pause", {}], [&"stats", {}], [&"settings", {}]]
+const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings"]
 
 var game: GameRoot = null
 var _out: String = ""
@@ -48,34 +48,22 @@ func _ready() -> void:
 	var sim: SimulationRoot = game.sim
 	sim.tutorial.skip()
 	while sim.world.location.tier < 3:
-		sim.time.set_phase(TimeManager.AFTER_HOURS)
-		sim.debug_add_kr(sim.next_location().upgrade_cost_kr)
+		sim.debug_add_kr(SimulationRoot.location_cost(sim.world.location.tier + 1))
 		if sim.upgrade_location() != "":
 			break
-	sim.time.set_phase(TimeManager.AFTER_HOURS)
-	sim.continue_to_next_day()
 	sim.debug_set_time(10.0 * 3600.0)
 	game.playing = true
-	for pass_i in 2:
-		if pass_i == 1:
-			# After-hours: Daily Summary, Market yang bisa dibeli, tombol Continue.
+	for r2: Vector2i in RES:
+		await _resize(r2)
+		for sc2: int in SCALES:
+			SettingsManager.set_value("text_scale", sc2)
 			game.modals.close_all()
-			sim.close_day()
-			sim.enter_after_hours()
 			await _frames(4)
-			game.modals.close_all()
-		for r2: Vector2i in RES:
-			await _resize(r2)
-			for sc2: int in SCALES:
-				SettingsManager.set_value("text_scale", sc2)
-				game.modals.close_all()
-				await _frames(4)
-				_check(game.hud, "hud_%s" % ("open" if pass_i == 0 else "closed"), r2, sc2)
-				await _shot("hud_%s" % ("open" if pass_i == 0 else "closed"), r2, sc2)
-				for e: Array in OPEN_SCREENS:
-					await _visit(e[0], e[1], r2, sc2)
-				if pass_i == 1:
-					await _visit(&"daily_summary", {"report": sim.reports.last_report}, r2, sc2)
+			_check(game.hud, "hud", r2, sc2)
+			await _shot("hud", r2, sc2)
+			for id2: StringName in OPEN_SCREENS:
+				if game.modals.has_screen(id2):
+					await _visit(id2, {}, r2, sc2)
 	SettingsManager.set_value("text_scale", was_scale)
 	print("SWEEP done, %d issues" % _issues)
 	game.modals.close_all()

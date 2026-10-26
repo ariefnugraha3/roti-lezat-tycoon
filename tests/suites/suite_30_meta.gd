@@ -1,23 +1,22 @@
 extends TestSuite
-## GDD 107: pasar, staf, save/profil, multi-lantai, upgrade, lifecycle.
+## Staf, save/profil, multi-lantai, upgrade lokasi, lifecycle, audio
+## (GDD idle 3.4, 5.5, 8.7, 15.3; v3.1 107).
 
 const TEST_DIR: String = "user://test_saves"
 const FIXTURE_DIR: String = "res://tests/fixtures"
-const GOLDEN: String = "res://tests/fixtures/golden_v3_day4.json"
-const LEGACY_V1: String = "res://tests/fixtures/legacy_v1_day2.json"
+const GOLDEN: String = "res://tests/fixtures/golden_idle_v1.json"
+const CLASSIC: String = "res://tests/fixtures/classic_v3_day4.json"
 
 
 func tests() -> Array:
 	return [
-		{"id": "TEST_MARKET_001", "name": "+3 in-game hour daytime delivery", "fn": _market_daytime},
-		{"id": "TEST_MARKET_002", "name": "after-hours instant storage commit", "fn": _market_after_hours},
-		{"id": "TEST_STAFF_001", "name": "duty and wage liability", "fn": _staff_wages},
-		{"id": "TEST_SAVE_001", "name": "roundtrip golden fixture", "fn": _save_roundtrip},
+		{"id": "TEST_STAFF_001", "name": "idle 5.5: hiring is paid once from a rising cost list, staff start at once, role caps hold, there are no wages", "fn": _staff_hire},
+		{"id": "TEST_SAVE_001", "name": "roundtrip golden idle fixture; classic v3.1 saves are detected and refused", "fn": _save_roundtrip},
 		{"id": "TEST_SAVE_002", "name": "crash-safe/idempotent transaction recovery", "fn": _save_crash_safe, "expect_errors": true},
 		{"id": "TEST_PROFILE_001", "name": "3-profile isolation", "fn": _profiles},
-		{"id": "TEST_MULTIFLOOR_001", "name": "instant floor transition and inactive simulation", "fn": _multifloor},
-		{"id": "TEST_UPGRADE_001", "name": "location migration no-loss invariant", "fn": _upgrade},
-		{"id": "TEST_LIFECYCLE_001", "name": "app/browser focus-loss pause", "fn": _lifecycle},
+		{"id": "TEST_MULTIFLOOR_001", "name": "instant floor transition; an upstairs kitchen keeps working while nobody watches", "fn": _multifloor},
+		{"id": "TEST_UPGRADE_001", "name": "idle 8.7: moving location while the shop is open loses nothing and keeps every level", "fn": _upgrade},
+		{"id": "TEST_LIFECYCLE_001", "name": "idle 3.4: focus loss stops the simulation and saves; focus return resumes at once without a Game Paused screen", "fn": _lifecycle},
 		{"id": "ACC_33_AUDIO_BUSES", "name": "33 audio buses follow Master in order and send to it; nothing calls AudioServer.add_bus (silences every sound on Web)", "fn": _audio_buses},
 	]
 
@@ -59,101 +58,35 @@ func _restore_dir() -> void:
 	SaveManager.active_profile = &""
 
 
-func _market_daytime() -> void:
-	var s: SimulationRoot = new_sim(301)
-	check(not s.supply.purchase({&"ingredient_flour": 1})["ok"], "market locked on Day 1 (GDD 24A.1)")
-	s.supply.unlock_market()
-	run_until(s, 9.0 * 3600.0)
-	var flour: int = s.inventory.count(&"ingredient_flour")
-	var bal: float = s.economy.balance
-	var r: Dictionary = s.supply.purchase({&"ingredient_flour": 2, &"ingredient_sugar": 1})
-	check(bool(r["ok"]) and not bool(r["instant"]), "daytime purchase goes to a courier")
-	near(s.economy.balance, bal - 2 * 150.0 - 80.0, 0.001, "paid immediately at fixed prices (GDD 5.2)")
-	eq(s.inventory.count(&"ingredient_flour"), flour, "not in storage yet")
-	eq(s.supply.in_transit_units(), 3, "3 units in transit")
-	# Kapasitas termasuk in_transit (GDD 24A.2).
-	var room: int = s.supply.max_additional_units()
-	eq(room, s.inventory.capacity() - s.inventory.total_units() - 3, "capacity counts in-transit units")
-	check(not s.supply.purchase({&"ingredient_flour": room + 1})["ok"], "over-capacity purchase refused")
-	run_until(s, 12.0 * 3600.0 - 60.0)
-	eq(s.inventory.count(&"ingredient_flour"), flour, "still not delivered before +3 h")
-	# Kurir masuk tepat 12:00 lalu commit saat paket diletakkan.
-	var t_commit: float = -1.0
-	while s.time.time_seconds < 13.0 * 3600.0:
-		s.step(s.tick_seconds)
-		if t_commit < 0.0 and s.inventory.count(&"ingredient_flour") == flour + 2:
-			t_commit = s.time.time_seconds
-	check(t_commit >= 12.0 * 3600.0, "committed no earlier than 12:00")
-	check(t_commit < 12.0 * 3600.0 + 15.0 * 60.0, "courier commits shortly after arrival (at %s)" % Tx.clock(t_commit))
-	eq(s.supply.in_transit_units(), 0, "nothing left in transit")
-	# Order yang belum sampai pukul 18:00 di-commit otomatis (GDD 70, 104).
-	run_until(s, 16.0 * 3600.0)
-	s.supply.purchase({&"ingredient_egg": 1})
-	run_day(s, null)
-	eq(s.inventory.count(&"ingredient_egg"), 1, "late order committed at close")
-	eq(s.check_invariants(), "", "invariants")
-	free_sim(s)
-
-
-func _market_after_hours() -> void:
-	var s: SimulationRoot = new_sim(302)
-	run_day(s, null)
-	s.enter_after_hours()
-	s.supply.unlock_market()
-	var before: int = s.inventory.count(&"ingredient_butter")
-	var r: Dictionary = s.supply.purchase({&"ingredient_butter": 4})
-	check(bool(r["ok"]) and bool(r["instant"]), "after-hours purchase is instant (GDD 5.2.3.E)")
-	eq(s.inventory.count(&"ingredient_butter"), before + 4, "straight into storage")
-	eq(s.supply.in_transit_units(), 0, "no courier")
-	eq(s.supply.couriers.size(), 0, "no courier actor")
-	var bal: float = s.economy.balance
-	check(not s.supply.purchase({&"ingredient_butter": 1000})["ok"], "capacity still enforced")
-	near(s.economy.balance, bal, 0.001, "refused purchase costs nothing")
-	# Save/load setelahnya: stok tidak digandakan.
-	var snap: Dictionary = json_copy(s.capture_save())
-	var s2: SimulationRoot = load_sim(snap)
-	eq(s2.inventory.count(&"ingredient_butter"), before + 4, "reload does not re-commit")
-	same_state(logical_state(s2.capture_save()), logical_state(snap), "save after an instant purchase equals the loaded state")
-	free_sim(s2)
-	free_sim(s)
-
-
-func _staff_wages() -> void:
+func _staff_hire() -> void:
 	var s: SimulationRoot = new_sim(303)
-	eq(s.staff.hire(&"staff_cashier_budi"), &"after_hours", "hiring only after closing (GDD 87)")
-	run_day(s, null)
-	s.enter_after_hours()
-	s.debug_add_kr(10000.0)
-	eq(s.staff.hire(&"staff_cashier_budi"), &"", "hire cashier")
-	eq(s.staff.hire(&"staff_cashier_sari"), &"full", "Tier 1 cashier cap is 1 (GDD 6)")
-	eq(s.staff.hire(&"staff_baker_joko"), &"", "hire baker")
-	near(s.staff.wage_liability_today, 0.0, 0.001, "hiring does not charge today's wages")
-	s.continue_to_next_day()
-	# 05:00: liabilitas terkunci untuk staf on_duty; gaji sama untuk kedua peran
-	# menurut tier lokasi (keputusan maintainer 2026-10-02).
-	var wage: float = s.world.location.staff_daily_wage_kr
-	near(s.staff.wage_liability_today, 2.0 * wage, 0.001, "05:00 wage liability = on-duty wages")
-	var lane_b: QueueLane = s.queue.staff_lanes()[0]
-	check(s.staff.cashier_for_lane(lane_b.id) != null, "the cashier takes the lane next to the player's")
-	check(s.staff.cashier_for_lane(s.queue.main_lane().id) == null, "the main lane stays the player's")
-	# Libur di tengah hari & pecat: gaji hari ini tetap (GDD 3.4, 87.3).
-	run_until(s, 10.0 * 3600.0)
-	s.staff.set_on_duty(&"staff_baker_joko", false)
-	s.staff.fire(&"staff_cashier_budi")
-	near(s.staff.wage_liability_today, 2.0 * wage, 0.001, "liability fixed at 05:00")
-	check(s.staff.cashier_for_lane(lane_b.id) == null, "fired cashier leaves the lane")
-	check(s.queue.is_open(s.queue.main_lane()), "main lane falls back to the player")
-	# Kembali on_duty di tengah hari tidak bekerja/dibayar sampai 05:00 berikutnya.
-	s.staff.set_on_duty(&"staff_baker_joko", true)
-	check(s.staff.working_ids().is_empty(), "rescheduled staff does not start mid-day")
+	freeze_production(s)
+	var costs: Array = DataRegistry.idle("staff.hire_cost")
+	s.debug_add_kr(1.0e7)
 	var bal: float = s.economy.balance
+	near(s.staff.next_hire_cost(), float(costs[0]), 0.001, "first hire costs hire_cost[0]")
+	eq(s.staff.hire(&"staff_cashier_budi"), &"", "hire cashier any time (no after-hours rule)")
+	near(s.economy.balance, bal - float(costs[0]), 0.001, "paid once")
+	eq(str(s.economy.ledger[s.economy.ledger.size() - 1]["category"]), "STAFF_HIRE", "ledger STAFF_HIRE")
+	check(s.staff.is_working(&"staff_cashier_budi"), "the cashier starts working at once")
+	var lane_b: QueueLane = s.queue.staff_lanes()[0]
+	check(s.staff.cashier_for_lane(lane_b.id) != null, "the cashier takes the lane next to the owner's")
+	check(s.staff.cashier_for_lane(s.queue.main_lane().id) == null, "lane A stays the owner's")
+	eq(s.staff.hire(&"staff_cashier_sari"), &"full", "Tier 1 cashier cap is 1 (v3.1 6)")
+	near(s.staff.next_hire_cost(), float(costs[1]), 0.001, "the second person costs hire_cost[1]")
+	eq(s.staff.hire(&"staff_baker_joko"), &"", "hire baker")
+	check(s.staff.is_working(&"staff_baker_joko"), "the baker starts working at once")
 	run_day(s, null)
-	near(s.economy.today_total(&"STAFF_WAGE"), -2.0 * wage, 0.001, "settlement charges the locked liability once")
-	check(s.economy.balance <= bal, "wages paid")
-	s.enter_after_hours()
-	s.continue_to_next_day()
-	near(s.staff.wage_liability_today, wage, 0.001, "next day only the on-duty baker is liable")
-	eq(s.staff.working_ids(), [&"staff_baker_joko"], "baker working again")
+	run_day(s, null)
+	var paid: float = 0.0
+	for e: Dictionary in s.economy.ledger:
+		if str(e["category"]) == "STAFF_HIRE":
+			paid += -float(e["amount"])
+	near(paid, float(costs[0]) + float(costs[1]), 0.001, "no wages over two days: only the two hire costs")
+	s.economy.spend(s.economy.balance, &"OTHER_ADJUSTMENT", &"test")
+	jump_to_tier(s, 4)
+	s.economy.spend(s.economy.balance, &"OTHER_ADJUSTMENT", &"test")
+	eq(s.staff.hire_block(&"staff_cashier_sari"), &"kr", "a hire needs the KR")
 	free_sim(s)
 
 
@@ -161,17 +94,14 @@ func _staff_wages() -> void:
 func _golden_scenario() -> SimulationRoot:
 	var s: SimulationRoot = new_sim(2024, &"profile_1")
 	var bot := SimBot.new(s)
-	for d in 3:
-		run_day(s, bot)
-		bot.after_hours()
-	run_until(s, 10.0 * 3600.0, bot)
+	bot.manage = true
+	run_hours(s, 4.0, bot)
 	return s
 
 
 func _save_roundtrip() -> void:
 	_use_test_dir()
-	var args: PackedStringArray = OS.get_cmdline_user_args()
-	if args.has("--update-fixtures"):
+	if OS.get_cmdline_user_args().has("--update-fixtures"):
 		var g: SimulationRoot = _golden_scenario()
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(FIXTURE_DIR))
 		var f: FileAccess = FileAccess.open(GOLDEN, FileAccess.WRITE)
@@ -179,34 +109,12 @@ func _save_roundtrip() -> void:
 		f.close()
 		free_sim(g)
 		print("      golden fixture rewritten: ", GOLDEN)
-		# Save v1: bentuk skema sebelum RNG per stream, analitik, dan flag rollover.
-		var l: SimulationRoot = new_sim(55, &"profile_2")
-		run_day(l, SimBot.new(l))
-		l.enter_after_hours()
-		l.continue_to_next_day()
-		var v1: Dictionary = json_copy(l.capture_save())
-		for k: String in ["rng_states", "recipe_analytics", "statistics", "catalog_versions", "ui_restore", "active_floor_id"]:
-			v1.erase(k)
-		(v1["flags"] as Dictionary).erase("last_freshness_rollover_day")
-		(v1["flags"] as Dictionary).erase("economy_overflowed")
-		# v1 juga belum mengenal pengunjung lihat-lihat (GDD 20.12).
-		for k2: String in ["next_window_num", "window_shoppers_today"]:
-			(v1["customers"] as Dictionary).erase(k2)
-		for k3: String in ["scripted_window_shoppers", "next_window_shopper_at"]:
-			(v1["demand"] as Dictionary).erase(k3)
-		v1["schema_version"] = 1
-		v1["master_seed"] = 55
-		var f2: FileAccess = FileAccess.open(LEGACY_V1, FileAccess.WRITE)
-		f2.store_string(JSON.stringify(v1, "\t", true, true))
-		f2.close()
-		free_sim(l)
 	check(FileAccess.file_exists(GOLDEN), "golden fixture exists (run with --update-fixtures to create it)")
 	var golden: Dictionary = {}
 	if FileAccess.file_exists(GOLDEN):
 		golden = JSON.parse_string(FileAccess.get_file_as_string(GOLDEN))
+		eq(str(golden.get("game_mode", "")), "idle", "fixture is an idle save")
 		eq(SaveManager.validate_save(golden, &"profile_1"), "", "golden fixture validates")
-		# Load -> capture: state logis identik dengan fixture, dan load kedua
-		# tidak mengubah apa pun lagi (titik tetap rekonstruksi kanonik).
 		var g2: SimulationRoot = load_sim(golden)
 		var c1: Dictionary = g2.capture_save()
 		same_state(logical_state(c1), logical_state(golden), "fixture roundtrips (logical state)")
@@ -214,7 +122,6 @@ func _save_roundtrip() -> void:
 		same_state(state_of(g3), normalize_save(c1), "reload of a reloaded save is a fixed point")
 		free_sim(g3)
 		free_sim(g2)
-	# Skenario hidup: sama dengan fixture, tulis ke disk, baca, muat, lanjutkan.
 	var s: SimulationRoot = _golden_scenario()
 	if not golden.is_empty():
 		same_state(state_of(s), normalize_save(golden), "live scenario matches the golden fixture (determinism)")
@@ -223,29 +130,24 @@ func _save_roundtrip() -> void:
 	check(bool(r["ok"]) and not bool(r["used_backup"]), "read back main file")
 	var s2: SimulationRoot = load_sim(r["data"])
 	same_state(logical_state(s2.capture_save()), logical_state(s.capture_save()), "logical state identical after disk roundtrip")
-	var bot_b := SimBot.new(s2)
-	for i in 2400:
-		bot_b.think()
-		s2.step(s2.tick_seconds)
+	run_hours(s2, 2.0)
 	eq(s2.check_invariants(), "", "loaded game keeps playing for 2 in-game hours")
 	free_sim(s2)
 	free_sim(s)
-	# Migrasi v1 -> v3.
-	check(FileAccess.file_exists(LEGACY_V1), "legacy v1 fixture exists")
-	if FileAccess.file_exists(LEGACY_V1):
-		var legacy: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(LEGACY_V1))
-		var m: Dictionary = SaveManager.migrate(legacy)
-		check(bool(m["ok"]), "v1 save migrates")
-		var md: Dictionary = m["data"]
-		eq(int(md["schema_version"]), SaveManager.current_schema_version(), "migrated to the current schema")
-		eq(SaveManager.validate_save(md, StringName(str(md["profile_id"]))), "", "migrated save validates")
-		var s3: SimulationRoot = load_sim(md)
-		eq(s3.time.day, int(legacy["day"]), "migrated day kept")
-		near(s3.economy.balance, float((legacy["economy"] as Dictionary)["balance_kr"]), 0.001, "migrated balance kept")
-		eq(s3.check_invariants(), "", "migrated game invariants")
-		s3.run_for(60.0)
-		free_sim(s3)
-	check(not bool(SaveManager.migrate({"schema_version": 99})["ok"]), "newer-than-game save refused")
+	# Save tycoon v3.1: dikenali dan ditolak dengan rapi (GDD idle 15.3).
+	check(FileAccess.file_exists(CLASSIC), "classic v3.1 fixture exists")
+	var classic: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(CLASSIC))
+	check(SaveManager.is_classic(classic), "a v3.1 save is classic")
+	var cf: FileAccess = FileAccess.open(SaveManager.main_path(&"profile_2"), FileAccess.WRITE)
+	cf.store_string(JSON.stringify(classic))
+	cf.close()
+	var cr: Dictionary = SaveManager.read_profile(&"profile_2")
+	check(not bool(cr["ok"]) and bool(cr.get("classic", false)), "reading it reports a classic save, not a corrupt one")
+	var ch: Dictionary = SaveManager.read_header(&"profile_2")
+	check(bool(ch["exists"]) and bool(ch["classic"]) and not bool(ch["corrupt"]), "the header marks it Classic save (not supported)")
+	SaveManager.delete_profile(&"profile_2")
+	check(not SaveManager.has_profile(&"profile_2"), "a classic save can be deleted")
+	check(not bool(SaveManager.migrate({"schema_version": 99, "game_mode": "idle"})["ok"]), "newer-than-game save refused")
 	_restore_dir()
 
 
@@ -256,37 +158,35 @@ func _save_crash_safe() -> void:
 	s.run_for(30.0)
 	check(SaveManager.write_profile(&"profile_1", s.capture_save()), "second save rotates a backup")
 	check(FileAccess.file_exists(SaveManager.backup_path(&"profile_1")), "one backup generation exists")
-	# Crash di tengah penulisan: .tmp setengah jadi diabaikan, main tetap utuh.
 	var tmp: FileAccess = FileAccess.open(SaveManager.tmp_path(&"profile_1"), FileAccess.WRITE)
-	tmp.store_string("{\"schema_version\": 3, \"trunc")
+	tmp.store_string("{\"schema_version\": 1, \"trunc")
 	tmp.close()
 	var r: Dictionary = SaveManager.read_profile(&"profile_1")
 	check(bool(r["ok"]) and not bool(r["used_backup"]), "stale .tmp ignored")
-	# Main rusak -> backup dipakai dan main rusak tidak menimpa backup baik.
 	var main: FileAccess = FileAccess.open(SaveManager.main_path(&"profile_1"), FileAccess.WRITE)
 	main.store_string("{ not json")
 	main.close()
 	r = SaveManager.read_profile(&"profile_1")
-	check(bool(r["ok"]) and bool(r["used_backup"]), "corrupt main falls back to the backup (GDD 34.4)")
+	check(bool(r["ok"]) and bool(r["used_backup"]), "corrupt main falls back to the backup (v3.1 34.4)")
 	check(SaveManager.write_profile(&"profile_1", s.capture_save()), "save after corruption")
 	check(bool(SaveManager.read_profile(&"profile_1")["ok"]), "healthy again")
-	# Save NaN ditolak dan file lama tetap.
 	var bad: Dictionary = s.capture_save()
 	(bad["economy"] as Dictionary)["balance_kr"] = NAN
 	check(not SaveManager.write_profile(&"profile_1", bad), "NaN save refused")
 	check(bool(SaveManager.read_profile(&"profile_1")["ok"]), "previous save intact after refusal")
 	free_sim(s)
-	# Transaksi idempoten: save di tengah alur tidak menggandakan KR/roti/bahan.
+	# Transaksi idempoten: save di tengah alur tidak menggandakan KR atau roti.
 	var t: SimulationRoot = new_sim(506)
-	t.demand.scripted_walkins.clear()
-	t.demand.scripted_orders.clear()
-	run_until(t, 8.0 * 3600.0 + 10.0)
+	freeze_production(t)
+	t.demand.next_physical_at = NEVER
+	t.demand.next_rotifood_at = NEVER
 	stock(t, &"recipe_plain_loaf", 4)
-	var o: DeliveryOrder = t.rotifood.create_scripted_order(&"recipe_plain_loaf", 2)
-	t.rotifood.pack(o.order_id)
-	o.driver_arrival_time = t.time.sim_seconds
-	t.supply.unlock_market()
-	t.supply.purchase({&"ingredient_flour": 1})
+	var o: DeliveryOrder = t.rotifood.debug_create_order({&"recipe_plain_loaf": 2}, 0.0)
+	var guard0: int = 0
+	while not o.packed and guard0 < 6000:
+		t.step(t.tick_seconds)
+		guard0 += 1
+	check(o.packed, "order packed before the save")
 	var snap: Dictionary = json_copy(t.capture_save())
 	var t2: SimulationRoot = load_sim(snap)
 	for sim_i: SimulationRoot in [t, t2]:
@@ -296,46 +196,37 @@ func _save_crash_safe() -> void:
 			guard += 1
 	near(t2.economy.balance, t.economy.balance, 0.001, "packed order credited exactly once after reload")
 	eq(t2.display.total_units(), t.display.total_units(), "no bread duplicated")
-	eq(t2.supply.in_transit_units(), t.supply.in_transit_units(), "supply order not duplicated")
-	# Load dua kali dari save yang sama menghasilkan state yang sama.
 	var t3: SimulationRoot = load_sim(snap)
 	var t4: SimulationRoot = load_sim(snap)
 	same_state(state_of(t3), state_of(t4), "loading is idempotent")
-	# Save pukul 18:00 sebelum rollover: penuaan malam tepat sekali.
-	run_day(t3, null)
-	var eve: Dictionary = json_copy(t3.capture_save())
-	var t5: SimulationRoot = load_sim(eve)
-	t3.enter_after_hours()
-	t3.continue_to_next_day()
-	t5.enter_after_hours()
-	t5.continue_to_next_day()
-	same_state(logical_state(t5.capture_save()), logical_state(t3.capture_save()), "evening save + reload applies overnight aging once")
-	for x: SimulationRoot in [t, t2, t3, t4, t5]:
+	for x: SimulationRoot in [t, t2, t3, t4]:
 		free_sim(x)
-	# GDD 81 no.15: save saat OVERBAKING -> stage & sisa timer identik.
+	# Save saat memanggang: stage dan sisa timer identik (v3.1 81 no.15).
 	var ob: SimulationRoot = new_sim(507)
-	var oven: EquipmentInstance = ob.equipment.placed_list(&"oven")[0]
-	var j: ProductionJob = ob.production.create_job(&"recipe_plain_loaf", 1, &"test")
-	ob.production.start_mixing(j.job_id, &"test", 1.0)
-	ob.run_for(j.stage_duration + 0.1)
-	ob.production.pickup_dough(j.job_id, &"test")
-	ob.production.insert_oven(j.job_id, oven.iid, &"test", 1.0)
-	ob.run_for(j.stage_duration + oven.def().perfect_window_seconds + 2.0)
-	eq(j.stage, ProductionJob.OVERBAKING, "oven overbaking before save")
-	var ob2: SimulationRoot = load_sim(json_copy(ob.capture_save()))
-	var j2: ProductionJob = ob2.production.get_job(j.job_id)
-	eq(j2.stage, j.stage, "stage identical after load")
-	near(j2.burn_elapsed, j.burn_elapsed, 0.000001, "burn timer identical after load")
-	near(ob2.production.current_quality(j2), ob.production.current_quality(j), 0.000001, "quality identical after load")
-	ob.run_for(5.0)
-	ob2.run_for(5.0)
-	eq(j2.stage, j.stage, "both burn at the same moment")
-	# GDD 81 no.16: pelanggan di antrean kembali ke slot kanonik tanpa duplikasi.
-	ob.demand.scripted_walkins.clear()
-	run_until(ob, 8.0 * 3600.0 + 10.0)
-	stock(ob, &"recipe_plain_loaf", 6, 1)
+	var guard2: int = 0
+	var j: ProductionJob = null
+	while j == null and guard2 < 20000:
+		ob.step(ob.tick_seconds)
+		guard2 += 1
+		for jj: ProductionJob in ob.production.sorted_jobs():
+			if jj.stage == ProductionJob.BAKING and jj.progress() > 0.3:
+				j = jj
+	check(j != null, "a batch is baking")
+	if j != null:
+		var ob2: SimulationRoot = load_sim(json_copy(ob.capture_save()))
+		var j2: ProductionJob = ob2.production.get_job(j.job_id)
+		eq(j2.stage, j.stage, "stage identical after load")
+		near(j2.stage_elapsed, j.stage_elapsed, 0.000001, "bake timer identical after load")
+		ob.run_for(5.0)
+		ob2.run_for(5.0)
+		eq(j2.stage, j.stage, "both progress the same")
+		free_sim(ob2)
+	# Pelanggan di antrean kembali ke slot kanonik tanpa duplikasi (v3.1 81 no.16).
+	freeze_production(ob)
+	ob.demand.next_physical_at = NEVER
+	stock(ob, &"recipe_plain_loaf", 13, 1)
 	for k in 3:
-		ob.customers.try_admit({"archetype": &"customer_generic", "scripted": false, "recipe": &"", "quantity": 1, "patience_override": 999.0})
+		ob.customers.try_admit({"archetype": &"customer_generic"})
 		ob.run_for(3.0)
 	ob.run_for(10.0)
 	var units_before: int = ob.display.total_units()
@@ -353,46 +244,7 @@ func _save_crash_safe() -> void:
 	eq(ob3.display.total_units(), units_before, "display stock unchanged by load")
 	eq(ob3.check_invariants(), "", "queue invariants after load")
 	free_sim(ob3)
-	free_sim(ob2)
 	free_sim(ob)
-	_restore_dir()
-
-
-func _profiles() -> void:
-	_use_test_dir()
-	var names: Array[String] = ["Alpha Bakery", "Beta Bakery", "Gamma Bakery"]
-	for i in 3:
-		var s: SimulationRoot = new_sim(700 + i, SaveManager.PROFILE_IDS[i])
-		s.bakery_name = names[i]
-		s.debug_add_kr(100.0 * (i + 1))
-		check(SaveManager.write_profile(SaveManager.PROFILE_IDS[i], s.capture_save()), "write profile %d" % (i + 1))
-		free_sim(s)
-	for i2 in 3:
-		var h: Dictionary = SaveManager.read_header(SaveManager.PROFILE_IDS[i2])
-		eq(h.get("bakery_name"), names[i2], "profile %d header" % (i2 + 1))
-		near(float(h.get("balance_kr", 0.0)), 1000.0 + 100.0 * (i2 + 1), 0.001, "profile %d balance" % (i2 + 1))
-	# Merusak & menghapus profil 2 tidak menyentuh profil 1 dan 3.
-	var f: FileAccess = FileAccess.open(SaveManager.main_path(&"profile_2"), FileAccess.WRITE)
-	f.store_string("garbage")
-	f.close()
-	check(bool(SaveManager.read_profile(&"profile_1")["ok"]), "profile 1 unaffected by corrupt profile 2")
-	check(bool(SaveManager.read_profile(&"profile_3")["ok"]), "profile 3 unaffected")
-	SaveManager.delete_profile(&"profile_2")
-	check(not SaveManager.has_profile(&"profile_2"), "profile 2 deleted")
-	check(SaveManager.has_profile(&"profile_1") and SaveManager.has_profile(&"profile_3"), "others kept")
-	# Save milik profil lain ditolak (id tidak cocok).
-	var d1: Dictionary = SaveManager.read_profile(&"profile_1")["data"]
-	check(SaveManager.validate_save(d1, &"profile_3") != "", "a profile cannot load another profile's data")
-	# Autosave hanya menulis profil aktif.
-	var s2: SimulationRoot = load_sim(SaveManager.read_profile(&"profile_3")["data"])
-	SaveManager.simulation = s2
-	SaveManager.active_profile = &"profile_3"
-	s2.debug_add_kr(5.0)
-	check(SaveManager.save_now(), "save active profile")
-	near(float(SaveManager.read_header(&"profile_3")["balance_kr"]), 1305.0, 0.001, "active profile updated")
-	near(float(SaveManager.read_header(&"profile_1")["balance_kr"]), 1100.0, 0.001, "inactive profile untouched")
-	eq(SaveManager.latest_profile(), &"profile_3", "Continue picks the latest played profile")
-	free_sim(s2)
 	_restore_dir()
 
 
@@ -403,10 +255,8 @@ func _multifloor() -> void:
 	var kitchen: StringName = s.world.kitchen_floor()
 	var store: StringName = s.world.store_floor()
 	check(kitchen != store, "kitchen on another floor")
-	# Pelanggan tidak pernah punya rute ke lantai dapur (GDD 68).
 	var pub: Array[Dictionary] = s.world.find_route(store, GridMath.cell_center(s.world.entrance_cell()), kitchen, Vector2i(2, 3), FloorGrid.NAV_PUBLIC)
-	check(pub.is_empty(), "public actors cannot route to the kitchen floor")
-	# Pemain: rute lewat portal, perpindahan instan tanpa biaya waktu.
+	check(pub.is_empty(), "public actors cannot route to the kitchen floor (v3.1 68)")
 	var p: SimActor = s.player.actor
 	var lane: QueueLane = s.queue.main_lane()
 	p.place_at(store, lane.cashier_point)
@@ -425,102 +275,88 @@ func _multifloor() -> void:
 		length += prev.distance_to(wp["pos"])
 		prev = wp["pos"]
 	eq(portals, 1, "one portal hop")
-	check(p.go_to(s.world, kitchen, acc["cell"]), "player routes upstairs")
-	var t0: float = s.time.sim_seconds
-	var switched_at: float = -1.0
+	check(p.go_to(s.world, kitchen, acc["cell"]), "owner routes upstairs")
 	var guard: int = 0
+	var switched: bool = false
 	while p.has_route() and guard < 10000:
 		p.step(s.tick_seconds, s.world)
 		guard += 1
-		if switched_at < 0.0 and p.floor_id == kitchen:
-			switched_at = float(guard) * s.tick_seconds
+		switched = switched or p.floor_id == kitchen
 	var travel: float = float(guard) * s.tick_seconds
 	eq(p.floor_id, kitchen, "arrived upstairs")
 	near(travel, length / p.speed_mps, s.tick_seconds * 2.0, "travel time = walking distance only (no stair penalty)")
-	check(switched_at > 0.0, "floor changed mid-route")
-	# Lantai yang tidak dilihat tetap disimulasikan: oven dapur memanggang & gosong
-	# walau pemain berada di lantai toko.
-	p.place_at(store, lane.cashier_point)
-	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, &"test")
-	s.production.start_mixing(j.job_id, &"test", 1.0)
-	s.run_for(j.stage_duration + 0.1)
-	eq(j.stage, ProductionJob.MIX_DONE_WAITING_PICKUP, "upstairs mixer finished while player downstairs")
-	s.production.pickup_dough(j.job_id, &"test")
+	check(switched, "floor changed mid-route")
+	# Dapur di atas tetap bekerja dan menahan isinya walau tidak ada yang melihat.
+	freeze_production(s)
+	s.run_for(30.0)
+	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
 	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
 	eq(oven.floor_id, kitchen, "oven upstairs")
-	s.production.insert_oven(j.job_id, oven.iid, &"test", 1.0)
-	s.run_for(j.stage_duration + oven.def().burn_grace_seconds() + 0.5)
-	eq(j.stage, ProductionJob.BURNT, "off-floor oven burns unattended (GDD 30, 62)")
+	if mixer.job_id < 0:
+		var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, mixer, -1, -1, &"test")
+		s.production.start_mixing(j.job_id, &"test")
+		j.claimed_by = &"test"
+		s.run_for(j.stage_duration + 0.1)
+		eq(j.stage, ProductionJob.MIX_DONE_WAITING_PICKUP, "upstairs mixer finished and holds the dough")
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
 
 
 func _upgrade() -> void:
 	var s: SimulationRoot = new_sim(909)
-	s.debug_add_kr(2000000.0)
-	# Perabot cadangan belum terpasang + stok gudang.
-	var spare: EquipmentInstance = s.equipment.create_instance(&"mixer_t1")
+	var bot := SimBot.new(s)
+	bot.manage = true
+	run_hours(s, 2.0, bot)
+	s.debug_add_kr(1.0e12)
 	for tier in range(2, 6):
-		s.time.set_phase(TimeManager.AFTER_HOURS)
+		run_hours(s, 0.5, bot)
 		var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
-		var cap: int = s.display.free_units(disp.iid)
-		stock(s, &"recipe_plain_loaf", mini(4, cap), 0, disp.iid)
+		s.upgrades.set_station_level(disp.iid, s.upgrades.level_cap())
 		var units: int = s.display.total_units()
-		var ages: float = _total_age(s)
-		var inv: Dictionary = s.inventory.on_hand.duplicate()
+		for c: Customer in s.customers.sorted():
+			units += c.held_units()
+		for o: DeliveryOrder in s.rotifood.active_orders():
+			for l: Variant in o.reserved_lots:
+				units += ((l as Dictionary)["stack"] as BreadStack).quantity
+		var job_units: int = 0
+		for jj: ProductionJob in s.production.sorted_jobs():
+			job_units += jj.quantity_output
+		var levels: Dictionary = s.upgrades.capture()
 		var equip_ids: Array = s.equipment.instances.keys()
 		equip_ids.sort()
 		var bal: float = s.economy.balance
-		var cost: float = s.next_location().upgrade_cost_kr
-		# Snapshot/rollback harus memulihkan persis (jalur kegagalan GDD 105).
-		var fp_before: Dictionary = state_of(s)
+		var cost: float = SimulationRoot.location_cost(tier)
+		var before: Dictionary = logical_state(s.capture_save())
 		var snap: Dictionary = s.capture_save()
-		s.debug_add_kr(1.0)
 		s.load_from_save(snap)
-		same_state(state_of(s), fp_before, "T%d rollback snapshot restores exactly" % tier)
-		eq(s.upgrade_location(), "", "upgrade to tier %d" % tier)
+		same_state(logical_state(s.capture_save()), before, "T%d rollback snapshot restores exactly" % tier)
+		eq(s.upgrade_location(), "", "upgrade to tier %d while the shop is open" % tier)
 		eq(s.world.location.tier, tier, "now tier %d" % tier)
-		eq(s.display.total_units(), units, "T%d no bread lost" % tier)
-		near(_total_age(s), ages, 0.0001, "T%d freshness kept" % tier)
-		eq(s.inventory.on_hand, inv, "T%d ingredients kept" % tier)
+		eq(s.customers.active_count(), 0, "T%d customers walked out" % tier)
+		var units_after: int = s.display.total_units()
+		for o2: DeliveryOrder in s.rotifood.active_orders():
+			for l2: Variant in o2.reserved_lots:
+				units_after += ((l2 as Dictionary)["stack"] as BreadStack).quantity
+		eq(units_after, units, "T%d no bread lost (held bread went back to the shelves)" % tier)
+		var job_units2: int = 0
+		for jj2: ProductionJob in s.production.sorted_jobs():
+			job_units2 += jj2.quantity_output
+		eq(job_units2, job_units, "T%d every batch in progress kept" % tier)
+		eq(s.upgrades.capture(), levels, "T%d every level kept" % tier)
 		var after_ids: Array = s.equipment.instances.keys()
 		after_ids.sort()
 		for old_id: Variant in equip_ids:
 			check(after_ids.has(old_id), "T%d equipment instance %d kept" % [tier, int(old_id)])
-		# Instance baru hanya kursi koki untuk slot koki tambahan (GDD 5.1.4).
-		var chairs: int = 0
-		for new_id: Variant in after_ids:
-			if not equip_ids.has(new_id):
-				eq(s.equipment.get_inst(int(new_id)).category(), &"chair", "T%d only staff chairs are added" % tier)
-			if s.equipment.get_inst(int(new_id)).category() == &"chair":
-				chairs += 1
-		eq(chairs, s.world.location.staff_capacity(&"baker"), "T%d one staff chair per baker slot" % tier)
 		near(s.economy.balance, bal - cost, 0.001, "T%d only the upgrade cost is charged" % tier)
-		for d: Variant in s.display.display_ids():
-			if s.display.used(int(d)) > 0:
-				check(s.equipment.get_inst(int(d)).placed, "T%d displays holding bread are placed" % tier)
 		check(s.world.layout_valid(), "T%d layout valid" % tier)
 		check(s.equipment.storage_instance().placed, "T%d storage placed" % tier)
+		for e: EquipmentInstance in s.equipment.all_sorted():
+			check(e.placed, "T%d %s %d placed" % [tier, e.def_id, e.iid])
 		eq(s.check_invariants(), "", "T%d invariants" % tier)
-		s.continue_to_next_day()
-		var bot := SimBot.new(s)
-		run_until(s, 9.0 * 3600.0, bot)
+		run_hours(s, 0.5, bot)
 		eq(s.check_invariants(), "", "T%d plays after upgrade" % tier)
-		# GDD 105 no.11: job produksi harus kosong sebelum upgrade berikutnya.
-		check(bot.finish_production(), "T%d kitchen cleared before closing" % tier)
-		run_day(s, null)
-	check(s.equipment.get_inst(spare.iid) != null, "spare equipment survives all upgrades")
 	eq(s.upgrade_block_reason(), "ui_upgrade_max", "Tier 5 is the last location")
 	free_sim(s)
-
-
-func _total_age(s: SimulationRoot) -> float:
-	var t: float = 0.0
-	for d: Variant in s.display.display_ids():
-		for slot: Dictionary in s.display.slots(int(d)):
-			for st: BreadStack in slot["stacks"]:
-				t += st.age_ingame_hours * st.quantity
-	return t
 
 
 func _lifecycle() -> void:
@@ -531,29 +367,69 @@ func _lifecycle() -> void:
 	PauseManager.lifecycle_enabled = true
 	s.run_for(10.0)
 	var writes: int = SaveManager.write_count()
+	var resumed: Array = []
+	var cb := func() -> void: resumed.append(true)
+	PauseManager.lifecycle_resumed.connect(cb)
 	PauseManager._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	check(PauseManager.is_paused() and PauseManager.has(PauseManager.LIFECYCLE), "focus loss pauses (GDD 90)")
-	# Autosave kritis diminta oleh GameRoot; di sini dipicu langsung.
+	check(PauseManager.is_paused() and PauseManager.has(PauseManager.LIFECYCLE), "focus loss stops the simulation (GDD idle 3.4)")
 	SaveManager.request_autosave("lifecycle", true)
 	eq(SaveManager.write_count(), writes + 1, "critical autosave written immediately")
 	var fp: String = fingerprint(s)
 	for i in 100:
 		s.advance(1.0)
-	eq(fingerprint(s), fp, "no progression while paused")
+	eq(fingerprint(s), fp, "no live progression while away")
 	PauseManager._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
 	eq(PauseManager.reasons().count(PauseManager.LIFECYCLE), 1, "repeated focus loss does not stack")
-	PauseManager.resume_from_lifecycle()
-	check(not PauseManager.is_paused(), "resume clears the lifecycle pause")
-	# Tidak ada progres offline: satu frame raksasa dibatasi 0,25 s nyata.
+	PauseManager._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	check(not PauseManager.is_paused(), "focus return resumes at once, no Game Paused screen")
+	eq(resumed.size(), 1, "lifecycle_resumed fires once")
 	var t0: float = s.time.sim_seconds
 	s.advance(3600.0)
-	check(s.time.sim_seconds - t0 <= 0.25 * DataRegistry.sim_seconds_per_real_second() + 0.0001, "no offline catch-up after returning (GDD 113)")
-	# Pause lain (modal) tidak dicabut oleh resume lifecycle.
+	check(s.time.sim_seconds - t0 <= 0.25 * DataRegistry.sim_seconds_per_real_second() + 0.0001, "one huge frame never fast-forwards the live simulation")
 	PauseManager.push(PauseManager.USER)
 	PauseManager.on_focus_lost()
-	PauseManager.resume_from_lifecycle()
-	check(PauseManager.has(PauseManager.USER), "user pause survives lifecycle resume")
+	PauseManager.on_focus_gained()
+	check(PauseManager.has(PauseManager.USER), "the pause menu survives a focus return")
+	PauseManager.lifecycle_resumed.disconnect(cb)
 	PauseManager.clear_all()
 	PauseManager.lifecycle_enabled = false
 	free_sim(s)
+	_restore_dir()
+
+
+func _profiles() -> void:
+	_use_test_dir()
+	var names: Array[String] = ["Alpha Bakery", "Beta Bakery", "Gamma Bakery"]
+	for i in 3:
+		var s: SimulationRoot = new_sim(700 + i, SaveManager.PROFILE_IDS[i])
+		s.bakery_name = names[i]
+		s.debug_add_kr(100.0 * (i + 1))
+		check(SaveManager.write_profile(SaveManager.PROFILE_IDS[i], s.capture_save()), "write profile %d" % (i + 1))
+		free_sim(s)
+	for i2 in 3:
+		var h: Dictionary = SaveManager.read_header(SaveManager.PROFILE_IDS[i2])
+		eq(h.get("bakery_name"), names[i2], "profile %d header" % (i2 + 1))
+		near(float(h.get("balance_kr", 0.0)), DataRegistry.idlef("start_kr") + 100.0 * (i2 + 1), 0.001, "profile %d balance" % (i2 + 1))
+	# Merusak & menghapus profil 2 tidak menyentuh profil 1 dan 3.
+	var f: FileAccess = FileAccess.open(SaveManager.main_path(&"profile_2"), FileAccess.WRITE)
+	f.store_string("garbage")
+	f.close()
+	check(bool(SaveManager.read_profile(&"profile_1")["ok"]), "profile 1 unaffected by corrupt profile 2")
+	check(bool(SaveManager.read_profile(&"profile_3")["ok"]), "profile 3 unaffected")
+	SaveManager.delete_profile(&"profile_2")
+	check(not SaveManager.has_profile(&"profile_2"), "profile 2 deleted")
+	check(SaveManager.has_profile(&"profile_1") and SaveManager.has_profile(&"profile_3"), "others kept")
+	# Save milik profil lain ditolak (id tidak cocok).
+	var d1: Dictionary = SaveManager.read_profile(&"profile_1")["data"]
+	check(SaveManager.validate_save(d1, &"profile_3") != "", "a profile cannot load another profile's data")
+	# Autosave hanya menulis profil aktif.
+	var s2: SimulationRoot = load_sim(SaveManager.read_profile(&"profile_3")["data"])
+	SaveManager.simulation = s2
+	SaveManager.active_profile = &"profile_3"
+	s2.debug_add_kr(5.0)
+	check(SaveManager.save_now(), "save active profile")
+	near(float(SaveManager.read_header(&"profile_3")["balance_kr"]), DataRegistry.idlef("start_kr") + 305.0, 0.001, "active profile updated")
+	near(float(SaveManager.read_header(&"profile_1")["balance_kr"]), DataRegistry.idlef("start_kr") + 100.0, 0.001, "inactive profile untouched")
+	eq(SaveManager.latest_profile(), &"profile_3", "Continue picks the latest played profile")
+	free_sim(s2)
 	_restore_dir()

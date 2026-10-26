@@ -1,6 +1,6 @@
 class_name ProfileScreen
 extends UIScreen
-## Tiga profil save independen (GDD 89.3). Mode "new" memilih profil kosong
+## Tiga profil save independen (v3.1 89.3; GDD idle 15.3). Mode "new" memilih profil kosong
 ## atau menimpa (dengan konfirmasi); mode "load" memuat profil.
 
 
@@ -32,11 +32,16 @@ func _card(n: int, h: Dictionary) -> Control:
 	var mode: String = str(params.get("mode", "load"))
 	var exists: bool = bool(h.get("exists", false))
 	var corrupt: bool = bool(h.get("corrupt", false))
+	var classic: bool = bool(h.get("classic", false))
 	var ic := CenterContainer.new()
 	ic.add_child(ProceduralUIFactory.icon("shop", 56, Palette.GOLDEN_CRUST if exists else Palette.TEXT_MUTED))
 	body.add_child(ic)
 	if not exists:
 		lbl(body, Tx.t("ui_profile_empty"), 20, Palette.TEXT_MUTED)
+	elif classic:
+		# Save tycoon v3.1 tidak didukung (GDD idle 15.3): hanya bisa dihapus.
+		var cl: Label = lbl(body, Tx.t("ui_classic_save"), 18, Palette.TEXT_MUTED, true)
+		cl.name = "ClassicSave"
 	elif corrupt:
 		lbl(body, Tx.t("ui_save_error"), 18, Palette.DANGER, true)
 	else:
@@ -54,7 +59,7 @@ func _card(n: int, h: Dictionary) -> Control:
 	body.add_child(spacer)
 	if mode == "new":
 		btn(body, Tx.t("ui_main_new_game"), "primary", _on_new.bind(pid, exists))
-	elif exists and not corrupt:
+	elif exists and not corrupt and not classic:
 		btn(body, Tx.t("ui_main_continue"), "primary", _on_load.bind(pid))
 	if exists:
 		btn(body, Tx.t("ui_profile_delete"), "danger", _on_delete.bind(pid))

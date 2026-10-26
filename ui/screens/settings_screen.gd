@@ -1,6 +1,6 @@
 class_name SettingsScreen
 extends UIScreen
-## Settings & Accessibility (GDD 44, 75). Disimpan di user://settings.json,
+## Settings & Accessibility (v3.1 44, 75; GDD idle 7.5). Disimpan di user://settings.json,
 ## terpisah dari profil karier.
 
 var _tab: int = 0
@@ -41,7 +41,8 @@ func _render() -> void:
 			_choice("quality", "ui_settings_quality", ["auto", "quality_low", "quality_medium", "quality_high"],
 				[Tx.t("ui_quality_auto"), Tx.t("ui_quality_low"), Tx.t("ui_quality_medium"), Tx.t("ui_quality_high")])
 		2:
-			_toggle("smart_speed", "ui_settings_smart_speed")
+			_choice("number_format", "ui_number_format", ["short", "scientific"],
+				[Tx.t("ui_number_format_short"), Tx.t("ui_number_format_scientific")])
 			_toggle("edge_scroll", "ui_settings_edge_scroll")
 			_toggle("confirm_expensive", "ui_settings_confirm_expensive")
 			_slider("confirm_threshold", "ui_settings_confirm_threshold", 0, 100000, 500)

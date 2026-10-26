@@ -1,55 +1,49 @@
 extends TestSuite
-## Acceptance tambahan: GDD 55, Appendix skala ruang, dan GDD 81 yang belum
-## tercakup suite wajib, termasuk solver penempatan otomatis semua tier.
+## Acceptance tambahan: modal awal, antrean RotiFood, patience, skala ruang,
+## solver penempatan semua tier, jam satu kecepatan, dan batas efek.
 
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_55_STARTING_CASH", "name": "55.1 opening balance 1000 KR in the ledger", "fn": _starting_cash},
+		{"id": "ACC_IDLE_STARTING_CASH", "name": "idle 7.1: a new game opens with start_kr in one ledger entry", "fn": _starting_cash},
 		{"id": "ACC_55_OJOL_QUEUE", "name": "55.3 dedicated RotiFood queue at Tier 3+", "fn": _ojol_queue},
 		{"id": "ACC_55_PATIENCE", "name": "55.4/58 patience bar and drain", "fn": _patience},
-		{"id": "ACC_55_COURIERS", "name": "55.5-55.7 courier ETA, lifecycle and FIFO", "fn": _couriers},
-		{"id": "ACC_55_CAPACITY", "name": "55.9 capacity includes in-transit", "fn": _capacity},
 		{"id": "ACC_SPATIAL", "name": "Appendix spatial scale 1-10", "fn": _spatial},
-		{"id": "ACC_LAYOUT_SOLVER", "name": "auto-placement fills every tier's slots", "fn": _layout_solver},
+		{"id": "ACC_LAYOUT_SOLVER", "name": "opening stations fills every tier's slots with a valid layout", "fn": _layout_solver},
 		{"id": "ACC_81_PLACEMENT", "name": "81.1/81.4 placement keeps paths and access tiles", "fn": _placement},
-		{"id": "ACC_81_SPEED", "name": "81.7/81.8 speed, menu pause, smart speed safety", "fn": _speed},
-		{"id": "ACC_81_RECIPES", "name": "81.9/81.10 no unlock flags, batch revenue", "fn": _recipes},
-		{"id": "ACC_81_IN_USE", "name": "81.14 in-use furniture cannot move", "fn": _in_use},
-		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 while the shop is not open a shelf holding bread moves and turns with its bread; while open it stays IN_USE; Put Away still refuses it", "fn": _stocked_shelf},
-		{"id": "ACC_5_REPLACE_STOCKED_SHELF", "name": "5.1.2 after closing a shelf holding bread can be replaced by one that holds every slot: the bread moves over unchanged, the new shelf stands in the old place or the nearest free one; a shelf whose bread would not fit stays", "fn": _replace_stocked},
-		{"id": "ACC_16_COMMANDS", "name": "16.4 retargeting mixes equipment, cashier and portal taps", "fn": _mixed_taps},
+		{"id": "ACC_IDLE_ONE_SPEED", "name": "idle 0.2: one speed, 1 real second = 1 in-game minute; only the Pause menu stops the clock", "fn": _one_speed},
+		{"id": "ACC_81_IN_USE", "name": "81.14 a station holding a batch cannot move", "fn": _in_use},
+		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 a shelf holding bread moves and turns with its bread", "fn": _stocked_shelf},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
 		{"id": "ACC_129_FX_TEARDOWN", "name": "129 one-shot effects freed early leave no errors behind", "fn": _effect_teardown},
-		{"id": "ACC_62_BURNT_SWAP", "name": "62 dough in hand replaces a burnt tray, never a sellable one", "fn": _burnt_swap},
 	]
 
 
 func _starting_cash() -> void:
 	var s: SimulationRoot = new_sim()
-	near(s.economy.balance, 1000.0, 0.001, "balance 1000 KR")
+	var start: float = DataRegistry.idlef("start_kr")
+	near(s.economy.balance, start, 0.001, "balance = start_kr")
 	eq(s.economy.ledger.size(), 1, "one opening ledger entry")
-	near(float(s.economy.ledger[0]["amount"]), 1000.0, 0.001, "opening entry 1000 KR")
-	eq(Tx.kr(s.economy.balance).contains("1"), true, "HUD formatter renders the balance")
+	near(float(s.economy.ledger[0]["amount"]), start, 0.001, "opening entry = start_kr")
+	eq(Tx.kr(s.economy.balance), Tx.big(start) + " KR", "HUD formatter renders the balance")
 	free_sim(s)
 
 
 func _ojol_queue() -> void:
 	var s: SimulationRoot = new_sim(33)
 	jump_to_tier(s, 3)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
 	var rf: QueueLane = s.queue.rotifood_lane
 	check(rf != null, "Tier 3 has a dedicated RotiFood lane")
-	eq(rf.capacity(), 3, "RotiFood queue has 3 slots (GDD 57.3)")
+	eq(rf.capacity(), 3, "RotiFood queue has 3 slots (v3.1 57.3)")
 	eq(s.queue.driver_lane(), rf, "drivers use the dedicated lane")
 	var phys_before: int = s.queue.physical_free_capacity()
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	run_until(s, 8.0 * 3600.0 + 10.0)
 	for i in rf.capacity():
 		s.queue.reserve(rf, StringName("d_block%d" % i))
-	var o: DeliveryOrder = s.rotifood.create_scripted_order(&"recipe_plain_loaf", 1)
-	o.driver_arrival_time = s.time.sim_seconds
+	var o: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 1}, 0.0)
 	s.run_for(1.0)
 	eq(o.driver_phase, &"pending", "driver waits outside while the RotiFood queue is full")
 	eq(s.queue.physical_free_capacity(), phys_before, "physical lanes untouched by the driver")
@@ -60,23 +54,25 @@ func _patience() -> void:
 	var c := Customer.new()
 	c.patience_max = 30.0
 	c.patience = 15.0
-	near(c.patience_ratio(), 0.5, 0.0001, "bar ratio 0.5 (GDD 55.4)")
-	for st: StringName in [Customer.ENTERING, Customer.BROWSING, Customer.SELECTING, Customer.CARRYING_TO_QUEUE]:
+	near(c.patience_ratio(), 0.5, 0.0001, "bar ratio 0.5 (v3.1 55.4)")
+	for st: StringName in [Customer.APPROACHING, Customer.ENTERING, Customer.BROWSING, Customer.SELECTING, Customer.CARRYING_TO_QUEUE]:
 		c.state = st
 		check(not c.drains_patience(), "%s does not drain patience" % st)
 	var table: Dictionary = {&"customer_school_child": 55.0, &"customer_office_worker": 18.0, &"customer_bulk_buyer": 45.0,
 		&"customer_snob": 28.0, &"customer_indecisive": 60.0, &"customer_critic": 25.0, &"customer_generic": 35.0}
 	for id: StringName in table.keys():
-		near(DataRegistry.archetype(id).base_patience_seconds, float(table[id]), 0.001, "%s patience (GDD 58)" % id)
+		near(DataRegistry.archetype(id).base_patience_seconds, float(table[id]), 0.001, "%s patience (v3.1 58)" % id)
 	near(float(DataRegistry.driver_def()["base_patience_seconds"]), 30.0, 0.001, "driver patience 30 s")
-	# Office Worker sendirian di antrean yang tidak dilayani: 1,0/s selama 10 s,
-	# lalu ×1,15 karena tanpa progres (GDD 58).
+	# Office Worker sendirian di antrean yang tidak dilayani (pemilik diparkir):
+	# 1,0/s selama 10 s, lalu ×1,15 karena tanpa progres (v3.1 58).
 	var s: SimulationRoot = new_sim(44)
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	run_until(s, 8.0 * 3600.0 + 10.0)
+	freeze_production(s)
+	park_owner(s)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
 	stock(s, &"recipe_plain_loaf", 6)
-	s.customers.try_admit({"archetype": &"customer_office_worker", "scripted": false, "recipe": &"", "quantity": 1, "patience_override": null})
+	s.customers.try_admit({"archetype": &"customer_office_worker"})
 	var cu: Customer = s.customers.sorted()[0]
 	var guard: int = 0
 	while not cu.drains_patience() and guard < 4000:
@@ -89,70 +85,8 @@ func _patience() -> void:
 		s.step(s.tick_seconds)
 		guard += 1
 	var took: float = s.time.sim_seconds - t0
-	near(took, 10.0 + 8.0 / 1.15, 0.15, "office worker gives up after 10 s + 8 s at ×1.15")
+	near(took, 10.0 + 8.0 / 1.15, 0.15, "office worker gives up after 10 s + 8 s at x1.15")
 	eq(s.display.total_units(), 6, "abandoning customer returned the bread")
-	free_sim(s)
-
-
-func _couriers() -> void:
-	var s: SimulationRoot = new_sim(55)
-	s.supply.unlock_market()
-	run_until(s, 10.0 * 3600.0)
-	var flour: int = s.inventory.count(&"ingredient_flour")
-	var bal: float = s.economy.balance
-	s.supply.purchase({&"ingredient_flour": 3})
-	near(s.economy.balance, bal - 450.0, 0.001, "KR deducted at once (GDD 55.5)")
-	eq(s.inventory.count(&"ingredient_flour"), flour, "on_hand unchanged")
-	near(s.supply.next_eta_of(&"ingredient_flour"), 13.0 * 3600.0, 0.5, "ETA 13:00")
-	# Dua order lagi, jatuh tempo bersamaan (GDD 55.7).
-	s.supply.purchase({&"ingredient_sugar": 1})
-	s.supply.purchase({&"ingredient_egg": 1})
-	var seen_states: Array[String] = []
-	var max_couriers: int = 0
-	var commit_state: String = ""
-	var committed: Array[int] = []
-	while s.time.time_seconds < 14.0 * 3600.0:
-		s.step(s.tick_seconds)
-		# Hanya kurir yang masuk/menaruh paket memakai staging point.
-		var using: int = 0
-		for o3: Dictionary in s.supply.orders:
-			if str(o3["state"]) in ["COURIER_ENTERING", "DROPPING_PACKAGE"]:
-				using += 1
-		max_couriers = maxi(max_couriers, using)
-		for o: Dictionary in s.supply.orders:
-			var st: String = str(o["state"])
-			if not seen_states.has(st):
-				seen_states.append(st)
-			if bool(o["inventory_committed"]) and not committed.has(int(o["order_id"])):
-				committed.append(int(o["order_id"]))
-		if commit_state == "" and s.inventory.count(&"ingredient_flour") > flour:
-			for o2: Dictionary in s.supply.orders:
-				if (o2["items"] as Dictionary).has("ingredient_flour"):
-					commit_state = str(o2["state"])
-	eq(s.inventory.count(&"ingredient_flour"), flour + 3, "3 flour added exactly once")
-	eq(committed.size(), 3, "every order committed")
-	eq(max_couriers, 1, "only one courier uses the staging point at a time (GDD 55.7)")
-	for st2: String in ["COURIER_SPAWNING", "COURIER_ENTERING", "DROPPING_PACKAGE"]:
-		check(seen_states.has(st2), "courier lifecycle passes %s (GDD 55.6)" % st2)
-	check(commit_state in ["INVENTORY_COMMITTED", "COURIER_EXITING", "COMPLETED"], "commit happens at drop-off, not on spawn (%s)" % commit_state)
-	eq(s.supply.couriers.size(), 0, "couriers despawned")
-	free_sim(s)
-
-
-func _capacity() -> void:
-	var s: SimulationRoot = new_sim(66)
-	s.supply.unlock_market()
-	s.debug_add_kr(100000.0)
-	run_until(s, 9.0 * 3600.0)
-	var free: int = s.inventory.capacity() - s.inventory.total_units()
-	# Sisakan 10 unit, 8 di antaranya in-transit.
-	var fill: int = free - 10
-	if fill > 0:
-		s.inventory.add_items({&"ingredient_water_salt": fill})
-	check(s.supply.purchase({&"ingredient_flour": 8})["ok"], "8 units in transit")
-	eq(s.supply.max_additional_units(), 2, "only 2 more units allowed (GDD 55.9)")
-	check(not s.supply.purchase({&"ingredient_flour": 3})["ok"], "3 units refused")
-	check(s.supply.purchase({&"ingredient_flour": 2})["ok"], "2 units accepted")
 	free_sim(s)
 
 
@@ -209,26 +143,27 @@ func _spatial() -> void:
 
 
 ## Solver penempatan: setiap tier menampung jumlah slot penuh tiap kategori
-## lewat penempatan otomatis deterministik, dan layout tetap sah.
+## lewat Buka Stasiun (penempatan otomatis deterministik), dan layout tetap sah.
 func _layout_solver() -> void:
 	for tier in range(1, 6):
 		var s: SimulationRoot = new_sim(600 + tier)
 		if tier > 1:
 			jump_to_tier(s, tier)
-		s.time.set_phase(TimeManager.AFTER_HOURS)
+		s.debug_add_kr(1.0e15)
 		for cat: StringName in [&"oven", &"mixer", &"display"]:
 			var limit: int = s.world.location.slot_count(cat)
 			var guard: int = 0
 			while s.equipment.placed_count(cat) < limit and guard < 10:
 				guard += 1
-				var e: EquipmentInstance = s.equipment.create_instance(DataRegistry.equipment_for(cat, 1).id)
-				check(s.world.auto_place(e), "T%d auto-places %s #%d" % [tier, cat, s.equipment.placed_count(cat) + 1])
+				check(s.upgrades.open_station(cat) >= 0, "T%d opens %s #%d" % [tier, cat, s.equipment.placed_count(cat) + 1])
 			eq(s.equipment.placed_count(cat), limit, "T%d %s slots filled (%d)" % [tier, cat, limit])
+			eq(s.upgrades.open_station_cost(cat), -1.0, "T%d no more %s to open" % [tier, cat])
 		check(s.world.layout_valid(), "T%d layout valid with every slot filled" % tier)
 		var table: EquipmentInstance = s.equipment.table_instance()
-		check(table != null and table.placed, "T%d holding table placed alongside full slots (GDD 5.1.3)" % tier)
+		check(table != null and table.placed, "T%d holding table placed alongside full slots (v3.1 5.1.3)" % tier)
 		for e2: EquipmentInstance in s.equipment.placed_list():
 			check(not s.world.access_of(e2.iid).is_empty(), "T%d %s#%d has an access tile" % [tier, e2.def_id, e2.iid])
+		eq(s.check_invariants(), "", "T%d invariants" % tier)
 		free_sim(s)
 
 
@@ -262,178 +197,75 @@ func _placement() -> void:
 	free_sim(s)
 
 
-func _speed() -> void:
+func _one_speed() -> void:
 	var s: SimulationRoot = new_sim(81)
-	# 1×: 1 detik nyata = 1 menit in-game (keputusan maintainer 2026-10-01, GDD 15.2).
-	var per_real: float = DataRegistry.sim_seconds_per_real_second()
+	check(not s.time.has_method("set_speed") and not ("speed" in s.time), "the clock has no speed setting")
 	var c0: float = s.time.time_seconds
 	for i0 in 30:
 		s.advance(1.0 / 30.0)
-	near(s.time.time_seconds - c0, 60.0, s.time.ratio * s.tick_seconds + 0.001, "1x: 1 real second = 1 in-game minute")
-	s.time.set_speed(3)
-	var t0: float = s.time.sim_seconds
-	for i in 30:
-		s.advance(1.0 / 30.0)
-	near(s.time.sim_seconds - t0, 3.0 * per_real, 0.051, "3x speed: 1 real second = 3 in-game minutes")
-	# Menu manajemen menghentikan timer sepenuhnya.
-	PauseManager.push(&"modal_market")
+	near(s.time.time_seconds - c0, 60.0, s.time.ratio * s.tick_seconds + 0.001, "1 real second = 1 in-game minute")
+	PauseManager.push(PauseManager.USER)
 	var t1: float = s.time.sim_seconds
 	for i2 in 30:
 		s.advance(1.0 / 30.0)
-	near(s.time.sim_seconds, t1, 0.000001, "management menu freezes the timer")
+	near(s.time.sim_seconds, t1, 0.000001, "the Pause menu freezes the clock")
 	PauseManager.clear_all()
-	# Smart Speed Safety: oven selesai pada 3x kembali ke 1x (GDD 71.1).
-	SettingsManager.set_value("smart_speed", true)
-	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, &"test")
-	s.production.start_mixing(j.job_id, &"test", 1.0)
-	s.run_for(j.stage_duration + 0.1)
-	s.production.pickup_dough(j.job_id, &"test")
-	s.production.insert_oven(j.job_id, s.equipment.placed_list(&"oven")[0].iid, &"test", 1.0)
-	s.time.set_speed(3)
-	s.run_for(j.stage_duration + 0.1)
-	eq(j.stage, ProductionJob.BAKE_DONE_WAITING_PICKUP, "bake done")
-	eq(s.time.speed, 1, "speed dropped to 1x before the burn window runs (GDD 81.8)")
-	free_sim(s)
-
-
-func _recipes() -> void:
-	var raw: String = FileAccess.get_file_as_string("res://data/catalog/recipes.json")
-	for w: String in ["unlock", "unlocked", "purchase_price"]:
-		check(not raw.contains("\"%s" % w), "recipes.json has no %s field (GDD 61.1)" % w)
-	var s: SimulationRoot = new_sim(91)
-	var save_text: String = JSON.stringify(s.capture_save())
-	check(not save_text.contains("unlocked_recipes") and not save_text.contains("recipe_unlock"), "no recipe unlock flags in the save")
-	# Resep bisa dibuat semata dari bahan + alat minimum.
-	for r: RecipeDefinition in DataRegistry.recipes():
-		var reason: String = s.production.make_block_reason(r.id, 1)
-		if s.production.owns_equipment_for(r) and s.inventory.has_for_recipe(r, 1):
-			eq(reason, "", "%s makeable with ingredients + equipment" % r.id)
-	# Pendapatan batch = harga default x yield (GDD 63.1, 81.10).
-	for r2: RecipeDefinition in DataRegistry.recipes():
-		near(Money.round_half_up(r2.base_sell_price_kr) * r2.batch_yield, r2.base_sell_price_kr * r2.batch_yield, 0.001, "%s batch revenue" % r2.id)
-		check(r2.base_sell_price_kr * r2.batch_yield > r2.batch_cost_kr, "%s batch is profitable at default price" % r2.id)
+	var t2: float = s.time.sim_seconds
+	for i3 in 30:
+		s.advance(1.0 / 30.0)
+	check(s.time.sim_seconds > t2, "the clock runs again after Resume")
 	free_sim(s)
 
 
 func _in_use() -> void:
 	var s: SimulationRoot = new_sim(101)
+	freeze_production(s)
 	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
-	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, &"test")
-	s.production.start_mixing(j.job_id, &"test", 1.0)
+	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, mixer, -1, -1, &"test")
+	s.production.start_mixing(j.job_id, &"test")
 	check(s.equipment.is_in_use(mixer.iid), "mixing mixer is IN_USE")
-	eq(s.equipment.place(mixer.iid, mixer.floor_id, mixer.anchor + Vector2i(0, 1), mixer.rotation), &"in_use", "in-use furniture cannot move (GDD 81.14)")
-	eq(s.equipment.put_away(mixer.iid), &"in_use", "in-use furniture cannot be stored")
+	check(s.equipment.move_blocked(mixer.iid), "a mixing mixer may not move")
+	var fg: FloorGrid = s.world.grid(mixer.floor_id)
+	var moved: int = 0
+	for z in fg.size.y:
+		for x in fg.size.x:
+			if s.equipment.place(mixer.iid, mixer.floor_id, Vector2i(x, z), mixer.rotation) == &"":
+				moved += 1
+	eq(moved, 0, "in-use furniture cannot move anywhere (v3.1 81.14)")
 	free_sim(s)
 
 
-## Rak berisi roti boleh dipindah dan diputar selama toko tidak buka, dan
-## rotinya ikut pindah (keputusan maintainer 2026-10-04, GDD 72). Saat buka ia
-## tetap IN_USE; simpan dan ganti tetap menolaknya (GDD 5.1.2).
+## Rak berisi roti boleh dipindah dan diputar kapan saja (toko idle selalu
+## buka), dan rotinya ikut pindah (GDD idle 4.6, v3.1 72).
 func _stocked_shelf() -> void:
 	var s: SimulationRoot = new_sim(102)
+	freeze_production(s)
+	park_owner(s)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
 	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
 	stock(s, &"recipe_plain_loaf", 6, 0, disp.iid)
 	check(s.display.used(disp.iid) > 0, "the shelf holds bread")
 	var bread: String = JSON.stringify(s.display.capture())
-	eq(s.time.phase, TimeManager.PREPARATION, "the shop is still preparing")
 	check(s.equipment.is_in_use(disp.iid), "a shelf holding bread still counts as in use")
-	check(not s.equipment.move_blocked(disp.iid), "but before opening it may move")
+	check(not s.equipment.move_blocked(disp.iid), "but it may move")
 	var spot: Dictionary = _shelf_spot(s, disp, false)
 	check(not spot.is_empty(), "the shelf has another free spot")
 	if spot.is_empty():
 		free_sim(s)
 		return
-	eq(s.equipment.place(disp.iid, disp.floor_id, spot["anchor"], spot["rot"]), &"", "Place moves the shelf holding bread before opening")
+	eq(s.equipment.place(disp.iid, disp.floor_id, spot["anchor"], spot["rot"]), &"", "Place moves the shelf holding bread")
 	eq(disp.anchor, spot["anchor"], "the shelf stands at its new spot")
-	eq(JSON.stringify(s.display.capture()), bread, "its bread moved with it: same slots, units, age and quality")
+	eq(JSON.stringify(s.display.capture()), bread, "its bread moved with it: same slots and units")
 	check(not s.world.access_of(disp.iid).is_empty() and s.world.layout_valid(), "the new layout keeps its access tile and paths")
-	eq(s.equipment.put_away(disp.iid), &"in_use", "a shelf holding bread still cannot be put away")
-	# Toko buka: rak berisi roti kembali IN_USE.
-	run_until(s, s.time.open_time + 1.0)
-	check(s.time.is_open() and s.display.used(disp.iid) > 0, "the shop is open and the shelf still holds bread")
-	check(s.equipment.move_blocked(disp.iid), "while open a shelf holding bread cannot move")
-	var spot2: Dictionary = _shelf_spot(s, disp, false)
-	check(not spot2.is_empty(), "there is still another free spot")
-	if not spot2.is_empty():
-		eq(s.equipment.place(disp.iid, disp.floor_id, spot2["anchor"], spot2["rot"]), &"in_use", "and Place refuses it")
-	# Sesudah tutup: boleh pindah dan berputar lagi; ganti alat tetap ditolak.
-	s.time.set_phase(TimeManager.AFTER_HOURS)
-	bread = JSON.stringify(s.display.capture())
-	check(not s.equipment.move_blocked(disp.iid), "after closing it may move again")
 	var turn: Dictionary = _shelf_spot(s, disp, true)
 	check(not turn.is_empty(), "the shelf has a free spot facing another way")
 	if not turn.is_empty():
-		eq(s.equipment.place(disp.iid, disp.floor_id, turn["anchor"], turn["rot"]), &"", "after closing it may turn too")
+		eq(s.equipment.place(disp.iid, disp.floor_id, turn["anchor"], turn["rot"]), &"", "it may turn too")
 		eq(disp.rotation, int(turn["rot"]), "the shelf faces its new way")
 		eq(JSON.stringify(s.display.capture()), bread, "with its bread untouched")
+	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
-
-
-## Keputusan maintainer 2026-10-25 (open decision 7): Replace memindahkan roti
-## rak lama ke rak baru, supaya rak tertua yang terus diisi ulang bisa diganti.
-func _replace_stocked() -> void:
-	var s: SimulationRoot = new_sim(4321)
-	s.tutorial.skip()
-	jump_to_tier(s, 3)
-	s.time.set_phase(TimeManager.AFTER_HOURS)
-	s.debug_add_kr(200000.0)
-	var old: EquipmentInstance = s.equipment.placed_list(&"display")[0]
-	eq(old.def_id, &"display_t1", "the starter shelf")
-	stock(s, &"recipe_plain_loaf", 5, 0, old.iid)
-	s.display.place(old.iid, 3, &"recipe_sugar_donut", 4, 0.8, s.time.sim_seconds, 777, 2.5)
-	var before: Array = _stack_rows(s, old.iid)
-	eq(before.size(), 2, "two batches on the old shelf")
-	var units: int = s.display.total_units()
-	var t2: EquipmentDefinition = DataRegistry.equipment(&"display_t2")
-	check(s.equipment.is_in_use(old.iid), "a shelf holding bread is in use")
-	check(not s.equipment.replace_blocked(old.iid, t2), "but it may be replaced by a shelf that holds its bread")
-	var r: Dictionary = s.equipment.buy_replace(&"display_t2", old.iid)
-	check(bool(r.get("ok", false)) and bool(r.get("placed", false)), "the Tier 2 shelf replaces it and stands in the shop")
-	var n2: int = int(r.get("iid", -1))
-	var e2: EquipmentInstance = s.equipment.get_inst(n2)
-	eq(_stack_rows(s, n2), before, "the bread moved over: same slots, recipes, units, age, quality and batch")
-	eq(e2.anchor, old.anchor, "a shelf of the same size takes the old place")
-	eq(s.display.used(old.iid), 0, "the old shelf is empty")
-	check(not old.placed, "and waits in storage")
-	eq(s.display.total_units(), units, "no bread lost or added")
-	for st: BreadStack in (s.display.slots(n2)[0] as Dictionary)["stacks"]:
-		eq(st.display_tier, 2, "the bread now counts as on a Tier 2 shelf")
-	eq(s.check_invariants(), "", "invariants after the replacement")
-	# Rak Tier 3 berjejak 2x2: berdiri di tempat sah terdekat bila tempat lama sempit.
-	var r3: Dictionary = s.equipment.buy_replace(&"display_t3", n2)
-	check(bool(r3.get("ok", false)) and bool(r3.get("placed", false)), "a bigger Tier 3 shelf replaces it and stands in the shop")
-	var n3: int = int(r3.get("iid", -1))
-	eq(_stack_rows(s, n3), before, "the bread moved over again")
-	check(s.world.layout_valid() and not s.world.access_of(n3).is_empty(), "the layout stays valid and the shelf can be reached")
-	eq(s.check_invariants(), "", "invariants after the second replacement")
-	# Petak di luar jumlah petak rak baru pindah ke petak kosong terendah.
-	stock(s, &"recipe_plain_loaf", 3, 7, n3)
-	eq(s.display.carry_plan(n3, t2), {0: 0, 3: 3, 7: 1}, "slot 7 moves to the lowest free slot of a six-slot shelf")
-	# Roti yang tidak muat menahan rak di tempatnya.
-	for i in s.display.slots(n3).size():
-		var rid: StringName = (s.display.slots(n3)[i] as Dictionary)["recipe"]
-		stock(s, rid if rid != &"" else &"recipe_plain_loaf", 50, i, n3)
-	eq(s.display.free_units(n3), 0, "the Tier 3 shelf is full")
-	check(s.equipment.replace_blocked(n3, t2), "a shelf whose bread would not fit cannot be replaced")
-	var bal: float = s.economy.balance
-	eq(str(s.equipment.buy_replace(&"display_t2", n3).get("reason", "")), "in_use", "Replace refuses it")
-	near(s.economy.balance, bal, 0.001, "and charges nothing")
-	eq(s.equipment.put_away(n3), &"in_use", "a shelf holding bread still cannot be put away")
-	# Save/load menyimpan hasilnya apa adanya.
-	var t: SimulationRoot = load_sim(json_copy(s.capture_save()))
-	eq(_stack_rows(t, n3), _stack_rows(s, n3), "the moved bread survives save/load")
-	free_sim(t)
-	free_sim(s)
-
-
-## [petak, resep, unit, umur, kualitas, batch] untuk setiap stack di rak `iid`.
-func _stack_rows(s: SimulationRoot, iid: int) -> Array:
-	var out: Array = []
-	var sl: Array = s.display.slots(iid)
-	for i in sl.size():
-		for st: BreadStack in (sl[i] as Dictionary)["stacks"]:
-			out.append([i, String(st.recipe_id), st.quantity, snappedf(st.age_ingame_hours, 0.0001), snappedf(st.bake_quality, 0.0001), st.source_job_id])
-	return out
 
 
 ## Tempat sah lain untuk rak `e` di lantainya: {anchor, rot}; `turn` meminta
@@ -484,95 +316,6 @@ func _effect_teardown() -> void:
 	eq(FX.live_effects(), base, "freeing the world releases the effect slot")
 	await runner.get_tree().create_timer(FX.SPARKLE_LIFETIME * 1.4 + FX.AUTO_FREE_MARGIN + 0.3).timeout
 	eq(FX.live_effects(), base, "the late auto-free timer changes nothing")
-
-
-## Soft-lock oven gosong (GDD 16.5, 62): siapa pun yang membawa adonan boleh
-## memakai oven berisi loyang gosong. Loyang itu dibuang sebagai waste, lalu
-## adonan masuk. Loyang yang masih bisa dijual tetap menahan oven.
-func _burnt_swap() -> void:
-	var s: SimulationRoot = new_sim(6262)
-	s.tutorial.skip()
-	var p: PlayerTaskManager = s.player
-	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
-	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
-	var loaf: RecipeDefinition = DataRegistry.recipe(&"recipe_plain_loaf")
-	# Loyang A dibiarkan sampai gosong.
-	var a: ProductionJob = s.production.create_job(loaf.id, 1, &"test")
-	s.production.start_mixing(a.job_id, &"test", 1.0)
-	_step_until(s, func() -> bool: return a.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
-	s.production.pickup_dough(a.job_id, &"test")
-	s.production.insert_oven(a.job_id, oven.iid, &"test", 1.0)
-	_step_until(s, func() -> bool: return a.stage == ProductionJob.BURNT)
-	check(s.production.holds_burnt(oven), "oven holds the burnt tray")
-	eq(s.production.free_oven_for(loaf), oven, "a burnt oven still takes dough")
-	# Adonan B diambil pemain dari mixer, lalu dibawa ke oven gosong.
-	var b: ProductionJob = s.production.create_job(loaf.id, 1, PlayerTaskManager.PLAYER_ID)
-	s.production.start_mixing(b.job_id, PlayerTaskManager.PLAYER_ID, 1.0)
-	_step_until(s, func() -> bool: return b.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
-	check(p.tap_equipment(mixer.iid), "tap the finished mixer")
-	_step_until(s, func() -> bool: return not p.actor.carried.is_empty())
-	eq(p.carried_job(), b, "player carries the dough")
-	var waste0: float = s.economy.waste_cost_today
-	var burnt0: int = s.production.batches_burnt_today
-	var bal0: float = s.economy.balance
-	check(p.tap_equipment(oven.iid), "tap the burnt oven with dough in hand")
-	_step_until(s, func() -> bool: return p.actor.carried.is_empty())
-	check(s.production.get_job(a.job_id) == null, "burnt tray discarded")
-	near(s.economy.waste_cost_today - waste0, a.ingredient_value_kr, 0.001, "discarded tray counted as waste")
-	eq(s.production.batches_burnt_today, burnt0 + 1, "counted as a burnt batch")
-	near(s.economy.balance, bal0, 0.001, "no KR from the burnt tray")
-	eq(b.stage, ProductionJob.BAKING, "the new dough bakes")
-	eq(oven.job_id, b.job_id, "oven holds the new dough")
-	# Loyang yang sedang dipanggang atau siap jual tidak pernah ditukar.
-	var c: ProductionJob = s.production.create_job(loaf.id, 1, &"test")
-	s.production.start_mixing(c.job_id, &"test", 1.0)
-	_step_until(s, func() -> bool: return c.stage == ProductionJob.MIX_DONE_WAITING_PICKUP)
-	s.production.pickup_dough(c.job_id, &"test")
-	check(s.production.free_oven_for(loaf) == null, "a baking oven is not offered for dough")
-	check(not s.production.insert_oven(c.job_id, oven.iid, &"test", 1.0), "dough cannot replace a baking tray")
-	_step_until(s, func() -> bool: return b.stage == ProductionJob.BAKE_DONE_WAITING_PICKUP)
-	check(not s.production.insert_oven(c.job_id, oven.iid, &"test", 1.0), "dough cannot replace a ready tray")
-	eq(oven.job_id, b.job_id, "the ready tray stays in the oven")
-	free_sim(s)
-
-
-func _step_until(s: SimulationRoot, cond: Callable, max_ticks: int = 4000) -> bool:
-	for i in max_ticks:
-		if cond.call():
-			return true
-		s.step(s.tick_seconds)
-	return cond.call()
-
-
-func _mixed_taps() -> void:
-	var s: SimulationRoot = new_sim(1604)
-	s.tutorial.skip()
-	run_until(s, 8.0 * 3600.0 + 10.0)
-	var p: PlayerTaskManager = s.player
-	var storage: EquipmentInstance = s.equipment.storage_instance()
-	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
-	var lane: StringName = s.queue.main_lane().id
-	# Karakter sedang berjalan ke satu perabot lalu pemain mengetuk target lain
-	# (perabot/kasir) berulang kali: int dan String tidak pernah dibandingkan.
-	check(p.tap_equipment(storage.iid), "tap storage")
-	s.step(s.tick_seconds)
-	check(p.tap_cashier(lane, false), "tap cashier while walking")
-	check(p.tap_equipment(mixer.iid), "tap mixer after cashier")
-	check(p.tap_cashier(lane, false), "tap cashier again")
-	check(p.tap_cashier(lane, false), "double tap on the same target is ignored")
-	check(p.tap_equipment(mixer.iid), "tap mixer again")
-	check(p.commands.size() <= DataRegistry.bali("player.max_queued_commands"), "queue stays within its limit")
-	# Setelah load, iid menjadi float; ketukan ganda tetap dikenali.
-	var s2: SimulationRoot = load_sim(json_copy(s.capture_save()))
-	var before: int = s2.player.commands.size()
-	var last: Dictionary = s2.player.commands[before - 1] if before > 0 else {}
-	if not last.is_empty() and StringName(str(last["kind"])) != &"cashier":
-		s2.player.tap_equipment(int(last["target"]))
-		eq(s2.player.commands.size(), before, "double tap after load is still ignored")
-	s.run_for(5.0)
-	eq(s.check_invariants(), "", "invariants")
-	free_sim(s2)
-	free_sim(s)
 
 
 ## Tanda ubin Decoration Mode jujur (GDD 17.3-17.4, 56.1): ubin yang diarsir

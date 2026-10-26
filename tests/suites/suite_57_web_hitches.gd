@@ -67,7 +67,7 @@ func _warmup() -> void:
 	]
 	var marker := StationMarker.new()
 	runner.add_child(marker)
-	marker.show_alert(0.5)
+	marker.show_progress(0.5)
 	for mi: Node in marker.find_children("*", "MeshInstance3D", true, false):
 		probes.append((mi as MeshInstance3D).material_override)
 	for m: Material in probes:
@@ -82,8 +82,8 @@ func _warmup() -> void:
 		kinds[n.get_class()] = true
 	check(kinds.has("CPUParticles3D"), "particle effects are part of the warm-up")
 	check(_named(w, "SlotMarker").size() >= 4, "every slot marker look is part of the warm-up")
-	check(w.find_children("*", "StationMarker", true, false).size() >= 2 or _count_class(w, StationMarker) >= 2,
-		"the progress bar and the alert marker are part of the warm-up")
+	check(w.find_children("*", "StationMarker", true, false).size() >= 1 or _count_class(w, StationMarker) >= 1,
+		"the progress bar is part of the warm-up")
 	var placeable: int = 0
 	for x: Variant in DataRegistry.decorations():
 		if (x as MiscDefinitions.DecorationDefinition).is_placeable():

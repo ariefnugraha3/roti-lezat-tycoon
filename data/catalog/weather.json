@@ -15,10 +15,10 @@
   {
    "id": "weather_rain",
    "localization_key": "ui_weather_rain",
-   "physical_traffic_multiplier_min": 0.2,
-   "physical_traffic_multiplier_max": 0.4,
-   "delivery_multiplier_min": 2.5,
-   "delivery_multiplier_max": 3.0,
+   "physical_traffic_multiplier_min": 0.8,
+   "physical_traffic_multiplier_max": 0.8,
+   "delivery_multiplier_min": 1.5,
+   "delivery_multiplier_max": 1.5,
    "visual_profile": "rain",
    "audio_profile": "rain_loop"
   }
@@ -27,8 +27,7 @@
   {
    "id": "event_holiday",
    "localization_key": "ui_event_holiday",
-   "physical_traffic_multiplier": 1.6,
-   "delivery_multiplier": 1.4,
+   "physical_traffic_multiplier": 1.3,
    "start_day": 12,
    "period_days": 14,
    "length_days": 3
@@ -36,14 +35,9 @@
  ],
  "fixed_sunny_through_day": 4,
  "markov": {
-  "weather_sunny": {
-   "weather_sunny": 0.75,
-   "weather_rain": 0.25
-  },
-  "weather_rain": {
-   "weather_sunny": 0.55,
-   "weather_rain": 0.45
-  }
+  "weather_sunny": {"weather_sunny": 0.75, "weather_rain": 0.25},
+  "weather_rain": {"weather_sunny": 0.55, "weather_rain": 0.45}
  },
- "holiday_countdown_days": 3
+ "holiday_countdown_days": 3,
+ "_doc": "GDD idle 3.3, 11.3 (retuned v3.1 26.6): rain arrivals x0.8 and RotiFood x1.5, holiday arrivals x1.3."
 }

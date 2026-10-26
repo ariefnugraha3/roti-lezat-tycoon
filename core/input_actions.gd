@@ -1,12 +1,11 @@
 class_name InputActions
 extends RefCounted
-## InputMap kanonik (GDD 100). Didaftarkan saat boot bila belum ada, sehingga
+## InputMap kanonik (v3.1 100; tanpa tombol kecepatan, GDD idle 0.1). Didaftarkan saat boot bila belum ada, sehingga
 ## semua platform memakai lapisan perintah yang sama. Keyboard hanya pelengkap
 ## (GDD 12.4, 29.4): setiap aksi juga dapat dicapai lewat tap.
 
 const ACTIONS: Array[String] = [
-	"interact_primary", "cancel_back", "pause_toggle", "camera_pan", "camera_zoom_in",
-	"camera_zoom_out", "game_speed_1", "game_speed_2", "game_speed_3", "floor_alert_focus",
+	"interact_primary", "cancel_back", "pause_toggle", "camera_pan", "camera_zoom_in", "camera_zoom_out",
 ]
 
 
@@ -17,10 +16,6 @@ static func register() -> void:
 	_add("camera_pan", [_mouse(MOUSE_BUTTON_MIDDLE)])
 	_add("camera_zoom_in", [_mouse(MOUSE_BUTTON_WHEEL_UP), _key(KEY_EQUAL), _key(KEY_KP_ADD)])
 	_add("camera_zoom_out", [_mouse(MOUSE_BUTTON_WHEEL_DOWN), _key(KEY_MINUS), _key(KEY_KP_SUBTRACT)])
-	_add("game_speed_1", [_key(KEY_1)])
-	_add("game_speed_2", [_key(KEY_2)])
-	_add("game_speed_3", [_key(KEY_3)])
-	_add("floor_alert_focus", [_key(KEY_F)])
 
 
 static func _add(action: String, events: Array) -> void:

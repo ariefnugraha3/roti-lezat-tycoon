@@ -1,68 +1,71 @@
 extends TestSuite
-## Checkout yang seluruhnya fase membungkus (GDD 21.4), durasi batch x3/x5 (GDD
-## 18.5, 18.9), gerak menganggur pemain & staf (GDD 31.6), dan gelembung pikiran
-## saat toko sepi (GDD 31.7).
+## Checkout otomatis yang seluruhnya fase membungkus (v3.1 21.4, GDD idle 8.2),
+## durasi batch x3/x5 (GDD idle 4.5), gerak menganggur pemain & staf (v3.1
+## 31.6), dan gelembung pikiran saat toko sepi (v3.1 31.7).
 
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_21_PACKING", "name": "every checkout is a 3 s packing phase from its first moment, then payment, then the bag leaves with the customer", "fn": _packing},
-		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "the player falls asleep when the last quiet-shop thought ends (45 s), never under a bubble", "fn": _doze_after_thoughts},
+		{"id": "ACC_21_PACKING", "name": "every checkout is one packing phase from its first moment (3 s at counter Lv 1), served by the owner without a tap, then payment, then the bag leaves with the customer", "fn": _packing},
+		{"id": "ACC_31_DOZE_AFTER_THOUGHTS", "name": "an idle player in a quiet shop falls asleep when the last thought ends (45 s), never under a bubble", "fn": _doze_after_thoughts},
 		{"id": "ACC_21_PACK_CHOREOGRAPHY", "name": "packing reads as open bag, bread hops in one by one, ribbon, offer; cashier and customer hands follow", "fn": _pack_choreography},
-		{"id": "ACC_18_BATCH_DURATION", "name": "x3/x5 batches multiply ingredients and yield but only stretch durations by 20%/40%", "fn": _batch_duration},
+		{"id": "ACC_18_BATCH_DURATION", "name": "x3/x5 batches multiply cost and yield but only stretch durations by 20%/40%", "fn": _batch_duration},
 		{"id": "ACC_31_IDLE_GESTURES", "name": "idle player/staff wipe their face every 7.5 s; staff never doze, the player dozes at 45 s", "fn": _idle_gestures},
-		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear every 10 s only while the open shop has no customers", "fn": _thoughts},
+		{"id": "ACC_31_THOUGHTS", "name": "player thought bubbles appear every 10 s only while the shop has no customers and no RotiFood order", "fn": _thoughts},
 	]
 
 
 func _packing() -> void:
 	var s: SimulationRoot = new_sim(515)
 	PauseManager.clear_all()
-	var pack: float = DataRegistry.packing_seconds()
-	near(pack, 3.0, 0.0001, "packing lasts 3 s (GDD 21.4)")
-	# 1. Transaksi = fase membungkus, sama untuk semua (keputusan maintainer 2026-09-30).
-	near(CashierManager.transaction_seconds(), pack, 0.0001, "every transaction lasts exactly the packing phase")
+	var pack: float = s.cashier.transaction_seconds()
+	near(pack, 3.0, 0.0001, "a checkout lasts 3 s at counter Lv 1 (v3.1 21.4, GDD idle 8.2)")
+	near(pack, s.upgrades.checkout_seconds(), 0.0001, "the counter level sets the checkout time")
 	var lane: QueueLane = s.queue.main_lane()
-	# 2. Transaksi manual sungguhan sampai pembayaran.
 	var sounds: Array = [0]
 	var on_sfx := func(id: StringName, _floor_id: StringName) -> void:
 		if id == &"cashier_pack":
 			sounds[0] += 1
 	EventBus.sfx.connect(on_sfx)
-	var bot := SimBot.new(s)
+	# Tanpa satu ketukan pun: pemilik melayani sendiri saat pembeli menunggu.
 	var guard: int = 0
-	while guard < 400000 and s.cashier.transaction_for(lane.id).is_empty() and s.is_running():
-		bot.think()
+	while guard < 400000 and s.cashier.transaction_for(lane.id).is_empty():
 		s.step(s.tick_seconds)
 		guard += 1
 	var td: Dictionary = s.cashier.transaction_for(lane.id)
-	check(not td.is_empty(), "a manual transaction started on day 1")
+	check(not td.is_empty(), "the owner starts a checkout on their own")
 	if td.is_empty():
 		EventBus.sfx.disconnect(on_sfx)
 		free_sim(s)
 		return
+	check(s.player.is_manning_lane(lane.id), "the owner stands at lane A")
 	var c: Customer = s.customers.customer(td["customer"])
-	check(bool(td["manual"]), "the player serves it (no cashier on day 1)")
-	near(float(td["duration"]), pack, 0.001, "the player's checkout lasts 3 s")
+	near(float(td["duration"]), pack, 0.001, "the checkout lasts the counter's time")
 	var cash_before: float = s.economy.balance
 	var packing_ok: bool = true
 	var guard2: int = 0
+	var spent: float = 0.0
 	while guard2 < 20000 and not s.cashier.transaction_for(lane.id).is_empty():
 		var t: Dictionary = s.cashier.transaction_for(lane.id)
 		var prog: float = s.cashier.packing_progress(lane.id)
 		# Packing sejak detik pertama: progres tidak pernah -1 dan mengikuti waktu.
 		if prog < 0.0 or absf(prog - float(t["elapsed"]) / float(t["duration"])) > 0.001:
 			packing_ok = false
-		if c.state != Customer.BEING_SERVED or not is_equal_approx(s.economy.balance, cash_before):
+		if c.state != Customer.BEING_SERVED:
 			packing_ok = false
+		var bal: float = s.economy.balance
 		s.step(s.tick_seconds)
+		# Bahan batch baru boleh dibayar; pendapatan pembeli ini belum masuk.
+		if s.economy.balance > bal and not s.cashier.transaction_for(lane.id).is_empty():
+			packing_ok = false
+		spent += maxf(0.0, bal - s.economy.balance)
 		guard2 += 1
 	EventBus.sfx.disconnect(on_sfx)
 	check(packing_ok, "packing runs from the first moment; the customer waits and no coins arrive yet")
 	check(float(guard2) * s.tick_seconds <= pack + 0.001, "the whole checkout took no longer than 3 s")
 	eq(int(sounds[0]), 1, "paper bag sound plays once, when packing starts")
 	eq(c.state, Customer.CELEBRATING, "customer pays after packing")
-	check(s.economy.balance > cash_before, "coins arrive only after packing (GDD 21.6)")
+	check(s.economy.balance + spent > cash_before, "coins arrive only after packing (v3.1 21.6)")
 	# Pembeli yang sudah membayar pulang lewat CELEBRATING -> LEAVING, yaitu
 	# satu-satunya jalur yang ditampilkan membawa kantong.
 	s.run_for(3.0)
@@ -73,23 +76,29 @@ func _packing() -> void:
 
 func _batch_duration() -> void:
 	var s: SimulationRoot = new_sim(616)
+	freeze_production(s)
 	var r: RecipeDefinition = DataRegistry.recipe(&"recipe_plain_loaf")
-	var base_mix: float = s.production.mixer_stage_seconds(r, r.required_mixer_tier, 1, 1.0)
-	var base_bake: float = s.production.oven_stage_seconds(r, r.required_oven_tier, 1, 1.0)
-	near(s.production.mixer_stage_seconds(r, r.required_mixer_tier, 3, 1.0), base_mix * 1.2, 0.001, "x3 mixing only +20%")
-	near(s.production.mixer_stage_seconds(r, r.required_mixer_tier, 5, 1.0), base_mix * 1.4, 0.001, "x5 mixing only +40%")
-	near(s.production.oven_stage_seconds(r, r.required_oven_tier, 3, 1.0), base_bake * 1.2, 0.001, "x3 baking only +20%")
-	near(s.production.oven_stage_seconds(r, r.required_oven_tier, 5, 1.0), base_bake * 1.4, 0.001, "x5 baking only +40%")
-	# Job x5 sungguhan: bahan & hasil tetap x5.
-	var j: ProductionJob = s.production.create_job(r.id, 5, &"test")
-	check(j != null, "x5 job created from day 1 stock")
+	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
+	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
+	var base_mix: float = s.production.mixer_stage_seconds(r, mixer.iid, 1)
+	var base_bake: float = s.production.oven_stage_seconds(r, oven.iid, 1)
+	near(base_mix, r.mix_duration_seconds + r.prep_duration_seconds, 0.001, "Lv 1 mixing lasts the recipe's base time")
+	near(base_bake, r.bake_duration_seconds, 0.001, "Lv 1 baking lasts the recipe's base time")
+	near(s.production.mixer_stage_seconds(r, mixer.iid, 3), base_mix * 1.2, 0.001, "x3 mixing only +20%")
+	near(s.production.mixer_stage_seconds(r, mixer.iid, 5), base_mix * 1.4, 0.001, "x5 mixing only +40%")
+	near(s.production.oven_stage_seconds(r, oven.iid, 3), base_bake * 1.2, 0.001, "x3 baking only +20%")
+	near(s.production.oven_stage_seconds(r, oven.iid, 5), base_bake * 1.4, 0.001, "x5 baking only +40%")
+	# Job x5 sungguhan: biaya & hasil x5, dibayar saat batch dimulai (GDD idle 4.4).
+	s.debug_add_kr(r.batch_cost_kr * 5.0)
+	var bal: float = s.economy.balance
+	var j: ProductionJob = s.production.create_job(r.id, 5, mixer, -1, -1, &"test")
+	check(j != null, "x5 job created")
 	if j == null:
 		free_sim(s)
 		return
-	for ing: Variant in r.ingredients.keys():
-		eq(int(j.reserved_ingredients.get(ing, 0)), int(r.ingredients[ing]) * 5, "x5 takes 5x %s" % ing)
+	near(s.economy.balance, bal - r.batch_cost_kr * 5.0, 0.001, "x5 costs 5x the x1 ingredient cost")
 	eq(j.quantity_output, r.batch_yield * 5, "x5 yields 5x bread")
-	s.production.start_mixing(j.job_id, &"test", 1.0)
+	s.production.start_mixing(j.job_id, &"test")
 	near(j.stage_duration, base_mix * 1.4, 0.001, "real x5 mixing stage lasts base x1.4")
 	free_sim(s)
 
@@ -225,13 +234,12 @@ func _thoughts() -> void:
 	eq(ThoughtBubble.key_for(45.5), "", "no more thoughts after the fourth")
 	for k: String in DataRegistry.THOUGHT_KEYS:
 		check(DataRegistry.has_text(k), "%s has English text" % k)
-	# Integrasi WorldView: toko buka, tidak ada pelanggan sama sekali.
+	# Integrasi WorldView: tidak ada pelanggan dan tidak ada pesanan RotiFood.
 	var s: SimulationRoot = new_sim(717)
 	var world := WorldView.new()
 	runner.add_child(world)
 	world.setup(s)
 	world._process(0.016)
-	s.time.phase = TimeManager.OPEN
 	s.customers.customers.clear()
 	var bubble: ThoughtBubble = world.thought_bubble()
 	world._update_thoughts(10.5)
@@ -249,10 +257,10 @@ func _thoughts() -> void:
 	world._update_thoughts(30.0)
 	near(world.quiet_seconds(), 0.0, 0.0001, "quiet timer freezes while paused")
 	PauseManager.pop(&"test_thought")
-	# Toko belum buka: tidak ada pikiran walau sepi.
-	s.time.phase = TimeManager.PREPARATION
+	# Pesanan RotiFood aktif: toko tidak sepi.
+	s.rotifood.debug_create_order({&"recipe_plain_loaf": 1}, 600.0)
 	world._update_thoughts(50.0)
-	check(not bubble.is_showing(), "no thought bubbles before the shop opens")
+	check(not bubble.is_showing(), "no thought bubbles while a RotiFood order is active")
 	world.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(s)
@@ -336,10 +344,9 @@ func _pack_choreography() -> void:
 		n.queue_free()
 
 
-## Pemain di toko sepi (GDD 31.6, 31.7): gelembung pikiran di detik 20/40/60/80,
-## lalu tertidur tepat saat gelembung terakhir hilang (detik 85), tidak pernah
-## saat gelembung tampil. Di persiapan pun tidurnya di detik 85. Yang tertidur
-## sejak persiapan terbangun saat toko buka sepi.
+## Pemain di toko sepi (v3.1 31.6, 31.7): gelembung pikiran di detik 10/20/30/40,
+## lalu tertidur tepat saat gelembung terakhir hilang (detik 45), tidak pernah
+## saat gelembung tampil.
 func _doze_after_thoughts() -> void:
 	PauseManager.clear_all()
 	var after: Array = DataRegistry.bal("presentation.thought_after_seconds")
@@ -355,23 +362,11 @@ func _doze_after_thoughts() -> void:
 	world._process(0.016)
 	var pv: ActorView = world.views.get(s.player.actor.id)
 	var bubble: ThoughtBubble = world.thought_bubble()
-	# Persiapan: tanpa gelembung, tetap baru tertidur di detik 85 (sama seperti toko sepi).
-	var prep_doze: float = -1.0
-	for i in 360:
-		world._process(0.25)
-		if pv.gesture() == ActorView.GESTURE_DOZE and prep_doze < 0.0:
-			prep_doze = pv.idle_seconds()
-	check(prep_doze >= doze_at - 0.001 and prep_doze < doze_at + 0.5, "idle during preparation: asleep at 45 s too (got %.2f)" % prep_doze)
-	eq(pv.gesture(), ActorView.GESTURE_DOZE, "stays asleep")
-	# Toko buka dan sepi: terbangun, berpikir, baru tertidur di detik 85.
-	s.time.phase = TimeManager.OPEN
 	s.customers.customers.clear()
 	var overlap: bool = false
 	var first_doze: float = -1.0
 	var thoughts_seen: int = 0
 	var last_key: String = ""
-	world._process(0.25)
-	check(pv.gesture() != ActorView.GESTURE_DOZE, "the player wakes up when the quiet shop opens")
 	for i2 in 400:
 		world._process(0.25)
 		if pv.gesture() == ActorView.GESTURE_DOZE and bubble.is_showing():

@@ -1,7 +1,7 @@
 extends Node
-## Jejak determinisme jangka panjang (GDD 102, 116): permainan TEST_LONGRUN_100
+## Jejak determinisme jangka panjang (v3.1 102, 116): permainan TEST_LONGRUN_100
 ## (seed 100100, SimBot mengelola toko) dijalankan `--days=N` hari dan setiap hari
-## dicetak sidik jarinya: tier, saldo, rating, dan hash state save logis. Dua
+## dicetak sidik jarinya: tier, saldo, reputasi, dan hash state save logis. Dua
 ## versi kode yang seharusnya identik bisa dibandingkan baris demi baris.
 ## Jalankan sebagai scene (bukan --script):
 ##   godot --headless --path . res://tools/soak_trace.tscn -- --days=100
@@ -21,11 +21,10 @@ func _ready() -> void:
 	for d in days:
 		bot.play_day()
 		var save: Dictionary = s.capture_save()
-		save.erase("statistics")
-		save.erase("ui_restore")
+		save.erase("stats")
 		save.erase("created_at")
-		print("TRACE day %d tier %d balance %.6f rating %.6f hash %d" % [s.time.day, s.world.location.tier,
-			s.economy.balance, s.reputation.physical, JSON.stringify(save, "", true).hash()])
+		print("TRACE day %d tier %d balance %.6f reputation %.6f hash %d" % [s.time.day, s.world.location.tier,
+			s.economy.balance, s.reputation.reputation, JSON.stringify(save, "", true).hash()])
 	remove_child(s)
 	s.free()
 	get_tree().quit(0)

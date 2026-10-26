@@ -1,8 +1,7 @@
 extends TestSuite
 ## Roster ringkas dan celetukan staf (keputusan maintainer 2026-10-04, GDD 3.5,
-## 31.6, 31.8, 106): lima calon kasir dan lima calon koki; staf yang menganggur
-## hanya mengelap wajah dan sesekali berceletuk dalam bahasa Inggris; save lama
-## yang merekrut calon yang dihapus memindahkannya ke calon tersisa.
+## 31.6, 31.8): lima calon kasir dan lima calon koki; staf yang menganggur
+## bergantian bergestur dan sesekali berceletuk dalam bahasa Inggris.
 
 
 func tests() -> Array:
@@ -10,7 +9,6 @@ func tests() -> Array:
 		{"id": "ACC_3_STAFF_ROSTER", "name": "3.5 the roster has five cashier and five baker candidates, each with a bio and a line of their own", "fn": _roster},
 		{"id": "ACC_31_STAFF_LINES", "name": "31.8 idle staff say an English line in a bubble at most once a minute: the first each day counts their days, the rest rotate without repeats; busy staff and Decoration Mode hide it", "fn": _lines},
 		{"id": "ACC_31_STAFF_IDLE_GESTURES", "name": "31.6 idle staff take turns wiping their face, stretching, humming, sipping tea and a role gesture (cashiers toss a coin, bakers pat flour off the apron), standing or seated", "fn": _gestures},
-		{"id": "TEST_SAVE_STAFF_V6", "name": "106 a v5 save that hired removed candidates moves them to remaining candidates of the same role, everywhere in the save", "fn": _save_v6},
 	]
 
 
@@ -57,10 +55,21 @@ func _lines() -> void:
 	# Di dunia: kasir Budi dan koki Joko pada hari pertama mereka, menganggur.
 	var s: SimulationRoot = new_sim(6501)
 	s.tutorial.skip()
-	s.time.set_phase(TimeManager.AFTER_HOURS)
+	s.debug_add_kr(1.0e6)
+	freeze_production(s)
 	eq(s.staff.hire(budi), &"", "hire Budi")
 	eq(s.staff.hire(&"staff_baker_joko"), &"", "hire Joko")
-	check(s.continue_to_next_day(), "their first day starts")
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
+	# Budi berjalan ke posnya dan Joko duduk di kursinya dulu.
+	var lane_b: StringName = StringName(str(s.staff.lane_assign[budi]))
+	var joko: SimActor = s.staff.actors[&"staff_baker_joko"]
+	for i0 in 4000:
+		if s.staff.cashier_at_post(lane_b) and joko.seat_iid >= 0 and not s.staff.tasks.has(&"staff_baker_joko"):
+			break
+		s.step(s.tick_seconds)
+	check(s.staff.cashier_at_post(lane_b) and joko.seat_iid >= 0, "Budi stands at his post and Joko sits down")
 	var world := WorldView.new()
 	runner.add_child(world)
 	world.setup(s)
@@ -111,47 +120,6 @@ func _lines() -> void:
 	await runner.get_tree().process_frame
 	free_sim(s)
 	PauseManager.clear_all()
-
-
-func _save_v6() -> void:
-	# Save sungguhan dengan Budi & Joko bertugas, lalu dijadikan save v5 yang
-	# merekrut dua calon yang kini dihapus (Hendra & Pierre).
-	var s: SimulationRoot = new_sim(6502)
-	s.tutorial.skip()
-	s.time.set_phase(TimeManager.AFTER_HOURS)
-	s.staff.hire(&"staff_cashier_budi")
-	s.staff.hire(&"staff_baker_joko")
-	s.continue_to_next_day()
-	var now: Dictionary = json_copy(s.capture_save())
-	free_sim(s)
-	var text: String = JSON.stringify(now).replace("staff_cashier_budi", "staff_cashier_hendra").replace("staff_baker_joko", "staff_baker_pierre")
-	var old: Dictionary = JSON.parse_string(text)
-	old["schema_version"] = 5
-	var m: Dictionary = SaveManager.migrate(old)
-	check(bool(m.get("ok", false)), "a v5 save migrates")
-	if not bool(m.get("ok", false)):
-		return
-	var d: Dictionary = m["data"]
-	eq(int(d["schema_version"]), SaveManager.current_schema_version(), "to the current schema")
-	var migrated: String = JSON.stringify(d)
-	check(not migrated.contains("staff_cashier_hendra") and not migrated.contains("staff_baker_pierre"), "no removed candidate is left anywhere in the save")
-	d["schema_version"] = now["schema_version"]
-	eq(diff_state(normalize_save(d), normalize_save(now)), [] as Array[String], "they become the first free candidates of their role (Budi, Joko), so the save is the same as before")
-	var u: SimulationRoot = load_sim(m["data"])
-	eq(u.staff.employed_ids(), [&"staff_cashier_budi", &"staff_baker_joko"] as Array[StringName], "the shop keeps a cashier and a baker")
-	check(u.staff.is_working(&"staff_cashier_budi") and u.staff.is_working(&"staff_baker_joko"), "and both are still on shift")
-	eq(u.check_invariants(), "", "invariants")
-	free_sim(u)
-	# Calon tersisa yang sudah direkrut tidak diambil dua kali.
-	var two: Dictionary = (JSON.parse_string(text) as Dictionary)
-	two["schema_version"] = 5
-	var cs: Dictionary = (two["staff"] as Dictionary)["contracts"]
-	cs["staff_cashier_budi"] = (cs["staff_cashier_hendra"] as Dictionary).duplicate()
-	(cs["staff_cashier_budi"] as Dictionary)["hired_day"] = 0
-	var m2: Dictionary = SaveManager.migrate(two)
-	var cs2: Dictionary = ((m2["data"] as Dictionary)["staff"] as Dictionary)["contracts"]
-	check(cs2.has("staff_cashier_budi") and cs2.has("staff_cashier_sari") and cs2.size() == 3,
-		"with Budi already hired, Hendra becomes Sari, the next free cashier")
 
 
 func _gestures() -> void:

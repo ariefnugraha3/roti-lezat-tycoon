@@ -5,6 +5,7 @@
   {
    "id": "recipe_plain_loaf",
    "localization_key": "recipe_plain_loaf",
+   "unlock_free": true,
    "category_id": "tier_1",
    "ingredients": {
     "ingredient_flour": 1,

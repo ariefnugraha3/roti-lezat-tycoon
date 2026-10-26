@@ -4,9 +4,9 @@ extends RefCounted
 ##
 ## Keputusan maintainer 2026-10-02: staf tidak punya tier maupun kemampuan
 ## khusus. Semua kasir dan koki bekerja sama cepat dan sama caranya; yang
-## membedakan kandidat hanya nama, rupa, dan cerita. Gaji harian ditetapkan
-## tier lokasi (`LocationDefinition.staff_daily_wage_kr`), sama untuk kedua
-## peran, dan kecepatan jalan semua staf `staff.json` `staff_movement_speed_mps`.
+## membedakan kandidat hanya nama, rupa, dan cerita. Tanpa gaji (GDD idle 5.5):
+## merekrut dibayar sekali (`idle.json` `staff.hire_cost`). Kecepatan jalan dasar
+## semua staf `staff.json` `staff_movement_speed_mps`, dikali level staf.
 
 var id: StringName
 var display_name: String = ""

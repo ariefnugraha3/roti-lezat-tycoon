@@ -839,11 +839,10 @@ static func slider_row(label_text: String, min_v: float, max_v: float, value: fl
 
 
 ## Kartu polaroid / ID Card staf (GDD 3.4 & 7): bingkai foto putih bersudut
-## membulat, potret chibi prosedural, nama, jabatan, dan gaji harian (`wage`,
-## sama untuk semua staf di lokasi itu; < 0 = tanpa baris gaji). Staf tidak
-## punya tier (keputusan maintainer 2026-10-02). Potret digambar di `_draw()` —
-## TIDAK memakai SubViewport 3D.
-static func polaroid(staff_id: String, wage: float = -1.0) -> Control:
+## membulat, potret chibi prosedural, nama, dan jabatan. Staf tidak punya tier
+## (keputusan maintainer 2026-10-02) dan tidak bergaji (GDD idle 5.5). Potret
+## digambar di `_draw()` — TIDAK memakai SubViewport 3D.
+static func polaroid(staff_id: String) -> Control:
 	var root: PanelContainer = PanelContainer.new()
 	root.name = "Polaroid"
 	root.custom_minimum_size = Vector2(196.0, 300.0)
@@ -892,9 +891,6 @@ static func polaroid(staff_id: String, wage: float = -1.0) -> Control:
 	peran.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	peran.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(peran)
-
-	if wage >= 0.0:
-		body.add_child(_stat_row("coin", Palette.GOLD_STAR, Tx.t("ui_staff_wage", {"wage": Tx.kr(wage)})))
 
 	return root
 
@@ -1465,15 +1461,6 @@ static func _set_margins(m: MarginContainer, left: int, right: int, top: int, bo
 	m.add_theme_constant_override("margin_right", right)
 	m.add_theme_constant_override("margin_top", top)
 	m.add_theme_constant_override("margin_bottom", bottom)
-
-
-static func _stat_row(icon_name: String, tint: Color, text: String) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6)
-	row.add_child(icon(icon_name, 18, tint))
-	row.add_child(label(text, FONT_SMALL, Palette.TEXT))
-	return row
 
 
 static func _fmt_value(v: float, step: float) -> String:

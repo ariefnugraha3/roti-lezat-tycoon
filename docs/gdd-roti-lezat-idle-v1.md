@@ -871,6 +871,13 @@ Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincin
 | No | Topik | Keputusan |
 |---|---|---|
 | 1 | P0, model pacing analitik | Model kasar (skrip di luar repo) menunjukkan nilai awal tumbuh jauh lebih cepat dari target Seksi 1.4 dan membuat resep kedua kalah menarik dari level resep. Penyetelan akhir dilakukan di P7 dengan probe simulasi hidup (`tools/idle_probe.tscn`). |
-| 2 | `start_kr` | 400, bukan 50: batch x1 Roti Tawar Polos berbiaya bahan 340 KR (v3.1 §61.5), jadi 50 KR membuat toko macet sebelum penjualan pertama. |
+| 2 | `start_kr` | 1.000, bukan 50: batch x1 Roti Tawar Polos berbiaya bahan 340 KR (v3.1 §61.5), jadi 50 KR membuat toko macet sebelum penjualan pertama, dan dengan 400 KR pemilik menganggur menunggu kas karena hanya satu batch yang terbiayai. |
 | 3 | Jam awal New Game | 08:00 Hari 1 (`clock.start_seconds`), supaya menit pertama berlangsung siang hari. |
+| 4 | Decoration Mode | Tetap mem-pause simulasi seperti v3.1 §72. Lembar bawah (Seksi 12.0.5) tidak mem-pause. |
+| 5 | Ketukan arahan pada kasir | Mengirim pemilik ke jalur A walau belum ada yang menunggu di sana. Selama 10 detik fokus itu ia tetap di kasir, jalur A buka, dan antrean jalur lain menyeimbang ke sana (v3.1 §21.3). Pembeli yang sedang berjalan ke ujung antrean jalur A sambil membawa roti dihitung "menunggu" (Seksi 5.1 no. 1). |
+| 6 | Kamera di lokasi dua lantai | Kamera tetap di lantai toko walau pemilik bekerja di dapur atas. Mengetuk pintu tangga memindahkan pandangan ke lantai lain dengan crossfade 0,20 s (v3.1 §30.2), dan ketukan berikutnya kembali. |
+| 7 | Batch dan sisa ruang petak | Batch hanya dimulai bila hasilnya muat utuh di sisa ruang petak (Seksi 4.3), jadi petak bisa berhenti terisi sampai kurang dari satu hasil batch di bawah kapasitas. |
+| 8 | Load di tengah langkah | Pembeli yang sedang berjalan ke rak saat game disimpan mempertahankan pilihan rotinya setelah load, tanpa menarik RNG lagi, supaya load menjadi titik tetap. |
+| 9 | Data lama yang dibuang | `locations.json` tidak lagi menyimpan `upgrade_cost_kr`, `staff_daily_wage_kr`, `base_physical_rate`, dan `base_rotifood_rate` (sekarang dari `idle.json`). Arketipe pelanggan kehilangan field kesegaran, kualitas, batas harga, VIP, dan substitusi. Kurir pasokan, bunyi gosong, penanda "!", dan teks fitur yang dihapus ikut dibuang. |
+| 10 | Musik malam | Pukul 22:00–06:00 memutar bed "after hours" v3.1 (state musik `NIGHT`). |
 

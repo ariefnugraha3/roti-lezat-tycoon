@@ -23,23 +23,20 @@ func _node_count(n: Node) -> int:
 	return c
 
 
-## Jumlah semua rujukan state yang seharusnya kosong pukul 05:00.
-func _transient(s: SimulationRoot) -> Dictionary:
-	var res: int = 0
-	for l: QueueLane in s.queue.all_lanes():
-		res += l.reservations.size() + l.line.size() + (1 if l.service_occupant != &"" else 0)
+## Toko idle tidak pernah tutup (GDD idle 3.1): yang dicek bukan "kosong pukul
+## 05:00" tetapi bahwa aktor dan pesanan tetap terbatas.
+func _bounded(s: SimulationRoot) -> Dictionary:
 	return {
-		"customers": s.customers.customers.size(), "reservations": res,
-		"points": s.world.point_reservations.size(), "pending": s.demand.pending.size(),
-		"transactions": s.cashier.transactions.size(), "couriers": s.supply.couriers.size(),
-		"active_orders": s.rotifood.active_orders().size(),
+		"actors": s.customers.customers.size() + s.rotifood.driver_count(),
+		"orders": s.rotifood.orders.size(), "jobs": s.production.jobs.size(),
+		"transactions": s.cashier.transactions.size(),
 	}
 
 
 func _progress(label: String, d: int, s: SimulationRoot) -> void:
 	if d % 10 == 9:
-		print("      %s day %d: tier %d, balance %s, rating %.2f, mem %d MB" % [label, s.time.day, s.world.location.tier,
-			Tx.kr(s.economy.balance), s.reputation.physical, int(OS.get_static_memory_usage() / 1048576)])
+		print("      %s day %d: tier %d, balance %s, reputation %.2f, mem %d MB" % [label, s.time.day, s.world.location.tier,
+			Tx.kr(s.economy.balance), s.reputation.reputation, int(OS.get_static_memory_usage() / 1048576)])
 
 
 func _day_checks(s: SimulationRoot, day_label: int) -> bool:
@@ -48,10 +45,13 @@ func _day_checks(s: SimulationRoot, day_label: int) -> bool:
 	ok = check(inv == "", "day %d invariants: %s" % [day_label, inv]) and ok
 	ok = check(not is_nan(s.economy.balance), "day %d balance is not NaN" % day_label) and ok
 	ok = check(s.economy.overflowed or not is_inf(s.economy.balance), "day %d no INF without the overflow guard" % day_label) and ok
-	ok = check(s.reputation.physical >= 1.0 and s.reputation.physical <= 5.0, "day %d physical rating in range" % day_label) and ok
-	var t: Dictionary = _transient(s)
-	for k: String in ["customers", "reservations", "transactions", "couriers", "active_orders", "pending"]:
-		ok = check(int(t[k]) == 0, "day %d no leftover %s at 05:00 (%s)" % [day_label, k, t[k]]) and ok
+	ok = check(s.economy.balance >= 0.0, "day %d balance never negative" % day_label) and ok
+	var rep: float = s.reputation.reputation
+	ok = check(rep >= DataRegistry.idlef("reputation.min") and rep <= DataRegistry.idlef("reputation.max"), "day %d reputation in range (%.2f)" % [day_label, rep]) and ok
+	var b: Dictionary = _bounded(s)
+	ok = check(int(b["actors"]) <= DataRegistry.bali("queue.max_visible_customer_actors"), "day %d actors bounded (%d)" % [day_label, b["actors"]]) and ok
+	ok = check(int(b["orders"]) <= 64, "day %d RotiFood orders pruned (%d)" % [day_label, b["orders"]]) and ok
+	ok = check(int(b["jobs"]) <= DataRegistry.bali("production.max_concurrent_jobs"), "day %d jobs bounded (%d)" % [day_label, b["jobs"]]) and ok
 	return ok
 
 
@@ -74,8 +74,8 @@ func _soak_100() -> void:
 	var end_objects: float = Performance.get_monitor(Performance.OBJECT_COUNT)
 	eq(end_nodes, base_nodes, "no node count growth after day 10 (GDD 94 no.1)")
 	check(end_objects <= base_objects * 1.15 + 500.0, "object count stable (%d -> %d)" % [int(base_objects), int(end_objects)])
-	print("      100 days: tier %d -> %d, balance %s, staff %d, rating %.2f" % [start_tier, s.world.location.tier,
-		Tx.kr(s.economy.balance), s.staff.employed_ids().size(), s.reputation.physical])
+	print("      100 days: tier %d -> %d, balance %s, staff %d, reputation %.2f" % [start_tier, s.world.location.tier,
+		Tx.kr(s.economy.balance), s.staff.employed_ids().size(), s.reputation.reputation])
 	check(s.economy.reconcile(), "ledger reconciles after 100 days")
 	free_sim(s)
 
@@ -93,7 +93,7 @@ func _soak_500() -> void:
 			break
 		if d % 50 == 49:
 			check(s.economy.reconcile(), "ledger reconciles at day %d" % s.time.day)
-	print("      500 days: tier %d, balance %s, bailouts %d" % [s.world.location.tier, Tx.kr(s.economy.balance), s.bailout.bailout_count])
+	print("      500 days: tier %d, balance %s" % [s.world.location.tier, Tx.kr(s.economy.balance)])
 	# Penjaga overflow: saldo mendekati batas float tetap aman & tersimpan.
 	s.economy.credit(1.0e308, &"OTHER_ADJUSTMENT", &"soak")
 	s.economy.credit(1.0e308, &"OTHER_ADJUSTMENT", &"soak")
@@ -130,25 +130,14 @@ func _soak_1000() -> void:
 		bot.think_interval = 1
 		if not _day_checks(s, s.time.day):
 			break
-	# Ukuran save tidak tumbuh linear dari data transien basi (GDD 94 no.3).
-	# Riwayat analitik & laporan boleh tumbuh sampai batas detail GDD 129
-	# (limits.analytics_detailed_days), jadi diukur terpisah.
+	# Ukuran save tidak tumbuh linear dari data transien basi (v3.1 94 no.3).
 	if sizes.size() >= 1000:
 		var at_200: int = sizes[199]
 		var at_1000: int = sizes[999]
-		print("      save size without bounded histories, day 200: %d bytes, day 1000: %d bytes" % [at_200, at_1000])
-		check(at_1000 < at_200 * 2, "non-history save size bounded (%d -> %d bytes)" % [at_200, at_1000])
-	var limit: int = DataRegistry.bali("limits.analytics_detailed_days")
-	check(s.analytics.daily.size() <= limit, "analytics history within %d days" % limit)
-	check(s.reports.history.size() <= limit, "report history within %d days" % limit)
+		print("      save size, day 200: %d bytes, day 1000: %d bytes" % [at_200, at_1000])
+		check(at_1000 < at_200 * 2, "save size bounded (%d -> %d bytes)" % [at_200, at_1000])
 	free_sim(s)
 
 
-## Ukuran save tanpa riwayat yang dibatasi GDD 129.
 func _transient_size(d: Dictionary) -> int:
-	var c: Dictionary = d.duplicate(true)
-	if c.has("recipe_analytics"):
-		(c["recipe_analytics"] as Dictionary).erase("daily")
-	if c.has("reports"):
-		(c["reports"] as Dictionary).erase("history")
-	return JSON.stringify(c, "", true, true).length()
+	return JSON.stringify(d, "", true, true).length()

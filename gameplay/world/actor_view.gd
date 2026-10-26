@@ -16,7 +16,6 @@ extends Node3D
 ## memengaruhi simulasi.
 
 const PATIENCE_Y: float = 1.08
-const BUBBLE_Y: float = 1.30
 const TURN_SPEED: float = 10.0
 
 const GESTURE_NONE: int = 0
@@ -52,7 +51,6 @@ var _t: float = 0.0
 var _carry: Node3D = null
 var _carry_key: String = ""
 var _patience: PatienceBar = null
-var _bubble: StationMarker = null
 var _thought: Label3D = null
 var _sparkle_cd: float = 0.0
 ## Gerak menganggur hanya untuk pemain & staf (diaktifkan WorldView).
@@ -121,8 +119,6 @@ func reset_for_pool() -> void:
 	_set_carry("")
 	if _patience != null:
 		_patience.visible = false
-	if _bubble != null:
-		_bubble.hide_marker()
 	if _thought != null:
 		_thought.visible = false
 	_t = 0.0
@@ -680,19 +676,6 @@ func set_patience(ratio: float, show: bool, large: bool) -> void:
 		_patience.position = Vector3(0.0, PATIENCE_Y, 0.0)
 	_patience.visible = true
 	_patience.set_ratio(ratio, large)
-
-
-## Balon "!" di atas pembeli terdepan yang menunggu diketuk (GDD 2 langkah 4).
-func set_alert(on: bool) -> void:
-	if not on:
-		if _bubble != null:
-			_bubble.hide_marker()
-		return
-	if _bubble == null:
-		_bubble = StationMarker.new()
-		add_child(_bubble)
-		_bubble.position = Vector3(0.0, BUBBLE_Y, 0.0)
-	_bubble.show_alert()
 
 
 ## Balon pikiran (GDD 7): jam pasir saat antre lama, koin saat harga mahal.

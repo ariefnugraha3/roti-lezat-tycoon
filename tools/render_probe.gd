@@ -1,8 +1,8 @@
 extends Node
-## Alat ukur beban render dunia per tier lokasi (GDD 109, 37): draw call, objek,
+## Alat ukur beban render dunia per tier lokasi (v3.1 109, 37): draw call, objek,
 ## dan segitiga per frame dari RenderingServer, plus asal draw call menurut
 ## kelompok node (ruangan, perabot, roti, dekorasi, aktor, jalan, lalu lintas).
-## Setiap tier dipasangi alat tier itu di semua slot, staf penuh, semua dekorasi,
+## Setiap tier dibuka semua slot alatnya di batas level (model berevolusi), staf penuh, semua dekorasi,
 ## rak penuh roti beraneka, dan pembeli di dalam pukul 10:00, seperti toko pemain
 ## yang sudah mapan.
 ## Jalankan dengan jendela (bukan --headless, karena perlu renderer):
@@ -61,62 +61,35 @@ func _ready() -> void:
 # ===========================================================================
 
 func _upgrade() -> void:
-	if sim.time.phase == TimeManager.OPEN or sim.time.phase == TimeManager.PREPARATION:
-		sim.close_day()
-	sim.enter_after_hours()
-	sim.player.cancel_all()
-	sim.player.actor.carried = {}
-	for a: Variant in sim.staff.actors.values():
-		(a as SimActor).carried = {}
-	sim.staff.tasks.clear()
-	for e: EquipmentInstance in sim.equipment.all_sorted():
-		e.job_id = -1
-	sim.production.jobs.clear()
-	sim.debug_add_kr(sim.next_location().upgrade_cost_kr + 500000.0)
+	sim.debug_add_kr(SimulationRoot.location_cost(sim.world.location.tier + 1) + 500000.0)
 	var r: String = sim.upgrade_location()
 	if r != "":
 		push_error("render_probe: upgrade failed: %s" % r)
 
 
-## Alat tier lokasi di setiap slot, staf penuh, semua dekorasi, rak penuh, lalu
-## buka toko pukul 10:00 dengan pembeli di dalam.
+## Semua slot alat dibuka dan dinaikkan ke batas level lokasi (model berevolusi),
+## staf penuh, semua dekorasi, rak penuh, lalu pukul 10:00 dengan pembeli di dalam.
 func _stage_shop() -> void:
-	if sim.time.phase != TimeManager.AFTER_HOURS:
-		if sim.time.phase == TimeManager.OPEN or sim.time.phase == TimeManager.PREPARATION:
-			sim.close_day()
-		sim.enter_after_hours()
-	sim.debug_add_kr(2000000.0)
-	var tier: int = sim.world.location.tier
+	sim.debug_add_kr(1.0e12)
 	for cat: StringName in [&"display", &"oven", &"mixer"]:
-		var def_id := StringName("%s_t%d" % [cat, tier])
+		while sim.upgrades.open_station(cat) >= 0:
+			pass
 		for e: EquipmentInstance in sim.equipment.placed_list(cat):
-			if e.tier() < tier:
-				sim.equipment.buy_replace(def_id, e.iid)
-		for old: EquipmentInstance in sim.equipment.unplaced_list(cat):
-			if old.tier() < tier:
-				sim.equipment.sell(old.iid)
-		while sim.equipment.placed_count(cat) + sim.equipment.unplaced_list(cat).size() < sim.equipment.slot_limit(cat):
-			if not bool(sim.equipment.buy(def_id).get("ok", false)):
-				break
-		for e2: EquipmentInstance in sim.equipment.unplaced_list(cat):
-			if not bot._place(e2.iid):
-				sim.equipment.sell(e2.iid)
+			sim.upgrades.set_station_level(e.iid, sim.upgrades.level_cap())
 	for role: StringName in [&"cashier", &"baker"]:
 		for st: StaffDefinition in DataRegistry.staff_list():
 			if sim.staff.employed_ids(role).size() >= sim.staff.capacity(role):
 				break
 			if st.role_id == role and not sim.staff.is_employed(st.id):
-				sim.staff.hire(st.id)
+				sim.staff.hire(st.id, true)
 	for d: Variant in DataRegistry.decorations():
 		var dd: MiscDefinitions.DecorationDefinition = d
 		if dd.source == &"shop" and not sim.decoration.owns(dd.id):
 			sim.decoration.buy(dd.id)
 	_place_decor()
-	sim.weather.tomorrow = &"weather_sunny"
-	sim.continue_to_next_day()
 	sim.debug_set_time(9.9 * 3600.0)
 	_stock_displays()
-	for i in 4 + tier * 2:
+	for i in 4 + sim.world.location.tier * 2:
 		sim.debug_spawn_customer(BUYERS[i % BUYERS.size()])
 		_run(6.0)
 	_run(20.0)
@@ -151,18 +124,18 @@ func _place_decor() -> void:
 func _stock_displays() -> void:
 	var k: int = sim.world.location.tier * 3
 	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
-		var def: EquipmentDefinition = e.def()
+		var cap: int = sim.display.slot_capacity(e.iid)
 		var sl: Array = sim.display.slots(e.iid)
 		for i in sl.size():
 			var rid: StringName = SHOWCASE[k % SHOWCASE.size()]
 			k += 1
 			_next_job -= 1
-			sim.display.place(e.iid, i, rid, maxi(1, int(def.max_per_slot * 0.8)), 1.0, sim.time.time_seconds, _next_job)
+			sim.display.place(e.iid, i, rid, maxi(1, int(cap * 0.8)), sim.time.sim_seconds, _next_job)
 
 
 func _run(sim_seconds: float) -> void:
 	var t: float = 0.0
-	while t < sim_seconds and sim.is_running():
+	while t < sim_seconds:
 		bot.think()
 		sim.step(sim.tick_seconds)
 		t += sim.tick_seconds

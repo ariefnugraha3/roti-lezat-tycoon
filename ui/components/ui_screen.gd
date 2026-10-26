@@ -22,6 +22,9 @@ var overlay: bool = false
 var keep_open: bool = false
 ## Decoration Mode: tap dunia tetap diteruskan walau simulasi di-pause.
 var world_input: bool = false
+## Lembar bawah idle (UISheet, GDD idle 12.0.5): tidak mem-pause dan hanya ada
+## satu dalam satu waktu.
+var sheet: bool = false
 var screen_id: StringName = &""
 var _built: bool = false
 

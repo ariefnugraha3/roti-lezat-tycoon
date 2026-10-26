@@ -2,7 +2,7 @@
  "catalog_schema_version": 1,
  "content_version": 1,
  "_doc": "Idle GDD v1 TUNABLE values (docs/gdd-roti-lezat-idle-v1.md, section 15.2). Each number has exactly one home here; the GDD section is noted next to each group.",
- "start_kr": 400,
+ "start_kr": 1000,
  "clock": {
   "_gdd": "3.1",
   "start_seconds": 28800,
@@ -75,8 +75,7 @@
  },
  "rotifood": {
   "_gdd": "6.5",
-  "price_mult": 1.1,
-  "rain_mult": 1.5
+  "price_mult": 1.1
  },
  "decor": {
   "_gdd": "8.8",

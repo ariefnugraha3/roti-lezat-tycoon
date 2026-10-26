@@ -18,7 +18,6 @@ const MAX_BREAD_PER_SLOT: int = 3
 ## Isi Meja Tunggu digambar lebih kecil dari barang di tangan agar enam muat.
 const TABLE_ITEM_SCALE: float = 0.75
 ## Warna adonan yang hampir basi di meja.
-const TABLE_DOUGH_STALE: Color = Color(0.72, 0.74, 0.58)
 const PICK_CUSTOMER_PX: float = 56.0
 ## Jarak ujung ekor gelembung pikiran di atas puncak kepala/topi pemain (m).
 const THOUGHT_ANCHOR_GAP: float = 0.08
@@ -84,7 +83,6 @@ var _neighborhood_wet: bool = false
 ## Hiasan hari libur yang terpasang (GDD 32.10): di dinding toko dan di luar.
 var _holiday_nodes: Array[Node3D] = []
 var _t: float = 0.0
-var _smoke: Dictionary = {}
 var decoration_mode: bool = false
 ## Panaskan shader alat tier baru setelah upgrade lokasi (diset GameRoot).
 var shader_warmup: bool = false
@@ -176,8 +174,13 @@ func setup(s: SimulationRoot) -> void:
 	EventBus.sale_completed.connect(_on_sale)
 	SettingsManager.settings_changed.connect(func(_k: String) -> void: _apply_brightness())
 	rebuild_all()
-	camera_rig.active_floor = sim.player.actor.floor_id
-	camera_rig.snap_to(_v3(sim.player.actor.pos))
+	# Kamera mulai di lantai toko (GDD idle 5.1): pemilik boleh di dapur atas.
+	camera_rig.active_floor = sim.world.store_floor()
+	if sim.player.actor.floor_id == camera_rig.active_floor:
+		camera_rig.snap_to(_v3(sim.player.actor.pos))
+	else:
+		var sz: Vector2 = Vector2(sim.world.grid(camera_rig.active_floor).size) * GridMath.WORLD_METERS_PER_TILE
+		camera_rig.snap_to(Vector3(sz.x * 0.5, 0.0, sz.y * 0.5))
 	_apply_floor_visibility()
 
 
@@ -401,9 +404,12 @@ func _process(delta: float) -> void:
 		return
 	_t += delta
 	var player: SimActor = sim.player.actor
-	var want_floor: StringName = view_floor_override if view_floor_override != &"" else player.floor_id
+	# Pemilik berpindah lantai sendiri; kamera tetap di lantai toko kecuali pemain
+	# memilih lantai lain lewat pintu tangga (GDD idle 5.1).
+	var want_floor: StringName = view_floor_override if view_floor_override != &"" else sim.world.store_floor()
 	if sim.world.grid(want_floor) == null:
-		want_floor = player.floor_id
+		view_floor_override = &""
+		want_floor = sim.world.store_floor()
 	if want_floor != camera_rig.active_floor:
 		var focus: Vector3 = _v3(player.pos) if want_floor == player.floor_id else Vector3(Vector2(sim.world.grid(want_floor).size).x * 0.25, 0.0, Vector2(sim.world.grid(want_floor).size).y * 0.25)
 		camera_rig.change_floor(want_floor, focus)
@@ -439,6 +445,15 @@ func _process(delta: float) -> void:
 	if _daylight_timer <= 0.0:
 		_daylight_timer = DAYLIGHT_INTERVAL
 		apply_daylight()
+
+
+## Pindahkan pandangan ke lantai berikutnya (pintu tangga, tombol lantai).
+func toggle_view_floor() -> void:
+	var ids: Array[StringName] = sim.world.floor_ids()
+	if ids.size() < 2:
+		return
+	var i: int = ids.find(camera_rig.active_floor)
+	view_floor_override = ids[(i + 1) % ids.size()]
 
 
 func _v3(p: Vector2) -> Vector3:
@@ -498,14 +513,7 @@ func _sync_actors(delta: float) -> void:
 		var show_bar: bool = not c.window_shopper and c.drains_patience()
 		v.set_patience(c.patience_ratio(), show_bar, large)
 		v.set_look_around(c.window_shopper and c.state == Customer.BROWSING and not a2.moving)
-		# Hanya pembeli di jalur pemain yang menunggu ketukan (GDD 21.2).
-		v.set_alert(c.awaiting_tap and c.state == Customer.FRONT_OF_QUEUE and not a2.has_route())
-		var thought: String = ""
-		if c.drains_patience() and c.patience_ratio() < 0.3:
-			thought = "..."
-		elif c.state == Customer.ENTERING and (c.price_label == &"UNHAPPY" or c.price_label == &"VERY_UNHAPPY" or c.price_label == &"REFUSE"):
-			thought = "$"
-		v.set_thought(thought)
+		v.set_thought("..." if c.drains_patience() and c.patience_ratio() < 0.3 else "")
 	for o: DeliveryOrder in sim.rotifood.orders.values():
 		if o.driver == null:
 			continue
@@ -514,9 +522,6 @@ func _sync_actors(delta: float) -> void:
 		if dv != null:
 			dv.set_carry("bag" if o.driver_phase == &"leaving" and o.state == DeliveryOrder.COMPLETED else "")
 			dv.set_patience(o.driver_patience / maxf(o.driver_patience_max, 0.01), o.driver_phase in [&"entering", &"queued", &"at_service"], large)
-	for oid: Variant in sim.supply.couriers.keys():
-		var ca: SimActor = sim.supply.couriers[oid]
-		_sync_one(ca, "cour|%d" % ca.visual_seed, _npc_spec.bind("courier_supply", ca.visual_seed, false), delta, live, true)
 	# Aktor yang hilang di pintu berjalan pulang di trotoar dulu (GDD 20.1), lalu
 	# body-nya kembali ke pool (GDD 83.2).
 	for k: Variant in views.keys():
@@ -541,7 +546,7 @@ func _release_view(old: ActorView) -> void:
 ## sudah tidak ada di simulasi. false bila tidak perlu (atau sudah terlalu ramai).
 func _start_leaver(v: ActorView) -> bool:
 	var kind: StringName = StringName(str(v.get_meta("kind", "")))
-	if not kind in [&"customer", &"driver", &"courier"] or _leavers.size() >= MAX_LEAVERS:
+	if not kind in [&"customer", &"driver"] or _leavers.size() >= MAX_LEAVERS:
 		return false
 	if not v.has_meta("pos") or StringName(str(v.get_meta("floor", ""))) != sim.world.store_floor():
 		return false
@@ -552,7 +557,6 @@ func _start_leaver(v: ActorView) -> bool:
 	var side: int = 1 if posmod(hash(String(v.actor_id)), 2) == 0 else -1
 	a.walk_path(sim.world.store_floor(), StreetPaths.leave_from(sim.world.location, side, v.get_meta("pos")))
 	v.set_patience(1.0, false, false)
-	v.set_alert(false)
 	v.set_thought("")
 	v.set_look_around(false)
 	_leavers.append({"view": v, "actor": a})
@@ -565,8 +569,6 @@ func _step_leavers(delta: float) -> void:
 	var now: float = sim.time.sim_seconds
 	var dt: float = maxf(0.0, now - _leaver_sim) if _leaver_sim >= 0.0 else 0.0
 	_leaver_sim = now
-	if not sim.time.is_running_phase() and not PauseManager.is_paused():
-		dt = delta * DataRegistry.balf("clock.sim_seconds_per_real_second")
 	var on_store: bool = camera_rig.active_floor == sim.world.store_floor()
 	var i: int = 0
 	while i < _leavers.size():
@@ -659,7 +661,7 @@ func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:
 		v.set_carry("")
 		return
 	var t: String = str(a.carried.get("type", ""))
-	v.set_carry(t, String(j.recipe().visual_profile_id), j.bake_quality)
+	v.set_carry(t, String(j.recipe().visual_profile_id), 1.0)
 
 
 ## Pembeli menenteng roti lepas dari rak ke kasir; saat fase membungkus roti itu
@@ -679,7 +681,7 @@ func _apply_customer_carry(v: ActorView, c: Customer) -> void:
 	var lot: Dictionary = c.held[0]
 	var st: BreadStack = lot["stack"]
 	var r: RecipeDefinition = DataRegistry.recipe(st.recipe_id)
-	v.set_carry("bread", String(r.visual_profile_id) if r != null else "", st.bake_quality, mini(c.held_units(), PACK_BREAD_MAX))
+	v.set_carry("bread", String(r.visual_profile_id) if r != null else "", 1.0, mini(c.held_units(), PACK_BREAD_MAX))
 
 
 ## Pembeli mengulurkan tangan sejak kantong disodorkan sampai membayar (GDD 21.4).
@@ -694,11 +696,11 @@ func _receive_amount(c: Customer) -> float:
 	return smoothstep(ph.z, ph.z + ProceduralAnimationSystem.PACK_OFFER_SPAN, p)
 
 
-## Pemain sedang mengerjakan sesuatu: berjalan, berinteraksi, membawa barang,
-## punya perintah antre, atau melayani transaksi di meja kasir.
+## Pemilik sedang mengerjakan sesuatu: berjalan, berinteraksi, membawa barang,
+## punya tugas, atau melayani transaksi di meja kasir.
 func _player_busy() -> bool:
 	var p: PlayerTaskManager = sim.player
-	if not p.actor.carried.is_empty() or not p.commands.is_empty() or not p.current.is_empty():
+	if not p.actor.carried.is_empty() or not p.task.is_empty():
 		return true
 	if p.actor.state == &"WALKING" or p.actor.state == &"INTERACTING":
 		return true
@@ -749,8 +751,7 @@ func _update_packing() -> Dictionary:
 					EventBus.sfx.emit(&"bread_place_display", lane.floor_id)
 					FX.sugar_sparkle(floors[lane.floor_id], rig.position + Vector3(0.0, PackBagRig.MOUTH_Y + 0.04, 0.0))
 		var info: Dictionary = {"p": prog, "n": n}
-		var td: Dictionary = sim.cashier.transaction_for(lane.id)
-		if bool(td.get("manual", false)):
+		if lane.main:
 			packers[sim.player.actor.id] = info
 		else:
 			for sid: Variant in sim.staff.lane_assign.keys():
@@ -983,9 +984,9 @@ func staff_bubble(staff_id: StringName) -> ThoughtBubble:
 	return _staff_bubbles.get(staff_id)
 
 
-## Toko buka tanpa pembeli di dalam dan tanpa pesanan RotiFood aktif (GDD 31.7).
+## Toko tanpa pembeli di dalam dan tanpa pesanan RotiFood aktif (v3.1 31.7).
 func _shop_quiet() -> bool:
-	return sim.time.is_open() and sim.customers.customers.is_empty() and sim.rotifood.active_orders().is_empty()
+	return sim.customers.customers.is_empty() and sim.rotifood.active_orders().is_empty()
 
 
 ## Pemain tidak tertidur saat gelembung pikiran tampil, dan selama toko sepi baru
@@ -1012,19 +1013,9 @@ func _update_markers() -> void:
 		return
 	var data: Dictionary = sim.player.station_markers()
 	var hc: bool = SettingsManager.get_bool("high_contrast_markers")
-	# Maks. alert dunia yang tampil (GDD 129): alert (terbakar lebih dulu)
-	# didahulukan daripada bar progres; urutan stabil menurut iid.
+	# Maks. penanda dunia yang tampil (v3.1 129); urutan stabil menurut iid.
 	var order: Array = data.keys()
-	order.sort_custom(func(a: Variant, b: Variant) -> bool:
-		var da: Dictionary = data[a]
-		var db: Dictionary = data[b]
-		var ra: int = 0 if da["mode"] != &"progress" else 1
-		var rb: int = 0 if db["mode"] != &"progress" else 1
-		if ra != rb:
-			return ra < rb
-		if float(da.get("burn", 0.0)) != float(db.get("burn", 0.0)):
-			return float(da.get("burn", 0.0)) > float(db.get("burn", 0.0))
-		return int(a) < int(b))
+	order.sort()
 	var shown: Dictionary = {}
 	for i in mini(order.size(), DataRegistry.bali("limits.world_alerts_visible")):
 		shown[order[i]] = true
@@ -1034,10 +1025,8 @@ func _update_markers() -> void:
 		var md: Variant = data.get(iid)
 		if md == null or not shown.has(iid):
 			m.hide_marker()
-		elif (md as Dictionary)["mode"] == &"progress":
-			m.show_progress(float((md as Dictionary)["value"]))
 		else:
-			m.show_alert(float((md as Dictionary)["burn"]))
+			m.show_progress(float((md as Dictionary)["value"]))
 
 
 func _update_bread() -> void:
@@ -1062,14 +1051,12 @@ func _update_bread() -> void:
 			if units <= 0 or s["recipe"] == &"":
 				continue
 			var r: RecipeDefinition = DataRegistry.recipe(s["recipe"])
-			var first: BreadStack = (s["stacks"] as Array)[0]
 			var n: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
-			slot_node.add_child(BreadFactory.slot_cached(String(r.visual_profile_id), first.bake_quality, first.freshness_state, n))
+			slot_node.add_child(BreadFactory.slot_cached(String(r.visual_profile_id), 1.0, &"FRESH", n))
 
 
-## Isi Meja Tunggu (GDD 5.1.3): mangkuk adonan dan loyang di atas daun meja,
-## maksimal `limits.table_items_visible`. Adonan memucat kehijauan dan roti
-## memakai tampilan kesegarannya saat mendekati basi.
+## Isi Meja Tunggu (GDD idle 4.7): mangkuk adonan dan loyang di atas daun meja,
+## maksimal `limits.table_items_visible`. Roti idle tidak pernah basi.
 func _update_table() -> void:
 	var table: EquipmentInstance = sim.equipment.table_instance()
 	if table == null or not furniture.has(table.iid):
@@ -1079,7 +1066,7 @@ func _update_table() -> void:
 	var parts: PackedStringArray = PackedStringArray([str(table.iid)])
 	for i in shown:
 		var j: ProductionJob = items[i]
-		parts.append("%d:%s:%s" % [j.job_id, j.stage, BreadStack.state_for_ratio(sim.production.table_spoil_ratio(j))])
+		parts.append("%d:%s" % [j.job_id, j.stage])
 	var sig: String = ",".join(parts)
 	if sig == _table_sig:
 		return
@@ -1091,13 +1078,11 @@ func _update_table() -> void:
 		c.queue_free()
 	for i2 in shown:
 		var j2: ProductionJob = items[i2]
-		var state: StringName = BreadStack.state_for_ratio(sim.production.table_spoil_ratio(j2))
 		var item: Node3D
 		if j2.stage == ProductionJob.DOUGH_ON_TABLE:
-			var stale: float = 0.0 if state == &"FRESH" else (0.45 if state == &"GOOD" else 1.0)
-			item = EquipmentFactory.dough_bowl(Palette.RAW_DOUGH.lerp(TABLE_DOUGH_STALE, stale))
+			item = EquipmentFactory.dough_bowl(Palette.RAW_DOUGH)
 		else:
-			item = EquipmentFactory.bread_tray(String(j2.recipe().visual_profile_id), j2.bake_quality, state)
+			item = EquipmentFactory.bread_tray(String(j2.recipe().visual_profile_id), 1.0, &"FRESH")
 		item.scale = Vector3(TABLE_ITEM_SCALE, TABLE_ITEM_SCALE, TABLE_ITEM_SCALE)
 		item.position = Vector3((float(i2 % 3) - 1.0) * 0.30, 0.0, (floorf(float(i2) / 3.0) - 0.5) * 0.20)
 		top.add_child(item)
@@ -1108,10 +1093,7 @@ func _display_signature(iid: int) -> String:
 	var slots: Array = sim.display.slots(iid)
 	for i in slots.size():
 		var s: Dictionary = slots[i]
-		var st: String = ""
-		if not (s["stacks"] as Array).is_empty():
-			st = String(((s["stacks"] as Array)[0] as BreadStack).freshness_state)
-		parts.append("%s:%d:%s" % [s["recipe"], mini(MAX_BREAD_PER_SLOT, int(ceil(float(sim.display.slot_units(iid, i)) / 4.0))), st])
+		parts.append("%s:%d" % [s["recipe"], mini(MAX_BREAD_PER_SLOT, int(ceil(float(sim.display.slot_units(iid, i)) / 4.0)))])
 	return ",".join(parts)
 
 
@@ -1119,11 +1101,6 @@ func _animate_stations(_delta: float) -> void:
 	for iid: Variant in furniture.keys():
 		var e: EquipmentInstance = sim.equipment.get_inst(int(iid))
 		if e == null or e.job_id < 0:
-			if _smoke.has(iid):
-				var gone: Variant = _smoke[iid]
-				if gone is Node and is_instance_valid(gone):
-					(gone as Node).queue_free()
-				_smoke.erase(iid)
 			continue
 		var j: ProductionJob = sim.production.get_job(e.job_id)
 		if j == null:
@@ -1131,19 +1108,6 @@ func _animate_stations(_delta: float) -> void:
 		var node: Node3D = furniture[iid]
 		if e.category() == &"mixer" and j.stage == ProductionJob.MIXING and not PauseManager.is_paused():
 			ProceduralAnimationSystem.mixer_spin(node, _t)
-		if e.category() == &"oven":
-			var burning: bool = j.stage == ProductionJob.OVERBAKING or j.stage == ProductionJob.BURNT
-			if burning and not _smoke.has(iid):
-				var parent: Node3D = floors.get(e.floor_id)
-				# Di batas partikel (GDD 129) efek dilewati dan dicoba lagi nanti.
-				var fx: CPUParticles3D = FX.burn_smoke(parent, node.position + Vector3(0.0, e.def().height_m, 0.0))
-				if fx != null:
-					_smoke[iid] = fx
-			elif not burning and _smoke.has(iid):
-				var old_fx: Variant = _smoke[iid]
-				if old_fx is Node and is_instance_valid(old_fx):
-					(old_fx as Node).queue_free()
-				_smoke.erase(iid)
 
 
 # ===========================================================================
@@ -1151,6 +1115,9 @@ func _animate_stations(_delta: float) -> void:
 # ===========================================================================
 
 func _on_camera_floor_changed(_floor_id: StringName) -> void:
+	# Crossfade bisa selesai sesudah simulasi dibongkar (kembali ke menu).
+	if sim == null or not is_instance_valid(sim):
+		return
 	_apply_floor_visibility()
 
 
@@ -1171,11 +1138,8 @@ func _on_storage_door(iid: int, open: bool) -> void:
 		ProceduralAnimationSystem.storage_door_hold(node, open)
 
 
-func _on_sale(_amount: float, channel: StringName) -> void:
-	if channel == &"physical" and sim.bailout.solo_mode:
-		var pv: ActorView = views.get(sim.player.actor.id)
-		if pv != null:
-			pv.sparkle()
+func _on_sale(_amount: float, _channel: StringName) -> void:
+	pass
 
 
 func _apply_weather() -> void:

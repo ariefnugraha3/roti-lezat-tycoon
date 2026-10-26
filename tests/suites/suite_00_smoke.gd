@@ -1,45 +1,44 @@
 extends TestSuite
-## Smoke: New Game lalu Hari 1-3 dimainkan bot dari awal sampai Daily Summary.
+## Smoke: New Game idle lalu satu jam in-game berjalan sendiri tanpa input.
 
 
 func tests() -> Array:
 	return [
-		{"id": "SMOKE_001", "name": "new game starts at 05:00 Day 1 with 1000 KR and starter equipment", "fn": _new_game},
-		{"id": "SMOKE_002", "name": "opening days 1-3 play through with the bot", "fn": _opening_days},
+		{"id": "SMOKE_001", "name": "new game starts at 08:00 Day 1 with start_kr, the starter stations and Plain Loaf in the first slot", "fn": _new_game},
+		{"id": "SMOKE_002", "name": "the shop bakes and sells by itself for three in-game hours", "fn": _first_hours},
 	]
 
 
 func _new_game() -> void:
 	var s: SimulationRoot = new_sim()
 	eq(s.time.day, 1, "day")
-	near(s.time.time_seconds, 18000.0, 0.01, "05:00")
-	near(s.economy.balance, 1000.0, 0.01, "starting cash (GDD 55.1)")
+	near(s.time.time_seconds, DataRegistry.idlef("clock.start_seconds"), 0.01, "starts at clock.start_seconds")
+	near(s.economy.balance, DataRegistry.idlef("start_kr"), 0.01, "start_kr (GDD idle 7.1)")
 	eq(s.equipment.placed_count(&"mixer"), 1, "one mixer placed")
 	eq(s.equipment.placed_count(&"oven"), 1, "one oven placed")
 	eq(s.equipment.placed_count(&"display"), 1, "one display placed")
 	eq(s.equipment.placed_count(&"storage"), 1, "storage placed")
+	check(s.equipment.table_instance() != null and s.equipment.table_instance().placed, "holding table placed")
 	check(s.world.layout_valid(), "starter layout keeps protected paths")
 	for e: EquipmentInstance in s.equipment.placed_list():
 		check(not s.world.access_of(e.iid).is_empty(), "%s has an access tile" % e.def_id)
-	# Bahan Hari 1: 8 batch roti tawar, pas tanpa cadangan (GDD 2).
-	eq(s.inventory.count(&"ingredient_flour"), 8, "day 1 flour")
-	eq(s.inventory.count(&"ingredient_butter"), 8, "day 1 butter")
+	var d: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	eq(s.display.assignment(d.iid, 0), &"recipe_plain_loaf", "Plain Loaf goes straight into the first slot (GDD idle 8.5)")
+	eq(s.upgrades.unlocked_recipes(), [&"recipe_plain_loaf"] as Array[StringName], "only Plain Loaf is unlocked")
+	eq(s.upgrades.counter_level, 1, "counter Lv 1")
+	eq(s.reputation.reputation, DataRegistry.idlef("reputation.start"), "reputation starts at 3.0")
+	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
 
 
-func _opening_days() -> void:
+func _first_hours() -> void:
 	var s: SimulationRoot = new_sim(777)
-	var bot := SimBot.new(s)
-	for d in 3:
-		run_day(s, bot)
-		eq(s.time.phase, TimeManager.SUMMARY, "day %d reaches summary" % (d + 1))
-		var r: Dictionary = s.reports.last_report
-		check(int(r.get("bread_sold", 0)) > 0, "day %d sold bread (sold %s)" % [d + 1, r.get("bread_sold")])
-		print("      day %d: sold %d, walk-ins %d, rotifood %d, balance %s, rating %.2f" % [d + 1, int(r["bread_sold"]),
-			int(r["physical_customer_count"]), int(r["delivery_completed"]), s.economy.balance, s.reputation.physical])
-		var inv: String = s.check_invariants()
-		eq(inv, "", "invariants after day %d" % (d + 1))
-		bot.after_hours()
-	check(s.supply.market_unlocked, "market unlocked after day 3 settlement (GDD 24A.1)")
-	eq(s.time.day, 4, "day 4 reached")
+	for h in 3:
+		run_hours(s, 1.0)
+		eq(s.check_invariants(), "", "invariants after hour %d" % (h + 1))
+	var sold: int = int(s.statistics.get_stat("total_bread_sold"))
+	print("      3 h: sold %d, earned %s, balance %s, reputation %.2f" % [sold, Tx.big(s.statistics.get_stat("run_earned_kr")),
+		Tx.big(s.economy.balance), s.reputation.reputation])
+	check(sold > 20, "the shop sold bread with no input (sold %d)" % sold)
+	check(s.statistics.get_stat("run_earned_kr") > 0.0, "run_earned_kr counts the sales")
 	free_sim(s)

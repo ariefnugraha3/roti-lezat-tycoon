@@ -1,6 +1,7 @@
 {
  "catalog_schema_version": 1,
  "content_version": 1,
+ "_doc": "Idle GDD 4.1, 8.2: models T1-T5 per category. Models evolve from station levels; there is no shop, so no prices.",
  "items": [
   {
    "id": "mixer_t1",
@@ -19,12 +20,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "reference_seconds": 10,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "price_kr": 0,
-   "for_sale": true,
    "visual_profile_id": "mixer_t1"
   },
   {
@@ -44,12 +39,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 4,
-   "reference_seconds": 7,
-   "process_multiplier": 1.428571,
-   "capacity": 0,
-   "price_kr": 1500,
-   "for_sale": true,
    "visual_profile_id": "mixer_t2"
   },
   {
@@ -69,12 +58,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 7,
-   "reference_seconds": 5,
-   "process_multiplier": 2.0,
-   "capacity": 0,
-   "price_kr": 4500,
-   "for_sale": true,
    "visual_profile_id": "mixer_t3"
   },
   {
@@ -94,12 +77,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 12,
-   "reference_seconds": 3,
-   "process_multiplier": 3.333333,
-   "capacity": 0,
-   "price_kr": 12000,
-   "for_sale": true,
    "visual_profile_id": "mixer_t4"
   },
   {
@@ -119,12 +96,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 20,
-   "reference_seconds": 2,
-   "process_multiplier": 5.0,
-   "capacity": 0,
-   "price_kr": 35000,
-   "for_sale": true,
    "visual_profile_id": "mixer_t5"
   },
   {
@@ -144,14 +115,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 6,
-   "reference_seconds": 15,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "perfect_window_seconds": 8,
-   "overbake_window_seconds": 8,
-   "price_kr": 0,
-   "for_sale": true,
    "visual_profile_id": "oven_t1"
   },
   {
@@ -171,14 +134,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 10,
-   "reference_seconds": 11,
-   "process_multiplier": 1.363636,
-   "capacity": 0,
-   "perfect_window_seconds": 10,
-   "overbake_window_seconds": 10,
-   "price_kr": 2000,
-   "for_sale": true,
    "visual_profile_id": "oven_t2"
   },
   {
@@ -198,14 +153,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 18,
-   "reference_seconds": 8,
-   "process_multiplier": 1.875,
-   "capacity": 0,
-   "perfect_window_seconds": 14,
-   "overbake_window_seconds": 12,
-   "price_kr": 6000,
-   "for_sale": true,
    "visual_profile_id": "oven_t3"
   },
   {
@@ -225,14 +172,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 32,
-   "reference_seconds": 5,
-   "process_multiplier": 3.0,
-   "capacity": 0,
-   "perfect_window_seconds": 20,
-   "overbake_window_seconds": 15,
-   "price_kr": 15000,
-   "for_sale": true,
    "visual_profile_id": "oven_t4"
   },
   {
@@ -252,14 +191,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 55,
-   "reference_seconds": 4,
-   "process_multiplier": 3.75,
-   "capacity": 0,
-   "perfect_window_seconds": 30,
-   "overbake_window_seconds": 20,
-   "price_kr": 50000,
-   "for_sale": true,
    "visual_profile_id": "oven_t5"
   },
   {
@@ -279,14 +210,8 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 50,
    "slot_count": 4,
    "max_per_slot": 13,
-   "aging_rate": 1.0,
-   "price_kr": 0,
-   "for_sale": true,
    "visual_profile_id": "display_t1"
   },
   {
@@ -306,14 +231,8 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 100,
    "slot_count": 6,
    "max_per_slot": 17,
-   "aging_rate": 0.9,
-   "price_kr": 1500,
-   "for_sale": true,
    "visual_profile_id": "display_t2"
   },
   {
@@ -333,14 +252,8 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 5,
-   "process_multiplier": 1.0,
-   "capacity": 200,
    "slot_count": 8,
    "max_per_slot": 25,
-   "aging_rate": 0.8,
-   "price_kr": 4500,
-   "for_sale": true,
    "visual_profile_id": "display_t3"
   },
   {
@@ -360,14 +273,8 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 8,
-   "process_multiplier": 1.0,
-   "capacity": 350,
    "slot_count": 10,
    "max_per_slot": 35,
-   "aging_rate": 0.7,
-   "price_kr": 12000,
-   "for_sale": true,
    "visual_profile_id": "display_t4"
   },
   {
@@ -387,14 +294,8 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 12,
-   "process_multiplier": 1.0,
-   "capacity": 600,
    "slot_count": 12,
    "max_per_slot": 50,
-   "aging_rate": 0.6,
-   "price_kr": 30000,
-   "for_sale": true,
    "visual_profile_id": "display_t5"
   },
   {
@@ -414,11 +315,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 150,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "storage_t1"
   },
   {
@@ -438,11 +334,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 400,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "storage_t2"
   },
   {
@@ -462,11 +353,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 1000,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "storage_t3"
   },
   {
@@ -486,11 +372,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 2500,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "storage_t4"
   },
   {
@@ -510,11 +391,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 6000,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "storage_t5"
   },
   {
@@ -534,11 +410,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "holding_table"
   },
   {
@@ -558,11 +429,6 @@
     180,
     270
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "staff_chair"
   },
   {
@@ -579,11 +445,6 @@
    "rotations_allowed": [
     0
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "counter_cashier"
   },
   {
@@ -600,13 +461,7 @@
    "rotations_allowed": [
     0
    ],
-   "utility_cost_kr_per_ingame_hour": 0,
-   "process_multiplier": 1.0,
-   "capacity": 0,
-   "price_kr": 0,
-   "for_sale": false,
    "visual_profile_id": "counter_rotifood"
   }
- ],
- "sell_back_ratio": 0.5
+ ]
 }

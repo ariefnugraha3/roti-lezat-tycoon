@@ -1,5 +1,8 @@
 extends Node
-## SaveManager — serialisasi tiga profil independen (GDD 34, 77, 89.3, 106, 132).
+## SaveManager — serialisasi tiga profil independen (GDD idle 15.3; v3.1 34, 77,
+## 89.3, 106, 132). Skema save idle mulai dari 1 dan ditandai `game_mode: "idle"`.
+## Save tycoon v3.1 (tanpa `game_mode`) tidak didukung: Main Menu menampilkannya
+## sebagai "Classic save (not supported)" dengan tombol Delete, tanpa migrasi.
 ##
 ## SaveManager TIDAK memiliki state gameplay (GDD 98): saat menyimpan ia meminta
 ## snapshot dari SimulationRoot, saat memuat ia menyerahkan dictionary yang
@@ -15,10 +18,11 @@ signal save_failed(profile_id: StringName, reason: String)
 var dir: String = "user://saves"
 const PROFILE_IDS: Array[StringName] = [&"profile_1", &"profile_2", &"profile_3"]
 const GAME_VERSION: String = "1.0.0"
+const GAME_MODE: String = "idle"
 const REQUIRED_KEYS: Array[String] = [
-	"schema_version", "profile_id", "bakery_name", "player", "day", "time_seconds", "phase",
-	"location_id", "economy", "inventory", "display_inventory", "production_jobs",
-	"equipment_states", "flags", "rng_states",
+	"game_mode", "schema_version", "profile_id", "bakery_name", "player", "day", "time_seconds",
+	"location_id", "economy", "upgrades", "display_inventory", "production_jobs",
+	"equipment_states", "rng_states",
 ]
 
 ## SimulationRoot aktif (diisi GameRoot). Null di Main Menu.
@@ -65,8 +69,12 @@ func scan_headers() -> Array[Dictionary]:
 
 
 func read_header(profile_id: StringName) -> Dictionary:
-	var header: Dictionary = {"profile_id": profile_id, "exists": false, "corrupt": false}
+	var header: Dictionary = {"profile_id": profile_id, "exists": false, "corrupt": false, "classic": false}
 	var r: Dictionary = read_profile(profile_id)
+	if bool(r.get("classic", false)):
+		header["exists"] = true
+		header["classic"] = true
+		return header
 	if bool(r.get("ok", false)):
 		var d: Dictionary = r["data"]
 		header["exists"] = true
@@ -74,6 +82,8 @@ func read_header(profile_id: StringName) -> Dictionary:
 		header["day"] = int(d.get("day", 1))
 		header["location_id"] = str(d.get("location_id", ""))
 		header["balance_kr"] = _decode_money((d.get("economy", {}) as Dictionary).get("balance_kr", 0.0))
+		header["run_index"] = int((d.get("franchise", {}) as Dictionary).get("run_index", 1))
+		header["stars"] = int((d.get("franchise", {}) as Dictionary).get("stars", 0))
 		header["last_played_at"] = str(d.get("last_played_at", ""))
 		header["last_played_unix"] = float(d.get("last_played_unix", 0.0))
 		header["used_backup"] = bool(r.get("used_backup", false))
@@ -101,7 +111,7 @@ func latest_profile() -> StringName:
 	var best: StringName = &""
 	var best_time: Array = []
 	for h: Dictionary in scan_headers():
-		if not bool(h.get("exists", false)) or bool(h.get("corrupt", false)):
+		if not bool(h.get("exists", false)) or bool(h.get("corrupt", false)) or bool(h.get("classic", false)):
 			continue
 		var t: Array = [str(h.get("last_played_at", "")), float(h.get("last_played_unix", 0.0))]
 		if best == &"" or t[0] > best_time[0] or (t[0] == best_time[0] and t[1] > best_time[1]):
@@ -121,12 +131,15 @@ func delete_profile(profile_id: StringName) -> void:
 # BACA
 # ===========================================================================
 
-## {ok, data, used_backup, error}. Main dicoba lebih dulu, lalu backup.
+## {ok, data, used_backup, error, classic}. Main dicoba lebih dulu, lalu backup.
+## Save klasik v3.1 tidak pernah jatuh ke backup: keduanya sama-sama klasik.
 func read_profile(profile_id: StringName) -> Dictionary:
 	var main_r: Dictionary = _read_and_validate(main_path(profile_id), profile_id)
 	if bool(main_r.get("ok", false)):
 		main_r["used_backup"] = false
 		return main_r
+	if bool(main_r.get("classic", false)):
+		return {"ok": false, "error": "classic", "classic": true, "used_backup": false}
 	var back_r: Dictionary = _read_and_validate(backup_path(profile_id), profile_id)
 	if bool(back_r.get("ok", false)):
 		back_r["used_backup"] = true
@@ -143,6 +156,8 @@ func _read_and_validate(path: String, profile_id: StringName) -> Dictionary:
 	if json.parse(text) != OK or not json.data is Dictionary:
 		return {"ok": false, "error": "invalid json"}
 	var data: Dictionary = json.data
+	if is_classic(data):
+		return {"ok": false, "error": "classic", "classic": true}
 	var migrated: Dictionary = migrate(data)
 	if not bool(migrated.get("ok", false)):
 		return migrated
@@ -153,7 +168,12 @@ func _read_and_validate(path: String, profile_id: StringName) -> Dictionary:
 	return {"ok": true, "data": d}
 
 
-## Validasi skema minimum (GDD 106). Mengembalikan "" bila sah.
+## Save tycoon v3.1: tidak punya `game_mode` idle (GDD idle 15.3).
+static func is_classic(d: Dictionary) -> bool:
+	return str(d.get("game_mode", "")) != GAME_MODE
+
+
+## Validasi skema minimum (v3.1 106). Mengembalikan "" bila sah.
 func validate_save(d: Dictionary, profile_id: StringName) -> String:
 	for k: String in REQUIRED_KEYS:
 		if not d.has(k):
@@ -172,7 +192,8 @@ func validate_save(d: Dictionary, profile_id: StringName) -> String:
 
 
 # ===========================================================================
-# MIGRASI (GDD 34.5): vN -> vN+1, field hilang diberi default versioned.
+# MIGRASI (v3.1 34.5): vN -> vN+1 di dalam skema idle. Belum ada migrator:
+# skema idle masih versi pertama.
 # ===========================================================================
 
 func migrate(data: Dictionary) -> Dictionary:
@@ -183,166 +204,9 @@ func migrate(data: Dictionary) -> Dictionary:
 		return {"ok": false, "error": "no schema_version"}
 	if v > target:
 		return {"ok": false, "error": "save is newer than this game"}
-	while v < target:
-		match v:
-			1:
-				d = _migrate_v1_to_v2(d)
-			2:
-				d = _migrate_v2_to_v3(d)
-			3:
-				d = _migrate_v3_to_v4(d)
-			4:
-				d = _migrate_v4_to_v5(d)
-			5:
-				d = _migrate_v5_to_v6(d)
-			_:
-				return {"ok": false, "error": "no migrator from v%d" % v}
-		v = int(d["schema_version"])
+	if v < target:
+		return {"ok": false, "error": "no migrator from v%d" % v}
 	return {"ok": true, "data": d}
-
-
-## v1 (prototipe awal skema profil): belum ada RNG per stream & analitik resep.
-func _migrate_v1_to_v2(d: Dictionary) -> Dictionary:
-	if not d.has("rng_states"):
-		# Stream diturunkan ulang dari master seed lama (state stream v1 tidak ada).
-		var seed_v: int = int(d.get("master_seed", 1))
-		d["rng_states"] = {"master_seed": str(seed_v), "day_seed": "0"}
-	if not d.has("recipe_analytics"):
-		d["recipe_analytics"] = {}
-	if not d.has("statistics"):
-		d["statistics"] = {}
-	d["schema_version"] = 2
-	return d
-
-
-## v2: belum ada catalog_versions, ui_restore, dan flag freshness rollover.
-func _migrate_v2_to_v3(d: Dictionary) -> Dictionary:
-	if not d.has("catalog_versions"):
-		d["catalog_versions"] = DataRegistry.catalog_versions.duplicate()
-	if not d.has("ui_restore"):
-		d["ui_restore"] = {"game_speed": 1, "camera_zoom": 1.0}
-	var flags: Dictionary = d.get("flags", {})
-	if not flags.has("last_freshness_rollover_day"):
-		flags["last_freshness_rollover_day"] = int(d.get("day", 1)) - 1
-	if not flags.has("economy_overflowed"):
-		flags["economy_overflowed"] = false
-	d["flags"] = flags
-	if not d.has("active_floor_id"):
-		d["active_floor_id"] = "floor_1"
-	d["schema_version"] = 3
-	return d
-
-
-## v3: belum ada Meja Tunggu. Instance meja dibuat dan ditempatkan otomatis saat
-## load (SimulationRoot._ensure_table); field meja pada job memakai default 0.
-func _migrate_v3_to_v4(d: Dictionary) -> Dictionary:
-	d["schema_version"] = 4
-	return d
-
-
-## v4: staf masih bertier (keputusan maintainer 2026-10-02 menghapusnya).
-## - Pengaturan kerja koki (mode, resep target, batch) dan tugas staf dibuang.
-## - Job milik seorang koki menjadi pesanan dapur ("kitchen"), klaim staf dan
-##   flag auto-retrieve (`protected`) dibuang.
-## Staf di atas batas baru diberhentikan, kursi koki dibuat, dan perabot yang
-## menimpa jalur kasir baru dipindah saat load (SimulationRoot.load_from_save).
-func _migrate_v4_to_v5(d: Dictionary) -> Dictionary:
-	var staff: Dictionary = d.get("staff", {})
-	var contracts: Dictionary = staff.get("contracts", {})
-	for k: Variant in contracts.keys():
-		var c: Variant = contracts[k]
-		if c is Dictionary:
-			for old: String in ["mode", "target_recipe", "batch"]:
-				(c as Dictionary).erase(old)
-	staff["tasks"] = {}
-	var jobs_root: Dictionary = d.get("production_jobs", {})
-	for j: Variant in jobs_root.get("jobs", []):
-		if not j is Dictionary:
-			continue
-		var jd: Dictionary = j
-		if str(jd.get("owner_actor_id", "")).begins_with("staff_"):
-			jd["owner_actor_id"] = "kitchen"
-		if str(jd.get("claimed_by", "")).begins_with("staff_"):
-			jd["claimed_by"] = ""
-		jd.erase("protected")
-	d["schema_version"] = 5
-	return d
-
-
-## Calon yang dihapus dari roster (keputusan maintainer 2026-10-04, GDD 3.5).
-const RETIRED_STAFF: Dictionary = {
-	"cashier": ["staff_cashier_nadia", "staff_cashier_rian", "staff_cashier_lili", "staff_cashier_maya",
-		"staff_cashier_reza", "staff_cashier_dewi", "staff_cashier_hendra", "staff_cashier_citra",
-		"staff_cashier_kenji", "staff_cashier_grace"],
-	"baker": ["staff_baker_bagus", "staff_baker_rina", "staff_baker_doni", "staff_baker_aris",
-		"staff_baker_tari", "staff_baker_gilang", "staff_baker_sophie", "staff_baker_danu",
-		"staff_baker_pierre", "staff_baker_alistair"],
-}
-
-
-## v5: roster masih 15 kasir + 15 koki. Staf rekrutan yang dihapus dari roster
-## menjadi calon tersisa berperan sama yang belum direkrut (urut katalog), yang
-## paling awal direkrut lebih dulu; ID-nya diganti di seluruh save (kontrak,
-## aktor, jalur, klaim job, baris gaji). Yang tidak kebagian calon pasti di atas
-## batas staf mana pun, jadi diberhentikan di sini tanpa biaya.
-func _migrate_v5_to_v6(d: Dictionary) -> Dictionary:
-	var staff: Dictionary = d.get("staff", {})
-	var contracts: Dictionary = staff.get("contracts", {})
-	var rename: Dictionary = {}
-	var dropped: Array[String] = []
-	for role: String in RETIRED_STAFF.keys():
-		var retired: Array = RETIRED_STAFF[role]
-		var hired: Array = []
-		for k: Variant in contracts.keys():
-			if retired.has(str(k)):
-				hired.append(str(k))
-		hired.sort_custom(func(a: String, b: String) -> bool:
-			var da: int = int((contracts[a] as Dictionary).get("hired_day", 0)) if contracts[a] is Dictionary else 0
-			var db: int = int((contracts[b] as Dictionary).get("hired_day", 0)) if contracts[b] is Dictionary else 0
-			if da != db:
-				return da < db
-			return a < b)
-		var free: Array[String] = []
-		for s: StaffDefinition in DataRegistry.staff_list():
-			if String(s.role_id) == role and not contracts.has(String(s.id)):
-				free.append(String(s.id))
-		for i in hired.size():
-			if i < free.size():
-				rename[hired[i]] = free[i]
-			else:
-				dropped.append(hired[i])
-	for gone: String in dropped:
-		for part: String in ["contracts", "actors", "tasks", "lane_assign"]:
-			(staff.get(part, {}) as Dictionary).erase(gone)
-	if not rename.is_empty():
-		d = _renamed(d, rename) as Dictionary
-		var moved := PackedStringArray()
-		for k2: Variant in rename.keys():
-			moved.append("%s -> %s" % [k2, rename[k2]])
-		GameLogger.important("SAVE", "roster cut: %s" % ", ".join(moved))
-	if not dropped.is_empty():
-		GameLogger.important("SAVE", "roster cut, over every staff limit, dismissed: %s" % ", ".join(dropped))
-	d["schema_version"] = 6
-	return d
-
-
-## Salinan `v` dengan setiap kunci dan nilai teks yang persis sama dengan kunci
-## `rename` diganti nilainya.
-static func _renamed(v: Variant, rename: Dictionary) -> Variant:
-	if v is Dictionary:
-		var out: Dictionary = {}
-		for k: Variant in (v as Dictionary).keys():
-			var nk: Variant = rename.get(k, k) if k is String else k
-			out[nk] = _renamed((v as Dictionary)[k], rename)
-		return out
-	if v is Array:
-		var arr: Array = []
-		for item: Variant in v:
-			arr.append(_renamed(item, rename))
-		return arr
-	if v is String:
-		return rename.get(v, v)
-	return v
 
 
 # ===========================================================================
@@ -353,6 +217,7 @@ static func _renamed(v: Variant, rename: Dictionary) -> Variant:
 func write_profile(profile_id: StringName, data: Dictionary) -> bool:
 	_ensure_dir()
 	var d: Dictionary = data.duplicate(true)
+	d["game_mode"] = GAME_MODE
 	d["schema_version"] = current_schema_version()
 	d["game_version"] = GAME_VERSION
 	d["catalog_versions"] = DataRegistry.catalog_versions.duplicate()

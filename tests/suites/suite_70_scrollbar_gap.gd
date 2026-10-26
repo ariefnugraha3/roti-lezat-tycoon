@@ -45,19 +45,16 @@ func _gap() -> void:
 	check(gap_px >= 8, "the gap is wide enough to see (%d px)" % gap_px)
 	eq(ProceduralUIFactory.build_theme().get_constant("scrollbar_v_separation", &"ScrollContainer"), gap_px, "set once in the shared theme")
 	var game: GameRoot = await _boot("Scroll Gap")
-	game.sim.supply.market_unlocked = true
+	# Teks 150% supaya daftar idle yang pendek pun melewati tinggi lembarnya.
+	var was_scale: float = ProceduralUIFactory.text_scale
+	ProceduralUIFactory.text_scale = 1.5
 	var checked: Array[String] = []
 	var tight: Array[String] = []
-	# [layar, params, tab Staff Management (-1 = biarkan)]
-	for c: Array in [[&"staff", {}, 1], [&"staff", {}, 0], [&"recipe_book", {}, -1], [&"market", {"tab": 0}, -1],
-			[&"market", {"tab": 1}, -1], [&"help", {}, -1], [&"stats", {}, -1]]:
+	for c: Array in [[&"staff", {}], [&"help", {}], [&"stats", {}], [&"settings", {}]]:
 		game.modals.close_all()
 		var scr: UIScreen = game.modals.open(c[0], c[1])
 		if scr == null:
 			continue
-		if int(c[2]) >= 0 and scr is StaffScreen:
-			(scr as StaffScreen)._tab = int(c[2])
-			(scr as StaffScreen)._render()
 		await runner.get_tree().process_frame
 		await runner.get_tree().process_frame
 		for n: Node in scr.find_children("*", "ScrollContainer", true, false):
@@ -77,6 +74,7 @@ func _gap() -> void:
 			var gap: float = bar.get_global_rect().position.x - content.get_global_rect().end.x
 			if gap < float(gap_px) - 0.5:
 				tight.append("%s %.1f px" % [where, gap])
-	check(checked.size() >= 5, "scrolling lists in several menus were checked (%d)" % checked.size())
+	ProceduralUIFactory.text_scale = was_scale
+	check(checked.size() >= 2, "scrolling lists in several menus were checked (%d)" % checked.size())
 	eq(tight, [] as Array[String], "every scrollbar stands at least %d px from its list" % gap_px)
 	await _finish(game)

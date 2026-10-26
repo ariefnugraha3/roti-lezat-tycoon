@@ -1,21 +1,26 @@
 class_name SimulationRoot
 extends Node
-## SimulationRoot — induk seluruh manajer gameplay per-profil (GDD 35.2, 36, 98).
+## SimulationRoot — induk seluruh manajer gameplay per-profil (GDD idle 15.1;
+## v3.1 35.2, 36, 98).
 ##
 ## Simulasi maju dalam tick tetap (clock.sim_tick_seconds) sehingga hasilnya
-## tidak bergantung FPS (GDD 109.1). Dalam satu tick manajer dipanggil dengan
-## urutan prioritas tetap (GDD 102): batas jam -> produksi -> commit inventori ->
-## pelanggan -> RotiFood -> ekonomi/reputasi (event langsung) -> presentasi.
-
-signal day_summary_ready(report: Dictionary)
+## tidak bergantung FPS (v3.1 109.1). Toko selalu buka: jam berjalan terus 24
+## jam dan hari bertambah pukul 00:00 (GDD idle 3.1). Dalam satu tick manajer
+## dipanggil dengan urutan tetap (v3.1 102): jam -> produksi -> pemilik -> staf
+## -> jalur kasir -> kedatangan -> pelanggan -> kasir -> RotiFood.
+##
+## Fungsi harga dan laju kedatangan tinggal di sini: semuanya murni, membaca
+## state pemiliknya masing-masing, dan dipakai simulasi hidup maupun UI.
 
 const MAX_TICKS_PER_FRAME: int = 16
+const GAME_MODE: String = "idle"
+## Skema save idle mulai dari 1 (GDD idle 15.3).
+const SCHEMA_VERSION: int = 1
 
 var rng: RNGManager
 var time: TimeManager
 var economy: EconomyManager
-var pricing: PricingManager
-var inventory: InventoryManager
+var upgrades: UpgradeManager
 var display: DisplayInventoryManager
 var equipment: EquipmentManager
 var production: ProductionManager
@@ -27,20 +32,14 @@ var cashier: CashierManager
 var customers: CustomerManager
 var demand: DemandManager
 var rotifood: RotiFoodManager
-var supply: SupplyOrderManager
 var staff: StaffManager
 var reputation: ReputationManager
 var weather: WeatherManager
-var marketing: MarketingManager
-var bailout: BailoutManager
+var prestige: PrestigeManager
 var statistics: StatisticsManager
-var analytics: AnalyticsManager
 var achievements: AchievementManager
 var tutorial: TutorialManager
-var alerts: AlertManager
-var reports: DayReportManager
 
-var ui_requests := UIRequests.new()
 var profile_id: StringName = &""
 var bakery_name: String = "Roti Lezat"
 var created_at: String = ""
@@ -49,16 +48,20 @@ var tick_seconds: float = 0.05
 var _accumulator: float = 0.0
 var _in_step: bool = false
 var _managers: Array[SimManager] = []
+var _auto_cache: StringName = &""
+var _auto_cache_key: String = "-"
 
 
 func _init() -> void:
 	name = "SimulationRoot"
 	rng = _add(RNGManager.new(), "RNGManager")
 	time = _add(TimeManager.new(), "TimeManager")
+	statistics = _add(StatisticsManager.new(), "StatisticsManager")
+	achievements = _add(AchievementManager.new(), "AchievementManager")
+	prestige = _add(PrestigeManager.new(), "PrestigeManager")
 	economy = _add(EconomyManager.new(), "EconomyManager")
-	pricing = _add(PricingManager.new(), "PricingManager")
 	world = _add(WorldManager.new(), "WorldManager")
-	inventory = _add(InventoryManager.new(), "InventoryManager")
+	upgrades = _add(UpgradeManager.new(), "UpgradeManager")
 	display = _add(DisplayInventoryManager.new(), "DisplayInventoryManager")
 	equipment = _add(EquipmentManager.new(), "EquipmentManager")
 	production = _add(ProductionManager.new(), "ProductionManager")
@@ -68,19 +71,11 @@ func _init() -> void:
 	customers = _add(CustomerManager.new(), "CustomerManager")
 	demand = _add(DemandManager.new(), "DemandManager")
 	rotifood = _add(RotiFoodManager.new(), "RotiFoodManager")
-	supply = _add(SupplyOrderManager.new(), "SupplyOrderManager")
 	staff = _add(StaffManager.new(), "StaffManager")
 	player = _add(PlayerTaskManager.new(), "PlayerTaskManager")
 	reputation = _add(ReputationManager.new(), "ReputationManager")
 	weather = _add(WeatherManager.new(), "WeatherManager")
-	marketing = _add(MarketingManager.new(), "MarketingManager")
-	bailout = _add(BailoutManager.new(), "BailoutManager")
-	statistics = _add(StatisticsManager.new(), "StatisticsManager")
-	analytics = _add(AnalyticsManager.new(), "AnalyticsManager")
-	achievements = _add(AchievementManager.new(), "AchievementManager")
 	tutorial = _add(TutorialManager.new(), "TutorialManager")
-	alerts = _add(AlertManager.new(), "AlertManager")
-	reports = _add(DayReportManager.new(), "DayReportManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -97,7 +92,7 @@ func _add(m: SimManager, node_name: String) -> Variant:
 
 
 # ===========================================================================
-# NEW GAME (GDD 89.4)
+# NEW GAME (GDD idle 2.2; v3.1 89.4)
 # ===========================================================================
 
 func start_new_game(pid: StringName, name_text: String, gender: String, master_seed: int) -> void:
@@ -108,15 +103,35 @@ func start_new_game(pid: StringName, name_text: String, gender: String, master_s
 	for m: SimManager in _managers:
 		m.new_game()
 	player.appearance = {"gender": gender}
-	_create_starter_equipment()
-	queue.build_from_location()
-	player.place_at_start()
-	_begin_day(true)
+	_setup_run(1)
 	GameLogger.important("BOOT", "new game in %s seed %d" % [pid, master_seed])
 
 
-## Starter: storage + 1 Mixer T1 + 1 Oven T1 + 1 Display T1 terpasang (GDD 5.1.2),
-## lalu Meja Tunggu (GDD 5.1.3) dan kursi koki (GDD 5.1.4) di dapur.
+## Toko baru di lokasi tier `tier`: saldo awal, alat awal, Roti Tawar Polos di
+## petak pertama (GDD idle 2.2, 8.5).
+func _setup_run(tier: int) -> void:
+	if world.location == null or world.location.tier != tier:
+		world.set_location(DataRegistry.location_by_tier(tier).id)
+	economy.open_run(DataRegistry.idlef("start_kr"))
+	_create_starter_equipment()
+	queue.build_from_location()
+	player.place_at_start()
+	var d: EquipmentInstance = equipment.placed_list(&"display")[0] if not equipment.placed_list(&"display").is_empty() else null
+	if d != null:
+		display.set_assignment(d.iid, 0, first_free_recipe())
+	statistics.note_tier_reached(world.location.id, time.day)
+
+
+## Resep yang terbuka sejak awal (GDD idle 8.5: Roti Tawar Polos).
+static func first_free_recipe() -> StringName:
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if r.unlock_free:
+			return r.id
+	return &""
+
+
+## Alat awal: Gudang + 1 Mixer + 1 Oven + 1 Rak (GDD idle 4.1), lalu Meja Tunggu
+## dan kursi koki di dapur (v3.1 5.1.3, 5.1.4).
 func _create_starter_equipment() -> void:
 	var loc: LocationDefinition = world.location
 	var order: Array[StringName] = [loc.storage_id, &"oven_t1", &"mixer_t1", &"display_t1", DataRegistry.table_definition().id]
@@ -127,9 +142,7 @@ func _create_starter_equipment() -> void:
 	_ensure_chairs()
 
 
-## Kursi koki sepaket bangunan: satu per slot koki lokasi (GDD 5.1.4). Save lama
-## belum punya kursi, dan upgrade ke Tier 4 menambah satu; yang belum terpasang
-## ditempatkan otomatis di dapur.
+## Kursi koki sepaket bangunan: satu per slot koki lokasi (v3.1 5.1.4).
 func _ensure_chairs() -> void:
 	var want: int = world.location.staff_capacity(&"baker")
 	var have: Array[EquipmentInstance] = []
@@ -143,8 +156,6 @@ func _ensure_chairs() -> void:
 			GameLogger.error("WORLD", "staff chair %d could not be placed" % c.iid)
 
 
-## Save lama (skema < 4) belum punya Meja Tunggu: dibuat dan ditempatkan saat
-## load (GDD 5.1.3, 106).
 func _ensure_table() -> void:
 	var t: EquipmentInstance = equipment.table_instance()
 	if t == null:
@@ -157,129 +168,60 @@ func _ensure_table() -> void:
 # LOOP
 # ===========================================================================
 
+## Toko idle selalu berjalan (GDD idle 3.1); yang menghentikannya hanya pause.
 func is_running() -> bool:
-	return time.is_running_phase()
+	return true
 
 
-## Dipanggil GameRoot setiap frame dengan delta nyata. Satu detik nyata pada 1×
-## = `clock.sim_seconds_per_real_second` detik-simulasi (GDD 15.2, 99.1); batas
-## tick per frame ikut diskalakan supaya 3× tetap tidak kehilangan waktu.
+## Dipanggil GameRoot setiap frame dengan delta nyata. Satu detik nyata =
+## `clock.sim_seconds_per_real_second` detik-simulasi (v3.1 15.2, 99.1).
 func advance(real_delta: float) -> void:
-	if PauseManager.is_paused() or not is_running():
+	if PauseManager.is_paused():
 		_accumulator = 0.0
 		return
 	var scale: float = DataRegistry.sim_seconds_per_real_second()
 	var max_ticks: int = int(ceil(float(MAX_TICKS_PER_FRAME) * scale))
-	_accumulator += minf(real_delta, 0.25) * float(time.speed) * scale
+	_accumulator += minf(real_delta, 0.25) * scale
 	var ticks: int = 0
 	while _accumulator >= tick_seconds and ticks < max_ticks:
 		_accumulator -= tick_seconds
 		step(tick_seconds)
 		ticks += 1
-		if not is_running():
-			_accumulator = 0.0
-			break
 	if ticks >= max_ticks:
 		_accumulator = 0.0
 
 
-## Satu tick deterministik (GDD 102).
+## Satu tick deterministik (v3.1 102).
 func step(dt: float) -> void:
-	if not is_running():
-		return
 	_in_step = true
-	var was_open: bool = time.is_open()
-	var boundary: StringName = time.advance(dt)
-	if not was_open and time.is_open():
-		tutorial.on_event(&"store_open")
-	if boundary == &"close":
-		_in_step = false
-		close_day()
-		return
+	if time.advance(dt):
+		_on_new_day()
 	production.step(dt)
-	equipment.step(dt)
-	supply.step(dt)
-	display.step(dt)
 	player.step(dt)
 	staff.step(dt)
 	# Pembeli di jalur yang tutup atau terlalu panjang pindah lebih dulu, sebelum
-	# kedatangan baru mendapat slot (GDD 21.3).
+	# kedatangan baru mendapat slot (v3.1 21.3).
 	customers.rebalance_lanes()
 	demand.step(dt)
 	customers.step(dt)
 	cashier.step(dt)
 	rotifood.step(dt)
-	alerts.step(dt)
 	_in_step = false
 
 
-## "Skip to Open" (GDD 15.4): alasan lompatan ke 08:00 belum boleh dipakai, atau
-## &"" bila boleh. &"phase" = bukan fase persiapan; &"tutorial" = Hari 1 masih
-## menunggu Gudang dibuka (GDD 88.1); &"oven" = ada loyang yang harus diangkat.
-func skip_to_open_block() -> StringName:
-	if time.phase != TimeManager.PREPARATION:
-		return &"phase"
-	if not tutorial.allows_tap(&"skip"):
-		return &"tutorial"
-	if production.oven_needs_player():
-		return &"oven"
-	return &""
-
-
-## Satu potong lompatan ke 08:00: paling banyak `max_ticks` tick biasa, jadi waktu
-## berjalan persis seperti menunggu, hanya lebih cepat (GDD 15.4). Mengembalikan
-## &"" bila belum selesai, &"open" saat toko sudah buka, atau &"oven" bila
-## berhenti lebih awal karena ada loyang yang harus diangkat pemain.
-func skip_to_open_step(max_ticks: int) -> StringName:
-	_accumulator = 0.0
-	if time.phase != TimeManager.PREPARATION:
-		return &"open"
-	for i in max_ticks:
-		step(tick_seconds)
-		if time.phase != TimeManager.PREPARATION:
-			return &"open"
-		if production.oven_needs_player():
-			return &"oven"
-	return &""
-
-
-## "Close Early" (GDD 15.5, keputusan maintainer 2026-10-02): &"" bila toko boleh
-## ditutup sekarang; &"phase" bila toko tidak sedang buka; &"tutorial" bila
-## tutorial masih mengunci ketukan (GDD 88.1).
-func close_early_block() -> StringName:
-	if time.phase != TimeManager.OPEN:
-		return &"phase"
-	if not tutorial.allows_tap(&"close_early"):
-		return &"tutorial"
-	return &""
-
-
-## Bintang rating toko yang hilang bila toko ditutup sekarang: per jam in-game yang
-## dipotong dari jam buka (`rating.close_early_per_hour`, GDD 25.2).
-func close_early_penalty() -> float:
-	var hours: float = maxf(0.0, (time.close_time - time.time_seconds) / 3600.0)
-	return DataRegistry.balf("rating.close_early_per_hour") * hours
-
-
-## Tutup sekarang: rating toko turun sesuai sisa jam buka, jam maju ke 18:00, lalu
-## shutdown deterministik dan settlement persis seperti tutup biasa (GDD 15.3,
-## 104). Gaji tetap penuh karena liabilitasnya sudah tetap sejak 05:00 (GDD 87).
-func close_early() -> bool:
-	if close_early_block() != &"":
-		return false
-	var at: float = time.time_seconds
-	var penalty: float = close_early_penalty()
-	reputation.add_physical(-penalty)
-	time.time_seconds = time.close_time
-	close_day({"closed_early_at": at, "close_early_penalty": penalty})
-	return true
+## Pukul 00:00: undian cuaca, statistik, dan pesanan lama dibuang (GDD idle 3.1).
+func _on_new_day() -> void:
+	weather.on_new_day()
+	statistics.on_new_day()
+	rotifood.prune()
+	EventBus.day_started.emit(time.day)
 
 
 ## Menjalankan simulasi headless selama `seconds` detik-simulasi (test).
 func run_for(seconds: float, dt: float = -1.0) -> void:
 	var d: float = dt if dt > 0.0 else tick_seconds
 	var t: float = 0.0
-	while t < seconds and is_running():
+	while t < seconds:
 		step(d)
 		t += d
 
@@ -289,114 +231,145 @@ func is_stable_checkpoint() -> bool:
 
 
 # ===========================================================================
-# ALUR HARI
+# HARGA & RESEP (GDD idle 4.2, 7.2)
 # ===========================================================================
 
-## 05:00 (GDD 15.3, 87.3).
-func _begin_day(first: bool) -> void:
-	rng.begin_day(time.day)
-	economy.reset_day()
-	equipment.reset_day()
-	production.reset_day()
-	customers.reset_day()
-	rotifood.reset_day()
-	statistics.reset_day()
-	queue.highest_occupancy_today = 0
-	ui_requests.clear()
-	if not first:
-		# Penuaan semalam 11 jam, tepat sekali (GDD 19.7.3, 19.7.6, 19.9); HPP
-		# yang dibuang tercatat di laporan hari baru. Isi Meja Tunggu ikut menua.
-		var fresh_night: bool = display.last_rollover_day < time.day - 1
-		display.overnight_rollover(time.day - 1)
-		if fresh_night:
-			production.age_table(DataRegistry.balf("clock.overnight_aging_hours"))
-	weather.begin_day(first)
-	reputation.begin_day()
-	bailout.apply_if_pending()
-	staff.begin_day()
-	bailout.begin_day_check()
-	_add_opening_stock()
-	demand.plan_day()
-	tutorial.begin_day()
-	EventBus.day_started.emit(time.day)
-	EventBus.phase_changed.emit(time.phase)
-	EventBus.music_state_changed.emit(&"MORNING_PREP" if not weather.is_rain() else &"RAIN")
+## Resep bisa dibuat sekarang: terbuka dan ada mixer/oven setier syaratnya.
+func can_make(recipe_id: StringName) -> bool:
+	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
+	return r != null and upgrades.is_unlocked(recipe_id) and production.owns_equipment_for(r)
 
 
-## Hari 1-3: gudang diisi pas sebanyak manifest (GDD 2, 20.3).
-func _add_opening_stock() -> void:
-	var plan: Dictionary = DataRegistry.opening_day(time.day)
-	if plan.is_empty():
-		return
-	var r: RecipeDefinition = DataRegistry.recipe(StringName(str(plan["recipe_id"])))
-	var items: Dictionary = {}
-	for ing: StringName in r.ingredients.keys():
-		items[ing] = int(r.ingredients[ing]) * int(plan["batches"])
-	inventory.add_items(items)
+## Harga per roti tanpa bonus rak (GDD idle 7.2): harga dasar × level resep ×
+## dekorasi × waralaba × boost.
+func recipe_price(recipe_id: StringName) -> float:
+	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
+	if r == null:
+		return 0.0
+	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * price_mult()
 
 
-## 18:00: shutdown deterministik (GDD 104) lalu settlement tepat sekali (GDD 15.3).
-## `early` berisi jam dan penalti bila toko ditutup lebih awal (GDD 15.5).
-func close_day(early: Dictionary = {}) -> void:
-	time.set_phase(TimeManager.CLOSING)
-	EventBus.shop_closed.emit(time.day)
-	customers.shutdown()
-	rotifood.shutdown()
-	supply.shutdown()
-	staff.end_day()
-	player.cancel_all()
-	cashier.transactions.clear()
-	for w: String in world.point_reservations.keys():
-		if not String(world.point_reservations[w]).begins_with("player"):
-			world.point_reservations.erase(w)
-	# Settlement: utilitas dibulatkan ke KR terdekat (GDD 86), gaji dari liabilitas 05:00.
-	var utility: float = Money.round_half_up(equipment.utility_today)
-	var wages: float = staff.wage_liability_today
-	economy.charge_settlement(utility, &"UTILITY_COST", &"utility", {})
-	economy.charge_settlement(wages, &"STAFF_WAGE", &"payroll", {"lines": staff.wage_lines_today.duplicate(true)})
-	var entered: int = maxi(1, customers.entered_today)
-	marketing.end_of_day(float(customers.abandoned_today) / float(entered))
-	weather.forecast_next()
-	bailout.check_after_settlement()
-	var report: Dictionary = reports.build({"utility": utility, "wages": wages}.merged(early))
-	statistics.end_day(float(report["net_profit"]), production.batches_burnt_today)
-	analytics.end_day(time.day)
-	achievements.end_day(production.batches_burnt_today, customers.abandoned_today)
-	if time.day >= int(DataRegistry.opening_raw().get("market_unlock_day", 3)):
-		supply.unlock_market()
-	time.set_phase(TimeManager.SUMMARY)
-	tutorial.on_event(&"summary")
-	EventBus.day_settled.emit(time.day)
-	EventBus.music_state_changed.emit(&"DAILY_SUMMARY")
-	day_summary_ready.emit(report)
-	EventBus.daily_summary_ready.emit(time.day)
-	SaveManager.request_autosave("day_settled", true)
+## Harga per roti di rak `display_iid` (GDD idle 7.2); -1 = tanpa bonus rak.
+func unit_price(recipe_id: StringName, display_iid: int) -> float:
+	var bonus: float = upgrades.display_price_bonus(display_iid) if display_iid >= 0 else 0.0
+	return recipe_price(recipe_id) * (1.0 + bonus)
 
 
-func enter_after_hours() -> void:
-	if time.phase == TimeManager.SUMMARY:
-		time.set_phase(TimeManager.AFTER_HOURS)
+## Pengali harga di luar resep dan rak: dekorasi × waralaba × boost.
+func price_mult() -> float:
+	return decoration.bonus_mult(&"price") * prestige.income_mult() * boost_income_mult()
 
 
-## "Continue to Next Day" (GDD 11.5-11.6).
-func continue_to_next_day() -> bool:
-	if time.phase != TimeManager.AFTER_HOURS and time.phase != TimeManager.SUMMARY:
-		return false
-	if not reports.can_continue():
-		return false
-	time.set_phase(TimeManager.TRANSITION)
-	time.begin_next_day()
-	_begin_day(false)
-	SaveManager.request_autosave("new_day", true)
-	return true
+## KR per detik nyata (GDD idle 9.1) untuk HUD; diisi IdleEconomyManager.
+func income_rate() -> float:
+	return 0.0
+
+
+## Pengali penghasilan dari boost aktif (GDD idle 11). Diisi BoostManager.
+func boost_income_mult() -> float:
+	return 1.0
+
+
+## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost: harga −
+## biaya bahan per unit (biaya bahan tidak ikut level, GDD idle 4.4).
+func net_per_unit(recipe_id: StringName) -> float:
+	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
+	if r == null:
+		return 0.0
+	var price: float = r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * decoration.bonus_mult(&"price") * prestige.income_mult()
+	return price - r.unit_cogs_kr()
+
+
+## Resep "Auto" (GDD idle 4.2): resep terbuka yang bisa dibuat dengan laba
+## bersih per roti tertinggi; seri dipecah urutan katalog.
+func auto_recipe() -> StringName:
+	var key: String = "%s|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars]
+	if key == _auto_cache_key:
+		return _auto_cache
+	var best: StringName = &""
+	var best_v: float = -INF
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if not can_make(r.id):
+			continue
+		var v: float = net_per_unit(r.id)
+		if v > best_v + 0.000001:
+			best_v = v
+			best = r.id
+	_auto_cache = best
+	_auto_cache_key = key
+	return best
+
+
+## Resep yang sedang dijual petak-petak rak (menu RotiFood), urut katalog.
+func menu_recipes() -> Array:
+	var seen: Dictionary = {}
+	for e: EquipmentInstance in equipment.placed_list(&"display"):
+		for i in display.slot_count(e.iid):
+			var rid: StringName = display.effective_recipe(e.iid, i)
+			if rid != &"":
+				seen[rid] = true
+	var out: Array = []
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if seen.has(r.id):
+			out.append(r.id)
+	return out
 
 
 # ===========================================================================
-# UPGRADE LOKASI (GDD 47, 64, 105)
+# KEDATANGAN (GDD idle 3.2, 6.1, 6.5)
+# ===========================================================================
+
+func base_arrivals_per_hour() -> float:
+	var arr: Array = DataRegistry.idle("location.base_arrivals_per_hour")
+	return float(arr[clampi(world.location.tier - 1, 0, arr.size() - 1)])
+
+
+func base_rotifood_per_hour() -> float:
+	var arr: Array = DataRegistry.idle("location.rotifood_orders_per_hour")
+	return float(arr[clampi(world.location.tier - 1, 0, arr.size() - 1)])
+
+
+## Pengali malam untuk pembeli (GDD idle 3.2).
+func night_arrival_mult(t: float) -> float:
+	return DataRegistry.idlef("night.arrival_mult") if time.is_night(t) else 1.0
+
+
+func night_rotifood_mult(t: float) -> float:
+	return DataRegistry.idlef("night.rotifood_mult") if time.is_night(t) else 1.0
+
+
+## Pembeli per jam in-game pada jam `t` (GDD idle 6.1).
+func arrival_rate_per_hour(t: float) -> float:
+	return base_arrivals_per_hour() * reputation.mult() * decoration.bonus_mult(&"arrival") * boost_arrival_mult() \
+		* night_arrival_mult(t) * weather.physical_multiplier() * weather.event_physical_multiplier()
+
+
+## Pesanan RotiFood per jam in-game pada jam `t` (GDD idle 6.5).
+func rotifood_rate_per_hour(t: float) -> float:
+	return base_rotifood_per_hour() * decoration.bonus_mult(&"rotifood") * boost_rotifood_mult() \
+		* night_rotifood_mult(t) * weather.delivery_multiplier()
+
+
+func boost_arrival_mult() -> float:
+	return 1.0
+
+
+func boost_rotifood_mult() -> float:
+	return 1.0
+
+
+# ===========================================================================
+# UPGRADE LOKASI (GDD idle 8.7; v3.1 105)
 # ===========================================================================
 
 func next_location() -> LocationDefinition:
 	return DataRegistry.location_by_tier(world.location.tier + 1)
+
+
+## Biaya pindah ke lokasi tier `tier` (GDD idle 8.7).
+static func location_cost(tier: int) -> float:
+	var arr: Array = DataRegistry.idle("location.upgrade_cost")
+	return float(arr[clampi(tier - 1, 0, arr.size() - 1)])
 
 
 ## "" bila boleh; selain itu kunci alasan UI.
@@ -404,26 +377,25 @@ func upgrade_block_reason() -> String:
 	var nxt: LocationDefinition = next_location()
 	if nxt == null:
 		return "ui_upgrade_max"
-	if not time.is_after_hours():
-		return "ui_available_after_closing"
-	# Isi Meja Tunggu ikut pindah bersama mejanya, jadi tidak menahan upgrade (GDD 5.1.3).
-	if production.has_active_jobs() or not player.actor.carried.is_empty():
-		return "ui_upgrade_blocked_jobs"
-	if not economy.can_afford(nxt.upgrade_cost_kr):
+	if not economy.can_afford(location_cost(nxt.tier)):
 		return "ui_feedback_not_enough_kr"
 	return ""
 
 
+## Pindah ke lokasi berikutnya selagi toko buka: pelanggan keluar tanpa
+## penalti, driver datang lagi nanti, barang di tangan ditaruh di Meja Tunggu,
+## lalu migrasi v3.1 105 dengan dekorasi diangkat dulu. Level dan isi alat
+## tetap. Bila gagal, snapshot dipulihkan sehingga tidak ada yang hilang.
 func upgrade_location() -> String:
 	var reason: String = upgrade_block_reason()
 	if reason != "":
 		return reason
 	var nxt: LocationDefinition = next_location()
 	var snapshot: Dictionary = capture_save()
-	economy.spend(nxt.upgrade_cost_kr, &"STORE_UPGRADE", nxt.id, {})
+	economy.spend(location_cost(nxt.tier), &"LOCATION_UPGRADE", nxt.id, {})
+	_clear_actors()
 	var ok: bool = _migrate_to(nxt)
 	if not ok:
-		# Rollback penuh dari snapshot: tidak ada item/KR/roti yang hilang (GDD 105).
 		load_from_save(snapshot)
 		return "ui_upgrade_blocked_display"
 	statistics.add(&"location_upgrades_count", 1)
@@ -435,13 +407,30 @@ func upgrade_location() -> String:
 	return ""
 
 
+## Kosongkan lantai dari aktor sebelum dunia dibangun ulang.
+func _clear_actors() -> void:
+	customers.shutdown()
+	rotifood.send_drivers_away()
+	player.cancel_all()
+	KitchenBrain.drop_carried(self, player.actor)
+	for k: Variant in staff.actors.keys():
+		var t: Dictionary = staff.tasks.get(k, {})
+		if not t.is_empty() and str(t["type"]) != "sit":
+			KitchenBrain.abort(self, StringName(str(k)), t)
+		KitchenBrain.drop_carried(self, staff.actors[k])
+	staff.tasks.clear()
+	cashier.transactions.clear()
+	world.point_reservations.clear()
+	demand.pending.clear()
+
+
 func _migrate_to(nxt: LocationDefinition) -> bool:
 	var prev_placed: Array[EquipmentInstance] = equipment.placed_list()
 	for e: EquipmentInstance in equipment.all_sorted():
 		e.placed = false
-	# Dekorasi menunggu sampai semua perabot punya tempat (GDD 105 no. 4, 12).
+	# Dekorasi menunggu sampai semua perabot punya tempat (v3.1 105 no. 4, 12).
 	var lifted: Array[int] = decoration.lift_all()
-	# Gudang sepaket bangunan: berganti tier bersama lokasi (GDD 5.1.1).
+	# Gudang sepaket bangunan: berganti tier bersama lokasi (v3.1 5.1.1).
 	var storage: EquipmentInstance = null
 	for e2: EquipmentInstance in equipment.all_sorted():
 		if e2.category() == &"storage":
@@ -456,41 +445,33 @@ func _migrate_to(nxt: LocationDefinition) -> bool:
 		return false
 	var order: Array[EquipmentInstance] = []
 	for cat: StringName in [&"oven", &"mixer", &"display"]:
-		# Rak berisi roti ditempatkan lebih dulu (GDD 105.5-105.6).
 		var list: Array[EquipmentInstance] = []
 		for e3: EquipmentInstance in prev_placed:
 			if e3.category() == cat:
 				list.append(e3)
-		list.sort_custom(func(a: EquipmentInstance, b: EquipmentInstance) -> bool:
-			return display.used(a.iid) > display.used(b.iid) if cat == &"display" else a.iid < b.iid)
+		list.sort_custom(func(a: EquipmentInstance, b: EquipmentInstance) -> bool: return a.iid < b.iid)
 		order.append_array(list)
 	for e4: EquipmentInstance in order:
-		if equipment.placed_count(e4.category()) >= world.location.slot_count(e4.category()):
-			continue
-		world.auto_place(e4)
-	# Meja Tunggu ditempatkan setelah alat produksi, bersama isinya (GDD 5.1.3),
-	# lalu kursi koki (GDD 5.1.4).
+		if not world.auto_place(e4):
+			return false
 	var table: EquipmentInstance = equipment.table_instance()
 	if table != null and not world.auto_place(table):
 		return false
 	_ensure_chairs()
-	for iid: Variant in display.display_ids():
-		var d: EquipmentInstance = equipment.get_inst(int(iid))
-		if d != null and display.used(d.iid) > 0 and not d.placed:
-			return false
 	decoration.replace_lifted(lifted)
 	player.place_at_start()
-	demand.pending.clear()
+	staff.on_location_changed()
 	return world.layout_valid()
 
 
 # ===========================================================================
-# SAVE / LOAD (GDD 106)
+# SAVE / LOAD (GDD idle 15.3; v3.1 106)
 # ===========================================================================
 
 func capture_save() -> Dictionary:
 	return {
-		"schema_version": SaveManager.current_schema_version(),
+		"game_mode": GAME_MODE,
+		"schema_version": SCHEMA_VERSION,
 		"game_version": SaveManager.GAME_VERSION,
 		"catalog_versions": DataRegistry.catalog_versions.duplicate(),
 		"created_at": created_at,
@@ -499,13 +480,10 @@ func capture_save() -> Dictionary:
 		"player": player.capture(),
 		"day": time.day,
 		"time_seconds": time.time_seconds,
-		"phase": String(time.phase),
 		"location_id": String(world.location.id),
-		"active_floor_id": String(player.actor.floor_id),
 		"clock": time.capture(),
 		"economy": economy.capture(),
-		"pricing": pricing.capture(),
-		"inventory": inventory.capture(),
+		"upgrades": upgrades.capture(),
 		"display_inventory": display.capture(),
 		"production_jobs": production.capture(),
 		"equipment_states": equipment.capture(),
@@ -514,106 +492,74 @@ func capture_save() -> Dictionary:
 		"cashier": cashier.capture(),
 		"demand": demand.capture(),
 		"rotifood_orders": rotifood.capture(),
-		"supply_orders": supply.capture(),
 		"staff": staff.capture(),
-		"ratings": reputation.capture(),
+		"reputation": reputation.capture(),
 		"weather": weather.capture(),
-		"marketing": marketing.capture(),
+		"franchise": prestige.capture(),
 		"tutorial": tutorial.capture(),
 		"decorations": decoration.capture(),
-		"flags": {
-			"market_unlocked": supply.market_unlocked,
-			"bailout_pending": bailout.bailout_pending,
-			"solo_mode": bailout.solo_mode,
-			"economy_overflowed": economy.overflowed,
-			"last_freshness_rollover_day": display.last_rollover_day,
-		},
-		"bailout": bailout.capture(),
+		"flags": {"economy_overflowed": economy.overflowed},
 		"achievements": achievements.capture(),
-		"statistics": statistics.capture(),
-		"recipe_analytics": analytics.capture(),
-		"reports": reports.capture(),
+		"stats": statistics.capture(),
 		"rng_states": rng.capture(),
-		"ui_restore": {"game_speed": time.speed, "camera_zoom": 1.0},
 	}
 
 
-## Rekonstruksi otoritas dari save yang sudah divalidasi (GDD 89.5, 114.10).
+## Rekonstruksi otoritas dari save yang sudah divalidasi (v3.1 89.5, 114.10).
 func load_from_save(d: Dictionary) -> void:
 	profile_id = StringName(str(d.get("profile_id", "")))
 	bakery_name = str(d.get("bakery_name", "Roti Lezat"))
 	created_at = str(d.get("created_at", ""))
 	rng.restore(d.get("rng_states", {}))
-	var clock: Dictionary = d.get("clock", {})
-	if clock.is_empty():
-		clock = {"day": d.get("day", 1), "time_seconds": d.get("time_seconds", 18000.0), "phase": d.get("phase", "preparation")}
-	time.restore(clock)
+	time.restore(d.get("clock", {"day": d.get("day", 1), "time_seconds": d.get("time_seconds", 28800.0)}))
+	statistics.restore(d.get("stats", {}))
+	achievements.restore(d.get("achievements", {}))
+	prestige.restore(d.get("franchise", {}))
 	world.restore({"location_id": d.get("location_id")})
 	economy.restore(d.get("economy", {}))
-	pricing.restore(d.get("pricing", {}))
-	inventory.restore(d.get("inventory", {}))
+	upgrades.restore(d.get("upgrades", {}))
 	equipment.restore(d.get("equipment_states", {}))
 	display.restore(d.get("display_inventory", {}))
-	var flags: Dictionary = d.get("flags", {})
-	display.last_rollover_day = int(flags.get("last_freshness_rollover_day", time.day - 1))
 	for e: EquipmentInstance in equipment.all_sorted():
 		if e.category() == &"display":
 			display.ensure_display(e.iid, e.tier())
 	decoration.restore(d.get("decorations", {}))
 	world.rebuild_occupancy()
-	# Template jalur kasir 2026-10-02: perabot yang kini menimpa slot antrean,
-	# titik layan/kasir, atau drop-off dilepas dulu (GDD 57).
 	var displaced: Array[EquipmentInstance] = world.release_conflicts()
-	# Dekorasi dari save lama yang melanggar aturan slot kembali ke inventaris (GDD 72.3).
 	decoration.enforce_rules()
 	for e2: EquipmentInstance in displaced:
 		if not world.auto_place(e2):
-			GameLogger.warn("WORLD", "%s %d left unplaced after the layout update" % [e2.def_id, e2.iid])
+			GameLogger.warn("WORLD", "%s %d left unplaced after the layout check" % [e2.def_id, e2.iid])
 	_ensure_table()
 	_ensure_chairs()
 	production.restore(d.get("production_jobs", {}))
 	queue.restore(d.get("queues", {}))
 	cashier.restore(d.get("cashier", {}))
 	staff.restore(d.get("staff", {}))
-	# Batas staf baru (keputusan maintainer 2026-10-02): kelebihan dari save lama
-	# diberhentikan, yang paling baru direkrut lebih dulu.
 	var dismissed: Array[String] = staff.enforce_capacity()
 	if not dismissed.is_empty():
-		GameLogger.important("STAFF", "over the new staff limit, dismissed: %s" % ", ".join(dismissed))
+		GameLogger.important("STAFF", "over the staff limit, dismissed: %s" % ", ".join(dismissed))
 	customers.restore(d.get("customers", {}))
 	demand.restore(d.get("demand", {}))
 	rotifood.restore(d.get("rotifood_orders", {}))
-	supply.restore(d.get("supply_orders", {}))
-	supply.market_unlocked = bool(flags.get("market_unlocked", supply.market_unlocked))
-	reputation.restore(d.get("ratings", {}))
+	reputation.restore(d.get("reputation", {}))
 	weather.restore(d.get("weather", {}))
-	marketing.restore(d.get("marketing", {}))
 	tutorial.restore(d.get("tutorial", {}))
-	bailout.restore(d.get("bailout", {}))
-	bailout.bailout_pending = bool(flags.get("bailout_pending", bailout.bailout_pending))
-	bailout.solo_mode = bool(flags.get("solo_mode", bailout.solo_mode))
-	achievements.restore(d.get("achievements", {}))
-	statistics.restore(d.get("statistics", {}))
-	analytics.restore(d.get("recipe_analytics", {}))
-	reports.restore(d.get("reports", {}))
 	player.restore(d.get("player", {}))
-	ui_requests.clear()
-	# Integritas pasca-load (GDD 89.5 langkah 9).
+	# Integritas pasca-load (v3.1 89.5 langkah 9).
 	production.recover_orphans()
 	player.reconstruct()
 	staff.reconstruct()
 	customers.reconstruct()
 	rotifood.reconstruct()
-	supply.reconstruct()
-	var speed_v: int = int((d.get("ui_restore", {}) as Dictionary).get("game_speed", 1))
-	time.speed = clampi(speed_v, 1, 3)
+	_auto_cache_key = "-"
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "loaded layout failed protected-path validation")
 	GameLogger.important("SAVE", "profile %s loaded at day %d" % [profile_id, time.day])
 
 
 # ===========================================================================
-# DEBUG (GDD 39.1) — dipakai panel debug & test
+# DEBUG — dipakai panel debug & test
 # ===========================================================================
 
 func debug_add_kr(amount: float) -> void:
@@ -621,34 +567,26 @@ func debug_add_kr(amount: float) -> void:
 
 
 func debug_set_time(t: float) -> void:
-	time.time_seconds = clampf(t, time.day_start, time.close_time - 1.0)
-	if time.time_seconds >= time.open_time and time.phase == TimeManager.PREPARATION:
-		time.set_phase(TimeManager.OPEN)
-		demand.plan_day()
+	time.time_seconds = fposmod(t, TimeManager.DAY_SECONDS)
 
 
 func debug_force_weather(w: StringName) -> void:
 	if DataRegistry.weather(w) != null:
-		weather.today = w
-		weather.begin_day(true)
+		weather.tomorrow = w
+		weather.on_new_day()
 
 
 func debug_spawn_customer(archetype: StringName) -> bool:
-	return customers.try_admit({"archetype": archetype, "scripted": false, "recipe": &"", "quantity": 0, "patience_override": null})
+	return customers.try_admit({"archetype": archetype})
 
 
 func debug_spawn_order() -> void:
 	rotifood.create_random_order()
 
 
-func debug_set_rating(physical_v: float, rotifood_v: float) -> void:
-	reputation.physical = clampf(physical_v, 1.0, 5.0)
-	reputation.rotifood = clampf(rotifood_v, 1.0, 5.0)
-	EventBus.rating_changed.emit(reputation.physical, reputation.rotifood)
-
-
-func debug_trigger_bailout() -> void:
-	bailout.bailout_pending = true
+func debug_set_reputation(v: float) -> void:
+	reputation.reputation = clampf(v, DataRegistry.idlef("reputation.min"), DataRegistry.idlef("reputation.max"))
+	EventBus.reputation_changed.emit(reputation.reputation)
 
 
 func debug_ledger_dump() -> Array:
@@ -659,7 +597,7 @@ func debug_jobs_dump() -> Array:
 	return (production.capture() as Dictionary)["jobs"]
 
 
-## Pemeriksaan invarian (GDD 94). "" bila semua sah.
+## Pemeriksaan invarian (v3.1 94). "" bila semua sah.
 func check_invariants() -> String:
 	var q: String = queue.check_invariants()
 	if q != "":
@@ -668,6 +606,8 @@ func check_invariants() -> String:
 		return "ledger does not reconcile"
 	if is_nan(economy.balance):
 		return "NaN balance"
+	if economy.balance < 0.0:
+		return "negative balance"
 	for j: ProductionJob in production.sorted_jobs():
 		if j.stage == ProductionJob.MIXING or j.stage == ProductionJob.ORDERED:
 			var mix: EquipmentInstance = equipment.get_inst(j.mixer_id)

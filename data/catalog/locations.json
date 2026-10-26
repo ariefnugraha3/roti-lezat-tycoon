@@ -5,7 +5,6 @@
   {
    "id": "location_t1_garage",
    "tier": 1,
-   "upgrade_cost_kr": 0,
    "slots": {
     "mixer": 1,
     "oven": 1,
@@ -22,13 +21,10 @@
     "cashier": 1,
     "baker": 1
    },
-   "staff_daily_wage_kr": 150,
    "queue_capacity_physical": 8,
    "queue_capacity_rotifood": 0,
    "shared_rotifood_queue": true,
    "storage_id": "storage_t1",
-   "base_physical_rate": 2.0,
-   "base_rotifood_rate": 0.6,
    "active_actor_budget": 25,
    "entrance_floor": "floor_1",
    "floors": [
@@ -285,7 +281,6 @@
   {
    "id": "location_t2_shophouse",
    "tier": 2,
-   "upgrade_cost_kr": 15000,
    "slots": {
     "mixer": 2,
     "oven": 2,
@@ -302,13 +297,10 @@
     "cashier": 1,
     "baker": 1
    },
-   "staff_daily_wage_kr": 400,
    "queue_capacity_physical": 12,
    "queue_capacity_rotifood": 0,
    "shared_rotifood_queue": true,
    "storage_id": "storage_t2",
-   "base_physical_rate": 3.5,
-   "base_rotifood_rate": 1.0,
    "active_actor_budget": 25,
    "entrance_floor": "floor_1",
    "floors": [
@@ -680,7 +672,6 @@
   {
    "id": "location_t3_independent_bakery",
    "tier": 3,
-   "upgrade_cost_kr": 55000,
    "slots": {
     "mixer": 3,
     "oven": 3,
@@ -697,13 +688,10 @@
     "cashier": 1,
     "baker": 1
    },
-   "staff_daily_wage_kr": 900,
    "queue_capacity_physical": 8,
    "queue_capacity_rotifood": 3,
    "shared_rotifood_queue": false,
    "storage_id": "storage_t3",
-   "base_physical_rate": 5.0,
-   "base_rotifood_rate": 1.8,
    "active_actor_budget": 40,
    "entrance_floor": "floor_1",
    "floors": [
@@ -1180,7 +1168,6 @@
   {
    "id": "location_t4_flagship",
    "tier": 4,
-   "upgrade_cost_kr": 180000,
    "slots": {
     "mixer": 4,
     "oven": 4,
@@ -1197,13 +1184,10 @@
     "cashier": 2,
     "baker": 2
    },
-   "staff_daily_wage_kr": 2000,
    "queue_capacity_physical": 15,
    "queue_capacity_rotifood": 4,
    "shared_rotifood_queue": false,
    "storage_id": "storage_t4",
-   "base_physical_rate": 7.5,
-   "base_rotifood_rate": 3.0,
    "active_actor_budget": 60,
    "entrance_floor": "floor_1",
    "floors": [
@@ -1814,7 +1798,6 @@
   {
    "id": "location_t5_landmark",
    "tier": 5,
-   "upgrade_cost_kr": 600000,
    "slots": {
     "mixer": 5,
     "oven": 5,
@@ -1831,13 +1814,10 @@
     "cashier": 2,
     "baker": 2
    },
-   "staff_daily_wage_kr": 4500,
    "queue_capacity_physical": 18,
    "queue_capacity_rotifood": 6,
    "shared_rotifood_queue": false,
    "storage_id": "storage_t5",
-   "base_physical_rate": 10.0,
-   "base_rotifood_rate": 4.5,
    "active_actor_budget": 90,
    "entrance_floor": "floor_1",
    "floors": [

@@ -1,34 +1,29 @@
 class_name EconomyManager
 extends SimManager
-## EconomyManager — satu-satunya pemilik saldo KR dan ledger (GDD 24, 73, 98, 99.2).
+## EconomyManager — satu-satunya pemilik saldo KR dan ledger (GDD idle 7;
+## v3.1 24.1, 73, 98, 99.2).
 ##
-## Setiap perubahan KR lewat `post()`. Pembelian manual tidak boleh membuat
-## saldo negatif; tagihan settlement yang melebihi kas di-nol-kan dan sisanya
-## dihapus (tidak ada utang, GDD 49.1). Saldo float64; +INF hanya lewat overflow
-## guard endless-economy (GDD 73).
+## Setiap perubahan KR lewat `post()`. Pembelian tidak boleh membuat saldo
+## negatif; satu-satunya pengeluaran otomatis adalah biaya bahan batch, dan
+## batch tidak dimulai bila KR kurang (GDD idle 4.4, 7.3). Pemasukan dicatat ke
+## `run_earned_kr` dan `alltime_earned_kr` (StatisticsManager). Saldo float64;
+## +INF hanya lewat penjaga overflow (v3.1 73).
 
 const CATEGORIES: Array[StringName] = [
-	&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"TIP_PHYSICAL", &"TIP_ROTIFOOD",
-	&"INGREDIENT_PURCHASE", &"INGREDIENT_DELIVERY_COMMIT", &"EQUIPMENT_PURCHASE",
-	&"EQUIPMENT_SALE", &"STORE_UPGRADE", &"STAFF_WAGE", &"UTILITY_COST",
-	&"MARKETING_COST", &"BAILOUT_GRANT", &"OTHER_ADJUSTMENT",
+	&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"OFFLINE_EARNINGS", &"GIFT", &"INGREDIENT_COST",
+	&"UPGRADE_STATION", &"UPGRADE_RECIPE", &"RECIPE_UNLOCK", &"STATION_OPEN", &"STAFF_HIRE",
+	&"STAFF_UPGRADE", &"LOCATION_UPGRADE", &"DECOR_PURCHASE", &"PROMO", &"GLOBAL_UPGRADE",
+	&"FRANCHISE_RESET", &"OTHER_ADJUSTMENT",
 ]
-const INCOME: Array[StringName] = [&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"TIP_PHYSICAL", &"TIP_ROTIFOOD", &"EQUIPMENT_SALE", &"BAILOUT_GRANT"]
+## Pemasukan yang dihitung sebagai penghasilan (GDD idle 7.4).
+const INCOME: Array[StringName] = [&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"OFFLINE_EARNINGS", &"GIFT"]
 
 var balance: float = 0.0
 var overflowed: bool = false
 var tx_sequence: int = 0
-## Entri terbaru di memori (GDD 129: 2.048); yang lebih lama diringkas.
+## Entri terbaru di memori (v3.1 129: 2.048); yang lebih lama diringkas.
 var ledger: Array[Dictionary] = []
 var historical_totals: Dictionary = {}
-## Total per kategori hari ini (direset saat hari mulai).
-var today: Dictionary = {}
-## Metrik non-kas hari ini (GDD 24.4, 19.7.3).
-var cogs_consumed_today: float = 0.0
-var waste_cost_today: float = 0.0
-var written_off_today: float = 0.0
-var lifetime_earned: float = 0.0
-var lifetime_spent: float = 0.0
 
 var _hot_limit: int = 2048
 
@@ -44,16 +39,13 @@ func new_game() -> void:
 	tx_sequence = 0
 	ledger.clear()
 	historical_totals.clear()
-	reset_day()
-	# Saldo awal dicatat lewat ledger supaya dapat diaudit (GDD 55.1).
-	post(DataRegistry.balf("economy.starting_cash_kr"), &"OTHER_ADJUSTMENT", &"opening_balance", {})
 
 
-func reset_day() -> void:
-	today.clear()
-	cogs_consumed_today = 0.0
-	waste_cost_today = 0.0
-	written_off_today = 0.0
+## Saldo awal putaran (GDD idle 7.1): dicatat lewat ledger supaya dapat diaudit,
+## bukan sebagai penghasilan.
+func open_run(amount: float) -> void:
+	if amount > 0.0:
+		post(amount, &"OTHER_ADJUSTMENT", &"opening_balance", {})
 
 
 func can_afford(amount: float) -> bool:
@@ -71,7 +63,7 @@ func post(amount: float, category: StringName, source_id: StringName, metadata: 
 		return false
 	var amt: float = Money.round_half_up(amount)
 	if overflowed:
-		# Setelah overflow, transaksi tidak lagi menambah nilai terbatas (GDD 73).
+		# Setelah overflow, transaksi tidak lagi menambah nilai terbatas (v3.1 73).
 		return true
 	var new_balance: float = balance + amt
 	if is_nan(new_balance):
@@ -88,11 +80,10 @@ func post(amount: float, category: StringName, source_id: StringName, metadata: 
 		var old: Dictionary = ledger.pop_front()
 		var k: String = str(old["category"])
 		historical_totals[k] = float(historical_totals.get(k, 0.0)) + float(old["amount"])
-	today[category] = float(today.get(category, 0.0)) + amt
 	if amt > 0.0 and INCOME.has(category):
-		lifetime_earned += amt
+		sim.statistics.note_income(amt)
 	elif amt < 0.0:
-		lifetime_spent += -amt
+		sim.statistics.note_spending(-amt)
 	if is_inf(balance):
 		_enter_overflow()
 	EventBus.balance_changed.emit(balance)
@@ -100,46 +91,18 @@ func post(amount: float, category: StringName, source_id: StringName, metadata: 
 	return true
 
 
-## Pengeluaran manual: ditolak bila saldo tidak cukup (GDD 24.3).
+## Pengeluaran: ditolak bila saldo tidak cukup (v3.1 24.3).
 func spend(amount: float, category: StringName, source_id: StringName, metadata: Dictionary = {}) -> bool:
 	var amt: float = Money.round_half_up(amount)
 	if amt < 0.0 or not can_afford(amt):
 		return false
+	if amt == 0.0:
+		return true
 	return post(-amt, category, source_id, metadata)
 
 
 func credit(amount: float, category: StringName, source_id: StringName, metadata: Dictionary = {}) -> bool:
 	return post(absf(amount), category, source_id, metadata)
-
-
-## Tagihan settlement (gaji/utilitas). Bila melebihi kas, saldo menjadi 0 dan
-## sisanya dihapus serta dicatat di metadata (GDD 49.1 langkah 1).
-func charge_settlement(amount: float, category: StringName, source_id: StringName, metadata: Dictionary = {}) -> float:
-	var amt: float = Money.round_half_up(maxf(0.0, amount))
-	if amt <= 0.0:
-		return 0.0
-	var payable: float = minf(amt, maxf(0.0, balance))
-	var written_off: float = amt - payable
-	var meta: Dictionary = metadata.duplicate()
-	if written_off > 0.0:
-		meta["written_off_kr"] = written_off
-		written_off_today += written_off
-	post(-payable, category, source_id, meta)
-	# Laporan harian tetap menampilkan tagihan penuh.
-	today[category] = float(today.get(category, 0.0)) - written_off
-	return written_off
-
-
-func note_cogs(value: float) -> void:
-	cogs_consumed_today += value
-
-
-func note_waste(value: float) -> void:
-	waste_cost_today += value
-
-
-func today_total(category: StringName) -> float:
-	return float(today.get(category, 0.0))
 
 
 func _enter_overflow() -> void:
@@ -160,7 +123,7 @@ func reconcile() -> bool:
 		total += float(historical_totals[k])
 	for e: Dictionary in ledger:
 		total += float(e["amount"])
-	return absf(total - balance) < 0.5
+	return absf(total - balance) <= maxf(0.5, absf(balance) * 1.0e-9)
 
 
 func capture() -> Dictionary:
@@ -180,12 +143,6 @@ func capture() -> Dictionary:
 		"overflowed": overflowed,
 		"ledger_recent": recent,
 		"historical_totals": hist,
-		"today": sn_dict_to_json(today),
-		"cogs_consumed_today": cogs_consumed_today,
-		"waste_cost_today": waste_cost_today,
-		"written_off_today": written_off_today,
-		"lifetime_earned": lifetime_earned,
-		"lifetime_spent": lifetime_spent,
 	}
 
 
@@ -197,9 +154,3 @@ func restore(d: Dictionary) -> void:
 	for e: Variant in d.get("ledger_recent", []):
 		ledger.append(e as Dictionary)
 	historical_totals = d.get("historical_totals", {})
-	today = json_to_sn_dict(d.get("today", {}))
-	cogs_consumed_today = float(d.get("cogs_consumed_today", 0.0))
-	waste_cost_today = float(d.get("waste_cost_today", 0.0))
-	written_off_today = float(d.get("written_off_today", 0.0))
-	lifetime_earned = float(d.get("lifetime_earned", 0.0))
-	lifetime_spent = float(d.get("lifetime_spent", 0.0))

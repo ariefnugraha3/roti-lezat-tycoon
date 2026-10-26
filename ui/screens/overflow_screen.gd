@@ -17,5 +17,3 @@ func build() -> void:
 	body.add_child(c)
 	lbl(body, Tx.t("ui_overflow_body"), 18, Palette.TEXT, true)
 	btn(body, Tx.t("ui_ok"), "primary", close)
-	if sim != null:
-		sim.achievements.check_condition(&"economy_overflow")

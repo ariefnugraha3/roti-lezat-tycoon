@@ -4,8 +4,7 @@ extends TestSuite
 ## error runtime di build() layar yang tidak terjangkau test logika.
 
 const SCREENS: Array[StringName] = [
-	&"settings", &"credits", &"help", &"stats", &"pause", &"recipe_book", &"market", &"staff",
-	&"marketing", &"decoration", &"rotifood", &"display_detail", &"debug", &"tutorial", &"tutorial_spotlight", &"lifecycle",
+	&"settings", &"credits", &"help", &"stats", &"pause", &"staff", &"decoration", &"debug", &"tutorial", &"tutorial_spotlight",
 ]
 
 
@@ -14,13 +13,13 @@ func tests() -> Array:
 		{"id": "TEST_UI_SMOKE_001", "name": "main scene boots, new game, every screen opens", "fn": _smoke},
 		# Setelah smoke: kunci yang diminta saat runtime ikut diperiksa.
 		{"id": "TEST_UI_001", "name": "English localization key completeness", "fn": _localization},
-		{"id": "TEST_CAMERA_001", "name": "0.20s crossfade + active-floor rule", "fn": _camera},
+		{"id": "TEST_CAMERA_001", "name": "the camera stays on the shop floor while the owner works upstairs; the stairs door switches the view with a 0.20 s crossfade", "fn": _camera},
 	]
 
 
 func _tip_texts() -> Array[String]:
 	var out: Array[String] = []
-	for key: String in HelpScreen.ALL_TIPS:
+	for key: String in TutorialManager.STEPS:
 		out.append(Tx.t(key))
 	return out
 
@@ -45,9 +44,9 @@ func _smoke() -> void:
 		if menu_id == &"help" and ms != null:
 			var tips: int = 0
 			for l: Node in ms.find_children("*", "Label", true, false):
-				if HelpScreen.ALL_TIPS.has(String((l as Label).text)) or (l as Label).text in _tip_texts():
+				if TutorialManager.STEPS.has(String((l as Label).text)) or (l as Label).text in _tip_texts():
 					tips += 1
-			eq(tips, HelpScreen.ALL_TIPS.size(), "help lists every tip when no game is loaded")
+			eq(tips, TutorialManager.STEPS.size(), "help lists every tip when no game is loaded")
 		game.modals.close_all()
 		await runner.get_tree().process_frame
 	game.show_main_menu()
@@ -60,15 +59,13 @@ func _smoke() -> void:
 	await game.start_new_game(&"profile_1", "female", "UI Test Bakery")
 	await runner.get_tree().process_frame
 	check(game.sim != null and game.world != null and game.hud != null, "gameplay built")
-	check(SaveManager.has_profile(&"profile_1"), "day 1 save written (GDD 89.4)")
+	check(SaveManager.has_profile(&"profile_1"), "first save written (GDD 89.4)")
 	for id: StringName in SCREENS:
 		var params: Dictionary = {}
-		if id == &"display_detail":
-			params = {"display": game.sim.equipment.placed_list(&"display")[0].iid}
 		if id == &"tutorial":
-			params = {"key": "tut_welcome"}
+			params = {"key": "onb_welcome"}
 		if id == &"tutorial_spotlight":
-			params = {"key": "tut_tour_rating", "spotlight": "open_tour"}
+			params = {"key": "onb_first_upgrade", "target": "cash"}
 		var s: UIScreen = game.modals.open(id, params)
 		check(s != null, "screen %s opens" % id)
 		await runner.get_tree().process_frame
@@ -106,8 +103,8 @@ func _smoke() -> void:
 	var tb_rect := Rect2(tb.position, tb.panel.size)
 	check(tb_rect.end.y <= anchor.y + 1.0 and anchor.x >= tb_rect.position.x and anchor.x <= tb_rect.end.x,
 		"the toolbar floats right above the held furniture (%s over %s)" % [tb_rect, anchor])
-	check(deco._tb_place.visible and deco._tb_rotate.visible and deco._tb_store.visible and deco._tb_cancel.visible,
-		"Place, Rotate, Put Away and Cancel sit on the toolbar")
+	check(deco._tb_place.visible and deco._tb_rotate.visible and deco._tb_cancel.visible and not deco._tb_store.visible,
+		"Place, Rotate and Cancel sit on the toolbar; a station has no Put Away (GDD idle 8.4)")
 	# Ubin jalur: posisi calon merah beserta alasannya, dan Place menolak dengan banner.
 	var fg: FloorGrid = game.sim.world.grid(disp.floor_id)
 	var walkway: Vector2i = Vector2i(-1, -1)
@@ -180,31 +177,28 @@ func _smoke() -> void:
 	check(not rig.free_pan and rig.pan_offset == Vector3.ZERO, "normal framing restored after decoration mode")
 	await runner.get_tree().process_frame
 	eq(game.world._tile_overlay.get_child_count(), 0, "tile marks removed after decoration mode")
-	# Tap dunia: ketuk Storage lewat picking layar.
+	# Tap dunia: ketuk oven lewat picking layar, jadi prioritas pemilik sebentar.
 	PauseManager.clear_all()
 	game.sim.tutorial.skip()
-	var storage: EquipmentInstance = game.sim.equipment.storage_instance()
-	var pos: Vector2 = game.world.screen_of_iid(storage.iid)
-	check(pos.x >= 0.0, "storage projects to screen")
+	var oven: EquipmentInstance = game.sim.equipment.placed_list(&"oven")[0]
+	var pos: Vector2 = game.world.screen_of_iid(oven.iid)
+	check(pos.x >= 0.0, "the oven projects to screen")
 	var pick: Dictionary = game.world.pick(pos)
-	eq(pick.get("kind"), &"equipment", "tapping storage picks equipment")
+	eq(pick.get("kind"), &"equipment", "tapping the oven picks equipment")
 	game._on_world_tap(pos)
-	for i in 120:
-		game.sim.step(game.sim.tick_seconds)
-	await runner.get_tree().process_frame
-	check(game.modals.is_open(&"recipe_book"), "walking to storage opens the Recipe Book")
-	game.modals.close_all()
-	# Hari penuh dengan bot sambil HUD & dunia menyinkron.
-	var bot := SimBot.new(game.sim)
+	eq(game.sim.player.focus_iid, oven.iid, "the tapped oven becomes the owner's priority (GDD idle 5.1)")
+	# Satu hari in-game berjalan sendiri sambil HUD & dunia menyinkron.
+	var day0: int = game.sim.time.day
 	var frames: int = 0
-	while game.sim.is_running() and frames < 200000:
-		bot.think()
+	while game.sim.time.day == day0 and frames < 200000:
 		game.sim.step(game.sim.tick_seconds)
 		frames += 1
 		if frames % 600 == 0:
 			await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
-	check(game.modals.is_open(&"daily_summary"), "daily summary opens at 18:00")
+	eq(game.sim.time.day, day0 + 1, "the next day starts at midnight without a summary screen")
+	check(game.sim.statistics.get_stat("total_bread_sold") > 0.0, "bread sold during the day without any input")
+	eq(game.sim.check_invariants(), "", "invariants after a day with the HUD and world in sync")
 	game.modals.close_all()
 	game.return_to_menu()
 	await runner.get_tree().process_frame
@@ -233,7 +227,7 @@ func _camera() -> void:
 	await game.start_new_game(&"profile_1", "male", "Camera Test")
 	await runner.get_tree().process_frame
 	var sim: SimulationRoot = game.sim
-	near(DataRegistry.balf("camera.crossfade_seconds"), 0.20, 0.0001, "crossfade duration is 0.20 s (GDD 30.2)")
+	near(DataRegistry.balf("camera.crossfade_seconds"), 0.20, 0.0001, "crossfade duration is 0.20 s (v3.1 30.2)")
 	jump_to_tier(sim, 2)
 	game.modals.close_all()
 	PauseManager.clear_all()
@@ -242,43 +236,19 @@ func _camera() -> void:
 	var rig: CameraRig = game.world.camera_rig
 	var store: StringName = sim.world.store_floor()
 	var kitchen: StringName = sim.world.kitchen_floor()
+	check(store != kitchen, "Tier 2 has the kitchen upstairs")
 	var p: SimActor = sim.player.actor
-	p.place_at(store, sim.queue.main_lane().cashier_point)
-	for i in 3:
+	for i in 30:
 		await runner.get_tree().process_frame
-	eq(rig.active_floor, store, "camera shows the player's floor")
-	# NPC/staf di lantai lain tidak memindahkan kamera (GDD 81 no.27).
-	var fake := SimActor.new()
-	fake.place_at(kitchen, Vector2i(2, 2))
-	sim.staff.actors[&"staff_baker_joko"] = fake
-	for i2 in 5:
-		await runner.get_tree().process_frame
-	eq(rig.active_floor, store, "staff on another floor does not move the camera")
-	sim.staff.actors.erase(&"staff_baker_joko")
-	# Alert OVERBAKING di lantai lain: alert kritis, kamera tetap (GDD 81 no.26).
-	var oven: EquipmentInstance = sim.equipment.placed_list(&"oven")[0]
-	var j: ProductionJob = sim.production.create_job(&"recipe_plain_loaf", 1, &"test")
-	sim.production.start_mixing(j.job_id, &"test", 1.0)
-	sim.run_for(j.stage_duration + 0.1)
-	sim.production.pickup_dough(j.job_id, &"test")
-	sim.production.insert_oven(j.job_id, oven.iid, &"test", 1.0)
-	sim.run_for(j.stage_duration + oven.def().perfect_window_seconds + 1.0)
-	eq(j.stage, ProductionJob.OVERBAKING, "upstairs oven overbaking")
-	var off: Array[Dictionary] = sim.alerts.off_floor_alerts(store)
-	check(not off.is_empty() and int(off[0]["priority"]) == 0, "critical off-floor alert raised")
-	game.hud._refresh_all()
-	var alert_btn: Node = game.hud._alerts_box.get_child(0) if game.hud._alerts_box.get_child_count() > 0 else null
-	check(alert_btn is Button, "the HUD shows the off-floor alert as a button")
-	game.hud._refresh_all()
-	game.hud._refresh_all()
-	check(is_instance_valid(alert_btn) and alert_btn.get_parent() == game.hud._alerts_box, "the alert button survives HUD refreshes, so a tap on it is not lost")
-	for i3 in 5:
-		await runner.get_tree().process_frame
-	eq(rig.active_floor, store, "off-floor alert does not move the camera")
-	# Pemain pindah lantai: kamera berganti dengan crossfade ~0,20 s nyata,
-	# simulasi tidak dijeda dan tidak menunggu.
-	var sim_t0: float = sim.time.sim_seconds
+	eq(rig.active_floor, store, "the camera shows the shop floor")
+	# Pemilik bekerja di dapur atas: kamera tetap di lantai toko (GDD idle 5.1).
 	p.place_at(kitchen, sim.world.grid(kitchen).def.portal["access"])
+	for i2 in 30:
+		await runner.get_tree().process_frame
+	eq(rig.active_floor, store, "the owner working upstairs does not move the camera")
+	# Pintu tangga: pandangan pindah dengan crossfade, simulasi tetap jalan.
+	var sim_t0: float = sim.time.sim_seconds
+	game.world.toggle_view_floor()
 	var started: int = Time.get_ticks_usec()
 	var seen_fade: bool = false
 	var ended: int = -1
@@ -292,12 +262,16 @@ func _camera() -> void:
 		elif seen_fade:
 			ended = Time.get_ticks_usec()
 			break
-	eq(rig.active_floor, kitchen, "camera follows the player upstairs")
+	eq(rig.active_floor, kitchen, "the stairs door shows the kitchen upstairs")
 	check(seen_fade, "a crossfade played")
 	var dur: float = float(ended - started) / 1000000.0
 	check(ended > 0 and dur >= 0.15 and dur <= 0.45, "crossfade lasts about 0.20 s (%.3f s)" % dur)
-	check(not PauseManager.is_paused(), "floor change does not pause the simulation")
+	check(not PauseManager.is_paused(), "a floor change does not pause the simulation")
 	check(sim.time.sim_seconds > sim_t0, "simulation kept running during the crossfade")
+	game.world.toggle_view_floor()
+	for i3 in 30:
+		await runner.get_tree().process_frame
+	eq(rig.active_floor, store, "tapping the door again comes back to the shop")
 	game.return_to_menu()
 	await runner.get_tree().process_frame
 	game.queue_free()

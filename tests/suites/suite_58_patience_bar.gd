@@ -12,12 +12,14 @@ func tests() -> Array:
 	]
 
 
+## Toko tanpa kedatangan acak dan tanpa pelayan, supaya pembeli uji menunggu.
 func _open_store(seed_value: int) -> SimulationRoot:
 	var s: SimulationRoot = new_sim(seed_value)
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	s.demand.scripted_window_shoppers.clear()
-	run_until(s, 8.0 * 3600.0 + 10.0)
+	freeze_production(s)
+	park_owner(s)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
 	return s
 
 
@@ -29,7 +31,7 @@ func _queue_only() -> void:
 	runner.add_child(world)
 	world.setup(s)
 	world._process(0.016)
-	s.customers.try_admit({"archetype": &"customer_generic", "scripted": false, "recipe": &"", "quantity": 1, "patience_override": null})
+	s.customers.try_admit({"archetype": &"customer_generic"})
 	var c: Customer = s.customers.sorted()[0]
 	var seen_before_queue: Dictionary = {}
 	var t: float = 0.0

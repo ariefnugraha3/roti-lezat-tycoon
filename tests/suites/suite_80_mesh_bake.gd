@@ -185,24 +185,14 @@ func _budget() -> void:
 	var s: SimulationRoot = new_sim(8080)
 	s.tutorial.skip()
 	jump_to_tier(s, 5)
-	s.time.set_phase(TimeManager.AFTER_HOURS)
-	s.debug_add_kr(5000000.0)
-	var bot := SimBot.new(s)
-	for cat: StringName in [&"display", &"oven", &"mixer"]:
-		var def_id := StringName("%s_t5" % cat)
-		for e: EquipmentInstance in s.equipment.placed_list(cat):
-			s.equipment.buy_replace(def_id, e.iid)
-		while s.equipment.placed_count(cat) + s.equipment.unplaced_list(cat).size() < s.equipment.slot_limit(cat):
-			if not bool(s.equipment.buy(def_id).get("ok", false)):
-				break
-		for e2: EquipmentInstance in s.equipment.unplaced_list(cat):
-			if e2.tier() < 5 or not bot._place(e2.iid):
-				s.equipment.sell(e2.iid)
+	# Semua slot dibuka dan dinaikkan ke batas level: model berevolusi ke Tier 5.
+	equip_shop(s)
+	freeze_production(s)
 	var k: int = 0
 	var recipes: Array[RecipeDefinition] = DataRegistry.recipes()
 	for d: EquipmentInstance in s.equipment.placed_list(&"display"):
 		for i in s.display.slots(d.iid).size():
-			s.display.place(d.iid, i, recipes[k % recipes.size()].id, 20, 1.0, s.time.sim_seconds, -10 - k)
+			s.display.place(d.iid, i, recipes[k % recipes.size()].id, 20, s.time.sim_seconds, -10 - k)
 			k += 1
 	check(s.equipment.placed_count(&"display") >= 5, "at least five Tier 5 shelves stand in the shop")
 	var world := WorldView.new()

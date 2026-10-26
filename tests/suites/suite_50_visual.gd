@@ -35,7 +35,6 @@ func _all_specs() -> Array:
 		out.append(["generic/%d" % seed_j, CharacterFactory.spec_for_customer("customer_generic", 100 + seed_j)])
 	out.append(["driver", CharacterFactory.spec_for_customer("driver_rotifood", 3, false)])
 	out.append(["driver in rain", CharacterFactory.spec_for_customer("driver_rotifood", 3, true)])
-	out.append(["courier", CharacterFactory.spec_for_customer("courier_supply", 5)])
 	out.append(["Pak Lurah", CharacterFactory.spec_for_lurah()])
 	out.append(["empty spec", {}])
 	return out
@@ -183,10 +182,6 @@ func _expressions() -> void:
 	ProceduralAnimationSystem.walk(ch, 0.37, 1.0)
 	check(absf(arm.rotation.x - rest.x) > 0.05, "free arms swing while walking")
 	ch.free()
-	# Kurir yang memeluk kardus sudah dirakit dengan lengan maju.
-	var courier: Node3D = CharacterFactory.build(CharacterFactory.spec_for_courier())
-	check((CharacterFactory.part(courier, "ArmL")).rotation.x > deg_to_rad(40.0), "courier hugs the parcel")
-	courier.free()
 
 
 ## [y ujung dalam, y ujung luar] sebuah alis dalam ruang Face.

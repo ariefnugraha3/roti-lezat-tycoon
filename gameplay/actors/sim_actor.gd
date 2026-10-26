@@ -8,7 +8,7 @@ extends RefCounted
 signal floor_changed(actor: SimActor, floor_id: StringName)
 
 var id: StringName
-## player / staff / customer / driver / courier / lurah
+## player / staff / customer / driver / lurah
 var kind: StringName
 var floor_id: StringName = &"floor_1"
 var pos: Vector2 = Vector2.ZERO

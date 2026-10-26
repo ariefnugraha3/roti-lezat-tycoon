@@ -12,12 +12,11 @@ extends Node
 
 const CATALOG_DIR: String = "res://data/catalog"
 const TAG_VOCABULARY: Array[StringName] = [&"sweet", &"savory", &"practical", &"family", &"premium", &"artisan"]
-const FRESHNESS_STATES: Array[StringName] = [&"FRESH", &"GOOD", &"STALE", &"UNSALEABLE"]
 const ACHIEVEMENT_CONDITIONS: Array[String] = [
 	"no_burn_day", "no_abandon_day", "rotifood_five_stars", "all_recipes_produced",
 	"price_experiment", "rain_delivery_day", "solo_recovery", "big_day", "economy_overflow",
 ]
-const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "no_burn_streak_days"]
+const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "no_burn_streak_days", "alltime_earned_kr"]
 ## Gelembung pikiran pemain saat toko sepi, berurutan (GDD 31.7, 127.12).
 const THOUGHT_KEYS: Array[String] = ["thought_quiet_1", "thought_quiet_2", "thought_quiet_3", "thought_quiet_4"]
 ## Celetukan pengunjung lihat-lihat saat ia batal membeli (GDD 20.12, 127.19).
@@ -63,7 +62,7 @@ const STAFF_LINES_BAKER: Array[String] = [
 ]
 const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
-	"locations.json", "weather.json", "marketing.json", "opening.json", "balance.json",
+	"locations.json", "weather.json", "balance.json",
 	"achievements.json", "decorations.json", "audio_events.json", "quality_presets.json",
 	"strings_en.json", "idle.json",
 ]
@@ -101,10 +100,6 @@ var _location_map: Dictionary = {}
 var _weather: Array = []
 var _weather_map: Dictionary = {}
 var _weather_raw: Dictionary = {}
-var _campaigns: Array = []
-var _campaign_map: Dictionary = {}
-var _marketing_raw: Dictionary = {}
-var _opening: Dictionary = {}
 var _achievements: Array = []
 var _achievement_map: Dictionary = {}
 var _decorations: Array = []
@@ -114,7 +109,6 @@ var _audio_map: Dictionary = {}
 var _quality: Array = []
 var _quality_raw: Dictionary = {}
 var _staff_raw: Dictionary = {}
-var _equipment_raw: Dictionary = {}
 var _sci_threshold: float = 1.0e12
 var _bal_cache: Dictionary = {}
 ## Naik setiap katalog dimuat ulang; cache statis di luar registry memeriksanya.
@@ -334,10 +328,6 @@ func equipment_in_category(category: StringName) -> Array[EquipmentDefinition]:
 	return out
 
 
-func equipment_sell_ratio() -> float:
-	return float(_equipment_raw.get("sell_back_ratio", 0.5))
-
-
 func archetypes() -> Array[CustomerArchetypeDefinition]:
 	return _archetypes
 
@@ -350,16 +340,8 @@ func driver_def() -> Dictionary:
 	return _customers_raw.get("driver_rotifood", {})
 
 
-func courier_def() -> Dictionary:
-	return _customers_raw.get("courier_supply", {})
-
-
 func quantity_weights() -> Dictionary:
 	return _customers_raw.get("quantity_weights", {})
-
-
-func vip_rules() -> Dictionary:
-	return _customers_raw.get("vip_rules", {})
 
 
 ## Blok jam (GDD 66): nama -> Vector2(mulai, selesai) detik in-game.
@@ -387,11 +369,6 @@ func batch_duration_factor(batch: int) -> float:
 	if table is Dictionary and (table as Dictionary).has(str(batch)):
 		return float((table as Dictionary)[str(batch)])
 	return 1.0
-
-
-## Lama satu transaksi kasir, seluruhnya fase membungkus (GDD 21.4).
-func packing_seconds() -> float:
-	return balf("cashier.packing_seconds")
 
 
 ## Detik-simulasi per detik nyata pada 1× (GDD 15.2, 99.1). Dengan 30 detik jam
@@ -459,29 +436,6 @@ func holiday_event() -> Dictionary:
 	return ev[0] if not ev.is_empty() else {}
 
 
-func campaigns() -> Array:
-	return _campaigns
-
-
-func campaign(id: StringName) -> MiscDefinitions.MarketingCampaignDefinition:
-	return _campaign_map.get(id)
-
-
-func marketing_raw() -> Dictionary:
-	return _marketing_raw
-
-
-func opening_day(day: int) -> Dictionary:
-	for d: Variant in _opening.get("days", []):
-		if int((d as Dictionary).get("day", 0)) == day:
-			return d
-	return {}
-
-
-func opening_raw() -> Dictionary:
-	return _opening
-
-
 func achievements() -> Array:
 	return _achievements
 
@@ -512,37 +466,6 @@ func quality_presets() -> Array:
 
 func quality_auto_default() -> StringName:
 	return StringName(str(_quality_raw.get("auto_default", "quality_medium")))
-
-
-## Pengali permintaan harga baseline (GDD 63.2), kontinu piecewise linear.
-func price_demand(ratio: float) -> float:
-	var curve: Array = _balance["price"]["demand_curve"]
-	var first: Array = curve[0]
-	if ratio <= float(first[0]):
-		return float(first[1])
-	for i in range(1, curve.size()):
-		var a: Array = curve[i - 1]
-		var b: Array = curve[i]
-		if ratio <= float(b[0]):
-			var t: float = (ratio - float(a[0])) / (float(b[0]) - float(a[0]))
-			return lerpf(float(a[1]), float(b[1]), t)
-	var last: Array = curve[curve.size() - 1]
-	return float(last[1])
-
-
-## effective_price_demand = clamp(1 + s × (price_demand − 1), 0, 1.5) (GDD 63.2).
-func effective_price_demand(ratio: float, sensitivity: float) -> float:
-	var clamp_arr: Array = _balance["price"]["effective_demand_clamp"]
-	return clampf(1.0 + sensitivity * (price_demand(ratio) - 1.0), float(clamp_arr[0]), float(clamp_arr[1]))
-
-
-## Label reaksi harga (GDD 84.5).
-func price_reaction_label(multiplier: float) -> StringName:
-	for entry: Variant in _balance["price"]["reaction_labels"]:
-		var e: Array = entry
-		if multiplier >= float(e[0]):
-			return StringName(str(e[1]))
-	return &"REFUSE"
 
 
 # ===========================================================================
@@ -585,10 +508,9 @@ func _build() -> void:
 		_recipes.append(r)
 		_recipe_map[r.id] = r
 
-	_equipment_raw = _raw["equipment.json"]
 	_equipment.clear()
 	_equipment_map.clear()
-	for d3: Variant in _equipment_raw.get("items", []):
+	for d3: Variant in (_raw["equipment.json"] as Dictionary).get("items", []):
 		var e: EquipmentDefinition = EquipmentDefinition.from_dict(d3)
 		_equipment.append(e)
 		_equipment_map[e.id] = e
@@ -624,16 +546,6 @@ func _build() -> void:
 		_weather.append(w)
 		_weather_map[w.id] = w
 
-	_marketing_raw = _raw["marketing.json"]
-	_campaigns.clear()
-	_campaign_map.clear()
-	for d8: Variant in _marketing_raw.get("items", []):
-		var m := MiscDefinitions.MarketingCampaignDefinition.from_dict(d8)
-		_campaigns.append(m)
-		_campaign_map[m.id] = m
-
-	_opening = _raw["opening.json"]
-
 	_achievements.clear()
 	_achievement_map.clear()
 	for d9: Variant in (_raw["achievements.json"] as Dictionary).get("items", []):
@@ -659,24 +571,6 @@ func _build() -> void:
 	_quality.clear()
 	for d12: Variant in _quality_raw.get("items", []):
 		_quality.append(MiscDefinitions.QualityPresetDefinition.from_dict(d12))
-
-	_derive_prices()
-
-
-## Batas slider harga (GDD 63.2).
-func _derive_prices() -> void:
-	var p: Dictionary = _balance["price"]
-	var round_step: float = float(p["round_to"])
-	for r: RecipeDefinition in _recipes:
-		var hpp: float = r.unit_cogs_kr()
-		r.min_price_kr = maxf(Money.round_to(hpp * float(p["min_hpp_factor"]), round_step),
-			Money.round_to(r.base_sell_price_kr * float(p["min_default_factor"]), round_step))
-		r.max_price_kr = Money.round_to(r.base_sell_price_kr * float(p["max_default_factor"]), round_step)
-		if r.base_sell_price_kr < float(p["slider_step_threshold"]):
-			r.price_step_kr = float(p["slider_step_small"])
-		else:
-			r.price_step_kr = float(p["slider_step_large"])
-
 
 # ===========================================================================
 # VALIDASI (GDD 101.7, 133.1)
@@ -710,8 +604,7 @@ func _validate() -> void:
 	_validate_customers()
 	_validate_staff()
 	_validate_locations()
-	_validate_weather_marketing()
-	_validate_opening()
+	_validate_weather()
 	_validate_meta()
 	_validate_balance()
 	_validate_idle()
@@ -766,8 +659,6 @@ func _validate_recipes() -> void:
 		for st: StringName in r.required_station_ids:
 			if not [&"mixer", &"oven"].has(st):
 				_err("recipe %s requires unknown station %s" % [r.id, st])
-		if r.min_price_kr > r.base_sell_price_kr or r.max_price_kr < r.base_sell_price_kr:
-			_err("recipe %s default price outside derived slider range" % r.id)
 
 
 func _validate_equipment() -> void:
@@ -779,61 +670,35 @@ func _validate_equipment() -> void:
 			_err("equipment %s tier outside 1..5" % e.id)
 		if e.footprint_tiles.x < 1 or e.footprint_tiles.y < 1:
 			_err("equipment %s invalid footprint" % e.id)
-		if e.price_kr < 0.0 or e.capacity < 0 or e.utility_cost_kr_per_ingame_hour < 0.0:
-			_err("equipment %s has negative price/capacity/utility" % e.id)
 		for rot: int in e.rotations_allowed:
 			if not [0, 90, 180, 270].has(rot):
 				_err("equipment %s invalid rotation %d" % [e.id, rot])
 		match e.category_id:
-			&"mixer", &"oven":
-				if e.reference_seconds <= 0.0 or e.process_multiplier <= 0.0:
-					_err("equipment %s needs reference seconds" % e.id)
-				if e.category_id == &"oven" and (e.perfect_window_seconds <= 0.0 or e.overbake_window_seconds <= 0.0):
-					_err("oven %s needs burn windows" % e.id)
-			&"display":
-				if e.slot_count <= 0 or e.max_per_slot <= 0 or e.slot_count * e.max_per_slot < e.capacity:
-					_err("display %s slots cannot hold its capacity" % e.id)
-				if e.aging_rate <= 0.0:
-					_err("display %s aging rate must be > 0" % e.id)
-			&"storage":
-				if e.capacity <= 0:
-					_err("storage %s capacity must be > 0" % e.id)
-			&"counter":
+			&"mixer", &"oven", &"storage", &"counter":
 				pass
-			&"table":
-				# Meja Tunggu: sepaket bangunan, tanpa batas isi (GDD 5.1.3).
-				if e.for_sale or e.capacity != 0:
-					_err("table %s must not be for sale and has no capacity limit" % e.id)
-			&"chair":
-				# Kursi koki: sepaket bangunan, satu ubin (GDD 5.1.4).
-				if e.for_sale or e.footprint_tiles != Vector2i.ONE:
-					_err("chair %s must be a 1x1 fixture that is not for sale" % e.id)
+			&"display":
+				if e.slot_count <= 0 or e.max_per_slot <= 0:
+					_err("display %s needs slots and max_per_slot" % e.id)
+			&"table", &"chair":
+				# Meja Tunggu dan kursi koki: sepaket bangunan (v3.1 5.1.3, 5.1.4).
+				if e.category_id == &"chair" and e.footprint_tiles != Vector2i.ONE:
+					_err("chair %s must be a 1x1 fixture" % e.id)
 			_:
 				_err("equipment %s unknown category %s" % [e.id, e.category_id])
 	for cat: StringName in [&"mixer", &"oven", &"display", &"storage"]:
 		for t in range(1, 6):
 			if equipment_for(cat, t) == null:
 				_err("missing equipment %s_t%d" % [cat, t])
+	# Evolusi rak menambah petak (GDD idle 8.2).
+	for t2 in range(2, 6):
+		var lo: EquipmentDefinition = equipment_for(&"display", t2 - 1)
+		var hi: EquipmentDefinition = equipment_for(&"display", t2)
+		if lo != null and hi != null and hi.slot_count < lo.slot_count:
+			_err("display_t%d must not have fewer slots than display_t%d" % [t2, t2 - 1])
 	if equipment_in_category(&"table").size() != 1:
 		_err("exactly one holding table (category table) is required")
 	if equipment_in_category(&"chair").size() != 1:
 		_err("exactly one staff chair (category chair) is required")
-	# Waktu referensi makin cepat tiap tier (GDD 5.1); process_multiplier =
-	# referensi T1 / referensi tier itu (GDD 101.3).
-	for cat: StringName in [&"mixer", &"oven"]:
-		var t1: EquipmentDefinition = equipment_for(cat, 1)
-		if t1 == null or t1.reference_seconds <= 0.0:
-			continue
-		var prev: float = INF
-		for t in range(1, 6):
-			var e: EquipmentDefinition = equipment_for(cat, t)
-			if e == null or e.reference_seconds <= 0.0:
-				continue
-			if e.reference_seconds >= prev:
-				_err("equipment %s must be faster than the tier below" % e.id)
-			prev = e.reference_seconds
-			if absf(e.process_multiplier - t1.reference_seconds / e.reference_seconds) > 0.001:
-				_err("equipment %s process_multiplier must equal T1 reference / its reference" % e.id)
 
 
 func _validate_customers() -> void:
@@ -848,9 +713,6 @@ func _validate_customers() -> void:
 			_err("customer %s speed must be > 0" % c.id)
 		if c.quantity_min < 1 or c.quantity_max < c.quantity_min or c.quantity_preferred < c.quantity_min or c.quantity_preferred > c.quantity_max:
 			_err("customer %s invalid quantity range" % c.id)
-		for s: StringName in c.allowed_freshness_states:
-			if not FRESHNESS_STATES.has(s):
-				_err("customer %s unknown freshness %s" % [c.id, s])
 		for tag: StringName in c.preferred_tags.keys():
 			if not TAG_VOCABULARY.has(tag):
 				_err("customer %s unknown tag %s" % [c.id, tag])
@@ -862,7 +724,7 @@ func _validate_customers() -> void:
 	for i2 in 5:
 		if absf(tier_sums[i2] - 1.0) > 0.001:
 			_err("archetype weights for tier %d sum to %s, not 1.0" % [i2 + 1, tier_sums[i2]])
-	for extra: String in ["driver_rotifood", "courier_supply"]:
+	for extra: String in ["driver_rotifood"]:
 		var d: Dictionary = _customers_raw.get(extra, {})
 		if float(d.get("movement_speed_mps", 0.0)) <= 0.0:
 			_err("%s needs a movement speed" % extra)
@@ -908,8 +770,6 @@ func _validate_staff() -> void:
 			_err("location %s allows more cashiers than non-player lanes" % l.id)
 		if l.staff_capacity(&"cashier") < 0 or l.staff_capacity(&"baker") < 0:
 			_err("location %s has a negative staff capacity" % l.id)
-		if l.staff_daily_wage_kr <= 0.0:
-			_err("location %s needs a staff_daily_wage_kr > 0" % l.id)
 
 
 func _validate_locations() -> void:
@@ -961,7 +821,7 @@ func _validate_locations() -> void:
 			_err("missing location for tier %d" % t)
 
 
-func _validate_weather_marketing() -> void:
+func _validate_weather() -> void:
 	var markov: Dictionary = _weather_raw.get("markov", {})
 	for k: Variant in markov.keys():
 		if weather(StringName(str(k))) == null:
@@ -976,59 +836,6 @@ func _validate_weather_marketing() -> void:
 			_err("weather markov row %s sums to %s" % [k, total])
 	for w: Variant in _weather:
 		_check_text((w as MiscDefinitions.WeatherDefinition).localization_key, "weather")
-	var seen: Dictionary = {}
-	for m: Variant in _campaigns:
-		var c: MiscDefinitions.MarketingCampaignDefinition = m
-		_check_id(c.id, seen, "campaign")
-		_check_text(c.localization_key, String(c.id))
-		_check_text(StringName(String(c.id) + "_desc"), String(c.id))
-		if c.cost_kr < 0.0 or c.traffic_multiplier <= 0.0:
-			_err("campaign %s invalid cost/multiplier" % c.id)
-		for rid: StringName in c.recipe_preference_multipliers.keys():
-			if recipe(rid) == null:
-				_err("campaign %s references unknown recipe %s" % [c.id, rid])
-		for aid: StringName in c.archetype_multipliers.keys():
-			if archetype(aid) == null:
-				_err("campaign %s references unknown archetype %s" % [c.id, aid])
-
-
-func _validate_opening() -> void:
-	var clock: Dictionary = _balance.get("clock", {})
-	var open_t: float = float(clock.get("open_seconds", 0.0))
-	var close_t: float = float(clock.get("close_seconds", 0.0))
-	var last_order: float = float((_balance.get("rotifood", {}) as Dictionary).get("last_order_time_seconds", close_t))
-	for d: Variant in _opening.get("days", []):
-		var day: Dictionary = d
-		var r: RecipeDefinition = recipe(StringName(str(day.get("recipe_id", ""))))
-		if r == null:
-			_err("opening day %s recipe unknown" % day.get("day"))
-			continue
-		var total: int = 0
-		for w: Variant in day.get("walk_ins", []):
-			var wd: Dictionary = w
-			total += int(wd["requested_quantity"])
-			if archetype(StringName(str(wd["customer_archetype"]))) == null:
-				_err("opening day %s unknown archetype" % day.get("day"))
-		for o: Variant in day.get("rotifood_orders", []):
-			total += int((o as Dictionary)["requested_quantity"])
-		if total != int(day.get("batches", 0)) * r.batch_yield:
-			_err("opening day %s demand %d != batches x yield" % [day.get("day"), total])
-		for ws: Variant in day.get("window_shoppers", []):
-			if archetype(StringName(str((ws as Dictionary)["customer_archetype"]))) == null:
-				_err("opening day %s unknown window shopper archetype" % day.get("day"))
-		# DemandManager memutar tiap daftar dari depan: jam harus urut dan di dalam
-		# jam buka; pesanan RotiFood tidak lewat batas pesanan terakhir (GDD 22.9).
-		for list_key: String in ["walk_ins", "rotifood_orders", "window_shoppers"]:
-			var time_key: String = "order_time" if list_key == "rotifood_orders" else "spawn_time"
-			var latest: float = last_order if list_key == "rotifood_orders" else close_t
-			var prev: float = -1.0
-			for row: Variant in day.get(list_key, []):
-				var t: float = float((row as Dictionary)[time_key])
-				if t < prev:
-					_err("opening day %s %s are not in time order" % [day.get("day"), list_key])
-				if t < open_t or t >= latest:
-					_err("opening day %s %s time %s outside %s..%s" % [day.get("day"), list_key, t, open_t, latest])
-				prev = t
 
 
 func _validate_meta() -> void:
@@ -1094,16 +901,8 @@ func _validate_balance() -> void:
 			_err("production.batch_duration_factor has no entry for x%s" % key)
 		elif float(factors[key]) < 1.0 or (key == "1" and not is_equal_approx(float(factors[key]), 1.0)):
 			_err("production.batch_duration_factor x%s must be >= 1.0 (x1 exactly 1.0)" % key)
-	if float((_balance.get("cashier", {}) as Dictionary).get("packing_seconds", 0.0)) <= 0.0:
-		_err("cashier.packing_seconds must be positive")
 	if float((_balance.get("clock", {}) as Dictionary).get("sim_seconds_per_real_second", 0.0)) <= 0.0:
 		_err("clock.sim_seconds_per_real_second must be positive")
-	# Tolak pesanan RotiFood (GDD 22.10, 25.3): penalti ringan, lebih ringan
-	# daripada pesanan yang batal karena driver menyerah.
-	var rf_events: Dictionary = (_balance.get("rating", {}) as Dictionary).get("rotifood_events", {})
-	var rejected: float = float(rf_events.get("order_rejected", 0.0))
-	if rejected >= 0.0 or rejected <= float(rf_events.get("order_cancelled", 0.0)):
-		_err("rating.rotifood_events.order_rejected must be a penalty lighter than order_cancelled")
 	var p: Dictionary = _balance.get("presentation", {})
 	var wipe_every: float = float(p.get("idle_wipe_every_seconds", 0.0))
 	var wipe_len: float = float(p.get("wipe_gesture_seconds", 0.0))
@@ -1128,8 +927,8 @@ func _validate_balance() -> void:
 			_err("presentation.staff_idle_gestures has the unknown gesture %s" % gid)
 		elif dur <= 0.0 or dur >= wipe_every:
 			_err("presentation: staff gesture %s must last more than 0 s and less than idle_wipe_every_seconds" % gid)
-	# Kejutan kosmetik (GDD 31.9): dikenal, cukup banyak supaya kejutan kemarin
-	# bisa dilewati, dan jendela jamnya di dalam jam buka.
+	# Kejutan kosmetik (v3.1 31.9): dikenal, cukup banyak supaya kejutan kemarin
+	# bisa dilewati, dan jendela jamnya di dalam satu hari (toko idle selalu buka).
 	var s_kinds: Array = p.get("surprise_kinds", [])
 	var s_per: Array = p.get("surprise_per_day", [])
 	var s_hours: Array = p.get("surprise_hours", [])
@@ -1138,11 +937,8 @@ func _validate_balance() -> void:
 			_err("presentation.surprise_kinds has the unknown kind %s" % sk)
 	if s_per.size() != 2 or int(s_per[0]) < 1 or int(s_per[1]) < int(s_per[0]) or s_kinds.size() < 2 * int(s_per[1]):
 		_err("presentation.surprise_per_day must be [min, max] with 1 <= min <= max and at least 2 x max kinds")
-	var clock: Dictionary = _balance.get("clock", {})
-	var open_h: float = float(clock.get("open_seconds", 0.0)) / 3600.0
-	var close_h: float = float(clock.get("close_seconds", 0.0)) / 3600.0
-	if s_hours.size() != 2 or float(s_hours[0]) < open_h or float(s_hours[1]) <= float(s_hours[0]) or float(s_hours[1]) > close_h:
-		_err("presentation.surprise_hours must be a rising [from, to] window inside opening hours")
+	if s_hours.size() != 2 or float(s_hours[0]) < 0.0 or float(s_hours[1]) <= float(s_hours[0]) or float(s_hours[1]) > 24.0:
+		_err("presentation.surprise_hours must be a rising [from, to] window inside one day")
 	for k7: String in SURPRISE_LINES:
 		_check_text(StringName(k7), "surprises")
 	var thoughts: Array = p.get("thought_after_seconds", [])
@@ -1155,17 +951,6 @@ func _validate_balance() -> void:
 		_check_text(StringName(k), "presentation")
 	if not thoughts.is_empty() and float(thoughts[thoughts.size() - 1]) + float(p.get("thought_show_seconds", 0.0)) <= wipe_every + wipe_len:
 		_err("presentation: the player must wipe at least once before falling asleep")
-	# Meja Tunggu (GDD 5.1.3, 19.7.6).
-	var ht: Dictionary = _balance.get("holding_table", {})
-	if float(ht.get("bread_aging_rate", 0.0)) <= 0.0 or float(ht.get("dough_aging_multiplier", 0.0)) <= 0.0:
-		_err("holding_table aging rates must be positive")
-	for k2: String in ["ui_table_dough_spoiled", "ui_table_bread_spoiled"]:
-		_check_text(StringName(k2), "holding_table")
-	# Bobot menu RotiFood (GDD 22.9), gerbang tier alat (5.1.2), kunci harga Hari 1-3 (63.2).
-	if float((_balance.get("rotifood", {}) as Dictionary).get("price_sensitivity", -1.0)) < 0.0:
-		_err("rotifood.price_sensitivity must be zero or positive")
-	for k3: String in ["ui_equipment_tier_locked", "ui_recipe_price_locked"]:
-		_check_text(StringName(k3), "balance rules")
 	# Pengunjung lihat-lihat (GDD 20.12).
 	var ws: Dictionary = _balance.get("window_shopper", {})
 	var caps: Array = ws.get("max_inside_by_tier", [])
@@ -1181,7 +966,6 @@ func _validate_balance() -> void:
 	var second: float = float(ws.get("second_look_chance", -1.0))
 	if second < 0.0 or second > 1.0 or float(ws.get("stroll_speed_factor", 0.0)) <= 0.0:
 		_err("window_shopper second_look_chance must be 0..1 and stroll_speed_factor positive")
-	_check_text(&"tut_window_shopper", "window_shopper")
 	for k5: String in WINDOW_SHOPPER_LINES:
 		_check_text(StringName(k5), "window_shopper")
 
@@ -1225,7 +1009,7 @@ func _validate_idle() -> void:
 	if not (night_from >= 0.0 and night_from <= 23.0 and night_to >= 0.0 and night_to <= 23.0):
 		_err("idle night hours must be 0..23")
 	for k: String in ["night.arrival_mult", "night.rotifood_mult", "tap.progress_seconds", "tap.min_interval_seconds",
-			"owner.focus_seconds", "clock.autosave_interval_seconds", "rotifood.price_mult", "rotifood.rain_mult"]:
+			"owner.focus_seconds", "clock.autosave_interval_seconds", "rotifood.price_mult"]:
 		if not (_idle_num(k) > 0.0):
 			_err("idle %s must be positive" % k)
 	var start_s: float = _idle_num("clock.start_seconds")

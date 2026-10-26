@@ -1,13 +1,15 @@
 extends Node
-## PauseManager — satu-satunya pemilik alasan pause (GDD 15.2, 71, 90, 98, 113).
+## PauseManager — satu-satunya pemilik alasan pause (GDD idle 3.4; v3.1 15.2, 98).
 ##
 ## Simulasi berjalan hanya bila tidak ada alasan pause aktif. Setiap modal
 ## keputusan mendorong alasannya sendiri, dan jembatan lifecycle mendorong
-## LIFECYCLE_PAUSE saat aplikasi/tab kehilangan fokus. Tidak ada kemajuan
-## offline: waktu nyata yang terlewat tidak pernah dikejar.
+## LIFECYCLE saat aplikasi/tab kehilangan fokus. Saat fokus kembali alasan itu
+## langsung dilepas (tanpa layar "Game Paused") dan waktu yang terlewat dihitung
+## sebagai penghasilan offline oleh OfflineManager (GDD idle 9).
 
 signal pause_changed(paused: bool)
 signal lifecycle_paused()
+signal lifecycle_resumed()
 
 const LIFECYCLE: StringName = &"lifecycle"
 const USER: StringName = &"user"
@@ -76,6 +78,8 @@ func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 			on_focus_lost()
+		NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_WM_WINDOW_FOCUS_IN:
+			on_focus_gained()
 
 
 ## Dipanggil lifecycle bridge (dan test TEST_LIFECYCLE_001).
@@ -86,6 +90,9 @@ func on_focus_lost() -> void:
 	lifecycle_paused.emit()
 
 
-## Pemain menekan Resume pada overlay "Game Paused".
-func resume_from_lifecycle() -> void:
+## Fokus kembali: simulasi langsung jalan lagi (GDD idle 3.4).
+func on_focus_gained() -> void:
+	if not has(LIFECYCLE):
+		return
 	clear(LIFECYCLE)
+	lifecycle_resumed.emit()

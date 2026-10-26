@@ -201,15 +201,13 @@ static func max_walkers() -> int:
 	return clampi(int(floor(float(MAX_WALKERS) * density() + 0.001)), 1, MAX_WALKERS)
 
 
-## Ramai-sepinya jalan menurut jam: sepi saat fajar dan after-hours, ramai pada
-## jam berangkat dan pulang kerja. Preset kualitas rendah menjarangkannya.
+## Ramai-sepinya jalan menurut jam: sepi saat fajar dan malam, ramai pada jam
+## berangkat dan pulang kerja. Preset kualitas rendah menjarangkannya.
 func activity() -> float:
 	return _hour_activity() * density()
 
 
 func _hour_activity() -> float:
-	if sim.time.is_after_hours():
-		return 0.4
 	var h: float = sim.time.time_seconds / 3600.0
 	if h < 6.0:
 		return 0.35
@@ -256,7 +254,7 @@ func _chime() -> void:
 	if h == _hour:
 		return
 	_hour = h
-	if _store_view and sim.time.is_running_phase():
+	if _store_view:
 		chimes += 1
 		AudioManager.play(&"clock_tower_chime")
 

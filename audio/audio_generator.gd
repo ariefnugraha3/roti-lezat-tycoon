@@ -515,11 +515,11 @@ static func music_bed(mood: String) -> AudioStreamWAV:
 const RECIPES: Array[String] = [
 	"tap_soft", "confirm", "cancel", "error", "pause", "door_bell", "door_bell_light",
 	"footstep", "storage_open", "storage_close", "mixer_start", "mixer_loop", "mixer_done",
-	"oven_open", "oven_close", "oven_loop", "oven_ting", "burn_warning", "burnt_poof",
+	"oven_open", "oven_close", "oven_loop", "oven_ting",
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"stamp_confirm", "box_drop", "sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "bailout_cue", "rain_loop", "sunny_ambience", "room_tone",
+	"upgrade_sting", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -573,10 +573,6 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _oven_loop()
 		"oven_ting":
 			return oven_ting()
-		"burn_warning":
-			return _burn_warning()
-		"burnt_poof":
-			return _burnt_poof()
 		"place_display":
 			return _place_display()
 		"paper_rustle":
@@ -750,27 +746,6 @@ static func _oven_loop() -> AudioStreamWAV:
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _lowpass(buf, 420.0)
 	return _to_stream(_normalize(buf, 0.35), true)
-
-
-static func _burn_warning() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.6)
-	for k in 2:
-		buf = _add_osc(buf, 0.12 * float(k), 0.07, 880.0, 880.0, "triangle", 0.5,
-				{"attack": 0.002, "decay": 0.03, "sustain": 0.2, "release": 0.03})
-	var hiss: PackedFloat32Array = _noise_buffer(0.35, 0.25,
-			{"attack": 0.05, "decay": 0.1, "sustain": 0.4, "release": 0.15}, 2500.0, 7000.0)
-	buf = _mix_into(buf, hiss, 0.22)
-	return _to_stream(_normalize(buf, 0.7), false)
-
-
-static func _burnt_poof() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.6)
-	var poof: PackedFloat32Array = _noise_buffer(0.5, 0.8,
-			{"attack": 0.01, "decay": 0.2, "sustain": 0.1, "release": 0.2}, 60.0, 900.0)
-	buf = _mix_into(buf, poof, 0.0)
-	buf = _add_osc(buf, 0.0, 0.3, 180.0, 70.0, "sine", 0.4,
-			{"attack": 0.005, "decay": 0.15, "sustain": 0.0, "release": 0.1})
-	return _to_stream(_normalize(buf, 0.6), false)
 
 
 static func _place_display() -> AudioStreamWAV:

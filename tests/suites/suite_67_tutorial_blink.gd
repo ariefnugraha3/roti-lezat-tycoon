@@ -6,16 +6,9 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_27_TUTORIAL_BLINK", "name": "27.5 the station a tutorial step asks the player to tap blinks bright (storage, mixer, oven, display, the cashier counter, the RotiFood tablet); the blink moves with the steps and stops when the hint ends", "fn": _blink},
+		{"id": "ACC_27_TUTORIAL_BLINK", "name": "27.5 the station an onboarding hint points at blinks bright (storage, mixer, oven, display, the cashier counter, the RotiFood tablet); the blink moves with the hint and stops when it ends", "fn": _blink},
 		{"id": "ACC_27_TUTORIAL_BLINK_CHEAP", "name": "27.5, 89.5 the blink beats about once a second, holds a steady glow with Reduced Motion, reuses the tile-overlay shader, is warmed at loading and survives a furniture rebuild", "fn": _cheap},
 	]
-
-
-## Seperti GameRoot._show_tutorial_prompt: sorot sasaran prompt tutorial.
-func _follow(world: WorldView, s: SimulationRoot) -> void:
-	var p: Dictionary = s.tutorial.prompt
-	world.highlight(StringName(str(p.get("highlight_kind", ""))), int(p.get("highlight_iid", -1)))
-	world._process(0.016)
 
 
 func _meshes(root: Node) -> Array[MeshInstance3D]:
@@ -50,62 +43,30 @@ func _count_lit(world: WorldView) -> int:
 func _blink() -> void:
 	PauseManager.clear_all()
 	var s: SimulationRoot = new_sim(6701)
+	s.tutorial.skip()
 	var world := WorldView.new()
 	runner.add_child(world)
 	world.setup(s)
 	world._process(0.016)
-	var storage: Node3D = world.furniture.get(s.equipment.placed_list(&"storage")[0].iid)
-	var mixer: Node3D = world.furniture.get(s.equipment.placed_list(&"mixer")[0].iid)
-	# Hari 1: setelah sambutan, Decoration Mode lebih dulu (GDD 88.1). Tombolnya
-	# di HUD, jadi tidak ada perabot yang berkedip; di Decoration Mode rak
-	# disarankan untuk dipindah.
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_welcome", "Day 1 starts with the welcome")
-	s.tutorial.dismiss()
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_decor_open", "then asks for Decoration Mode")
-	_follow(world, s)
-	eq(_count_lit(world), 0, "a HUD button, so no furniture blinks")
-	s.tutorial.on_event(&"decor_opened")
-	_follow(world, s)
-	var shelf: Node3D = world.furniture.get(s.equipment.placed_list(&"display")[0].iid)
-	check(world.blink_target() == shelf and _lit(shelf), "in Decoration Mode the suggested shelf blinks")
-	s.tutorial.on_event(&"furniture_placed")
-	s.tutorial.on_event(&"decor_closed")
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_tap_storage", "then asks for the storage")
-	_follow(world, s)
-	check(world.blink_target() == storage, "the storage blinks")
-	check(_lit(storage), "all of it")
-	eq(_count_lit(world), _meshes(storage).size(), "and nothing else")
-	# Langkah berikutnya: Mixer. Storage berhenti berkedip.
-	s.tutorial.on_event(&"storage_opened")
-	s.tutorial.on_event(&"recipe_ordered")
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_tap_mixer", "after the recipe it asks for the mixer")
-	_follow(world, s)
-	check(world.blink_target() == mixer and _lit(mixer), "the mixer blinks")
-	eq(_count_lit(world), _meshes(mixer).size(), "the storage stops")
-	# Petunjuk tanpa sasaran: tidak ada yang berkedip.
-	s.tutorial.on_event(&"mixing_started")
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_equipment_works", "while mixing it only explains")
-	_follow(world, s)
-	eq(world.blink_target(), null, "so nothing blinks")
-	eq(_count_lit(world), 0, "and no part keeps the glow")
-	s.tutorial.on_event(&"mixer_done")
-	_follow(world, s)
-	check(world.blink_target() == mixer and _lit(mixer), "the finished mixer blinks for pickup")
-	s.tutorial.on_event(&"dough_picked")
-	eq(str(s.tutorial.prompt.get("key", "")), "tut_to_oven", "then the oven")
-	_follow(world, s)
-	var oven: Node3D = world.furniture.get(s.equipment.placed_list(&"oven")[0].iid)
-	check(world.blink_target() == oven and _lit(oven), "the oven blinks")
-	# Sasaran lain yang dipakai tutorial: rak, meja kasir jalur utama, tablet.
-	var display_iid: int = s.equipment.placed_list(&"display")[0].iid
-	world.highlight(&"display", display_iid)
-	world._process(0.016)
-	check(world.blink_target() == world.furniture[display_iid] and _lit(world.furniture[display_iid]), "the display blinks for the slot picker")
+	eq(_count_lit(world), 0, "nothing blinks without a hint")
+	# Setiap jenis sasaran yang bisa disorot langkah onboarding: hanya sasaran itu
+	# yang berkedip, dan kedipnya pindah bersama langkah.
+	var lit_before: Node3D = null
+	for cat: StringName in [&"storage", &"mixer", &"oven", &"display"]:
+		var iid: int = s.equipment.placed_list(cat)[0].iid
+		var node: Node3D = world.furniture.get(iid)
+		world.highlight(cat, iid)
+		world._process(0.016)
+		check(world.blink_target() == node and _lit(node), "the %s blinks" % cat)
+		eq(_count_lit(world), _meshes(node).size(), "and nothing else while the %s blinks" % cat)
+		if lit_before != null:
+			check(not _lit(lit_before), "the previous target stops when the %s takes over" % cat)
+		lit_before = node
 	world.highlight(&"cashier", -1)
 	world._process(0.016)
 	var counter: Node3D = world.blink_target()
 	var lane: QueueLane = s.queue.main_lane()
-	check(counter != null and String(counter.name) == "Counter_%s" % lane.counter_id, "the main lane's counter blinks for manual service")
+	check(counter != null and String(counter.name) == "Counter_%s" % lane.counter_id, "the owner's counter blinks")
 	check(counter != null and _lit(counter), "all of the counter")
 	world.highlight(&"tablet", -1)
 	world._process(0.016)

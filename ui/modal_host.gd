@@ -23,6 +23,10 @@ func register(id: StringName, factory: Callable) -> void:
 	_factories[id] = factory
 
 
+func has_screen(id: StringName) -> bool:
+	return _factories.has(id)
+
+
 func has_blocking() -> bool:
 	for s: UIScreen in _stack:
 		if s.blocking:
@@ -59,6 +63,12 @@ func open(id: StringName, params: Dictionary = {}) -> UIScreen:
 		for old: UIScreen in _stack.duplicate():
 			if old.blocking and not old.overlay and not old.keep_open:
 				close_screen(old)
+	# Lembar bawah (GDD idle 12.0.5): satu dalam satu waktu; layar besar lain
+	# menggantikannya.
+	if s.sheet or (s.blocking and not s.overlay):
+		for old2: UIScreen in _stack.duplicate():
+			if old2.sheet:
+				close_screen(old2)
 	var at: int = _stack.size()
 	if not s.overlay:
 		for i in _stack.size():

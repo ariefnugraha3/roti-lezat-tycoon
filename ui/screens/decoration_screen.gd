@@ -106,13 +106,7 @@ var _warn_title: Label = null
 var _warn_detail: Label = null
 var _warn_tween: Tween = null
 var _overlay_floor: StringName = &""
-## Tombol Done dan balon tutorial Hari 1 (GDD 88.1): "pindahkan perabot",
-## lalu "ketuk Done".
 var _done_btn: Button = null
-var _tut: PanelContainer = null
-var _tut_label: Label = null
-## Tip menaruh alat baru sedang tampil (GDD 88.4).
-var _new_item_tip: bool = false
 
 
 func _init() -> void:
@@ -145,22 +139,13 @@ func build() -> void:
 	_build_bottom(frame)
 	_build_warning(frame)
 	_build_toolbar()
-	_build_tutorial(frame)
 	sim.world.layout_changed.connect(_refresh_overlay)
-	EventBus.tutorial_step_changed.connect(_on_tutorial_step)
 	var pre: int = int(params.get("select_iid", -1))
 	if pre >= 0:
 		_hold_equipment(pre)
 		_focus_pending = has_selection()
-		# Alat baru dari Market: jelaskan cara menaruhnya, sekali (GDD 88.4).
-		var e: EquipmentInstance = sim.equipment.get_inst(pre)
-		if e != null and not e.placed and has_selection() and sim.tutorial.screen_tour(&"place_equipment"):
-			sim.tutorial.mark_tour(&"place_equipment")
-			_new_item_tip = true
 	_refresh_all()
 	_refresh_overlay()
-	sim.tutorial.on_event(&"decor_opened")
-	_refresh_tutorial()
 
 
 # ===========================================================================
@@ -199,65 +184,6 @@ func _build_top_bar(frame: Control) -> void:
 	done.name = "Done"
 	done.custom_minimum_size = Vector2(120, 48)
 	_done_btn = done
-
-
-## Balon tutorial kuning (gaya petunjuk HUD) tepat di bawah bilah atas; hanya
-## tampil selama langkah dekorasi tutorial Hari 1 (GDD 88.1).
-func _build_tutorial(frame: Control) -> void:
-	_tut = PanelContainer.new()
-	_tut.name = "TutorialTip"
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.BUTTER_YELLOW, 20, true)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 18
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	_tut.add_theme_stylebox_override("panel", sb)
-	_tut.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_tut.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_tut.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(_tut)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	_tut.add_child(row)
-	row.add_child(ProceduralUIFactory.badge("chef", Palette.FLOUR_WHITE, Palette.UI_WOOD, 40))
-	_tut_label = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
-	_tut_label.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	_tut_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tut_label.custom_minimum_size = Vector2(440, 0)
-	row.add_child(_tut_label)
-	_tut.visible = false
-	_top.resized.connect(func() -> void: _tut.offset_top = _top.size.y + 10.0)
-
-
-func _on_tutorial_step(_key: StringName) -> void:
-	_refresh_tutorial()
-
-
-## Tampilkan langkah dekorasi tutorial yang berlaku, dan denyutkan Done saat
-## pemain tinggal menutup Decoration Mode.
-func _refresh_tutorial() -> void:
-	if _tut == null:
-		return
-	var p: Dictionary = sim.tutorial.prompt
-	var key: String = str(p.get("key", ""))
-	var show_tip: bool = bool(p.get("guided", false)) and key in ["tut_decor_move", "tut_decor_done"]
-	if not show_tip and _new_item_tip:
-		key = "tut_place_equipment"
-		show_tip = true
-	_tut.visible = show_tip
-	if show_tip:
-		_tut_label.text = Tx.t(key)
-		_tut.reset_size()
-		_tut.offset_top = _top.size.y + 10.0
-	if str(p.get("highlight_kind", "")) == "decor_done" and show_tip:
-		TutorialPulse.attach(_done_btn, ProceduralUIFactory.RADIUS_PILL)
-	else:
-		TutorialPulse.detach(_done_btn)
-
-
-## Balon tutorial yang sedang tampil (untuk tes), atau null.
-func tutorial_tip() -> PanelContainer:
-	return _tut if _tut != null and _tut.visible else null
 
 
 ## Tepi bawah: baki barang (tertutup sampai sebuah tab diketuk) di atas baris
@@ -469,11 +395,6 @@ func _render_tray() -> void:
 					var sub3: String = "%s · %s" % [type_text, Tx.t("ui_decor_equipped") if eq else Tx.t("ui_decor_equip")]
 					_tray_row.add_child(_card(name_text, sub3, eq, false, _equip.bind(def.id)))
 		TAB_SHOP:
-			if not sim.time.is_after_hours():
-				var note: Label = ProceduralUIFactory.label(Tx.t("ui_available_after_closing"), 15, Palette.DANGER)
-				note.custom_minimum_size = Vector2(150, 0)
-				note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				_tray_row.add_child(note)
 			for x: Variant in DataRegistry.decorations():
 				var d: MiscDefinitions.DecorationDefinition = x
 				if d.source != &"shop":
@@ -700,9 +621,6 @@ func _place() -> void:
 		return
 	EventBus.sfx.emit(&"bread_place_display", _cand_floor)
 	_drop_hold()
-	if _new_item_tip:
-		_new_item_tip = false
-		_refresh_tutorial()
 	_refresh_overlay()
 	_refresh_all()
 
@@ -880,7 +798,8 @@ func _update_toolbar_content() -> void:
 		var e: EquipmentInstance = sim.equipment.get_inst(_sel_iid)
 		_tb_name.text = Tx.item_name(e.def_id)
 		_tb_rotate.visible = true
-		_tb_store.visible = e.placed and not EquipmentManager.is_fixture(e.category()) and not sim.equipment.is_in_use(e.iid)
+		# Stasiun idle selalu terpasang (GDD idle 8.4): tidak bisa disimpan.
+		_tb_store.visible = false
 	else:
 		var o: Dictionary = sim.decoration.item(_sel_decor)
 		_tb_name.text = Tx.t(String(sim.decoration.def_of(o).localization_key))
@@ -914,9 +833,6 @@ func _place_toolbar() -> void:
 	var sz: Vector2 = _toolbar.panel.get_combined_minimum_size()
 	_toolbar.panel.size = sz
 	var top_limit: float = _top.get_global_rect().end.y + EDGE_PX
-	# Balon tutorial di bawah bilah atas juga tidak boleh tertutup toolbar.
-	if _tut != null and _tut.visible:
-		top_limit = maxf(top_limit, _tut.get_global_rect().end.y + EDGE_PX)
 	var bottom_limit: float = _bottom.get_global_rect().position.y - EDGE_PX
 	var anchor: Vector2 = _toolbar_anchor()
 	var pos: Vector2
@@ -926,7 +842,7 @@ func _place_toolbar() -> void:
 	else:
 		pos = Vector2(anchor.x - sz.x * 0.5, anchor.y - ActionBar.TAIL_H - sz.y)
 		pos.x = clampf(pos.x, EDGE_PX, maxf(EDGE_PX, view.x - sz.x - EDGE_PX))
-		# Tidak muat di atas barang (bilah atas atau balon tutorial): di bawahnya,
+		# Tidak muat di atas barang (bilah atas): di bawahnya,
 		# supaya toolbar tidak menutupi barang yang sedang dipegang.
 		if pos.y < top_limit:
 			var held: Rect2 = game.world.screen_rect_of([game.world.hold_node()])
@@ -1237,12 +1153,7 @@ func _put_away() -> void:
 	var iid: int = _sel_iid
 	var uid: int = _sel_decor
 	_drop_hold()
-	if iid >= 0:
-		var r: StringName = sim.equipment.put_away(iid)
-		if r != &"":
-			_set_status(r, false)
-			_warn_rejected(r)
-	elif uid >= 0:
+	if uid >= 0 and iid < 0:
 		sim.decoration.put_away(uid)
 	_refresh_overlay()
 	_refresh_all()
@@ -1273,9 +1184,6 @@ func on_closed() -> void:
 	game.commands.drag_override = Callable()
 	game.commands.drop_override = Callable()
 	game.hud.set_decoration_active(false)
-	if EventBus.tutorial_step_changed.is_connected(_on_tutorial_step):
-		EventBus.tutorial_step_changed.disconnect(_on_tutorial_step)
-	# Terakhir, supaya petunjuk berikutnya tampil di HUD yang sudah kembali.
 	sim.tutorial.on_event(&"decor_closed")
 
 

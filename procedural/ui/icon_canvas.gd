@@ -28,6 +28,7 @@ const NAMES: Array[String] = [
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
+	"back", "up", "lock",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -51,7 +52,8 @@ const PASS_SHADOW: int = 2
 	"plus", "minus", "warning", "fire", "box", "megaphone", "chef", "trophy",
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
-	"gear", "sound", "mute", "skip", "rotate"
+	"gear", "sound", "mute", "skip", "rotate",
+	"back", "up", "lock"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -218,6 +220,9 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"mute": _i_mute(c, s, col)
 		"skip": _i_skip(c, s, col)
 		"rotate": _i_rotate(c, s, col)
+		"back": _i_back(c, s, col)
+		"up": _i_up(c, s, col)
+		"lock": _i_lock(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -691,6 +696,27 @@ func _i_hourglass(c: Vector2, s: float, col: Color) -> void:
 func _i_pause(c: Vector2, s: float, col: Color) -> void:
 	_round_rect(c, s, -0.28, -0.34, 0.20, 0.68, 0.09, col)
 	_round_rect(c, s, 0.08, -0.34, 0.20, 0.68, 0.09, col)
+
+
+## Kembali — chevron ke kiri (halaman detail lembar bawah, GDD idle 12.0.5).
+func _i_back(c: Vector2, s: float, col: Color) -> void:
+	_bar(c, s, 0.12, -0.30, -0.16, 0.0, 0.14, col)
+	_bar(c, s, -0.16, 0.0, 0.12, 0.30, 0.14, col)
+
+
+## Naik level — panah ke atas (chip level dan tombol upgrade, GDD idle 12.1).
+func _i_up(c: Vector2, s: float, col: Color) -> void:
+	_blob(c, s, [Vector2(0.0, -0.40), Vector2(0.34, -0.02), Vector2(-0.34, -0.02)], col)
+	_round_rect(c, s, -0.12, -0.08, 0.24, 0.46, 0.08, col)
+
+
+## Gembok — resep atau fitur yang belum terbuka.
+func _i_lock(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_arcline(c, s, 0.0, -0.10, 0.18, PI, TAU, 0.10, col)
+	_round_rect(c, s, -0.30, -0.10, 0.60, 0.48, 0.10, col)
+	_dot(c, s, 0.0, 0.10, 0.07, ink)
+	_bar(c, s, 0.0, 0.10, 0.0, 0.22, 0.06, ink)
 
 
 ## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).

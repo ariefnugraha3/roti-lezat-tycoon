@@ -19,20 +19,20 @@ const LINES: Dictionary = {
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_31_SURPRISE_PLAN", "name": "31.9 every day plans 2-3 different surprises at random times in opening hours; none comes back the next day and all eight come round within any four days", "fn": _plan},
+		{"id": "ACC_31_SURPRISE_PLAN", "name": "31.9 every day plans 2-3 different surprises at random daytime hours; none comes back the next day and all eight come round within any four days", "fn": _plan},
 		{"id": "ACC_31_SURPRISE_SKITS", "name": "31.9 each of the eight surprises plays out in the shop, says its English lines one at a time, and leaves nothing behind", "fn": _skits},
-		{"id": "ACC_31_SURPRISE_WHEN", "name": "31.9 a surprise starts at its time only while the shop is open, unpaused, outside Decoration Mode and on screen; pause freezes it, Decoration Mode hides it, closing ends it", "fn": _when},
+		{"id": "ACC_31_SURPRISE_WHEN", "name": "31.9 a surprise starts at its time only while unpaused, outside Decoration Mode and on screen; pause freezes it, Decoration Mode hides it, a late one is dropped", "fn": _when},
 		{"id": "ACC_31_SURPRISE_COSMETIC", "name": "31.9/116 surprises are only a show: a day with one always playing plays out exactly like a day without", "fn": _cosmetic},
 	]
 
 
+## Toko pukul 08:00 tanpa kedatangan acak.
 func _open_store(seed_value: int) -> SimulationRoot:
 	var s: SimulationRoot = new_sim(seed_value)
 	s.tutorial.skip()
-	s.demand.scripted_walkins.clear()
-	s.demand.scripted_orders.clear()
-	s.demand.scripted_window_shoppers.clear()
-	run_until(s, 8.0 * 3600.0 + 10.0)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
 	return s
 
 
@@ -46,7 +46,7 @@ func _plan() -> void:
 	var hours: Array = DataRegistry.bal("presentation.surprise_hours")
 	var lo: float = float(hours[0]) * 3600.0
 	var hi: float = float(hours[1]) * 3600.0
-	check(lo >= DataRegistry.balf("clock.open_seconds") and hi <= DataRegistry.balf("clock.close_seconds"), "the window lies inside opening hours")
+	check(lo >= DataRegistry.idlef("night.to_hour") * 3600.0 and hi <= DataRegistry.idlef("night.from_hour") * 3600.0, "the window lies in the daytime, outside the night (GDD idle 3.2)")
 	var problems: Array[String] = []
 	var sizes: Dictionary = {}
 	var first_days: Dictionary = {}
@@ -221,14 +221,6 @@ func _when() -> void:
 	world.decoration_mode = false
 	check(director.todo().is_empty() or director.todo()[0] != second, "a surprise held up for over 1.5 in-game hours is dropped")
 	eq(director.running(), &"", "instead of playing late")
-	# Toko tutup: adegan langsung berakhir dan pemerannya hilang.
-	check(director.start(&"mascot"), "another surprise plays")
-	for i3 in 30:
-		world._process(0.05)
-	check(s.close_early(), "the shop closes")
-	world._process(0.05)
-	eq(director.running(), &"", "closing ends the surprise at once")
-	eq(director.cast_nodes().size(), 0, "and sends its cast away")
 	world.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(s)
@@ -241,8 +233,6 @@ func _cosmetic() -> void:
 	var b: SimulationRoot = new_sim(6613)
 	var bot_a := SimBot.new(a)
 	var bot_b := SimBot.new(b)
-	run_until(a, 8.0 * 3600.0, bot_a)
-	run_until(b, 8.0 * 3600.0, bot_b)
 	var world := WorldView.new()
 	runner.add_child(world)
 	world.setup(a)
@@ -255,16 +245,17 @@ func _cosmetic() -> void:
 		a.step(a.tick_seconds)
 		bot_b.think()
 		b.step(b.tick_seconds)
-		if world.surprises.running() == &"" and a.time.is_open() and next < kinds.size():
+		if world.surprises.running() == &"" and next < kinds.size():
 			if world.surprises.start(StringName(kinds[next])):
 				played[kinds[next]] = true
 			next += 1
 		world._process(real_dt)
 	eq(played.size(), kinds.size(), "all eight surprises played during the morning")
-	check(a.customers.entered_today > 0, "while customers came and went (%d)" % a.customers.entered_today)
+	var entered: int = int(a.statistics.get_stat("total_customers_entered"))
+	check(entered > 0, "while customers came and went (%d)" % entered)
 	same_state(_without_tip(state_of(b)), _without_tip(state_of(a)), "the morning plays out the same with the surprises")
 	var clock: int = int(a.time.time_seconds)
-	print("      all eight surprises over by %02d:%02d, %d walk-ins so far" % [clock / 3600, (clock / 60) % 60, a.customers.entered_today])
+	print("      all eight surprises over by %02d:%02d, %d walk-ins so far" % [clock / 3600, (clock / 60) % 60, entered])
 	world.queue_free()
 	await runner.get_tree().process_frame
 	run_day(a, bot_a)
