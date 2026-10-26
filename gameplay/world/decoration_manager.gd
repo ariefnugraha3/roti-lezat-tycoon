@@ -1,8 +1,9 @@
 class_name DecorationManager
 extends SimManager
-## DecorationManager — dekorasi kosmetik milik pemain (GDD 72, 72.1, 72.3, 92.1).
-## Murni kosmetik: tidak mengubah demand, rating, kecepatan, atau interaksi.
-## Toko dekorasi dan menata ulang boleh kapan saja (toko idle selalu buka).
+## DecorationManager — dekorasi milik pemain (GDD 72, 72.1, 72.3, 92.1). Dekorasi
+## toko membawa satu bonus yang aktif sejak dibeli sampai Waralaba (GDD idle 8.8,
+## 10.5); selebihnya kosmetik. Harga toko diskalakan per tier lokasi. Toko
+## dekorasi dan menata ulang boleh kapan saja (toko idle selalu buka).
 ##
 ## Aturan slot (GDD 72.3, keputusan maintainer 2026-09-30): semua dekorasi
 ## dipasang di lantai toko, dan jumlah yang terpasang per jenis dibatasi
@@ -15,12 +16,16 @@ var owned: Array[Dictionary] = []
 var next_uid: int = 1
 ## skin_target / "outfit" -> deco_id yang sedang dipakai.
 var equipped: Dictionary = {}
+## deco_id -> true: dekorasi berbonus yang dibeli di putaran ini. Setiap jenis
+## memberi bonusnya sekali; Waralaba mengosongkannya.
+var bonus_active: Dictionary = {}
 
 
 func new_game() -> void:
 	owned.clear()
 	next_uid = 1
 	equipped.clear()
+	bonus_active.clear()
 
 
 func def_of(item: Dictionary) -> MiscDefinitions.DecorationDefinition:
@@ -59,24 +64,47 @@ func grant(deco_id: StringName) -> void:
 		equip(deco_id)
 
 
+## Harga toko sekarang: harga katalog × `decor.price_mult_by_tier` lokasi.
+func price(deco_id: StringName) -> float:
+	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	if def == null:
+		return -1.0
+	var mults: Array = DataRegistry.idle("decor.price_mult_by_tier")
+	return def.price_kr * float(mults[clampi(sim.world.location.tier - 1, 0, mults.size() - 1)])
+
+
+func is_bonus_active(deco_id: StringName) -> bool:
+	return bonus_active.has(String(deco_id))
+
+
+## &"" bila boleh dibeli; selain itu invalid, owned (skin), active (bonusnya
+## sudah aktif di putaran ini), kr.
 func can_buy(deco_id: StringName) -> StringName:
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
 	if def == null or def.source != &"shop":
 		return &"invalid"
 	if (def.placement_type == &"skin") and owns(deco_id):
 		return &"owned"
-	if not sim.economy.can_afford(def.price_kr):
+	if def.has_bonus() and is_bonus_active(deco_id):
+		return &"active"
+	if not sim.economy.can_afford(price(deco_id)):
 		return &"kr"
 	return &""
 
 
+## Beli dekorasi. Dekorasi berbonus yang sudah dimiliki dari putaran lalu tidak
+## menambah salinan: membelinya lagi hanya menyalakan bonusnya (GDD idle 10.5).
 func buy(deco_id: StringName) -> StringName:
 	var reason: StringName = can_buy(deco_id)
 	if reason != &"":
 		return reason
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
-	sim.economy.spend(def.price_kr, &"DECOR_PURCHASE", deco_id, {})
-	_add(deco_id)
+	sim.economy.spend(price(deco_id), &"DECOR_PURCHASE", deco_id, {})
+	if not (def.has_bonus() and owns(deco_id)):
+		_add(deco_id)
+	if def.has_bonus():
+		bonus_active[String(deco_id)] = true
+		sim.idle_economy.invalidate()
 	if def.placement_type == &"skin":
 		equip(deco_id)
 	SaveManager.request_autosave("decor_purchase")
@@ -85,8 +113,28 @@ func buy(deco_id: StringName) -> StringName:
 
 ## Pengali bonus dekorasi sejenis (GDD idle 8.8): 1 + Σ nilai bonus `kind`
 ## (arrival, price, rotifood) dari dekorasi berbonus yang dibeli putaran ini.
-func bonus_mult(_kind: StringName) -> float:
-	return 1.0
+func bonus_mult(kind: StringName) -> float:
+	var m: float = 1.0
+	for k: Variant in bonus_active.keys():
+		var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(k)))
+		if def != null and str(def.bonus.get("type", "")) == String(kind):
+			m += float(def.bonus.get("value", 0.0))
+	return m
+
+
+## Waralaba (GDD idle 10.5): dekorasi berbonus kembali ke inventaris dan
+## bonusnya mati sampai dibeli lagi. Mengembalikan uid dekorasi lain yang
+## terpasang (diangkat juga, untuk dipasang lagi di denah baru).
+func begin_run() -> Array[int]:
+	var others: Array[int] = []
+	for o: Dictionary in owned:
+		if not bool(o["placed"]):
+			continue
+		o["placed"] = false
+		if not def_of(o).has_bonus():
+			others.append(int(o["uid"]))
+	bonus_active.clear()
+	return others
 
 
 func equip(deco_id: StringName) -> void:
@@ -350,7 +398,7 @@ func replace_lifted(uids: Array[int]) -> int:
 
 
 func capture() -> Dictionary:
-	return {"owned": owned.duplicate(true), "next_uid": next_uid, "equipped": equipped.duplicate()}
+	return {"owned": owned.duplicate(true), "next_uid": next_uid, "equipped": equipped.duplicate(), "bonus_active": bonus_active.keys()}
 
 
 func restore(d: Dictionary) -> void:
@@ -364,3 +412,7 @@ func restore(d: Dictionary) -> void:
 	equipped = (d.get("equipped", {}) as Dictionary).duplicate()
 	# Save sebelum 2026-10-01 masih mencatat badge sebagai barang "dipakai".
 	equipped.erase("badge")
+	for k: Variant in d.get("bonus_active", []):
+		var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(k)))
+		if def != null and def.has_bonus() and owns(def.id):
+			bonus_active[String(def.id)] = true

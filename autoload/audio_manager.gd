@@ -358,6 +358,14 @@ func set_loop(event_id: StringName, owner_key: String, active: bool) -> void:
 		_loops.erase(event_id)
 
 
+## Hentikan bunyi pendek yang masih diputar (runner tes sebelum keluar: playback
+## yang masih jalan saat shutdown dilaporkan sebagai objek bocor).
+func stop_all_sounds() -> void:
+	for p: AudioStreamPlayer in _sfx:
+		p.stop()
+	stop_all_loops()
+
+
 func stop_all_loops() -> void:
 	for k: Variant in _loops.keys():
 		var p: AudioStreamPlayer = _loops[k]

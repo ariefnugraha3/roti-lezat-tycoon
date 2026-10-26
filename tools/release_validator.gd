@@ -309,12 +309,16 @@ func _check_golden() -> void:
 	var s := SimulationRoot.new()
 	add_child(s)
 	s.load_from_save(data)
-	var first: String = JSON.stringify(TestSuite.normalize_save(s.capture_save()), "", true, true)
+	var first: Dictionary = TestSuite.normalize_save(s.capture_save())
 	var s2 := SimulationRoot.new()
 	add_child(s2)
 	s2.load_from_save(JSON.parse_string(JSON.stringify(s.capture_save(), "", true, true)))
-	var second: String = JSON.stringify(TestSuite.normalize_save(s2.capture_save()), "", true, true)
-	_add("golden save loads and re-saves idempotently", first == second and SaveManager.validate_save(data, &"profile_1") == "")
+	var second: Dictionary = TestSuite.normalize_save(s2.capture_save())
+	# Nilai dibandingkan, bukan teks JSON: Godot kadang mencetak pecahan sangat
+	# kecil (mis. -9.7e-17) dengan digit terakhir berbeda setelah dibaca ulang.
+	var diff: Array[String] = TestSuite.diff_state(first, second)
+	var reason: String = SaveManager.validate_save(data, &"profile_1")
+	_add("golden save loads and re-saves idempotently", diff.is_empty() and reason == "", "; ".join(diff) + reason)
 	_free(s)
 	_free(s2)
 

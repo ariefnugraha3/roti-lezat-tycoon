@@ -399,8 +399,19 @@ func _render_tray() -> void:
 				var d: MiscDefinitions.DecorationDefinition = x
 				if d.source != &"shop":
 					continue
-				var price: String = Tx.t("ui_decor_buy", {"price": Tx.kr(d.price_kr)})
-				_tray_row.add_child(_card(Tx.t(String(d.localization_key)), price, false, sim.decoration.can_buy(d.id) != &"", _buy.bind(d.id)))
+				var card: Button = _card(Tx.t(String(d.localization_key)), shop_sub(sim, d), false, sim.decoration.can_buy(d.id) != &"", _buy.bind(d.id))
+				card.name = "Shop_" + String(d.id)
+				_tray_row.add_child(card)
+
+
+## Keterangan kartu toko (GDD idle 8.8): bonusnya lalu harga sekarang, atau
+## "Active" bila bonusnya sudah menyala di putaran ini.
+static func shop_sub(s: SimulationRoot, d: MiscDefinitions.DecorationDefinition) -> String:
+	var price_text: String = Tx.t("ui_decor_buy", {"price": Tx.kr(s.decoration.price(d.id))})
+	if not d.has_bonus():
+		return price_text
+	var bonus_text: String = Tx.t("ui_decor_bonus_" + str(d.bonus["type"]), {"percent": Tx.percent(float(d.bonus["value"]))})
+	return "%s · %s" % [bonus_text, Tx.t("ui_decor_bonus_active") if s.decoration.is_bonus_active(d.id) else price_text]
 
 
 ## Ringkasan slot dekorasi lokasi ini (GDD 72.3): "Wall 1/2" dan seterusnya;
@@ -488,7 +499,8 @@ func _equip(deco_id: StringName) -> void:
 func _buy(deco_id: StringName) -> void:
 	var r: StringName = sim.decoration.buy(deco_id)
 	if r != &"":
-		EventBus.notify.emit(1, "ui_feedback_not_enough_kr" if r == &"kr" else "ui_available_after_closing", {}, &"coin")
+		if r == &"kr":
+			EventBus.notify.emit(1, "ui_feedback_not_enough_kr", {}, &"coin")
 		return
 	game.world.rebuild_all()
 	_tab = TAB_OWNED

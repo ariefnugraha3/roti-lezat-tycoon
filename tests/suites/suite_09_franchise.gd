@@ -51,7 +51,7 @@ func _prestige() -> void:
 	check(sold > 0.0, "the Tier 3 shop sells before the sale")
 	var deco: MiscDefinitions.DecorationDefinition = DataRegistry.decorations()[0]
 	s.decoration.grant(deco.id)
-	var owned_before: int = s.decoration.owned.size()
+	var owned_before: Array = s.decoration.owned.map(func(o: Dictionary) -> int: return int(o["uid"]))
 	var day: int = s.time.day
 	var clock: float = s.time.time_seconds
 	var appearance: Dictionary = s.player.appearance.duplicate()
@@ -63,7 +63,9 @@ func _prestige() -> void:
 	near(s.statistics.get_stat("alltime_earned_kr"), alltime, 0.5, "alltime earnings stay")
 	near(s.statistics.get_stat("total_bread_sold"), sold, 0.001, "lifetime stats stay")
 	near(s.statistics.get_stat("run_earned_kr"), 0.0, 0.001, "run earnings start over")
-	eq(s.decoration.owned.size(), owned_before, "owned decorations stay")
+	var owned_after: Array = s.decoration.owned.map(func(o: Dictionary) -> int: return int(o["uid"]))
+	check(owned_before.all(func(u: int) -> bool: return owned_after.has(u)), "owned decorations stay")
+	check(s.achievements.is_unlocked(&"ach_first_franchise"), "the sale unlocks First Franchise (GDD idle 11.4)")
 	eq(s.bakery_name, "Test Bakery", "the bakery name stays")
 	eq(s.player.appearance, appearance, "the character stays")
 	check(s.tutorial.skipped, "the tutorial state stays")
@@ -86,8 +88,8 @@ func _prestige() -> void:
 	check(s.world.layout_valid(), "the new branch has a valid layout")
 	# Pengali bintang dan perk 1 bintang.
 	var base_price: float = DataRegistry.recipe(&"recipe_plain_loaf").base_sell_price_kr
-	near(s.recipe_price(&"recipe_plain_loaf"), base_price * (1.0 + DataRegistry.idlef("prestige.income_per_star") * 2.0), 1e-6,
-		"every star adds 2% to the price (Lv 1 Plain Loaf)")
+	near(s.recipe_price(&"recipe_plain_loaf") / s.boost_income_mult(), base_price * (1.0 + DataRegistry.idlef("prestige.income_per_star") * 2.0), 1e-6,
+		"every star adds 2% to the price (Lv 1 Plain Loaf, without the achievement boost)")
 	check(s.prestige.has_perk(&"perk_offline_plus"), "1 star unlocks Night Watch")
 	near(s.offline.cap_seconds(), (2.0 + 6.0 + 1.0) * 3600.0, 0.001, "which adds 1 h to the offline cap")
 	eq(s.prestige.franchise_block(), &"tier", "the new branch must reach Tier 3 again")

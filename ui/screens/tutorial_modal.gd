@@ -1,6 +1,6 @@
 class_name TutorialModal
 extends UIScreen
-## Langkah onboarding berbentuk popup (GDD idle 13, mis. sapaan Pak Lurah).
+## Langkah onboarding berbentuk popup: sapaan Pak Lurah (GDD idle 13).
 ## Teksnya dari katalog English (v3.1 127). Tombol Skip melewati onboarding.
 
 
@@ -13,7 +13,10 @@ func _init() -> void:
 func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_help"), Vector2(620, 340), false)
 	var row: HBoxContainer = hbox(body, 14)
-	row.add_child(ProceduralUIFactory.icon("chef", 56, Palette.GOLDEN_CRUST))
+	var lurah := LurahPortrait.new()
+	lurah.name = "Lurah"
+	lurah.custom_minimum_size = Vector2(96, 96)
+	row.add_child(lurah)
 	lbl(row, Tx.t(str(params.get("key", ""))), 20, Palette.TEXT, true)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

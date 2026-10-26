@@ -182,6 +182,7 @@ func _shop() -> void:
 	await _frames(2)
 	var move: Button = sheet.content().find_child("Move", true, false) as Button
 	check(move != null and move.disabled, "Move is off until the next location is affordable")
+	var bal0: float = sim.economy.balance
 	sim.debug_add_kr(SimulationRoot.location_cost(2))
 	sheet.tick_page()
 	check(not move.disabled, "and lights up once it is")
@@ -193,7 +194,7 @@ func _shop() -> void:
 			(n as ConfirmDialog)._accept()
 	await _frames(3)
 	eq(sim.world.location.tier, 2, "the bakery moved to Tier 2")
-	near(sim.economy.balance, DataRegistry.idlef("start_kr"), 1.0, "for exactly the location cost")
+	near(sim.economy.balance, bal0, 1.0, "for exactly the location cost")
 	# Buka stasiun baru.
 	sheet = game.modals.open(&"shop", {}) as ShopScreen
 	await _frames(2)

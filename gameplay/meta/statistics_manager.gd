@@ -13,7 +13,7 @@ const STAT_KEYS: Array[String] = [
 	"total_customers_left_no_purchase", "total_customers_lost_patience", "total_customers_missed",
 	"total_rotifood_orders_received", "total_rotifood_orders_completed", "total_rotifood_orders_expired",
 	"staff_hired_count", "location_upgrades_count", "total_play_time_real_seconds",
-	"offline_seconds_total", "offline_earned_kr", "days_passed",
+	"offline_seconds_total", "offline_earned_kr", "days_passed", "franchise_count",
 ]
 const RECORD_KEYS: Array[String] = [
 	"largest_transaction", "highest_reputation", "highest_rate_kr_per_s", "highest_queue",
@@ -49,7 +49,7 @@ func get_stat(key: String) -> float:
 func add(key: StringName, amount: float) -> void:
 	var k: String = String(key)
 	stats[k] = float(stats.get(k, 0.0)) + amount
-	if k == "total_bread_sold":
+	if DataRegistry.ACHIEVEMENT_STATS.has(k):
 		sim.achievements.check_stat(k)
 
 
@@ -102,6 +102,7 @@ func note_tier_reached(location_id: StringName, day: int) -> void:
 func note_offline(seconds: float, earned: float) -> void:
 	stats["offline_seconds_total"] = float(stats.get("offline_seconds_total", 0.0)) + seconds
 	stats["offline_earned_kr"] = float(stats.get("offline_earned_kr", 0.0)) + earned
+	sim.achievements.check_stat("offline_seconds_total")
 
 
 func add_play_time(real_seconds: float) -> void:

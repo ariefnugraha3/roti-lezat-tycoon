@@ -112,6 +112,7 @@ func _enter_overflow() -> void:
 	balance = INF
 	GameLogger.important("ECONOMY", "economy overflow guard entered")
 	EventBus.economy_overflowed.emit()
+	sim.achievements.check_all()
 
 
 ## Rekonsiliasi: saldo == jumlah semua transaksi (TEST_ECONOMY_001).

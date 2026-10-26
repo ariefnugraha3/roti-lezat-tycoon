@@ -57,6 +57,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var code: int = await _run_all()
 	ProceduralCaches.clear_all()
+	# Bunyi yang berhenti baru dibebaskan pada mix audio berikutnya.
+	AudioManager.stop_all_sounds()
+	await get_tree().create_timer(0.3).timeout
 	get_tree().quit(code)
 
 

@@ -49,9 +49,9 @@ func build_page(body: VBoxContainer) -> void:
 				UISheet.row(list, Tx.t(String(a.localization_key)), Tx.t(String(a.id) + "_desc"), ic)
 
 
-## Lama nyata "3h 05m" (statistik waktu).
+## Lama nyata untuk statistik waktu ("2 h 5 min", Tx.duration).
 static func duration_text(seconds: float) -> String:
-	return "%dh %02dm" % [int(seconds / 3600.0), int(fmod(seconds, 3600.0) / 60.0)]
+	return Tx.duration(seconds)
 
 
 func _pair(parent: Control, left: String, right: String) -> void:

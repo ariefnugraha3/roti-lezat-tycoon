@@ -331,6 +331,7 @@ func buy_offer(o: Dictionary, n: int) -> bool:
 			global_levels[StringName(str(o["id"]))] = after
 	_note_levels(o, before, after)
 	sim.idle_economy.invalidate()
+	sim.achievements.check_all()
 	SaveManager.request_autosave("upgrade")
 	return true
 
@@ -518,6 +519,7 @@ func unlock_recipe(recipe_id: StringName) -> bool:
 		return false
 	recipe_levels[recipe_id] = 1
 	sim.prestige.note_recipe_unlocked(recipe_id)
+	sim.achievements.check_all()
 	EventBus.recipe_unlocked.emit(recipe_id)
 	EventBus.sfx.emit(&"level_up", &"")
 	SaveManager.request_autosave("recipe_unlock")

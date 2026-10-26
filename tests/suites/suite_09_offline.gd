@@ -23,6 +23,7 @@ func _model_match() -> void:
 		var s: SimulationRoot = new_sim(7 + tier)
 		if bare:
 			s.tutorial.skip()
+			ModelSample.no_boosts(s)
 		else:
 			ModelSample.build(s, tier)
 		var r: Dictionary = ModelSample.measure(s, 1.0 if bare else 2.0, 24.0)

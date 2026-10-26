@@ -20,6 +20,7 @@ func _unlock(a: MiscDefinitions.AchievementDefinition) -> void:
 		return
 	unlocked[String(a.id)] = sim.time.day
 	sim.decoration.grant(a.reward_id)
+	sim.boosts.grant_achievement_boost()
 	EventBus.achievement_unlocked.emit(a.id)
 	EventBus.sfx.emit(&"achievement_unlock", &"")
 	EventBus.notify.emit(3, "ui_achievement_unlocked", {"name": Tx.t(String(a.localization_key))}, &"trophy")
@@ -39,16 +40,47 @@ func check_stat(stat: String) -> void:
 			and sim.statistics.get_stat(stat) >= float(r.get("value", 0)))
 
 
-func check_balance(balance: float) -> void:
-	_check(func(a: MiscDefinitions.AchievementDefinition) -> bool:
-		var r: Dictionary = a.requirement
-		return str(r.get("type", "")) == "balance_at_least" and balance >= float(r.get("value", 0)))
+func check_balance(_balance: float) -> void:
+	pass
 
 
 func check_tier(tier: int) -> void:
 	_check(func(a: MiscDefinitions.AchievementDefinition) -> bool:
 		var r: Dictionary = a.requirement
 		return str(r.get("type", "")) == "location_tier_at_least" and tier >= int(r.get("value", 0)))
+
+
+## Semua jenis syarat sekaligus: dipanggil setelah level naik, resep dibuka,
+## dan overflow (peristiwa yang jarang).
+func check_all() -> void:
+	_check(met)
+
+
+## Syarat pencapaian `a` terpenuhi sekarang.
+func met(a: MiscDefinitions.AchievementDefinition) -> bool:
+	var r: Dictionary = a.requirement
+	match str(r.get("type", "")):
+		"stat_at_least":
+			return sim.statistics.get_stat(str(r.get("stat", ""))) >= float(r.get("value", 0))
+		"location_tier_at_least":
+			return sim.world.location.tier >= int(r.get("value", 0))
+		"station_level_at_least":
+			for e: EquipmentInstance in sim.equipment.all_sorted():
+				if [&"mixer", &"oven", &"display"].has(e.category()) and sim.upgrades.station_level(e.iid) >= int(r.get("value", 0)):
+					return true
+			return false
+		"recipe_level_at_least":
+			for rid: StringName in sim.upgrades.unlocked_recipes():
+				if sim.upgrades.recipe_level(rid) >= int(r.get("value", 0)):
+					return true
+			return false
+		"condition":
+			match str(r.get("condition", "")):
+				"all_recipes_unlocked":
+					return sim.upgrades.unlocked_recipes().size() >= DataRegistry.recipes().size()
+				"economy_overflow":
+					return sim.economy.overflowed
+	return false
 
 
 func note_recipe_produced(_recipe_id: StringName) -> void:

@@ -31,6 +31,7 @@ func _ready() -> void:
 		sim.start_new_game(&"profile_probe", "Model Bakery", "male", _seed + tier)
 		if _bare:
 			sim.tutorial.skip()
+			ModelSample.no_boosts(sim)
 		else:
 			ModelSample.build(sim, tier)
 		var r: Dictionary = ModelSample.measure(sim, _warm, _hours)

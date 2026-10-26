@@ -4,11 +4,14 @@ extends UISheet
 ## staf, dan global dalam satu daftar vertikal, diurutkan "Best value first" =
 ## kenaikan KR/s ÷ biaya satu level (IdleEconomyManager.ranked_offers). Setiap
 ## baris punya tombol ×1 / ×10 / Max. Urutan dihitung ulang setelah membeli,
-## bukan tiap tick, supaya baris tidak meloncat di bawah jari.
+## bukan tiap tick, supaya baris tidak meloncat di bawah jari. Promosi
+## (GDD idle 11.2, pengganti Marketing v3.1) ada di atas daftar.
 
 const ICON_PX: float = 44.0
 
 var _rows: Array[BuyButtons] = []
+## Promosi: id -> {button, state}.
+var _promos: Dictionary = {}
 
 
 func sheet_title() -> String:
@@ -17,11 +20,16 @@ func sheet_title() -> String:
 
 func build_page(body: VBoxContainer) -> void:
 	_rows.clear()
-	lbl(body, Tx.t("ui_best_value"), 15, Palette.TEXT_MUTED)
+	_promos.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "UpgradeList"
+	lbl(list, Tx.t("ui_promotions"), 15, Palette.TEXT_MUTED)
+	for id: StringName in BoostManager.promo_ids():
+		_promo_row(list, id)
+	lbl(list, Tx.t("ui_best_value"), 15, Palette.TEXT_MUTED)
 	for item: Dictionary in sim.idle_economy.ranked_offers():
 		_row(list, item)
+	_tick_promos()
 
 
 func _row(parent: Control, item: Dictionary) -> void:
@@ -60,11 +68,59 @@ func _row(parent: Control, item: Dictionary) -> void:
 	_rows.append(buy)
 
 
+## Satu promosi: efek dan lamanya, lalu tombol Start dengan biayanya, atau sisa
+## waktu berjalan / jeda.
+func _promo_row(parent: Control, id: StringName) -> void:
+	var p: Dictionary = BoostManager.promo(id)
+	var badge: PanelContainer = ProceduralUIFactory.badge("megaphone", Palette.PASTEL_PERIWINKLE, Palette.UI_WOOD_DEEP, int(ICON_PX))
+	var h: HBoxContainer = UISheet.row(parent, Tx.t(String(id)), promo_effect(p), badge)
+	h.get_parent().name = "Promo_" + String(id)
+	var state: Label = lbl(h, "", 15, Palette.TEXT_MUTED)
+	state.name = "State"
+	var b: Button = ProceduralUIFactory.button("", "primary")
+	b.name = "Start"
+	b.custom_minimum_size = Vector2(150, 52)
+	b.pressed.connect(func() -> void:
+		if sim.boosts.start_promo(id):
+			_tick_promos())
+	h.add_child(b)
+	_promos[id] = {"button": b, "state": state}
+
+
+## "Customers ×1.5 for 5 min" (+ RotiFood bila ada).
+static func promo_effect(p: Dictionary) -> String:
+	var key: String = "ui_promo_effect_rf" if float(p.get("rotifood_mult", 1.0)) > 1.0 else "ui_promo_effect"
+	return Tx.t(key, {"mult": Tx.mult(float(p.get("arrival_mult", 1.0))), "rf": Tx.mult(float(p.get("rotifood_mult", 1.0))),
+		"minutes": int(float(p.get("minutes", 0)))})
+
+
+func _tick_promos() -> void:
+	for k: Variant in _promos.keys():
+		var id: StringName = k
+		var r: Dictionary = _promos[k]
+		var b: Button = r["button"]
+		var st: Label = r["state"]
+		if not is_instance_valid(b):
+			continue
+		var block: StringName = sim.boosts.promo_block(id)
+		if sim.boosts.promo_id == id and sim.boosts.promo_left > 0.0:
+			st.text = Tx.t("ui_promo_running", {"time": Tx.timer(sim.boosts.promo_left)})
+		elif block == &"cooldown":
+			st.text = Tx.t("ui_promo_cooldown", {"time": Tx.timer(sim.boosts.cooldown_left(id))})
+		else:
+			st.text = ""
+		st.visible = st.text != ""
+		b.visible = not st.visible
+		b.text = Tx.t("ui_promo_start", {"price": Tx.kr(sim.boosts.promo_cost(id))})
+		b.disabled = block != &""
+
+
 ## KR terus berubah: tombol menyala dan jumlah Max ikut naik.
 func tick_page() -> void:
 	for b: BuyButtons in _rows:
 		if is_instance_valid(b):
 			b.refresh()
+	_tick_promos()
 
 
 ## Baris-baris dalam urutan tampil: [kind, id] (tes).

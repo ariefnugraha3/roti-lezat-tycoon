@@ -12,11 +12,9 @@ extends Node
 
 const CATALOG_DIR: String = "res://data/catalog"
 const TAG_VOCABULARY: Array[StringName] = [&"sweet", &"savory", &"practical", &"family", &"premium", &"artisan"]
-const ACHIEVEMENT_CONDITIONS: Array[String] = [
-	"no_burn_day", "no_abandon_day", "rotifood_five_stars", "all_recipes_produced",
-	"price_experiment", "rain_delivery_day", "solo_recovery", "big_day", "economy_overflow",
-]
-const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "no_burn_streak_days", "alltime_earned_kr"]
+const ACHIEVEMENT_CONDITIONS: Array[String] = ["all_recipes_unlocked", "economy_overflow"]
+const ACHIEVEMENT_STATS: Array[String] = ["total_bread_sold", "alltime_earned_kr", "staff_hired_count",
+	"total_rotifood_orders_completed", "offline_seconds_total", "franchise_count"]
 ## Gelembung pikiran pemain saat toko sepi, berurutan (GDD 31.7, 127.12).
 const THOUGHT_KEYS: Array[String] = ["thought_quiet_1", "thought_quiet_2", "thought_quiet_3", "thought_quiet_4"]
 ## Celetukan pengunjung lihat-lihat saat ia batal membeli (GDD 20.12, 127.19).
@@ -855,8 +853,9 @@ func _validate_meta() -> void:
 			"condition":
 				if not ACHIEVEMENT_CONDITIONS.has(str(req.get("condition", ""))):
 					_err("achievement %s unknown condition" % ach.id)
-			"balance_at_least", "location_tier_at_least":
-				pass
+			"location_tier_at_least", "station_level_at_least", "recipe_level_at_least":
+				if int(req.get("value", 0)) < 1:
+					_err("achievement %s needs a value >= 1" % ach.id)
 			_:
 				_err("achievement %s unknown requirement type" % ach.id)
 	var seen_d: Dictionary = {}
@@ -880,6 +879,9 @@ func _validate_meta() -> void:
 			_err("decoration %s floor_overlay needs overlay_size_tiles" % dd.id)
 		if dd.placement_type != &"floor_overlay" and dd.overlay_size_tiles != Vector2i.ZERO:
 			_err("decoration %s overlay_size_tiles only allowed for floor_overlay" % dd.id)
+		if dd.has_bonus() and (not ["arrival", "price", "rotifood"].has(str(dd.bonus.get("type", ""))) or not (float(dd.bonus.get("value", 0.0)) > 0.0)
+				or dd.source != &"shop" or dd.placement_type == &"skin"):
+			_err("decoration %s bonus must be a shop decoration with type arrival/price/rotifood and value > 0" % dd.id)
 	var seen_a: Dictionary = {}
 	for ae: Variant in _audio:
 		var aed: MiscDefinitions.AudioEventDefinition = ae

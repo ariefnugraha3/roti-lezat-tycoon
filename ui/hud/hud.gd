@@ -36,6 +36,9 @@ var _stars: Label = null
 var _clock: Label = null
 var _weather_icon: IconCanvas = null
 var _boosts: HBoxContainer = null
+var _income_boost: PanelContainer = null
+var _pulsed_chip: Button = null
+var _promo_boost: PanelContainer = null
 var _tab_bar: HBoxContainer = null
 ## screen id -> Button
 var _tabs: Dictionary = {}
@@ -125,6 +128,17 @@ func _build_top_left(frame: Control) -> void:
 	_boosts.add_theme_constant_override("separation", 6)
 	_boosts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(_boosts)
+	# Boost aktif dengan sisa waktu (GDD idle 12.1): dibuat sekali, hanya teksnya
+	# yang diperbarui.
+	_income_boost = ProceduralUIFactory.chip("bolt", Palette.HONEY, "", 15, 20)
+	_income_boost.name = "IncomeBoost"
+	_income_boost.tooltip_text = Tx.t("ui_boost_income")
+	_income_boost.visible = false
+	_boosts.add_child(_income_boost)
+	_promo_boost = ProceduralUIFactory.chip("megaphone", Palette.PASTEL_PERIWINKLE, "", 15, 20)
+	_promo_boost.name = "PromoBoost"
+	_promo_boost.visible = false
+	_boosts.add_child(_promo_boost)
 
 
 func _build_top_right(frame: Control) -> void:
@@ -311,6 +325,7 @@ func _refresh_all() -> void:
 	_rep.text = Tx.rating(sim.reputation.reputation)
 	_stars_chip.visible = sim.prestige.stars > 0
 	_stars.text = Tx.big(float(sim.prestige.stars))
+	_refresh_boosts()
 	_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
 	_weather_icon.configure("rain" if sim.weather.is_rain() else ("moon" if sim.time.is_night() else "sun"), 22,
 		Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() or sim.time.is_night() else Palette.GOLD_STAR)
@@ -320,11 +335,26 @@ func _refresh_all() -> void:
 	level_chips.refresh()
 
 
+func _refresh_boosts() -> void:
+	var b: BoostManager = sim.boosts
+	_income_boost.visible = b.income_left > 0.0
+	if _income_boost.visible:
+		(_income_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.income_mult), "time": Tx.timer(b.income_left)})
+	_promo_boost.visible = b.promo_left > 0.0
+	if _promo_boost.visible:
+		var p: Dictionary = BoostManager.promo(b.promo_id)
+		(_promo_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(float(p.get("arrival_mult", 1.0))), "time": Tx.timer(b.promo_left)})
+		_promo_boost.tooltip_text = Tx.t(String(b.promo_id))
+
+
 ## Ada sesuatu yang terjangkau di tab `id` (titik hijau, GDD idle 12.1).
 func has_affordable(id: StringName) -> bool:
 	var up: UpgradeManager = sim.upgrades
 	match id:
 		&"upgrades":
+			for pid: StringName in BoostManager.promo_ids():
+				if sim.boosts.promo_block(pid) == &"":
+					return true
 			for cat: StringName in [&"mixer", &"oven", &"display"]:
 				for e: EquipmentInstance in sim.equipment.placed_list(cat):
 					if up.offer_count(up.offer(&"station", e.iid), &"x1") > 0:
@@ -349,6 +379,12 @@ func has_affordable(id: StringName) -> bool:
 			return false
 		&"franchise":
 			return sim.prestige.franchise_block() == &""
+		&"decor":
+			for x: Variant in DataRegistry.decorations():
+				var d: MiscDefinitions.DecorationDefinition = x
+				if d.has_bonus() and sim.decoration.can_buy(d.id) == &"":
+					return true
+			return false
 		&"staff":
 			for sid: StringName in sim.staff.employed_ids():
 				if up.offer_count(up.offer(&"staff", sid), &"x1") > 0:
@@ -501,6 +537,15 @@ func show_tutorial_hint(key: String, target: StringName) -> void:
 			TutorialPulse.attach(b, ProceduralUIFactory.RADIUS_PILL)
 		else:
 			TutorialPulse.detach(b)
+	# Chip level stasiun (onb_first_upgrade, GDD idle 13).
+	if _pulsed_chip != null and is_instance_valid(_pulsed_chip):
+		TutorialPulse.detach(_pulsed_chip)
+	_pulsed_chip = null
+	var t: String = String(target)
+	if key != "" and t.begins_with("chip_"):
+		_pulsed_chip = level_chips.chip(&"station", int(t.substr(5)))
+		if _pulsed_chip != null:
+			TutorialPulse.attach(_pulsed_chip, ProceduralUIFactory.RADIUS_PILL)
 
 
 func tutorial_hint() -> PanelContainer:

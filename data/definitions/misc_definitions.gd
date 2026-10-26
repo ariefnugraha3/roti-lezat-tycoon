@@ -58,6 +58,9 @@ class DecorationDefinition:
 	## Badge achievement (GDD 72.1, keputusan maintainer 2026-10-01): dekorasi
 	## dinding yang juga tampil sebagai medali di kartu profil dengan ikon ini.
 	var badge_icon: StringName
+	## Bonus permanen selama putaran (GDD idle 8.8): {type: arrival|price|rotifood,
+	## value}, atau {} untuk dekorasi kosmetik.
+	var bonus: Dictionary = {}
 
 	static func from_dict(d: Dictionary) -> DecorationDefinition:
 		var x := DecorationDefinition.new()
@@ -75,7 +78,13 @@ class DecorationDefinition:
 		x.skin_target = StringName(str(d.get("skin_target", "")))
 		x.visual_profile_id = StringName(str(d.get("visual_profile_id", "")))
 		x.badge_icon = StringName(str(d.get("badge_icon", "")))
+		var b: Variant = d.get("bonus")
+		if b is Dictionary:
+			x.bonus = (b as Dictionary).duplicate()
 		return x
+
+	func has_bonus() -> bool:
+		return not bonus.is_empty()
 
 	func is_badge() -> bool:
 		return badge_icon != &""

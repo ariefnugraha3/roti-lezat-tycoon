@@ -41,6 +41,7 @@ var achievements: AchievementManager
 var tutorial: TutorialManager
 var idle_economy: IdleEconomyManager
 var offline: OfflineManager
+var boosts: BoostManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Roti Lezat"
@@ -80,6 +81,7 @@ func _init() -> void:
 	tutorial = _add(TutorialManager.new(), "TutorialManager")
 	idle_economy = _add(IdleEconomyManager.new(), "IdleEconomyManager")
 	offline = _add(OfflineManager.new(), "OfflineManager")
+	boosts = _add(BoostManager.new(), "BoostManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -210,6 +212,8 @@ func step(dt: float) -> void:
 	customers.step(dt)
 	cashier.step(dt)
 	rotifood.step(dt)
+	boosts.step(dt)
+	tutorial.step(dt)
 	_in_step = false
 
 
@@ -269,9 +273,9 @@ func income_rate() -> float:
 	return idle_economy.rate()
 
 
-## Pengali penghasilan dari boost aktif (GDD idle 11). Diisi BoostManager.
+## Pengali penghasilan dari boost aktif (GDD idle 11).
 func boost_income_mult() -> float:
-	return 1.0
+	return boosts.income_now()
 
 
 ## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost: harga −
@@ -355,11 +359,11 @@ func rotifood_rate_per_hour(t: float) -> float:
 
 
 func boost_arrival_mult() -> float:
-	return 1.0
+	return boosts.arrival_now()
 
 
 func boost_rotifood_mult() -> float:
-	return 1.0
+	return boosts.rotifood_now()
 
 
 # ===========================================================================
@@ -435,12 +439,13 @@ func franchise() -> int:
 		if int(upgrades.global_levels[k]) > keep_above:
 			kept_globals[k] = int(upgrades.global_levels[k])
 	var appearance: Dictionary = player.appearance.duplicate()
-	var lifted: Array[int] = decoration.lift_all()
+	var lifted: Array[int] = decoration.begin_run()
 	for m: SimManager in [economy, upgrades, display, equipment, production, queue, cashier, customers, demand, rotifood,
 			staff, player, reputation, idle_economy]:
 		m.new_game()
 	player.appearance = appearance
 	upgrades.global_levels = kept_globals
+	boosts.new_run()
 	_setup_run(prestige.start_tier())
 	if prestige.has_perk(&"perk_recipe_memory"):
 		for rid: StringName in Ids.sort(prestige.recipes_ever.keys().map(func(x: Variant) -> StringName: return StringName(str(x)))):
@@ -453,6 +458,8 @@ func franchise() -> int:
 				break
 	decoration.replace_lifted(lifted)
 	statistics.begin_run(world.location.id)
+	statistics.add(&"franchise_count", 1)
+	achievements.check_tier(world.location.tier)
 	_auto_cache = &""
 	_auto_cache_key = "-"
 	if not world.layout_valid():
@@ -558,6 +565,7 @@ func capture_save() -> Dictionary:
 		"achievements": achievements.capture(),
 		"stats": statistics.capture(),
 		"offline": offline.capture(),
+		"boosts": boosts.capture(),
 		"rng_states": rng.capture(),
 	}
 
@@ -609,6 +617,7 @@ func load_from_save(d: Dictionary) -> void:
 	weather.restore(d.get("weather", {}))
 	tutorial.restore(d.get("tutorial", {}))
 	offline.restore(d.get("offline", {}))
+	boosts.restore(d.get("boosts", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).
 	production.recover_orphans()

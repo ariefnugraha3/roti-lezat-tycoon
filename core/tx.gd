@@ -110,7 +110,7 @@ static func clock(time_seconds: float) -> String:
 static func duration(seconds: float) -> String:
 	var total_min: int = int(floor(maxf(seconds, 0.0) / 60.0))
 	if total_min < 60:
-		return t("ui_dur_min", {"m": maxi(total_min, 1)})
+		return t("ui_dur_min", {"m": total_min})
 	var h: int = total_min / 60
 	if h < 24:
 		var m: int = total_min % 60
@@ -118,6 +118,19 @@ static func duration(seconds: float) -> String:
 	var d: int = h / 24
 	var hh: int = h % 24
 	return t("ui_dur_d", {"d": d}) if hh == 0 else t("ui_dur_dh", {"d": d, "h": hh})
+
+
+## Sisa waktu hitung mundur: "4:05", atau "1:02:30" bila sejam lebih.
+static func timer(seconds: float) -> String:
+	var s: int = int(ceil(maxf(seconds, 0.0)))
+	if s >= 3600:
+		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+## Pengali tanpa nol yang tidak perlu: 2 -> "2", 1.5 -> "1.5".
+static func mult(v: float) -> String:
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else ("%.2f" % v).rstrip("0").rstrip(".")
 
 
 static func rating(v: float) -> String:

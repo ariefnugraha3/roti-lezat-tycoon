@@ -16,7 +16,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -134,6 +134,8 @@ func _params_for(id: StringName) -> Dictionary:
 			game.sim.offline.pending = {"amount": 123456.0, "seconds": 7200.0, "away": 3.0 * 3600.0 + 25.0 * 60.0}
 		&"franchise_cutscene":
 			return {"stars": 12, "number": 3}
+		&"tutorial":
+			return {"key": "onb_welcome"}
 	return {}
 
 

@@ -44,6 +44,16 @@ static func build(sim: SimulationRoot, tier: int) -> void:
 	for d: EquipmentInstance in sim.equipment.placed_list(&"display"):
 		for i in sim.display.slot_count(d.iid):
 			sim.display.set_assignment(d.iid, i, &"")
+	no_boosts(sim)
+
+
+## Model dibandingkan tanpa boost (GDD idle 9.1): semua pencapaian ditandai
+## sudah didapat tanpa hadiah supaya boost ×2-nya tidak muncul di tengah
+## pengukuran, lalu boost yang sudah jalan dihentikan.
+static func no_boosts(sim: SimulationRoot) -> void:
+	for x: Variant in DataRegistry.achievements():
+		sim.achievements.unlocked[String((x as MiscDefinitions.AchievementDefinition).id)] = sim.time.day
+	sim.boosts.new_run()
 	sim.idle_economy.invalidate()
 
 

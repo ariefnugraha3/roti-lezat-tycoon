@@ -244,6 +244,7 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
 	_show_tutorial_prompt()
 	check_offline()
+	check_daily_gift()
 	await get_tree().process_frame
 
 
@@ -443,6 +444,7 @@ func _on_lifecycle_resumed() -> void:
 	if not playing or sim == null:
 		return
 	_show_offline(sim.offline.thaw())
+	check_daily_gift()
 
 
 ## Waralaba dari cutscene (GDD idle 10.6): reset putaran di simulasi, simpan,
@@ -481,9 +483,23 @@ func check_offline() -> void:
 	_show_offline(sim.offline.settle())
 
 
+## Kopi Pak Lurah sekali per hari kalender perangkat (GDD idle 11.1): diberikan
+## saat profil dimuat atau aplikasi kembali ke depan, lalu berjalan hanya selama
+## bermain aktif.
+func check_daily_gift() -> void:
+	if sim == null:
+		return
+	if sim.boosts.claim_gift(BoostManager.today()):
+		EventBus.notify.emit(1, "ui_daily_gift", {"mult": Tx.mult(DataRegistry.idlef("boosts.daily_gift.mult")),
+			"minutes": int(DataRegistry.idlef("boosts.daily_gift.minutes"))}, &"heart")
+		EventBus.sfx.emit(&"welcome_back_chime", &"")
+
+
 ## Popup Selamat Datang bila ada penghasilan yang menunggu Collect; pergi
 ## sebentar cukup diberi toast kecil (KR-nya sudah masuk).
 func _show_offline(r: Dictionary) -> void:
+	if not sim.offline.pending.is_empty() or float(r.get("amount", 0.0)) > 0.0:
+		sim.tutorial.show_step("onb_offline")
 	if not sim.offline.pending.is_empty():
 		if not modals.is_open(&"welcome_back"):
 			modals.open(&"welcome_back")
