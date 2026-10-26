@@ -519,7 +519,7 @@ const RECIPES: Array[String] = [
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "coin_shower", "welcome_back_chime", "rain_loop", "sunny_ambience", "room_tone",
+	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "coin_shower", "welcome_back_chime", "franchise_jingle", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -613,6 +613,8 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _coin_shower()
 		"welcome_back_chime":
 			return _welcome_back_chime()
+		"franchise_jingle":
+			return _franchise_jingle()
 		"rain_loop":
 			return _rain_loop()
 		"sunny_ambience":
@@ -819,6 +821,23 @@ static func _welcome_back_chime() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.0, 0.9, 392.0, 392.0, "sine", 0.18,
 			{"attack": 0.03, "decay": 0.2, "sustain": 0.4, "release": 0.4})
 	return _to_stream(_normalize(buf, 0.6), false)
+
+
+## Waralaba (GDD idle 10.6): jingle riang enam nada dengan bas hangat dan
+## kilau penutup, seperti pembukaan toko baru.
+static func _franchise_jingle() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(2.4)
+	var notes: Array = [[0.0, 523.25], [0.16, 659.25], [0.32, 783.99], [0.56, 659.25], [0.72, 783.99], [0.9, 1046.5]]
+	for n: Array in notes:
+		buf = _add_bell(buf, float(n[0]), 1.2, float(n[1]), 0.38, 3.0)
+	for b: Array in [[0.0, 130.81], [0.56, 196.0], [0.9, 261.63]]:
+		buf = _add_osc(buf, float(b[0]), 0.5 if float(b[0]) < 0.9 else 1.2, float(b[1]), float(b[1]), "triangle", 0.3,
+				{"attack": 0.01, "decay": 0.15, "sustain": 0.4, "release": 0.3})
+	for i in 5:
+		var f: float = 2093.0 * pow(1.12246, float(i))
+		buf = _add_osc(buf, 1.05 + 0.05 * float(i), 0.25, f, f, "sine", 0.12,
+				{"attack": 0.003, "decay": 0.08, "sustain": 0.2, "release": 0.12})
+	return _to_stream(_normalize(buf, 0.65), false)
 
 
 static func _happy_chirp() -> AudioStreamWAV:

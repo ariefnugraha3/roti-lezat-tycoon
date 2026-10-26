@@ -27,6 +27,7 @@
   {"id": "level_up", "bus": "UI", "priority": 1, "generator": "level_up", "loop": false, "cooldown": 0.05, "volume_db": -7.0},
   {"id": "milestone_fanfare", "bus": "UI", "priority": 0, "generator": "milestone_fanfare", "loop": false, "cooldown": 0.3, "volume_db": -5.0},
   {"id": "coin_shower", "bus": "UI", "priority": 1, "generator": "coin_shower", "loop": false, "cooldown": 0.5, "volume_db": -7.0},
+  {"id": "franchise_jingle", "bus": "UI", "priority": 0, "generator": "franchise_jingle", "loop": false, "cooldown": 1.0, "volume_db": -5.0},
   {"id": "welcome_back_chime", "bus": "UI", "priority": 1, "generator": "welcome_back_chime", "loop": false, "cooldown": 0.5, "volume_db": -6.0},
   {"id": "customer_impatient", "bus": "SFX", "priority": 3, "generator": "impatient_tap", "loop": false, "cooldown": 1.5, "volume_db": -14.0},
   {"id": "customer_leave_angry", "bus": "SFX", "priority": 1, "generator": "sad_soft", "loop": false, "cooldown": 0.5, "volume_db": -9.0},

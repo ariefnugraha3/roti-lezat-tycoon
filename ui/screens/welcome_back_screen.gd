@@ -18,7 +18,7 @@ func build() -> void:
 	var p: Dictionary = sim.offline.pending if sim != null else {}
 	var amount: float = float(p.get("amount", 0.0))
 	var away: float = float(p.get("away", 0.0))
-	var body: VBoxContainer = make_popup(Tx.t("ui_welcome_back_title"), Vector2(620, 600), false)
+	var body: VBoxContainer = make_popup(Tx.t("ui_welcome_back_title"), Vector2(620, 480.0 + 240.0 * maxf(0.0, SettingsManager.text_scale() - 1.0)), false)
 	var row: HBoxContainer = hbox(body, 14)
 	var lurah := LurahPortrait.new()
 	lurah.name = "Lurah"

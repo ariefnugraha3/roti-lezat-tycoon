@@ -445,6 +445,34 @@ func _on_lifecycle_resumed() -> void:
 	_show_offline(sim.offline.thaw())
 
 
+## Waralaba dari cutscene (GDD idle 10.6): reset putaran di simulasi, simpan,
+## lalu dunia dan HUD cabang baru dibangun ulang di balik layar loading. Simulasi
+## yang sama dipakai terus, jadi tidak bergantung pada pembacaan ulang save.
+func do_franchise() -> void:
+	if sim == null:
+		return
+	var pid: StringName = sim.profile_id
+	modals.close_all()
+	await _begin_loading("ui_loading_franchise", 0.05)
+	if sim.franchise() <= 0:
+		_end_loading(true)
+		return
+	SaveManager.save_now()
+	playing = false
+	_disconnect_bus()
+	AudioManager.stop_all_loops()
+	AudioManager.set_ambience([])
+	for n: Node in [hud, commands, world]:
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+	hud = null
+	commands = null
+	world = null
+	await _loading_stage("ui_loading", 0.20)
+	await _enter_gameplay(pid)
+	EventBus.notify.emit(1, "ui_branch_open", {"number": sim.prestige.run_index}, &"star")
+
+
 ## Penghasilan saat pergi sejak acuan terakhir (GDD idle 9.3): dipanggil saat
 ## profil dimuat.
 func check_offline() -> void:

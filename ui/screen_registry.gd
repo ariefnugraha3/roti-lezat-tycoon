@@ -24,4 +24,6 @@ static func register_all(host: ModalHost) -> void:
 	host.register(&"decoration", func() -> UIScreen: return DecorationScreen.new())
 	host.register(&"overflow", func() -> UIScreen: return OverflowScreen.new())
 	host.register(&"welcome_back", func() -> UIScreen: return WelcomeBackScreen.new())
+	host.register(&"franchise", func() -> UIScreen: return FranchiseScreen.new())
+	host.register(&"franchise_cutscene", func() -> UIScreen: return FranchiseCutscene.new())
 	host.register(&"debug", func() -> UIScreen: return DebugScreen.new())

@@ -116,7 +116,7 @@ func start_new_game(pid: StringName, name_text: String, gender: String, master_s
 func _setup_run(tier: int) -> void:
 	if world.location == null or world.location.tier != tier:
 		world.set_location(DataRegistry.location_by_tier(tier).id)
-	economy.open_run(DataRegistry.idlef("start_kr"))
+	economy.open_run(prestige.start_kr())
 	_create_starter_equipment()
 	queue.build_from_location()
 	player.place_at_start()
@@ -409,6 +409,58 @@ func upgrade_location() -> String:
 	EventBus.sfx.emit(&"location_upgrade", &"")
 	SaveManager.request_autosave("location_upgrade", true)
 	return ""
+
+
+# ===========================================================================
+# WARALABA (GDD idle 10.5, 10.6)
+# ===========================================================================
+
+## Jual toko ini dan buka cabang baru: bintang baru ditambahkan, nomor putaran
+## naik, lalu KR, lokasi, stasiun dan levelnya, resep, staf, upgrade global
+## level 1-5, dan reputasi direset. Bintang, perk, statistik (kecuali
+## penghasilan putaran), pencapaian, dekorasi milik, nama toko, karakter,
+## tutorial, jam, dan cuaca tetap. Perk berlaku untuk putaran baru. Mengembalikan
+## bintang yang didapat (0 = ditolak, tidak ada yang berubah).
+func franchise() -> int:
+	if prestige.franchise_block() != &"":
+		return 0
+	SaveManager.request_autosave("franchise_before", true)
+	var gained: int = prestige.stars_gain()
+	_clear_actors()
+	prestige.stars += gained
+	prestige.run_index += 1
+	var keep_above: int = DataRegistry.idlei("prestige.keep_global_levels_above")
+	var kept_globals: Dictionary = {}
+	for k: Variant in upgrades.global_levels.keys():
+		if int(upgrades.global_levels[k]) > keep_above:
+			kept_globals[k] = int(upgrades.global_levels[k])
+	var appearance: Dictionary = player.appearance.duplicate()
+	var lifted: Array[int] = decoration.lift_all()
+	for m: SimManager in [economy, upgrades, display, equipment, production, queue, cashier, customers, demand, rotifood,
+			staff, player, reputation, idle_economy]:
+		m.new_game()
+	player.appearance = appearance
+	upgrades.global_levels = kept_globals
+	_setup_run(prestige.start_tier())
+	if prestige.has_perk(&"perk_recipe_memory"):
+		for rid: StringName in Ids.sort(prestige.recipes_ever.keys().map(func(x: Variant) -> StringName: return StringName(str(x)))):
+			if DataRegistry.recipe(rid) != null and not upgrades.recipe_levels.has(rid):
+				upgrades.recipe_levels[rid] = 1
+	if prestige.has_perk(&"perk_free_baker"):
+		for st: StaffDefinition in DataRegistry.staff_list():
+			if st.role_id == &"baker":
+				staff.hire(st.id, true)
+				break
+	decoration.replace_lifted(lifted)
+	statistics.begin_run(world.location.id)
+	_auto_cache = &""
+	_auto_cache_key = "-"
+	if not world.layout_valid():
+		GameLogger.warn("WORLD", "new branch layout failed protected-path validation")
+	GameLogger.important("FRANCHISE", "branch #%d opened with %d new stars (%d total)" % [prestige.run_index, gained, prestige.stars])
+	EventBus.location_changed.emit(world.location.id)
+	SaveManager.request_autosave("franchise_after", true)
+	return gained
 
 
 ## Kosongkan lantai dari aktor sebelum dunia dibangun ulang.

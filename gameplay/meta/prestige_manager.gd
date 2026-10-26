@@ -34,6 +34,58 @@ func perks() -> Array[StringName]:
 	return out
 
 
+# ===========================================================================
+# BINTANG (GDD idle 10.1, 10.2)
+# ===========================================================================
+
+## Total bintang untuk penghasilan sepanjang masa `alltime`:
+## floor((alltime / stars_divisor_kr) ^ stars_exponent).
+static func stars_for(alltime: float) -> int:
+	var x: float = maxf(alltime, 0.0) / DataRegistry.idlef("prestige.stars_divisor_kr")
+	return int(minf(floor(pow(x, DataRegistry.idlef("prestige.stars_exponent")) + 1e-9), 1.0e15))
+
+
+func _alltime() -> float:
+	return sim.statistics.get_stat("alltime_earned_kr")
+
+
+## Bintang baru bila menjual sekarang.
+func stars_gain() -> int:
+	return maxi(0, stars_for(_alltime()) - stars)
+
+
+## KR sepanjang masa yang masih dibutuhkan untuk satu bintang lagi.
+func kr_to_next_star() -> float:
+	var target: float = float(maxi(stars, stars_for(_alltime())) + 1)
+	var need: float = DataRegistry.idlef("prestige.stars_divisor_kr") * pow(target, 1.0 / DataRegistry.idlef("prestige.stars_exponent"))
+	return maxf(0.0, need - _alltime())
+
+
+## &"" bila Waralaba boleh sekarang; selain itu alasan: tier (lokasi Tier 3
+## belum dicapai di putaran ini) atau stars (belum ada bintang baru).
+func franchise_block() -> StringName:
+	if sim.world.location.tier < DataRegistry.idlei("prestige.unlock_location_tier"):
+		return &"tier"
+	if stars_gain() < 1:
+		return &"stars"
+	return &""
+
+
+## Saldo awal putaran baru: start_kr, atau perk_head_start bila lebih besar.
+func start_kr() -> float:
+	var base: float = DataRegistry.idlef("start_kr")
+	if has_perk(&"perk_head_start"):
+		return maxf(base, float(DataRegistry.perk(&"perk_head_start").get("start_kr", base)))
+	return base
+
+
+## Tier lokasi awal putaran baru (perk_ruko_start: Tier 2).
+func start_tier() -> int:
+	if has_perk(&"perk_ruko_start"):
+		return clampi(int(DataRegistry.perk(&"perk_ruko_start").get("start_tier", 2)), 1, 5)
+	return 1
+
+
 ## Pengali penghasilan dari bintang (GDD idle 10.3).
 func income_mult() -> float:
 	return 1.0 + DataRegistry.idlef("prestige.income_per_star") * float(stars)

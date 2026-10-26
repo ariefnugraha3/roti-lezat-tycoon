@@ -347,6 +347,8 @@ func has_affordable(id: StringName) -> bool:
 				if up.open_station_block(cat2) == &"":
 					return true
 			return false
+		&"franchise":
+			return sim.prestige.franchise_block() == &""
 		&"staff":
 			for sid: StringName in sim.staff.employed_ids():
 				if up.offer_count(up.offer(&"staff", sid), &"x1") > 0:
