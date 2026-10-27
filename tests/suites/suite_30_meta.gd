@@ -12,6 +12,7 @@ func tests() -> Array:
 	return [
 		{"id": "TEST_STAFF_001", "name": "idle 5.5: hiring is paid once from a rising cost list, staff start at once, role caps hold, there are no wages", "fn": _staff_hire},
 		{"id": "TEST_SAVE_001", "name": "roundtrip golden idle fixture; classic v3.1 saves are detected and refused", "fn": _save_roundtrip},
+		{"id": "ACC_IDLE_SAVE", "name": "idle 15.3 the idle save has game_mode idle, schema 1 and every idle field (upgrades, unlocked recipes, slot recipes, franchise, offline, boosts, stats, reputation) and none of the removed tycoon fields; a played, franchised profile survives the disk and plays on exactly the same; v3.1 saves are refused as classic", "fn": _idle_save},
 		{"id": "TEST_SAVE_002", "name": "crash-safe/idempotent transaction recovery", "fn": _save_crash_safe, "expect_errors": true},
 		{"id": "TEST_PROFILE_001", "name": "3-profile isolation", "fn": _profiles},
 		{"id": "TEST_MULTIFLOOR_001", "name": "instant floor transition; an upstairs kitchen keeps working while nobody watches", "fn": _multifloor},
@@ -148,6 +149,72 @@ func _save_roundtrip() -> void:
 	SaveManager.delete_profile(&"profile_2")
 	check(not SaveManager.has_profile(&"profile_2"), "a classic save can be deleted")
 	check(not bool(SaveManager.migrate({"schema_version": 99, "game_mode": "idle"})["ok"]), "newer-than-game save refused")
+	_restore_dir()
+
+
+## Kontrak save idle (GDD idle 15.3) pada profil yang sudah dimainkan.
+func _idle_save() -> void:
+	_use_test_dir()
+	var s: SimulationRoot = new_sim(1501, &"profile_1")
+	var bot := SimBot.new(s)
+	bot.manage = true
+	bot.play_for(s.time.sim_seconds_for_hours(8.0))
+	jump_to_tier(s, 3)
+	s.statistics.stats["alltime_earned_kr"] = maxf(s.statistics.get_stat("alltime_earned_kr"), 4.0e6)
+	check(s.franchise() > 0, "the profile franchises once")
+	bot.play_for(s.time.sim_seconds_for_hours(2.0))
+	s.offline.last_active_unix = 1.7e9
+	s.offline.rate_kr_per_s = 12.5
+	s.offline.pending = {"amount": 900.0, "seconds": 120.0, "away": 400.0}
+	s.boosts.claim_gift("2030-01-01")
+	s.debug_add_kr(1.0e9)
+	s.boosts.start_promo(&"promo_flyer")
+	var d: Dictionary = json_copy(s.capture_save())
+	eq(str(d.get("game_mode", "")), "idle", "game_mode is idle")
+	eq(int(d.get("schema_version", 0)), SimulationRoot.SCHEMA_VERSION, "schema_version is the idle schema (1)")
+	for k: String in ["upgrades", "display_inventory", "franchise", "offline", "boosts", "stats", "reputation", "achievements", "decorations", "tutorial"]:
+		check(d.has(k), "the save has %s" % k)
+	var up: Dictionary = d.get("upgrades", {})
+	for k2: String in ["stations", "counter", "recipes", "staff", "global"]:
+		check(up.has(k2), "upgrades.%s is saved" % k2)
+	check((up.get("recipes", {}) as Dictionary).has("recipe_plain_loaf"), "unlocked recipes are the keys of upgrades.recipes")
+	var slots_ok: bool = false
+	for v: Variant in (d.get("display_inventory", {}) as Dictionary).values():
+		for sl: Variant in (v as Dictionary).get("slots", []):
+			slots_ok = slots_ok or (sl as Dictionary).has("assign")
+			for st: Variant in (sl as Dictionary).get("stacks", []):
+				for gone: String in ["freshness", "quality", "bake_quality", "age", "stale"]:
+					check(not (st as Dictionary).has(gone), "stacks carry no %s" % gone)
+	check(slots_ok, "each shelf slot saves its recipe (assign)")
+	for k3: String in ["stars", "run_index", "perks"]:
+		check((d["franchise"] as Dictionary).has(k3), "franchise.%s is saved" % k3)
+	eq(int(d["franchise"]["run_index"]), 2, "the branch number is saved")
+	for k4: String in ["last_active_unix", "rate_kr_per_s", "pending"]:
+		check((d["offline"] as Dictionary).has(k4), "offline.%s is saved" % k4)
+	for k5: String in ["run_earned_kr", "alltime_earned_kr", "offline_seconds_total", "franchise_count"]:
+		check(((d["stats"] as Dictionary)["stats"] as Dictionary).has(k5), "stats.%s is saved" % k5)
+	for gone2: String in ["inventory", "supply_orders", "pricing", "bailout", "reports", "manifest", "wage_liability", "utilities", "phase"]:
+		check(not d.has(gone2), "the removed tycoon field %s is gone" % gone2)
+	# Lewat disk (tulis atomik, baca, validasi), lalu bermain terus persis sama.
+	check(SaveManager.write_profile(&"profile_1", d), "atomic write")
+	var r: Dictionary = SaveManager.read_profile(&"profile_1")
+	check(bool(r.get("ok", false)), "read back and validated")
+	var s2: SimulationRoot = load_sim(r["data"])
+	same_state(logical_state(s2.capture_save()), logical_state(d), "the franchised profile is identical after the disk roundtrip")
+	near(float(s2.offline.pending.get("amount", 0.0)), 900.0, 0.001, "waiting offline earnings survive")
+	eq(s2.boosts.promo_id, &"promo_flyer", "the running promotion survives")
+	var s3: SimulationRoot = load_sim(r["data"])
+	run_hours(s2, 1.0)
+	run_hours(s3, 1.0)
+	same_state(logical_state(s2.capture_save()), logical_state(s3.capture_save()), "two loads of the same save play on identically")
+	eq(s2.check_invariants(), "", "and keep their invariants")
+	free_sim(s3)
+	free_sim(s2)
+	free_sim(s)
+	# Save v3.1 ditolak dengan rapi.
+	var classic: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(CLASSIC))
+	check(SaveManager.is_classic(classic), "a v3.1 save is recognised as classic")
+	check(SaveManager.validate_save(classic, &"profile_1") != "", "and never validates as an idle save")
 	_restore_dir()
 
 

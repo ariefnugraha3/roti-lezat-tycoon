@@ -48,14 +48,14 @@
  },
  "staff": {
   "_gdd": "5.5, 8.6",
-  "hire_cost": [300, 3000, 60000, 1500000],
+  "hire_cost": [4500, 100000, 2000000, 10000000],
   "speed_per_level": 0.04,
   "level_cost_base": 100,
   "level_cost_growth": 1.15
  },
  "location": {
   "_gdd": "6.1, 6.5, 8.7",
-  "upgrade_cost": [0, 5000, 250000, 25000000, 5000000000],
+  "upgrade_cost": [0, 440000, 5000000, 16000000, 26000000],
   "base_arrivals_per_hour": [24, 32, 42, 54, 70],
   "rotifood_orders_per_hour": [3, 4, 6, 8, 10]
  },
@@ -79,7 +79,7 @@
  },
  "decor": {
   "_gdd": "8.8",
-  "price_mult_by_tier": [1, 20, 400, 8000, 160000]
+  "price_mult_by_tier": [40, 200, 400, 700, 1000]
  },
  "offline": {
   "_gdd": "9",
@@ -93,9 +93,9 @@
  "prestige": {
   "_gdd": "10",
   "unlock_location_tier": 3,
-  "stars_divisor_kr": 1000000,
+  "stars_divisor_kr": 250000,
   "stars_exponent": 0.5,
-  "income_per_star": 0.02,
+  "income_per_star": 0.07,
   "keep_global_levels_above": 5
  },
  "perks": [

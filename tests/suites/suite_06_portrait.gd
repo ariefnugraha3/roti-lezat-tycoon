@@ -6,6 +6,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_PORTRAIT_FRAME", "name": "idle 12.0.2 the frame box is right for every screen shape (720 logical px wide, ratio clamped 9:16-9:21, centred) and taps outside it never reach the game", "fn": _frame},
 		{"id": "ACC_IDLE_TABLECLOTH_SIDES", "name": "idle 12.0.3 outside the frame lies the gingham tablecloth with lace on the side touching the frame and faint floating icons; no game control is there; 9:16-9:21 phones show no tablecloth", "fn": _tablecloth},
+		{"id": "ACC_IDLE_PORTRAIT_UI", "name": "idle 12.0.7 on every size of the portrait matrix (phones, tablets, laptops) at 100/125/150% text, the HUD and every screen open with no visible control outside the frame and no sideways scrolling", "fn": _portrait_ui},
 		{"id": "ACC_IDLE_PORTRAIT_CAMERA", "name": "idle 12.0.4 the camera keeps the world width (KEEP_WIDTH); Tier 1-3 floors show whole across the screen between the HUD bars on 9:16 and 9:21; bigger floors follow the owner", "fn": _camera},
 	]
 
@@ -213,3 +214,106 @@ func _camera() -> void:
 	vp2.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(big)
+
+
+# ===========================================================================
+# MATRIKS UI (GDD idle 12.0.7)
+# ===========================================================================
+
+const UI_SIZES: Array[Vector2] = [Vector2(720, 1280), Vector2(1080, 1920), Vector2(1080, 2340), Vector2(1080, 2400),
+	Vector2(1536, 2048), Vector2(2048, 1536), Vector2(1280, 720), Vector2(1366, 768), Vector2(1920, 1080),
+	Vector2(2560, 1440), Vector2(2560, 1080)]
+const UI_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
+	&"help", &"welcome_back", &"franchise_cutscene", &"tutorial"]
+
+
+## Kontrol yang tampak tetapi keluar dari isi bingkai (di luar ScrollContainer
+## atau kontrol yang memotong isinya), dan gulir menyamping yang tampak.
+static func _ui_issues(root: Node, vis: Rect2) -> Array[String]:
+	var out: Array[String] = []
+	for n: Node in root.find_children("*", "Control", true, false):
+		var c: Control = n
+		if not c.is_visible_in_tree():
+			continue
+		if c is ScrollContainer and (c as ScrollContainer).get_h_scroll_bar().visible:
+			out.append("sideways scroll in %s" % root.get_path_to(c))
+			continue
+		var clipped: bool = false
+		var p: Node = c.get_parent()
+		while p != null and p != root:
+			if p is ScrollContainer or (p is Control and (p as Control).clip_contents):
+				clipped = true
+				break
+			p = p.get_parent()
+		if clipped:
+			continue
+		var g: Rect2 = c.get_global_rect()
+		if g.size.x < 1.0 or g.size.y < 1.0:
+			continue
+		if g.position.x < vis.position.x - 1.0 or g.position.y < vis.position.y - 1.0 or g.end.x > vis.end.x + 1.0 or g.end.y > vis.end.y + 1.0:
+			out.append("%s %s at %s" % [c.get_class(), root.get_path_to(c), g])
+	return out
+
+
+func _portrait_ui() -> void:
+	SaveManager.dir = "user://test_saves_portrait_ui"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	var was_scale: int = SettingsManager.get_int("text_scale")
+	PauseManager.clear_all()
+	var shell: PortraitShell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	runner.add_child(shell)
+	await runner.get_tree().process_frame
+	var game: GameRoot = shell.game
+	game.skip_splash_for_tests()
+	await game.start_new_game(&"profile_1", "female", "Matrix Bakery")
+	await runner.get_tree().process_frame
+	game.sim.tutorial.skip()
+	game.modals.close_all()
+	PauseManager.clear_all()
+	game.playing = false
+	jump_to_tier(game.sim, 3)
+	var bad: int = 0
+	var shown: int = 0
+	for sz: Vector2 in UI_SIZES:
+		shell.layout_for(_root_size(sz.x, sz.y), 1.0)
+		for sc: int in [100, 125, 150]:
+			SettingsManager.set_value("text_scale", sc)
+			await runner.get_tree().process_frame
+			var vis: Rect2 = Rect2(Vector2.ZERO, Vector2(shell.viewport.size_2d_override))
+			game.modals.close_all()
+			await runner.get_tree().process_frame
+			var hud_issues: Array[String] = _ui_issues(game.hud, vis)
+			if not check(hud_issues.is_empty(), "%dx%d @%d%%: the HUD fits the frame %s" % [int(sz.x), int(sz.y), sc, hud_issues.slice(0, 2)]):
+				bad += 1
+			for id: StringName in UI_SCREENS:
+				var params: Dictionary = {}
+				match id:
+					&"welcome_back":
+						game.sim.offline.pending = {"amount": 123456.0, "seconds": 7200.0, "away": 12000.0}
+					&"franchise_cutscene":
+						params = {"stars": 12, "number": 3}
+					&"tutorial":
+						params = {"key": "onb_recipe"}
+				var scr: UIScreen = game.modals.open(id, params)
+				await runner.get_tree().process_frame
+				await runner.get_tree().process_frame
+				shown += 1
+				var issues: Array[String] = _ui_issues(scr, vis) if scr != null else ["did not open"]
+				if not check(issues.is_empty(), "%dx%d @%d%%: %s fits the frame %s" % [int(sz.x), int(sz.y), sc, id, issues.slice(0, 2)]):
+					bad += 1
+				game.modals.close_all()
+				game.sim.offline.pending = {}
+				await runner.get_tree().process_frame
+	print("      %d screens checked across %d sizes x 3 text scales, %d with issues" % [shown, UI_SIZES.size(), bad])
+	SettingsManager.set_value("text_scale", was_scale)
+	game.modals.close_all()
+	game.playing = true
+	game.return_to_menu()
+	shell.queue_free()
+	await runner.get_tree().process_frame
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false

@@ -1,10 +1,13 @@
 # Architecture
 
-Roti Lezat Tycoon is a Godot 4.7 (GDScript, Compatibility renderer) bakery tycoon. The
-only design authority is `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1).
-This document describes how the code implements it: who owns which state, how a tick
-runs, and how data flows from catalogs to simulation, UI and saves. Numbers live in
-the data catalogs, not here (GDD 126.1).
+Roti Lezat Tycoon is a Godot 4.7 (GDScript, Compatibility renderer) bakery game. On the
+branch `pivot-to-idle-game` it is an idle arcade bakery, and the design authority is
+`docs/gdd-roti-lezat-idle-v1.md` (the idle GDD). It keeps the GDD v3.1 rules it lists in
+its §0 (art, grid and navigation, characters, interiors, audio policy, save mechanics,
+performance, English text, Decoration Mode, technical contract). This document
+describes how the code implements it: who owns which state, how a tick runs, and how
+data flows from catalogs to simulation, UI and saves. Numbers live in the data
+catalogs, not here (GDD 126.1).
 
 ## 1. Top-level layout
 
@@ -12,14 +15,14 @@ the data catalogs, not here (GDD 126.1).
 |---|---|
 | `autoload/` | The seven global services of GDD 35.2 (below). None of them own gameplay state. |
 | `core/` | Stateless helpers and the base classes shared by managers: `SimManager`, `TimeManager`, `RNGManager`, `Money`, `GridMath`, `Tx`, `Palette`, `InputActions`, `CommandLayer`. |
-| `data/catalog/` | JSON catalogs, the single runtime authority for content and tuning (GDD 101, 134). |
+| `data/catalog/` | JSON catalogs, the single runtime authority for content and tuning (GDD 101, 134). The idle economy lives in `idle.json`. |
 | `data/definitions/` | Typed definition classes built from the catalogs (`RecipeDefinition`, `EquipmentDefinition`, …). |
 | `gameplay/` | The simulation: `SimulationRoot` and every manager, grouped by domain. |
 | `procedural/` | The three visual factory layers of GDD 12.3: meshes, animation, UI. |
 | `audio/` | `AudioGenerator`, which synthesizes every sound and music loop from code. |
 | `ui/` | `ModalHost`, `ScreenRegistry`, the HUD and every screen. |
-| `scenes/` | `main.tscn` → `GameRoot`, the application shell. |
-| `tests/` | Headless harness, suites, `SimBot`, fixtures. |
+| `scenes/` | `main.tscn` → `PortraitShell` (the portrait frame, idle GDD §12.0) with `GameRoot` in its SubViewport. |
+| `tests/` | Headless harness, suites, `SimBot`, `ModelSample`, `PacingTracker`, fixtures. |
 | `tools/` | Release validator, string lint, compile check, icon generator, QA renders and probes. |
 
 ## 2. Autoloads (GDD 35.2, 98)
@@ -30,11 +33,11 @@ Autoloads are services. Gameplay state never lives in them, so tearing down a
 | Autoload | Responsibility |
 |---|---|
 | `GameLogger` | Leveled, categorized logging (GDD 117). It is named `GameLogger` because Godot 4.5+ has a built-in `Logger` class. |
-| `DataRegistry` | Loads and validates every catalog at boot and derives price bounds (GDD 63.2). Provides typed accessors, `bal(path)` tuning lookups (cached), and the English string table. |
+| `DataRegistry` | Loads and validates every catalog at boot. Provides typed accessors, `bal(path)` and `idle(path)`/`idlef`/`idlei` tuning lookups (cached), and the English string table. |
 | `EventBus` | Cross-layer signals: simulation → UI/audio/world view, plus UI request signals. |
-| `SettingsManager` | `user://settings.json`: volumes, quality, accessibility, Smart Speed (GDD 75). |
-| `PauseManager` | A set of pause reasons (user, modal, lifecycle). The simulation runs only when the set is empty (GDD 71, 90). |
-| `SaveManager` | Three profiles, atomic writes, backup, migration and validation (GDD 106). It asks `SimulationRoot` for snapshots and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
+| `SettingsManager` | `user://settings.json`: volumes, quality, text scale, number format, tutorial hints and accessibility (GDD 75). |
+| `PauseManager` | A set of pause reasons (Pause menu, blocking modals, lifecycle). The simulation runs only when the set is empty. Losing focus pushes `lifecycle`; that time is counted as time away by `OfflineManager` (idle GDD §3.4, §9). |
+| `SaveManager` | Three profiles, atomic writes, backup, validation, classic-save detection (idle GDD §15.3, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
 | `AudioManager` | Pooled voices, priorities, cooldowns, ducking, music states, captions, and the web audio unlock (GDD 33, 93). |
 
 ## 3. Simulation
@@ -46,116 +49,106 @@ It owns one instance of each manager as a child `SimManager` node:
 
 | Domain | Managers (file) | Owns |
 |---|---|---|
-| Clock & RNG | `TimeManager`, `RNGManager` (`core/`) | Day, time, phase, speed; the eight RNG streams of GDD 116. |
-| Economy | `EconomyManager`, `InventoryManager`, `PricingManager` (`gameplay/economy/`) | Balance and ledger; ingredient stock; price overrides. |
-| Production | `EquipmentManager`, `ProductionManager`, `DisplayInventoryManager` (`gameplay/production/`) | Equipment instances and utility; production jobs (GDD 18), including dough and trays parked on the Holding Table (stages `DOUGH_ON_TABLE`/`TRAY_ON_TABLE`, aged and discarded by `ProductionManager.age_table`, GDD 5.1.3, 19.7.6); display slots and `BreadStack`s with freshness (GDD 19). Storage and the Holding Table are building fixtures (`EquipmentManager.is_fixture`): one per location, never sold or put away, outside slot limits. |
-| World | `WorldManager`, `DecorationManager` (`gameplay/world/`) | Location, per-floor `FloorGrid`, placement validation, routes, exclusive points; decorations. |
-| Actors | `PlayerTaskManager` (`gameplay/actors/`) | The player character and its command queue (GDD 16). |
-| Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers; arrivals and the pending pool. |
-| Delivery & supply | `RotiFoodManager` (`gameplay/delivery/`), `SupplyOrderManager` (`gameplay/supply/`) | RotiFood orders and drivers; market orders and couriers. |
-| Staff | `StaffManager` (`gameplay/staff/`) | Contracts, duty, wage liability (one wage per location tier), staff actors and tasks, cashier lane assignment, kitchen orders, staff chairs. |
-| Meta | `gameplay/meta/`: reputation, weather, marketing, bailout, statistics, analytics, achievements, tutorial, alerts, day reports | Their respective GDD systems. |
+| Clock & RNG | `TimeManager`, `RNGManager` (`core/`) | Day and the 24-hour clock (nights 22:00–06:00); the RNG streams of GDD 116. |
+| Economy | `EconomyManager`, `UpgradeManager`, `IdleEconomyManager` (`gameplay/economy/`) | Balance and ledger; every level (stations, counter, recipes, staff, global), recipe unlocks, opening stations and model evolution (idle §8); the analytic KR/s model (idle §9.1), which never touches the simulation. |
+| Production | `EquipmentManager`, `ProductionManager`, `DisplayInventoryManager` (`gameplay/production/`) | Equipment instances; production jobs (mix → bake → shelf, idle §4.3), including dough and trays parked on the Holding Table; display slots with their recipe (`assign`, or Auto) and `BreadStack`s, which never age. Storage, the Holding Table and staff chairs are building fixtures (`EquipmentManager.is_fixture`). |
+| World | `WorldManager`, `DecorationManager` (`gameplay/world/`) | Location, per-floor `FloorGrid`, placement validation (`find_spot`, `auto_place`), routes, exclusive points; decorations and their bonuses (idle §8.8). |
+| Actors | `PlayerTaskManager`, `KitchenBrain` (`gameplay/actors/`) | The owner, who works automatically (serves lane A when buyers wait, otherwise cooks), the tap focus and Semangat boost (idle §5.1–5.2). `KitchenBrain` is the shared, stateless job picker for the owner and bakers (idle §4.3). |
+| Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
+| Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
+| Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
+| Meta | `gameplay/meta/`: `ReputationManager`, `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.
 
 ### 3.2 The tick (GDD 102)
 
-`SimulationRoot.advance(real_delta)` accumulates real time × speed and runs fixed
-ticks of `clock.sim_tick_seconds` (0.05 s). At most 16 ticks run per frame, and
-nothing runs while any pause reason is active. One `step(dt)` calls the managers in
-this fixed order:
+`SimulationRoot.advance(real_delta)` accumulates real time and runs fixed ticks of
+`sim.tick_seconds` (0.05 sim-s). Nothing runs while any pause reason is active. One
+`step(dt)` calls the managers in this fixed order:
 
 ```
-time.advance → (18:00 → close_day) → production → equipment (utility) → supply
-→ display (aging) → player → staff → lane rebalancing → demand → customers → cashier → rotifood → alerts
+time.advance (→ at 00:00 weather, statistics, RotiFood prune) → production → player → staff
+→ lane rebalancing → demand → customers → cashier → rotifood → boosts → tutorial
 ```
 
-Economy, reputation and statistics are updated inside those calls, at the moment
-each event commits. Presentation never runs inside a tick. The world view, HUD and
-audio read state every frame and react to `EventBus` signals. Iteration inside a
-manager uses sorted IDs, never node order, so the same ticks give the same result
-at any speed (`TEST_TIME_002`). Text IDs are sorted with `Ids.sort` (`core/ids.gd`).
-A plain `Array.sort()` orders StringName by internal address, so the order, and
-with it the whole run, would change between sessions (`ACC_116_ID_ORDER`).
+Economy, reputation, statistics and achievements are updated inside those calls, at
+the moment each event commits. Presentation never runs inside a tick. The world view,
+HUD and audio read state every frame and react to `EventBus` signals. Iteration inside
+a manager uses sorted IDs, never node order (`TEST_TIME_002`). Text IDs are sorted with
+`Ids.sort` (`core/ids.gd`), because a plain `Array.sort()` orders StringName by internal
+address and the run would change between sessions (`ACC_116_ID_ORDER`).
 
-At 1×, `SimulationRoot.advance` turns each real second into
-`clock.sim_seconds_per_real_second` sim-seconds, and each sim-second advances the in-game
-clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
+One real second advances `clock.sim_seconds_per_real_second` sim-seconds, and each
+sim-second advances the in-game clock by `clock.ingame_seconds_per_sim_second`, so one
+in-game minute takes one real second. There is one speed (idle §0.2). Real-time
+systems (boost timers, promotion cooldowns) convert with `DataRegistry.real_seconds`.
 
-### 3.3 Day flow (GDD 15, 104)
+### 3.3 The 24-hour shop (idle §3)
 
-- **05:00 `_begin_day`**: daily resets, the overnight freshness rollover (exactly
-  once), weather, bailout grant, staff wage liability locked, Day 1–3 opening stock,
-  and demand planning.
-- **08:00**: `TimeManager` switches the phase to `open`.
-- **18:00 `close_day`**: the GDD 104 shutdown matrix. Customers return held bread,
-  unpacked or unhandled RotiFood orders are cancelled, supply orders are committed,
-  staff go home. Then settlement (utility, wages), the day report, analytics and
-  achievements, market unlock after Day 3, and a critical autosave.
-- **After hours**: management (hire, market, equipment, upgrade). Then
-  `continue_to_next_day` starts the next day at 05:00.
+There are no phases, no opening or closing and no Daily Summary. The shop is open around
+the clock; nights (`night.from_hour`–`night.to_hour`) bring fewer walk-ins and RotiFood
+orders. At 00:00 the day number goes up, the weather is rolled and old RotiFood records
+are pruned. A new game starts at `clock.start_seconds`.
 
 ### 3.4 Key flows
 
-- **Production** (GDD 18): `create_job` deducts ingredients atomically → `start_mixing`
-  → the mixer holds the dough until pickup → `insert_oven` → `READY_PERFECT` →
-  `OVERBAKING` → `BURNT` using the oven tier's windows (GDD 62) → `pickup_tray` →
-  `place_from_tray`, one slot at a time, via the slot picker. Player jobs wait for a
-  tap at each stage. Staff are equal since 2026-10-02 (no tiers, perks, work speed
-  or auto-retrieve). Bakers only make what the player orders with Ask a Baker in the
-  Recipe Book: `StaffManager.order_recipe` creates a job owned by `KITCHEN_ID`, and any
-  baker on duty works its steps. Idle bakers also pick up the player's finished
-  dough and trays (GDD 23.3), but skip any station a player command targets
-  (`PlayerTaskManager.has_command_for`), and drop a step the moment such a command
-  appears. Tapping the station again cancels the command (`cancel_command_for`).
-  Bakers with nothing to do walk to a staff chair and sit (`SimActor.seat_iid`, drawn
-  by `ActorView.set_seat` and `ProceduralAnimationSystem.sit`). With no baker on duty,
-  kitchen jobs pass to the player.
-- **Customers** (GDD 20, 84): `DemandManager` produces arrivals (the Day 1–3
-  manifest, then a Poisson process). An arrival needs a queue reservation
-  (`QueueManager.reserve`), otherwise it goes to the pending pool (30 s, or 40 s
-  for drivers). An admitted customer first walks from an end of the pavement to the
-  door (`APPROACHING`, GDD 20.1): `SimActor.walk_path` follows the off-grid path from
-  `StreetPaths.approach` with `outside = true`, and `_enter_shop` puts it on the door
-  cell, rings the bell and counts it. Patience only drains inside. Then the customer
-  chooses a recipe and walks to the nearest display with it.
-  Stock is revalidated and taken on arrival. Substitution uses the GDD 84.3 score.
-  The customer then queues. The service point frees the slot, and the cashier
-  completes the transaction in the GDD 103.1 order.
-- **Checkout lanes** (GDD 21.2–21.3): two lanes at Tiers 1–3, three at Tiers 4–5.
-  Lane A (`main`) is the player's and is open while the player stands at its cashier
-  point (`is_manning_lane` checks the real position) or when no other lane is open;
-  every other lane belongs to one cashier and is open while that cashier is on duty.
-  `CustomerManager.rebalance_lanes`, run each tick before admission, moves unserved
-  customers out of closed lanes and evens open lanes (front of line first) with
-  `QueueManager.move_actor`, which moves the reservation without freeing a slot to a
-  new arrival. Customers mid-checkout and RotiFood drivers never move.
-- **Window shoppers** (GDD 20.12) are `Customer` objects with `window_shopper = true`
-  and ids `w…`, which sort after the buyers' `c…`. `DemandManager` admits them from the
-  Day 1–3 manifest or a Poisson process drawn from `cosmetic_rng`, without a queue
-  reservation or a pending pool. `CustomerManager` walks them to a free spot in front of
-  or beside a display, lets them look, and walks them out. They step aside when a buyer
-  heads for their tile. Nothing a buyer does depends on them.
-- **RotiFood** (GDD 22): orders never reserve stock. `pack` takes every item or
-  none. Handover credits the sale once (`economy_committed`). `reject` (GDD 22.10)
-  cancels an unpacked order at the player's request, sends any driver away and
-  applies `rating.rotifood_events.order_rejected`; the popup asks first through
-  `ModalHost.confirm`.
-- **Supply** (GDD 5.2.3, 70): daytime purchases pay immediately and arrive 3 in-game
-  hours later. Stock commits when the courier drops the package, with one courier at
-  the staging point at a time. After-hours purchases commit instantly.
-- **Street arrivals** (GDD 20.1, 22.6, 5.2.3): RotiFood drivers and couriers also walk
-  in from the pavement (`StreetPaths`, `core/street_paths.gd`). They set off early by
-  `approach_seconds` / `approach_game_seconds`, so they reach the door at the
-  scheduled time. Whoever leaves through the door is released by the simulation;
-  `WorldView._start_leaver` keeps their `ActorView` walking to the end of the pavement
-  as a view only (at most `MAX_LEAVERS`), stepped with simulation time while the day
-  runs.
-- **Upgrade** (GDD 47, 105): the upgrade needs no production jobs and nothing
-  carried. The code takes a snapshot, charges the upgrade, migrates the equipment
-  with deterministic auto-placement, and checks protected paths. On any failure it
-  restores the snapshot, so nothing is lost.
+- **Production** (idle §4.3): an idle worker (the owner or a baker) asks
+  `KitchenBrain.choose`: carried items are delivered first, then a finished tray is
+  taken out, then dough goes into a free oven, then something on the Holding Table that
+  now has a destination, then a new batch for the shelf slot with the lowest fill ratio.
+  `plan_batch` picks the largest batch multiple that fits the slot's room and is
+  affordable; the ingredient cost is paid when the job is created. Stations hold their
+  contents without a time limit; nothing burns or goes stale.
+- **Owner** (idle §5.1): `PlayerTaskManager` serves lane A while buyers wait there (or
+  during a counter focus), otherwise works the kitchen. A tap on a station gives it the
+  owner's focus and a Semangat boost (`tap.progress_seconds × tap_power`).
+- **Customers** (GDD 20, 84): `DemandManager` produces arrivals (a Poisson process from
+  `base_arrivals_per_hour × reputation × decor × boost × night × weather`). An arrival
+  needs a queue reservation (`QueueManager.reserve`), otherwise it waits in the pending
+  pool. An admitted customer walks from an end of the pavement to the door
+  (`APPROACHING`, `StreetPaths`), then chooses a recipe and walks to the nearest display
+  with it, takes the bread, queues and pays. Window shoppers only look (GDD 20.12).
+- **Checkout lanes** (GDD 21.2–21.3): two lanes at Tiers 1–3, three at Tiers 4–5. Lane A
+  is the owner's; every other lane belongs to one cashier. `CustomerManager.rebalance_lanes`
+  evens the lines each tick before admission.
+- **RotiFood** (idle §6.5): orders take their bread from the shelves all at once when it
+  is there, are packed automatically by a free cashier or the owner, and are handed to
+  the driver.
+- **Levels** (idle §8): `UpgradeManager.offer(kind, id)` describes one upgrade (level,
+  cap, base, growth, steps); `offer_cost`, `buy` (×1/×10/Max) and `buy_offer` spend
+  through the ledger. Crossing a station threshold evolves the model
+  (`evolve`: the next tier's definition, at the same place, the nearest legal spot, or
+  waiting). Opening a station needs a free legal spot (`open_station_block`).
+- **Location move** (idle §8.7): `SimulationRoot.upgrade_location` sends customers out,
+  parks carried items on the Holding Table, lifts decorations, migrates the equipment
+  with deterministic auto-placement and puts decorations back where they fit. On any
+  failure it restores a snapshot.
+- **Franchise** (idle §10): `SimulationRoot.franchise` adds the new stars, bumps the
+  branch number, resets the run (economy, levels, stations, recipes, staff, reputation,
+  boosts, global upgrades up to Lv 5), keeps stars, perks, statistics, achievements,
+  decorations, the clock and the tutorial, applies the perks to the new branch, and
+  saves. `GameRoot.do_franchise` rebuilds the world and HUD behind the loading screen.
+- **KR/s model** (idle §9.1): `IdleEconomyManager.compute` estimates units per hour as the
+  smallest of demand, queue capacity, machine capacity (with per-batch hand-off gaps
+  along the real kitchen routes) and owner/staff time, separately for day and night,
+  times the net profit per unit. It feeds the HUD, offline earnings, "Best value first"
+  (`ranked_offers`, `delta_rate`) and `delta_unlock`. `ACC_IDLE_MODEL_MATCH` keeps it
+  within ±20% of the live simulation (`tools/model_probe.tscn`).
+- **Offline** (idle §9.2–9.4): `OfflineManager` keeps `last_active_unix` and the saved
+  KR/s. `GameRoot.check_offline` (on load) and `_on_lifecycle_resumed` call `settle`;
+  short absences are credited with a toast, longer ones wait in `pending` for the
+  Welcome Back popup's Collect.
+- **Boosts** (idle §11): `BoostManager` holds one income boost (coffee or achievement
+  reward; a new one adds time) and one promotion with per-promotion cooldowns, all in
+  real seconds of active play. `GameRoot.check_daily_gift` pours the coffee once per
+  device date.
+- **Street arrivals** (GDD 20.1, 22.6): buyers, window shoppers and RotiFood drivers walk
+  in from the pavement (`core/street_paths.gd`); drivers set off early by the length of
+  the walk. Whoever leaves through the door is released by the simulation;
+  `WorldView._start_leaver` keeps their `ActorView` walking to the end of the pavement as
+  a view only.
 
 ## 4. World, grid and navigation (GDD 17, 56, 57, 60, 68)
 
@@ -192,10 +185,13 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   world taps, the music state, and lifecycle handling. New game and load run in
   stages behind `ui/components/loading_screen.gd` (GDD 89.5): each heavy stage gets
   a frame so the bar is drawn, and `playing` turns true only when the overlay fades.
-- Phone browsers (GDD 12.5): `core/web_platform.gd` is the only code that calls
-  JavaScript (`JavaScriptBridge`): phone detection, portrait check, fullscreen plus
-  landscape lock. `ui/components/orientation_guard.gd` covers the game and pauses it
-  while the phone is upright; the Tap to Start tap (on release) requests fullscreen.
+- Portrait frame (idle §12.0): `PortraitShell` (`scenes/portrait_shell.gd`) computes the
+  frame box (720 logical px wide, 9:16–9:21) from the window, renders `GameRoot` in a
+  `SubViewport` with `size_2d_override` 720 × H at the screen's real pixels, and draws
+  the gingham `TableclothSides` outside it; taps on the tablecloth never reach the game.
+  `core/web_platform.gd` is the only code that calls JavaScript (phone detection,
+  fullscreen from a released tap); `ui/components/orientation_hint.gd` shows the
+  one-time "Turn your phone upright" hint on sideways phone browsers.
 - `WorldView` (`gameplay/world/world_view.gd`) mirrors the simulation. It builds
   rooms and equipment with the factories, pools actor views, shows station markers,
   bread and ghosts, and does picking. `CameraRig` frames floors that fit the viewport
@@ -228,18 +224,15 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   `tab_bar()`, switches through `toggle()`, and HUD values through `chip()`. `IconCanvas`
   draws each icon three times (shadow, outline, fill); only primitives in the icon's
   base colour, or colours registered with `_shade()`, get the outline.
-- HUD (GDD 7): `HUD` refreshes its values 5 times a second, but rebuilds a list of
-  tappable rows (RotiFood orders, floor alerts) only when a signature of its content
-  changes. A button freed between press and release loses the tap. The RotiFood
-  orders panel sits right above the Quick Menu, and `_fit_right_panels` keeps it as
-  wide as the Display Stock panel and moves that panel up only to avoid an overlap.
-  `RotiFoodButton` (`ui/components/rotifood_button.gd`) rings while an order waits to
-  be packed. Its shake and pop run on a `Body` child, so they never fight the button's
-  own press bounce. Quick Menu tiles are sized when the HUD is built, from the longest
-  label at the current text scale (`_quick_tile_size`, `wrap_width`), so a two-line
-  label always fits above the tile's lip. `_place_above_quick` keeps the RotiFood panel,
-  the tutorial hint and the after-hours buttons above the bottom panels whatever
-  their height.
+- HUD (idle §12.1): `HUD` refreshes its values 5 times a second: KR, KR/s from the model,
+  boost chips with their time left, reputation, Franchise Stars and the clock, a tab bar
+  (Upgrades, Menu, Staff, Shop, Decor, Franchise) with a green dot when something inside
+  is affordable (`has_affordable`), toasts, and `LevelChips` (projected 2D "Lv n" chips
+  over every station, pooled and never rebuilt on refresh). Big screens are `UISheet`
+  bottom sheets (non-blocking, one at a time, detail pages with Back); small popups
+  (confirm, Welcome Back, cutscenes, tips) are cards or system overlays. Never rebuild a
+  list of tappable buttons on every refresh: a button freed between press and release
+  loses the tap.
 - Procedural factories (GDD 12.3): `ProceduralMeshFactory`, `BreadFactory`, `EquipmentFactory`,
   `CharacterFactory`, `RoomFactory`, `DecorFactory`, `NeighborhoodFactory` (meshes); `ProceduralAnimationSystem`, `FX`
   (animation and particles); `ProceduralUIFactory`, `IconCanvas`, `BreadArt` (UI). Their shared
@@ -271,37 +264,14 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   (`_update_floaters`). Both timers use real seconds and stop while the game is
   paused. `WorldView._update_staff_lines` shows idle staff's lines (GDD 31.8) in one
   `ThoughtBubble` per staff member: at most one line a minute each, and only after a
-  few seconds of idling. The guided Day 1 tutorial (GDD 88.1) is a step machine in
-  `TutorialManager` (`GUIDED` prompts, `FLOW` transitions on world events,
-  `guided_step` saved); `allows_tap` holds back only what a step needs. The UI shows
-  the steps: `HUD` pulses the Decoration Mode button (`TutorialPulse`),
-  `DecorationScreen` shows the tip and pulses Done and reports `decor_opened`/
-  `decor_closed`, and `RecipeBookScreen` runs a `CoachMarks` spotlight tour that
-  looks its targets up by node name every frame. After the holding table the
-  steps go on to Skip to Open (the `HUD` pulses its button), the opening tour, and
-  the first customer. Steps whose state is already reached skip themselves
-  (`TutorialManager._resolve`). A prompt with a `spotlight` (the opening tour, the
-  first customer, and one-off tips for the first window shopper who leaves, the
-  first surprise and the first RotiFood order) opens `TutorialSpotlight`, a system
-  overlay that pauses the game and hosts `CoachMarks` over HUD panels or world
-  models; `WorldView.screen_rect_of` projects a model's meshes to a screen rect
-  every frame. The view-side `SurpriseDirector` reports its first scene with
-  `TutorialManager.on_surprise`, the only way a surprise touches the simulation
-  (a tip record). `CustomerOrderScreen` spotlights OK while the player learns to
-  serve. When the shop closes on Day 1 the steps continue after hours:
-  `DailySummaryScreen` spotlights Manage Staff once its tip is closed, and
-  `StaffScreen` and `MarketingScreen` report `*_opened`/`*_closed` and run their
-  own `CoachMarks` tours while their step is active (`TutorialManager.staff_tour`,
-  `marketing_tour`). Later features are introduced once, on first contact (GDD
-  88.4): `TutorialManager` raises spotlights from sim events (store open, day
-  start, a Food Vlogger entering, a stack going stale with its shelf as
-  `target_iid`, an achievement, Pak Lurah's visit), and screens ask
-  `TutorialManager.screen_tour(id)` before running their own one-off tour, then
-  `mark_tour(id)`. A `CoachMarks` step may carry an `enter` callable, which the
-  Market tour uses to switch tabs. `SimBot` plays the same steps through the sim API (it re-places a shelf
-  where it stands, parks the second tray on the holding table, and closes tips
-  that pause the game like a player). `WorldView.highlight` marks the tutorial target (GDD 27.5):
-  besides the gold floor ring, every mesh of the target model gets
+  few seconds of idling. Onboarding (idle §13) is `TutorialManager.step`: every 0.5
+  sim-s it checks the triggers (first sale, an affordable oven upgrade, first upgrade,
+  first hire, an affordable recipe, Tier 2 in reach, franchising available) and shows
+  each step once as a Pak Lurah popup (`TutorialModal`), a `TutorialSpotlight` over HUD
+  panels or world models, or a hint above the tab bar with a pulsing tab or level chip
+  (`HUD.show_tutorial_hint`, `TutorialPulse`). Hints the player has carried out close
+  themselves. `WorldView.highlight` marks a world target (GDD 27.5): besides the gold
+  floor ring, every mesh of the target model gets
   `ProceduralMeshFactory.flash_material()` as `material_overlay`, and `_update_blink`
   pulses its alpha each frame (steady with Reduced Motion) and re-applies it when the
   model is rebuilt. `SurpriseDirector` (`gameplay/world/surprise_director.gd`, a
@@ -391,14 +361,6 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
   - `HolidayFactory` builds the holiday bunting (on the store floor node) and banners
     (in the neighbourhood). `WorldView._apply_holiday` places them on every rebuild and
     day change.
-- Skip to Open (GDD 15.4) is not a presentation trick: `GameRoot` runs
-  `SimulationRoot.skip_to_open_step` (ordinary ticks, a time budget per frame) behind
-  `ui/components/skip_overlay.gd` instead of `advance`, so the result equals waiting.
-- Close Early (GDD 15.5) is the opposite: it does not simulate the skipped hours.
-  `SimulationRoot.close_early` takes the rating penalty, moves the clock to 18:00 and
-  calls the normal `close_day(early)`, so the 18:00 shutdown matrix (GDD 104) and the
-  settlement run exactly once. The report carries `closed_early_at` and
-  `close_early_penalty`.
 - Audio: `AudioGenerator.build(generator_id)` renders each event in
   `audio_events.json`. `AudioManager` plays it. Music beds come from
   `audio/music_build.gd`, which renders a bed a slice at a time; `AudioManager` runs
@@ -407,58 +369,54 @@ clock by `clock.ingame_seconds_per_sim_second` (GDD 15.2, 99.1).
 
 ## 6. Data catalogs (GDD 101, 134)
 
-`data/catalog/*.json`: ingredients, recipes, equipment, customers, staff, locations,
-weather, marketing, opening (Day 1–3 manifest), balance (all tunables),
-achievements, decorations, audio_events, quality_presets, strings_en. Each file
-carries `catalog_schema_version` and `content_version`. `DataRegistry._validate*`
-enforces GDD 133.1 at boot, and a failed validation shows the error screen instead
-of starting a broken game.
+`data/catalog/*.json`: idle (the idle economy: levels, costs, milestones, locations,
+reputation, offline, prestige and perks, boosts and promotions, global upgrades, tap,
+night), balance (clock, queues, production and other v3.1 tunables still in use),
+recipes, equipment, ingredients (batch costs), customers, staff, locations, weather,
+achievements, decorations (with bonuses), audio_events, quality_presets, strings_en.
+Each file carries `catalog_schema_version` and `content_version`. `DataRegistry._validate*`
+checks them at boot (`_validate_idle` for idle.json), and a failed validation shows the
+error screen instead of starting a broken game.
 
 ## 7. Tests and tools
 
 - `tests/test_runner.tscn` runs every suite in `tests/suites/`. A custom `Logger`
   turns any engine or script error during a test into a failure. Options:
-  `--only=<prefix>`, `--skip-long`, `--update-fixtures`. The report is written to
-  `user://test_report.json`.
-- `tests/sim_bot.gd` (`SimBot`) plays through the same APIs as the UI. With
-  `manage = true` it also hires, buys equipment and upgrades, for the soaks.
-- `tools/release_validator.tscn` is the GDD 133 release gate.
-  `tools/string_lint.gd` handles key completeness and the English lint.
-  `tools/generate_icon.gd` generates `icon.svg`. `tools/compile_check.tscn` checks
-  that every script compiles. `tools/character_lineup.tscn` (run windowed, not
-  headless) renders every character variant from the front, 3/4, back, a face
-  close-up with all five moods, and the gameplay camera to PNGs in `LINEUP_OUT`
-  (default `user://lineup`), plus a triangle and draw-call report, and a poses page
-  (packing, face wipe, dozing, carried bread and bag, thought bubble) with a
-  window-shopper row (head sweep and hand-on-chin at several moments).
-  `tools/world_snapshot.tscn` (also windowed) plays a real day with `SimBot` and
-  captures the shop at the gameplay camera: the packing sequence at the counter
-  (`pack_seq_*.png` plus a `pack_sequence.png` strip), packing in the overview and close-up,
-  a window shopper looking at the display, the quiet-shop thought bubble, the dozing player, and the Holding Table with dough
-  and trays at different freshness (with and without its marker).
-- `tools/vehicle_lineup.tscn` (windowed) renders every `TrafficFactory` vehicle and
-  variant from the side, the pedalling and walking frames, the rain versions and a
-  mixed street at the gameplay camera to `LINEUP_OUT`, and prints triangle counts,
-  build times per plan step and each tier's street-mesh triangles.
-- `tools/length_probe.tscn` (headless) measures the game length (GDD 2, target about 26
-  in-game days): a bot plays a new game through the UI APIs until it owns Tier 5, Tier 5
-  equipment in every slot and every shop decoration, printing one line per day and
-  `RESULT ... goal_day=N`. Use `--seed=N --variant=typical|eager --days=N`, and run
-  several seeds in parallel.
-- `tools/ui_resolution_sweep.tscn` (windowed) opens the menu and in-game screens at the
-  GDD 110 window sizes and text scales, saves half-size PNGs to `LINEUP_OUT`, and prints
-  `SWEEP OFF` for every visible control outside the screen and `SWEEP done, N issues`
-  at the end. It uses its own save folder.
-- Performance tools (GDD 109.3, added 2026-10-25): `tools/render_probe.tscn` (windowed)
-  stages a fully equipped, stocked shop at every tier and prints draw calls, objects and
-  triangles a frame plus where the visible mesh surfaces come from (`--tier=N`, `--why`
-  lists parts that are not baked and why, `--surfaces` lists each baked model's
-  groups). `tools/bake_compare.tscn` (windowed) renders every model with the old
-  materials, unbaked and baked, and prints the pixel differences (`BAKE_OUT` saves the
-  strips). `tools/sim_profile.tscn -- --tier=N [--detail]` (headless) times every
-  manager over a busy open day. `tools/soak_trace.tscn -- --days=N` (headless) prints a
-  per-day state hash of the TEST_LONGRUN_100 game, to prove an optimization changes
-  nothing. `tools/loading_probe.tscn` runs `main.tscn`, starts a new game and prints how
-  long each loading stage takes (`--menu=N` waits in the Main Menu first).
-- `.github/workflows/tests.yml` runs the compile check, the tests without the soaks
-  and the quick release validator on every push and pull request to `main`.
+  `--only=<prefix>`, `--id=<exact>`, `--skip-long`, `--update-fixtures`. Before quitting
+  it stops every sound, because a playback still running at shutdown is reported as
+  leaked objects.
+- `tests/sim_bot.gd` (`SimBot`) plays through the same APIs as the UI. It closes
+  onboarding tips; with `manage = true` it plays like a typical player: it moves to the
+  next location when it can, hires and opens stations, and otherwise buys the best value
+  (Δ KR/s ÷ cost) among level upgrades, recipe unlocks and "chasing a recipe" (raising
+  the best mixer and oven to the tool tier a more profitable recipe needs). It saves up
+  for the next location when that is the best value and costs at most
+  `save_location_minutes` of income, and for the best purchase when it is at most
+  `wait_best_minutes` away.
+- `tests/model_sample.gd` builds the Tier 1–5 sample shops of `ACC_IDLE_MODEL_MATCH`
+  and measures the live net income; `tests/pacing_tracker.gd` records the active-play
+  time of every idle GDD §1.4 milestone.
+- `tools/idle_probe.tscn` (headless) plays a new game with `SimBot` and prints one line
+  every few minutes and the milestone times (`--minutes`, `--seed`, `--manage`,
+  `--franchise=N` to sell at N stars and measure the second run, `--max-tier`,
+  `--set="path=json;…"` to try idle.json values without editing the catalog).
+- `tools/model_probe.tscn` (headless) compares the KR/s model with the live shop at the
+  sample shops (`--hours`, `--warm`, `--seed`, `--bare` for a brand-new shop).
+- `tools/release_validator.tscn` is the release gate. `tools/string_lint.gd` handles key
+  completeness and the English lint. `tools/generate_icon.gd` generates `icon.svg`.
+  `tools/compile_check.tscn` checks that every script compiles.
+  `tools/character_lineup.tscn`, `tools/world_snapshot.tscn` and
+  `tools/vehicle_lineup.tscn` (windowed) render characters, the shop and vehicles to
+  PNGs in `LINEUP_OUT`.
+- `tools/ui_resolution_sweep.tscn` (windowed) opens the menu and in-game screens on the
+  idle §12.0.7 portrait matrix and text scales, saves half-size PNGs to `LINEUP_OUT`,
+  and prints `SWEEP OFF` for every visible control outside the frame and
+  `SWEEP done, N issues` at the end (`--res=`, `--scales=`, `--screens=` filters). The
+  same check runs headless in `ACC_IDLE_PORTRAIT_UI`.
+- Performance tools (GDD 109.3): `tools/render_probe.tscn` (windowed) prints draw calls,
+  objects and triangles per tier; `tools/bake_compare.tscn` compares baked and unbaked
+  models; `tools/sim_profile.tscn -- --tier=N [--detail]` times every manager;
+  `tools/soak_trace.tscn -- --days=N` prints a per-day state hash to prove an
+  optimization changes nothing; `tools/loading_probe.tscn` times the loading stages.
+- `.github/workflows/tests.yml` runs the compile check, the tests without the soaks and
+  the quick release validator on every push and pull request to `main`.

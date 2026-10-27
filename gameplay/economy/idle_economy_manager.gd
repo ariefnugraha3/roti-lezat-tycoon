@@ -422,6 +422,19 @@ func delta_rate(o: Dictionary, n: int = 1) -> float:
 	return maxf(0.0, after - before)
 
 
+## Kenaikan KR/s bila resep `rid` dibuka pada Lv 1 dan petak Auto memakainya
+## bila lebih untung. Resep dibuka sementara lalu dikembalikan.
+func delta_unlock(rid: StringName) -> float:
+	var up: UpgradeManager = sim.upgrades
+	if up.is_unlocked(rid):
+		return 0.0
+	var before: float = compute(false)["rate"]
+	up.recipe_levels[rid] = 1
+	var after: float = compute(false)["rate"]
+	up.recipe_levels.erase(rid)
+	return maxf(0.0, after - before)
+
+
 ## Semua penawaran upgrade yang masih bisa naik, diurutkan "Best value first":
 ## Δ(KR/s) ÷ biaya satu level, terbesar dulu; seri dipecah biaya termurah, lalu
 ## urutan jenis dan ID. [{offer, cost, delta, value}].

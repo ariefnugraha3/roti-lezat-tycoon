@@ -10,6 +10,11 @@ func tests() -> Array:
 	]
 
 
+## Pembagi bintang katalog (prestige.stars_divisor_kr): KR sepanjang masa untuk 1 bintang.
+static func _d() -> float:
+	return DataRegistry.idlef("prestige.stars_divisor_kr")
+
+
 ## Toko Tier 3 yang mapan dengan `alltime` KR sepanjang masa.
 func _ready_shop(seed_value: int, alltime: float) -> SimulationRoot:
 	var s: SimulationRoot = new_sim(seed_value)
@@ -22,12 +27,13 @@ func _ready_shop(seed_value: int, alltime: float) -> SimulationRoot:
 
 func _prestige() -> void:
 	# Rumus bintang (10.2).
+	var d: float = _d()
 	eq(PrestigeManager.stars_for(0.0), 0, "no KR, no star")
-	eq(PrestigeManager.stars_for(999999.0), 0, "just under 1M is still 0 stars")
-	eq(PrestigeManager.stars_for(1.0e6), 1, "1M earns 1 star")
-	eq(PrestigeManager.stars_for(3.99e6), 1, "under 4M is 1 star")
-	eq(PrestigeManager.stars_for(4.0e6), 2, "4M earns 2 stars")
-	eq(PrestigeManager.stars_for(1.0e8), 10, "100M earns 10 stars")
+	eq(PrestigeManager.stars_for(d - 1.0), 0, "just under one divisor is still 0 stars")
+	eq(PrestigeManager.stars_for(d), 1, "one divisor earns 1 star")
+	eq(PrestigeManager.stars_for(3.99 * d), 1, "under 4 divisors is 1 star")
+	eq(PrestigeManager.stars_for(4.0 * d), 2, "4 divisors earn 2 stars (square root)")
+	eq(PrestigeManager.stars_for(100.0 * d), 10, "100 divisors earn 10 stars")
 	check(PrestigeManager.stars_for(1.0e300) > 0, "a huge number stays a finite star count")
 	# Syarat (10.1).
 	var fresh: SimulationRoot = new_sim(77)
@@ -38,10 +44,10 @@ func _prestige() -> void:
 	free_sim(fresh)
 	var s: SimulationRoot = _ready_shop(78, 0.0)
 	eq(s.prestige.franchise_block(), &"stars", "Tier 3 without a new star cannot franchise")
-	s.statistics.stats["alltime_earned_kr"] = 4.2e6
+	s.statistics.stats["alltime_earned_kr"] = 4.2 * d
 	eq(s.prestige.franchise_block(), &"", "Tier 3 with 2 new stars can")
 	eq(s.prestige.stars_gain(), 2, "selling now earns 2 stars")
-	near(s.prestige.kr_to_next_star(), 9.0e6 - 4.2e6, 1.0, "the next star needs 9M all-time")
+	near(s.prestige.kr_to_next_star(), 9.0 * d - 4.2 * d, 1.0, "the next star needs 9 divisors all-time")
 	# State sebelum reset.
 	s.upgrades.global_levels[&"global_tap_power"] = 3
 	s.upgrades.global_levels[&"global_offline_hours"] = 6
@@ -103,7 +109,7 @@ func _prestige() -> void:
 	same_state(logical_state(s2.capture_save()), logical_state(saved), "the branch survives a save and load")
 	free_sim(s2)
 	var twin: SimulationRoot = _ready_shop(78, 0.0)
-	twin.statistics.stats["alltime_earned_kr"] = 4.2e6
+	twin.statistics.stats["alltime_earned_kr"] = 4.2 * _d()
 	twin.upgrades.global_levels[&"global_tap_power"] = 3
 	twin.upgrades.global_levels[&"global_offline_hours"] = 6
 	twin.reputation.reputation = 4.6
@@ -118,7 +124,7 @@ func _prestige() -> void:
 	var p: SimulationRoot = _ready_shop(79, 0.0)
 	p.upgrades.unlock_recipe(&"recipe_sugar_donut")
 	p.prestige.stars = 499
-	p.statistics.stats["alltime_earned_kr"] = 1.0e6 * 500.0 * 500.0
+	p.statistics.stats["alltime_earned_kr"] = _d() * 500.0 * 500.0
 	eq(p.franchise(), 1, "499 -> 500 stars")
 	eq(p.world.location.tier, int(DataRegistry.perk(&"perk_ruko_start").get("start_tier", 2)), "Shophouse Start opens the branch at Tier 2")
 	near(p.economy.balance, float(DataRegistry.perk(&"perk_head_start").get("start_kr", 5000)), 0.5, "Head Start opens with 5K KR")
@@ -194,7 +200,7 @@ func _flow() -> void:
 	check(perk_state != null and perk_state.text == Tx.t("ui_franchise_perk_need", {"stars": "5"}), "a locked perk shows the stars it needs")
 	game.modals.close_all()
 	jump_to_tier(sim, 3)
-	sim.statistics.stats["alltime_earned_kr"] = 4.2e6
+	sim.statistics.stats["alltime_earned_kr"] = 4.2 * _d()
 	check(game.hud.has_affordable(&"franchise"), "the tab gets its green dot once franchising pays")
 	game.hud.open_tab(&"franchise")
 	await _frames(2)

@@ -5,7 +5,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_IDLE_BOOSTS", "name": "idle 11.1-11.2 Pak Lurah's coffee once per device day (x2 income for 15 real min, only while playing, saved), promotions cost KR/s x their minutes, raise arrivals or RotiFood for a while, run one at a time with a cooldown; income boosts extend instead of stacking; offline and the franchise ignore them", "fn": _boosts},
+		{"id": "ACC_IDLE_BOOSTS", "name": "idle 11.1-11.2 Pak Lurah's coffee once per device day (x2 income for 15 real min, only while playing, saved), promotions cost KR/s x their minutes, raise arrivals or RotiFood for a while, run one at a time with a cooldown; income boosts refresh to the longer time instead of stacking; offline and the franchise ignore them", "fn": _boosts},
 		{"id": "ACC_IDLE_DECOR_BONUS", "name": "idle 8.8, 10.5 every shop decoration gives its arrival/price/RotiFood bonus once per run, prices scale with the location tier, skins stay cosmetic; the franchise sends bonus decorations back to the inventory with the bonus off until bought again, while other decorations go back on the wall", "fn": _decor},
 		{"id": "ACC_IDLE_ACHIEVEMENTS", "name": "idle 11.4 idle milestones (first sale, earn 1K-1T, tiers, Lv 100 station and recipe, all recipes, franchises, overflow) unlock once, grant their badge or decoration and a x2 income boost for 10 min, and survive the franchise", "fn": _achievements},
 		{"id": "ACC_IDLE_ONBOARDING", "name": "idle 13 onboarding steps appear once on their triggers (welcome, first sale, first upgrade, tap boost, hire, recipe, location, franchise), close themselves when done or by Got it, never hold the economy, are saved, and stop after Skip or with hints off", "fn": _onboarding},
@@ -40,8 +40,12 @@ func _boosts() -> void:
 	near(b.income_left, 900.0 - DataRegistry.real_seconds(120.0), 0.05, "it counts down in real seconds of play")
 	var left0: float = b.income_left
 	b.grant_achievement_boost()
-	near(b.income_left, left0 + DataRegistry.idlef("boosts.achievement.minutes") * 60.0, 0.01, "another income boost adds its time")
-	near(b.income_now(), 2.0, 1e-9, "instead of stacking the multiplier")
+	near(b.income_left, maxf(left0, DataRegistry.idlef("boosts.achievement.minutes") * 60.0), 0.01, "another income boost refreshes to the longer time")
+	near(b.income_now(), 2.0, 1e-9, "and never stacks the multiplier")
+	b.income_left = 60.0
+	b.grant_achievement_boost()
+	near(b.income_left, DataRegistry.idlef("boosts.achievement.minutes") * 60.0, 0.01, "a nearly spent boost is topped up to 10 minutes")
+	b.income_left = left0
 	var saved: Dictionary = json_copy(s.capture_save())
 	var s2: SimulationRoot = load_sim(saved)
 	near(s2.boosts.income_left, b.income_left, 1e-6, "the rest is saved")
@@ -108,7 +112,9 @@ func _decor() -> void:
 		elif d.placement_type == &"skin" or d.source == &"achievement":
 			check(not d.has_bonus(), "%s is cosmetic" % d.id)
 	check(with_bonus >= 8, "the shop sells bonus decorations")
-	near(dm.price(&"decor_potted_plant"), DataRegistry.decoration(&"decor_potted_plant").price_kr, 1e-9, "Tier 1 prices are the catalog price")
+	var tier_mults: Array = DataRegistry.idle("decor.price_mult_by_tier")
+	near(dm.price(&"decor_potted_plant"), DataRegistry.decoration(&"decor_potted_plant").price_kr * float(tier_mults[0]), 1e-6,
+		"Tier 1 prices are the catalog price x decor.price_mult_by_tier[0]")
 	near(dm.bonus_mult(&"arrival"), 1.0, 1e-9, "no bonus before buying")
 	s.debug_add_kr(1.0e6)
 	var arr0: float = s.arrival_rate_per_hour(s.time.time_seconds)
@@ -152,7 +158,7 @@ func _decor() -> void:
 	if not free.is_empty():
 		eq(dm.place(curtains, sf, Vector2i(-1, -1), free[0]), &"", "the curtains hang too")
 	var owned_n: int = dm.owned.size()
-	s.statistics.stats["alltime_earned_kr"] = 4.0e6
+	s.statistics.stats["alltime_earned_kr"] = 4.0 * DataRegistry.idlef("prestige.stars_divisor_kr")
 	eq(s.franchise(), 2, "franchise")
 	eq(dm.owned.size(), owned_n, "every decoration is still owned")
 	check(not bool(dm.item(curtains)["placed"]), "the bonus curtains wait in the inventory")
@@ -160,7 +166,7 @@ func _decor() -> void:
 	near(dm.bonus_mult(&"price"), 1.0, 1e-9, "no price bonus either")
 	if dm.cap(&"wall") > 0:
 		check(bool(dm.item(badge)["placed"]), "the badge goes back on its wall spot")
-	near(dm.price(&"decor_gingham_curtains"), DataRegistry.decoration(&"decor_gingham_curtains").price_kr, 1e-6, "back at Tier 1 prices")
+	near(dm.price(&"decor_gingham_curtains"), DataRegistry.decoration(&"decor_gingham_curtains").price_kr * float(tier_mults[0]), 1e-6, "back at Tier 1 prices")
 	s.debug_add_kr(1.0e6)
 	eq(dm.buy(&"decor_gingham_curtains"), &"", "buying the curtains again")
 	eq(dm.owned.size(), owned_n, "adds no second copy")

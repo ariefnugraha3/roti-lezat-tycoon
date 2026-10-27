@@ -6,9 +6,10 @@ extends SimManager
 ## `clock.sim_seconds_per_real_second`), jadi berhenti saat pause, di latar,
 ## dan selama offline; sisanya ikut tersimpan (GDD idle 11.1, 9.2).
 ##
-## Boost penghasilan baru tidak menumpuk pengali: selagi satu berjalan, waktunya
-## ditambahkan ke sisa waktu (pengali terbesar yang dipakai). Promosi berjalan
-## satu per satu, dan jedanya dihitung sejak promosi dimulai.
+## Boost penghasilan tidak menumpuk: boost baru menyegarkan sisa waktu ke yang
+## lebih panjang dan memakai pengali terbesar, jadi pencapaian yang beruntun
+## tidak membuat ×2 berjalan berjam-jam. Promosi berjalan satu per satu, dan
+## jedanya dihitung sejak promosi dimulai.
 
 ## Pengali dan sisa detik nyata boost penghasilan yang aktif.
 var income_mult: float = 1.0
@@ -74,11 +75,12 @@ func rotifood_now() -> float:
 	return float(promo(promo_id).get("rotifood_mult", 1.0)) if promo_left > 0.0 else 1.0
 
 
-## Boost penghasilan ×`mult` selama `seconds` detik nyata.
+## Boost penghasilan ×`mult` selama `seconds` detik nyata; selagi satu berjalan,
+## sisa waktunya menjadi yang lebih panjang.
 func add_income(mult: float, seconds: float) -> void:
 	if income_left > 0.0:
 		income_mult = maxf(income_mult, mult)
-		income_left += seconds
+		income_left = maxf(income_left, seconds)
 	else:
 		income_mult = mult
 		income_left = seconds
