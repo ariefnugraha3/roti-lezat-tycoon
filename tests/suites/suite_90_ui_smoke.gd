@@ -11,10 +11,82 @@ const SCREENS: Array[StringName] = [
 func tests() -> Array:
 	return [
 		{"id": "TEST_UI_SMOKE_001", "name": "main scene boots, new game, every screen opens", "fn": _smoke},
+		{"id": "TEST_UI_NEW_GAME_FLOW", "name": "89.4 New Game through its own buttons: character, bakery name (an invalid name is refused), the summary with the starting KR, then Start opens the shop with that name and start_kr", "fn": _new_game_flow},
 		# Setelah smoke: kunci yang diminta saat runtime ikut diperiksa.
 		{"id": "TEST_UI_001", "name": "English localization key completeness", "fn": _localization},
 		{"id": "TEST_CAMERA_001", "name": "the camera stays on the shop floor while the owner works upstairs; the stairs door switches the view with a 0.20 s crossfade", "fn": _camera},
 	]
+
+
+## Tombol yang tampak dengan teks `text` di bawah `root`, atau null.
+static func _button(root: Node, text: String) -> Button:
+	for n: Node in root.find_children("*", "Button", true, false):
+		var b: Button = n
+		if b.is_visible_in_tree() and b.text == text:
+			return b
+	return null
+
+
+## Alur New Game yang dipakai pemain (dulu ringkasannya membaca path katalog
+## v3.1 yang sudah dihapus dan Start tidak pernah sampai ke toko).
+func _new_game_flow() -> void:
+	SaveManager.dir = "user://test_saves_ui"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
+	runner.add_child(game)
+	await runner.get_tree().process_frame
+	game.skip_splash_for_tests()
+	game.show_main_menu()
+	var scr: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_2"}) as NewGameScreen
+	await runner.get_tree().process_frame
+	check(scr != null, "the New Game screen opens")
+	if scr == null:
+		return
+	var female: Button = _button(scr, Tx.t("ui_character_female"))
+	check(female != null, "the character step offers the female baker")
+	if female != null:
+		female.pressed.emit()
+	await runner.get_tree().process_frame
+	_button(scr, Tx.t("ui_next")).pressed.emit()
+	await runner.get_tree().process_frame
+	var edit: LineEdit = scr.find_children("*", "LineEdit", true, false)[0] as LineEdit
+	edit.text = "   "
+	_button(scr, Tx.t("ui_next")).pressed.emit()
+	await runner.get_tree().process_frame
+	check(scr.find_children("*", "LineEdit", true, false).size() == 1, "a blank name is refused and the name step stays")
+	edit.text = "Toko Roti Ibu"
+	_button(scr, Tx.t("ui_next")).pressed.emit()
+	await runner.get_tree().process_frame
+	var cash: String = Tx.kr(DataRegistry.idlef("start_kr"))
+	var summary_ok: bool = false
+	for l: Node in scr.find_children("*", "Label", true, false):
+		if (l as Label).text.contains(cash):
+			summary_ok = true
+	check(summary_ok, "the summary shows the starting KR (%s)" % cash)
+	var start: Button = _button(scr, Tx.t("ui_start"))
+	check(start != null, "the summary has Start")
+	if start != null:
+		start.pressed.emit()
+	var waited: int = 0
+	while waited < 600 and not (game.playing and game.sim != null and game.hud != null):
+		await runner.get_tree().process_frame
+		waited += 1
+	check(game.playing and game.sim != null and game.hud != null, "Start opens the shop")
+	if game.sim != null:
+		eq(game.sim.bakery_name, "Toko Roti Ibu", "with the bakery name typed in")
+		eq(str(game.sim.player.appearance.get("gender", "")), "female", "and the character chosen")
+		check(game.sim.economy.balance <= DataRegistry.idlef("start_kr") + 0.5, "starting from start_kr")
+		check(SaveManager.has_profile(&"profile_2"), "the new profile is saved")
+	game.modals.close_all()
+	game.return_to_menu()
+	game.queue_free()
+	await runner.get_tree().process_frame
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
 
 
 func _tip_texts() -> Array[String]:

@@ -130,7 +130,7 @@ func _render_summary() -> void:
 	var pid: StringName = StringName(str(params.get("profile_id", "profile_1")))
 	var n: String = String(pid).replace("profile_", "")
 	lbl(_body, Tx.t("ui_new_game_summary_detail", {"n": n, "character": Tx.t("ui_character_male") if _gender == "male" else Tx.t("ui_character_female"),
-		"cash": Tx.kr(DataRegistry.balf("economy.starting_cash_kr"))}), 18, Palette.TEXT, true)
+		"cash": Tx.kr(DataRegistry.idlef("start_kr"))}), 18, Palette.TEXT, true)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(spacer)

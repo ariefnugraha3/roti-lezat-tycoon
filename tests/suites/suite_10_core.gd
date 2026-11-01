@@ -5,6 +5,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
+		{"id": "TEST_BOOT_002", "name": "every catalog path written literally in the code (bal/balf/bali, idle/idlef/idlei) exists in balance.json or idle.json, so no screen reads a removed v3.1 value", "fn": _catalog_paths},
 		{"id": "TEST_BOOT_001", "name": "catalog validation and clean boot", "fn": _boot},
 		{"id": "TEST_TIME_001", "name": "the clock runs 24 hours, the day turns at 00:00 and nights run 22:00-06:00", "fn": _time_clock},
 		{"id": "TEST_TIME_002", "name": "pause freezes everything and frame-driven play matches fixed ticks", "fn": _time_determinism},
@@ -256,3 +257,30 @@ func _economy() -> void:
 	check(s2.economy.balance >= 0.0, "balance never negative")
 	free_sim(s2)
 	free_sim(s)
+
+
+## Path katalog literal di semua skrip: setiap `bal("a.b")` dan `idlef("a.b")`
+## harus ada. Path yang dirakit (berakhiran "." atau memakai "%") dilewati.
+func _catalog_paths() -> void:
+	var re := RegEx.create_from_string("\\b(bal|balf|bali|idle|idlef|idlei)\\(\\s*\"([^\"]+)\"")
+	var files: Array[String] = []
+	for dir: String in ["res://autoload", "res://core", "res://gameplay", "res://ui", "res://scenes", "res://procedural", "res://audio"]:
+		StringLint.collect_gd(dir, files)
+	var seen: int = 0
+	var missing: Array[String] = []
+	for f: String in files:
+		var text: String = FileAccess.get_file_as_string(f)
+		for m: RegExMatch in re.search_all(text):
+			var path: String = m.get_string(2)
+			if path.ends_with(".") or path.contains("%"):
+				continue
+			seen += 1
+			var root: Dictionary = DataRegistry._idle if m.get_string(1).begins_with("idle") else DataRegistry._balance
+			var node: Variant = root
+			for part: String in path.split("."):
+				node = (node as Dictionary).get(part) if node is Dictionary else null
+			if node == null:
+				missing.append("%s: %s(\"%s\")" % [f.get_file(), m.get_string(1), path])
+	check(seen > 50, "the scan finds the catalog reads (%d)" % seen)
+	check(missing.is_empty(), "every literal catalog path exists: %s" % ", ".join(missing))
+
