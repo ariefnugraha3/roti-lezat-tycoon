@@ -11,6 +11,7 @@ const SCREENS: Array[StringName] = [
 func tests() -> Array:
 	return [
 		{"id": "TEST_UI_SMOKE_001", "name": "main scene boots, new game, every screen opens", "fn": _smoke},
+		{"id": "TEST_UI_WORLD_TAPS", "name": "idle 5.1 with buyers queueing at the counter, a tap on every piece of furniture (storage, mixer, oven, shelf, table, chairs) gives it the owner's focus, and a tap on a queueing buyer focuses the owner on the counter, without any script error", "fn": _world_taps},
 		{"id": "TEST_UI_NEW_GAME_FLOW", "name": "89.4 New Game through its own buttons: character, bakery name (an invalid name is refused), the summary with the starting KR, then Start opens the shop with that name and start_kr", "fn": _new_game_flow},
 		# Setelah smoke: kunci yang diminta saat runtime ikut diperiksa.
 		{"id": "TEST_UI_001", "name": "English localization key completeness", "fn": _localization},
@@ -25,6 +26,68 @@ static func _button(root: Node, text: String) -> Button:
 		if b.is_visible_in_tree() and b.text == text:
 			return b
 	return null
+
+
+## Ketukan dunia saat pembeli mengantre (dulu `WorldView.pick` masih membaca
+## tanda "!" pembeli v3.1 yang sudah dihapus, jadi setiap ketukan pada perabot
+## berhenti dengan error begitu ada pembeli di toko).
+func _world_taps() -> void:
+	SaveManager.dir = "user://test_saves_ui"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
+	runner.add_child(game)
+	await runner.get_tree().process_frame
+	game.skip_splash_for_tests()
+	await game.start_new_game(&"profile_1", "male", "Tap Bakery")
+	await runner.get_tree().process_frame
+	game.modals.close_all()
+	game.sim.tutorial.skip()
+	PauseManager.clear_all()
+	game.playing = false
+	var sim: SimulationRoot = game.sim
+	# Pemilik diparkir supaya antrean terbentuk dan bertahan; rak diisi langsung.
+	park_owner(sim)
+	stock(sim, &"recipe_plain_loaf", 12)
+	var queued: Customer = null
+	var t: float = 0.0
+	while queued == null and t < 600.0:
+		sim.step(sim.tick_seconds)
+		t += sim.tick_seconds
+		for c: Customer in sim.customers.sorted():
+			if not c.window_shopper and c.state in [Customer.QUEUING, Customer.FRONT_OF_QUEUE] and c.lane_id != &"":
+				queued = c
+	check(queued != null, "a buyer queues at the counter")
+	await runner.get_tree().process_frame
+	var rig: CameraRig = game.world.camera_rig
+	var tapped: int = 0
+	for e: EquipmentInstance in sim.equipment.all_sorted():
+		if not e.placed or e.floor_id != rig.active_floor or not game.world._aabbs.has(e.iid):
+			continue
+		var pos: Vector2 = rig.world_to_screen((game.world._aabbs[e.iid]["aabb"] as AABB).get_center())
+		var p: Dictionary = game.world.pick(pos)
+		game._on_world_tap(pos)
+		tapped += 1
+		if p.get("kind") == &"equipment" and int(p["iid"]) == e.iid:
+			eq(sim.player.focus_iid, e.iid, "a tap on the %s gives it the owner's focus" % e.category())
+	check(tapped >= 5, "every placed piece was tapped (%d)" % tapped)
+	var storage: EquipmentInstance = sim.equipment.storage_instance()
+	check(storage != null and game.world._aabbs.has(storage.iid), "the storage (fridge) can be tapped")
+	if queued != null and queued.actor != null:
+		var head: Vector2 = rig.world_to_screen(Vector3(queued.actor.pos.x, 1.1, queued.actor.pos.y))
+		var hit: Dictionary = game.world.pick(head)
+		eq(hit.get("kind"), &"customer", "a queueing buyer can be tapped")
+		game._on_world_tap(head)
+		check(sim.player.focus_cashier, "which focuses the owner on the counter")
+	game.playing = true
+	game.return_to_menu()
+	game.queue_free()
+	await runner.get_tree().process_frame
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
 
 
 ## Alur New Game yang dipakai pemain (dulu ringkasannya membaca path katalog

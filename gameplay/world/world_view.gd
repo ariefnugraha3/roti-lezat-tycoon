@@ -1267,9 +1267,11 @@ func _apply_brightness() -> void:
 ## customer/portal/cell/none.
 func pick(screen_pos: Vector2) -> Dictionary:
 	var floor_id: StringName = camera_rig.active_floor
-	# 1. Balon "!" pembeli terdepan.
+	# 1. Pembeli yang mengantre di kasir: ketukannya sama dengan ketukan pada
+	# kasir jalurnya (GDD idle 5.1, PlayerTaskManager.tap_customer).
 	for c: Customer in sim.customers.sorted():
-		if not c.awaiting_tap or c.actor.floor_id != floor_id:
+		if c.window_shopper or c.lane_id == &"" or c.actor == null or c.actor.floor_id != floor_id \
+				or not c.state in [Customer.QUEUING, Customer.FRONT_OF_QUEUE, Customer.BEING_SERVED]:
 			continue
 		var head: Vector2 = camera_rig.world_to_screen(_v3(c.actor.pos) + Vector3(0.0, 1.1, 0.0))
 		if head.distance_to(screen_pos) <= PICK_CUSTOMER_PX:

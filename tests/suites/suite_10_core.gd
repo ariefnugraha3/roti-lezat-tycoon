@@ -6,6 +6,7 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "TEST_BOOT_002", "name": "every catalog path written literally in the code (bal/balf/bali, idle/idlef/idlei) exists in balance.json or idle.json, so no screen reads a removed v3.1 value", "fn": _catalog_paths},
+		{"id": "TEST_BOOT_003", "name": "every member read through a variable typed as a script class (Customer, SimActor, ProductionJob, definitions, managers...) exists on that class or its bases, so no tap or screen reads a field the idle pivot removed", "fn": _typed_members},
 		{"id": "TEST_BOOT_001", "name": "catalog validation and clean boot", "fn": _boot},
 		{"id": "TEST_TIME_001", "name": "the clock runs 24 hours, the day turns at 00:00 and nights run 22:00-06:00", "fn": _time_clock},
 		{"id": "TEST_TIME_002", "name": "pause freezes everything and frame-driven play matches fixed ticks", "fn": _time_determinism},
@@ -283,4 +284,103 @@ func _catalog_paths() -> void:
 				missing.append("%s: %s(\"%s\")" % [f.get_file(), m.get_string(1), path])
 	check(seen > 50, "the scan finds the catalog reads (%d)" % seen)
 	check(missing.is_empty(), "every literal catalog path exists: %s" % ", ".join(missing))
+
+
+## Semua nama anggota kelas skrip `path` beserta induk skrip dan kelas bawaannya.
+static func _members_of(script: Script) -> Dictionary:
+	var out: Dictionary = {}
+	var sc: Script = script
+	while sc != null:
+		for prop: Dictionary in sc.get_script_property_list():
+			out[str(prop["name"])] = true
+		for meth: Dictionary in sc.get_script_method_list():
+			out[str(meth["name"])] = true
+		for sig: Dictionary in sc.get_script_signal_list():
+			out[str(sig["name"])] = true
+		for k: Variant in sc.get_script_constant_map().keys():
+			out[str(k)] = true
+		sc = sc.get_base_script()
+	var native: StringName = script.get_instance_base_type()
+	for m: Dictionary in ClassDB.class_get_method_list(native):
+		out[str(m["name"])] = true
+	for pr: Dictionary in ClassDB.class_get_property_list(native):
+		out[str(pr["name"])] = true
+	for sg: Dictionary in ClassDB.class_get_signal_list(native):
+		out[str(sg["name"])] = true
+	for c: String in ClassDB.class_get_integer_constant_list(native):
+		out[c] = true
+	return out
+
+
+## Skrip untuk nama tipe "Kelas" atau "Kelas.KelasDalam", atau null bila bukan
+## kelas skrip (tipe bawaan Godot tidak diperiksa di sini).
+static func _script_of(t: String, known: Dictionary) -> Variant:
+	var parts: PackedStringArray = t.split(".")
+	if not known.has(parts[0]):
+		return null
+	var sc: Script = load(known[parts[0]]) as Script
+	for i in range(1, parts.size()):
+		var inner: Variant = sc.get_script_constant_map().get(parts[i])
+		if not inner is Script:
+			return null
+		sc = inner
+	return sc
+
+
+## Akses `x.anggota` lewat variabel bertipe kelas skrip (var, for, dan parameter
+## fungsi) harus menunjuk anggota yang ada. GDScript tidak selalu menolaknya saat
+## kompilasi, jadi baru gagal ketika jalurnya dijalankan (dulu `Customer.awaiting_tap`
+## di WorldView.pick membuat setiap ketukan perabot error begitu ada pembeli).
+func _typed_members() -> void:
+	var known: Dictionary = {}
+	for g: Dictionary in ProjectSettings.get_global_class_list():
+		known[str(g["class"])] = str(g["path"])
+	var cache: Dictionary = {}
+	var decl := RegEx.create_from_string("(?:var|for)\\s+(\\w+)\\s*:\\s*([\\w.]+)")
+	var param := RegEx.create_from_string("(\\w+)\\s*:\\s*([\\w.]+)\\s*(?:=[^,)]*)?[,)]")
+	# Hanya pengenal yang tidak didahului titik (`a.b`, bukan `x.a.b`).
+	var access := RegEx.create_from_string("(?<![\\w.])(\\w+)\\.(\\w+)\\b")
+	# Teks dalam tanda kutip (path katalog "a.b") dibuang sebelum dicocokkan.
+	var quoted := RegEx.create_from_string("\"(?:[^\"\\\\]|\\\\.)*\"")
+	var top := RegEx.create_from_string("(?m)^var\\s+(\\w+)\\s*:\\s*([\\w.]+)")
+	var files: Array[String] = []
+	for dir: String in ["res://autoload", "res://core", "res://gameplay", "res://ui", "res://scenes", "res://procedural", "res://audio", "res://tests", "res://tools"]:
+		StringLint.collect_gd(dir, files)
+	var checked: int = 0
+	var bad: Array[String] = []
+	for f: String in files:
+		var lines: PackedStringArray = FileAccess.get_file_as_string(f).split("\n")
+		var top_types: Dictionary = {}
+		for m0: RegExMatch in top.search_all("\n".join(lines)):
+			top_types[m0.get_string(1)] = m0.get_string(2)
+		var starts: Array[int] = []
+		for i in lines.size():
+			if lines[i].begins_with("func ") or lines[i].begins_with("static func "):
+				starts.append(i)
+		starts.append(lines.size())
+		for fi in starts.size() - 1:
+			var types: Dictionary = top_types.duplicate()
+			for m1: RegExMatch in param.search_all(lines[starts[fi]]):
+				types[m1.get_string(1)] = m1.get_string(2)
+			for li in range(starts[fi], starts[fi + 1]):
+				var line: String = lines[li]
+				for m2: RegExMatch in decl.search_all(line):
+					types[m2.get_string(1)] = m2.get_string(2)
+				if line.strip_edges().begins_with("#"):
+					continue
+				for m3: RegExMatch in access.search_all(quoted.sub(line, "\"\"", true)):
+					var t: String = str(types.get(m3.get_string(1), ""))
+					if t == "":
+						continue
+					if not cache.has(t):
+						cache[t] = _script_of(t, known)
+					if cache[t] == null:
+						continue
+					if cache[t] is Script:
+						cache[t] = _members_of(cache[t] as Script)
+					checked += 1
+					if not (cache[t] as Dictionary).has(m3.get_string(2)):
+						bad.append("%s:%d %s.%s (%s)" % [f.get_file(), li + 1, m3.get_string(1), m3.get_string(2), t])
+	check(checked > 1000, "the scan checks the typed accesses (%d)" % checked)
+	check(bad.is_empty(), "every typed member access exists: %s" % ", ".join(bad.slice(0, 12)))
 
