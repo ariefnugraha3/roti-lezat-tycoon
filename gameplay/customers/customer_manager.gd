@@ -134,7 +134,7 @@ func _enter_shop(c: Customer) -> void:
 	c.state = Customer.ENTERING
 	sim.statistics.add(&"total_customers_entered", 1)
 	EventBus.customer_spawned.emit(0)
-	_choose_target(c)
+	_choose_target(c, true)
 
 
 # ===========================================================================
@@ -238,8 +238,9 @@ func _pick_look_spot(avoid_display: int) -> Dictionary:
 ## Sel sah dengan skor terkecil di sekitar rak `e` (null = seluruh zona toko).
 ## Skor: depan rak 0, samping 2 (belakang tidak pernah); cincin kedua +1; lorong
 ## terlindung +1; sel tunggu pembeli +2. Urutan sel tetap, jadi undian kosmetik
-## atas hasilnya deterministik.
-func _look_cells(fg: FloorGrid, floor_id: StringName, e: EquipmentInstance, wait: Dictionary, busy: Dictionary) -> Array[Vector2i]:
+## atas hasilnya deterministik. `buyer` = untuk pembeli yang memeriksa rak
+## kosong: tempat pengunjung lihat-lihat diabaikan, karena merekalah yang minggir.
+func _look_cells(fg: FloorGrid, floor_id: StringName, e: EquipmentInstance, wait: Dictionary, busy: Dictionary, buyer: bool = false) -> Array[Vector2i]:
 	var footprint: Array[Vector2i] = []
 	var center := Vector2.ZERO
 	var ahead_dir := Vector2.ZERO
@@ -263,7 +264,7 @@ func _look_cells(fg: FloorGrid, floor_id: StringName, e: EquipmentInstance, wait
 				if ahead < -0.01:
 					continue
 				score = (0 if ahead > 0.01 else 2) + ring - 1
-			if busy.has(c) or not _look_cell_ok(fg, floor_id, c):
+			if busy.has(c) or not _look_cell_ok(fg, floor_id, c, buyer):
 				continue
 			if fg.flag(c) == FloorGrid.Flag.WALKABLE_NO_BUILD:
 				score += 1
@@ -284,13 +285,13 @@ static func _cells_center(cells: Array[Vector2i]) -> Vector2:
 	return sum / float(maxi(cells.size(), 1))
 
 
-func _look_cell_ok(fg: FloorGrid, floor_id: StringName, c: Vector2i) -> bool:
+func _look_cell_ok(fg: FloorGrid, floor_id: StringName, c: Vector2i, buyer: bool = false) -> bool:
 	if not fg.is_public_walkable(c) or fg.is_door(c) or fg.access_at.has(c):
 		return false
 	var f: int = fg.flag(c)
 	if f == FloorGrid.Flag.QUEUE_RESERVED or f == FloorGrid.Flag.INTERACTION_RESERVED:
 		return false
-	return sim.world.point_holder(floor_id, c) == &""
+	return buyer or sim.world.point_holder(floor_id, c) == &""
 
 
 ## Sel tujuan terakhir setiap pembeli di lantai ini: tempat ia sedang berjalan
@@ -388,7 +389,7 @@ func _next_look_or_leave(c: Customer, looked: bool = true) -> void:
 		_go_look(c, spot)
 
 
-## Pulang tanpa membeli: tanpa penalti rating dan tanpa statistik "gagal beli".
+## Pulang tanpa membeli: tanpa statistik "gagal beli".
 func _window_leave(c: Customer) -> void:
 	sim.world.release_all_for(c.id)
 	c.look_cell = Vector2i(-1, -1)
@@ -398,7 +399,11 @@ func _window_leave(c: Customer) -> void:
 
 ## Menghadap ke tengah rak yang dilihat.
 func _face_look_target(c: Customer) -> void:
-	var e: EquipmentInstance = sim.equipment.get_inst(c.look_display) if c.look_display >= 0 else null
+	_face_display(c, c.look_display)
+
+
+func _face_display(c: Customer, iid: int) -> void:
+	var e: EquipmentInstance = sim.equipment.get_inst(iid) if iid >= 0 else null
 	if e == null or not e.placed:
 		return
 	var to: Vector2 = _cells_center(e.footprint_cells()) - c.actor.pos
@@ -411,15 +416,20 @@ func _face_look_target(c: Customer) -> void:
 # ===========================================================================
 
 ## Pilih resep & rak target di antara petak yang berisi. Bila tidak ada roti
-## sama sekali, pembeli pulang: penjualan hilang (GDD idle 6.2).
-func _choose_target(c: Customer) -> void:
+## sama sekali, pembeli yang baru masuk (`at_door`) melihat rak dulu; selain
+## itu ia pulang: penjualan hilang (GDD idle 6.2).
+func _choose_target(c: Customer, at_door: bool = false) -> void:
 	var def: CustomerArchetypeDefinition = c.def()
 	var avail: Dictionary = sim.display.sellable_by_recipe()
 	if c.substitution_used and c.target_recipe != &"":
 		avail.erase(c.target_recipe)
 	if avail.is_empty():
-		_leave_no_stock(c)
+		if at_door:
+			_check_empty_shelf(c)
+		else:
+			_leave_no_stock(c)
 		return
+	c.checking_shelf = false
 	var recipe_id: StringName = pick_recipe(def, avail.keys(), sim.rng.stream(&"customer_choice_rng"))
 	if recipe_id == &"":
 		_leave_no_stock(c)
@@ -535,6 +545,82 @@ func _nearest_display_with(c: Customer, recipe_id: StringName) -> int:
 	return best
 
 
+## Semua rak kosong saat ia masuk: ia tidak langsung berbalik di pintu, tetapi
+## berjalan ke depan rak terdekat lalu melihat isinya selama
+## `customers.empty_shelf_look_seconds` (keputusan maintainer 2026-11-01, GDD
+## idle 6.2). Bila roti sudah keluar saat itu, ia membeli seperti biasa; bila
+## belum, ia pulang. Ia berdiri di sel melihat-lihat, bukan di titik browsing,
+## jadi beberapa pembeli bisa melihat bersamaan tanpa saling menunggu, dan titik
+## browsing tetap bebas untuk pembeli yang membeli.
+func _check_empty_shelf(c: Customer) -> void:
+	var spot: Dictionary = _shelf_check_spot(c)
+	if spot.is_empty():
+		_leave_no_stock(c)
+		return
+	c.checking_shelf = true
+	c.target_recipe = &""
+	c.target_display = int(spot["display"])
+	c.target_qty = 0
+	c.look_cell = spot["cell"]
+	c.state = Customer.ENTERING
+	if not c.actor.go_to(sim.world, sim.world.store_floor(), c.look_cell):
+		_leave_no_stock(c)
+
+
+## Tempat berdiri di depan atau samping rak terdekat yang masih punya tempat,
+## dengan aturan sel pengunjung lihat-lihat (`_look_cells`), tetapi tanpa melihat
+## tempat pengunjung lihat-lihat: mereka yang minggir (GDD 20.12), jadi pembeli
+## bermain sama dengan atau tanpa mereka. Sel yang dituju pembeli lain tidak
+## dipilih. Di antara sel terbaik dipilih yang terdekat, tanpa RNG.
+## {cell, display} atau {}.
+func _shelf_check_spot(c: Customer) -> Dictionary:
+	var floor_id: StringName = sim.world.store_floor()
+	var fg: FloorGrid = sim.world.grid(floor_id)
+	if fg == null or c.actor.floor_id != floor_id:
+		return {}
+	var wait: Dictionary = _buyer_wait_cells(floor_id)
+	var busy: Dictionary = _buyer_goal_cells(floor_id)
+	var from: Vector2i = c.actor.cell()
+	var best: Dictionary = {}
+	var best_d: int = 1 << 30
+	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
+		var acc: Dictionary = sim.world.access_of(e.iid)
+		if e.floor_id != floor_id or acc.is_empty():
+			continue
+		var d: int = GridMath.manhattan(from, acc["cell"])
+		if d >= best_d:
+			continue
+		var cells: Array[Vector2i] = _look_cells(fg, floor_id, e, wait, busy, true)
+		if cells.is_empty():
+			continue
+		var pick: Vector2i = cells[0]
+		for cell: Vector2i in cells:
+			if GridMath.manhattan(from, cell) < GridMath.manhattan(from, pick):
+				pick = cell
+		best_d = d
+		best = {"cell": pick, "display": e.iid}
+	return best
+
+
+## Tiba di tempat berdirinya: menghadap rak dan mulai melihat.
+func _step_to_look(c: Customer) -> void:
+	if c.actor.cell() != c.look_cell:
+		# Tempatnya tertutup perabot (Decoration Mode): putuskan sekarang.
+		if not c.actor.go_to(sim.world, sim.world.store_floor(), c.look_cell):
+			_after_shelf_check(c)
+		return
+	c.state = Customer.BROWSING
+	c.browse_left = DataRegistry.idlef("customers.empty_shelf_look_seconds")
+	_face_display(c, c.target_display)
+
+
+## Selesai melihat rak kosong: pilih roti terhadap stok terbaru, atau pulang.
+func _after_shelf_check(c: Customer) -> void:
+	c.checking_shelf = false
+	c.look_cell = Vector2i(-1, -1)
+	_choose_target(c)
+
+
 func _walk_to_display(c: Customer) -> void:
 	var acc: Dictionary = sim.world.access_of(c.target_display)
 	if acc.is_empty():
@@ -545,10 +631,11 @@ func _walk_to_display(c: Customer) -> void:
 		_leave_no_stock(c)
 
 
-## Pembeli sudah masuk tetapi tidak menemukan roti: penjualan hilang, reputasi
-## turun (GDD idle 6.2, 6.6).
+## Pembeli sudah masuk tetapi tidak menemukan roti: penjualan hilang, tanpa
+## denda lain (GDD idle 6.2).
 func _leave_no_stock(c: Customer) -> void:
-	sim.reputation.on_lost()
+	c.checking_shelf = false
+	c.look_cell = Vector2i(-1, -1)
 	sim.statistics.add(&"total_customers_left_no_purchase", 1)
 	sim.world.release_all_for(c.id)
 	sim.queue.release(c.id)
@@ -601,6 +688,9 @@ func step(dt: float) -> void:
 func _step_entering(c: Customer, _arrived: bool) -> void:
 	if c.actor.has_route():
 		return
+	if c.checking_shelf:
+		_step_to_look(c)
+		return
 	var acc: Dictionary = sim.world.access_of(c.target_display)
 	if acc.is_empty():
 		_choose_target(c)
@@ -631,6 +721,9 @@ func _neighbor_wait_cell(floor_id: StringName, cell: Vector2i) -> Vector2i:
 ## Tiba di rak: validasi ulang stok secara atomik lalu ambil (v3.1 84.2). Harga
 ## dikunci sekarang (GDD idle 7.2).
 func _select(c: Customer) -> void:
+	if c.checking_shelf:
+		_after_shelf_check(c)
+		return
 	c.state = Customer.SELECTING
 	var def: CustomerArchetypeDefinition = c.def()
 	var price: float = sim.unit_price(c.target_recipe, c.target_display)
@@ -810,8 +903,7 @@ func _move_customer(c: Customer, from: QueueLane, to: QueueLane) -> void:
 		_go_to_tail(c)
 
 
-## Patience habis: roti kembali ke rak persis seperti semula, reputasi turun
-## (GDD idle 6.4, 6.6).
+## Patience habis: roti kembali ke rak persis seperti semula (GDD idle 6.4).
 func abandon(c: Customer) -> void:
 	if c.state == Customer.ABANDONING:
 		return
@@ -820,7 +912,6 @@ func abandon(c: Customer) -> void:
 	c.held.clear()
 	sim.queue.release(c.id)
 	sim.world.release_all_for(c.id)
-	sim.reputation.on_lost()
 	sim.statistics.add(&"total_customers_lost_patience", 1)
 	c.state = Customer.ABANDONING
 	EventBus.customer_abandoned.emit(0)
@@ -898,6 +989,7 @@ func restore(d: Dictionary) -> void:
 		c.look_cell = arr_to_cell(cd.get("look_cell", [-1, -1]))
 		c.look_display = int(cd.get("look_display", -1))
 		c.looks_left = int(cd.get("looks_left", 0))
+		c.checking_shelf = bool(cd.get("checking_shelf", false))
 		if c.window_shopper:
 			c.actor = _window_shopper_actor(c)
 		else:
@@ -937,7 +1029,10 @@ func reconstruct() -> void:
 				# Pilihan roti yang sudah dibuat dipertahankan tanpa menarik RNG lagi,
 				# seperti di game yang tidak di-load: ia melanjutkan jalannya ke rak
 				# (atau menunggu di tempatnya) dan _step_entering menangani sisanya.
-				if c.target_recipe != &"" and not sim.world.access_of(c.target_display).is_empty():
+				if c.checking_shelf:
+					if c.actor.cell() != c.look_cell:
+						c.actor.go_to(sim.world, sim.world.store_floor(), c.look_cell)
+				elif c.target_recipe != &"" and not sim.world.access_of(c.target_display).is_empty():
 					if c.actor.goal_cell.x >= 0 and c.actor.cell() != c.actor.goal_cell:
 						c.actor.go_to(sim.world, c.actor.goal_floor, c.actor.goal_cell)
 				else:
@@ -945,6 +1040,10 @@ func reconstruct() -> void:
 			Customer.CARRYING_TO_QUEUE:
 				_go_to_tail(c)
 			Customer.BROWSING, Customer.SELECTING:
+				if c.checking_shelf:
+					c.actor.place_at(sim.world.store_floor(), c.look_cell)
+					_face_display(c, c.target_display)
+					continue
 				var acc: Dictionary = sim.world.access_of(c.target_display)
 				if acc.is_empty():
 					_choose_target(c)

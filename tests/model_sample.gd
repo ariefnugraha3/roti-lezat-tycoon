@@ -101,7 +101,6 @@ static func measure(sim: SimulationRoot, warm: float, hours: float) -> Dictionar
 		"nostock": (sim.statistics.get_stat("total_customers_left_no_purchase") - float(st0["total_customers_left_no_purchase"])) / hours,
 		"rf_done": (sim.statistics.get_stat("total_rotifood_orders_completed") - float(st0["total_rotifood_orders_completed"])) / hours,
 		"rf_exp": (sim.statistics.get_stat("total_rotifood_orders_expired") - float(st0["total_rotifood_orders_expired"])) / hours,
-		"rep": sim.reputation.reputation,
 		"produced": (sim.statistics.get_stat("total_bread_produced") - float(st0["total_bread_produced"])) / hours,
 		"jobs": sim.production.jobs.size(), "table": sim.production.table_jobs().size(),
 		"live_price": sales / maxf(sim.statistics.get_stat("total_bread_sold") - sold0, 1.0),

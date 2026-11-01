@@ -37,8 +37,8 @@ func _ready() -> void:
 		var r: Dictionary = ModelSample.measure(sim, _warm, _hours)
 		print("MODEL tier=%d model=%.2f live=%.2f ratio=%.3f units_model=%.1f units_live=%.1f demand=%.1f prod=%.1f" % [tier,
 			r["model"], r["live"], float(r["model"]) / maxf(float(r["live"]), 0.0001), r["units_model"], r["units_live"], r["demand"], r["production"]])
-		print("      per hour: entered=%.1f served=%.1f missed=%.1f lost=%.1f nostock=%.1f rf_done=%.1f rep=%.2f" % [r["entered"], r["served"],
-			r["missed"], r["lost"], r["nostock"], r["rf_done"], r["rep"]])
+		print("      per hour: entered=%.1f served=%.1f missed=%.1f lost=%.1f nostock=%.1f rf_done=%.1f rf_exp=%.1f" % [r["entered"], r["served"],
+			r["missed"], r["lost"], r["nostock"], r["rf_done"], r["rf_exp"]])
 		print("      live price/unit=%.1f model net/unit=%.1f auto=%s produced/h=%.1f jobs=%d table=%d" % [r["live_price"], r["model_net"], r["auto"], r["produced"], r["jobs"], r["table"]])
 		remove_child(sim)
 		sim.free()

@@ -1,7 +1,7 @@
 extends Node
 ## Probe idle (GDD idle 17 P7): memainkan New Game headless dengan SimBot dan
-## mencetak satu baris per jam in-game (KR, penghasilan, roti terjual,
-## reputasi, staf, tier) serta waktu bermain aktif setiap milestone Seksi 1.4.
+## mencetak satu baris per jam in-game (KR, penghasilan, roti terjual, staf,
+## tier) serta waktu bermain aktif setiap milestone Seksi 1.4.
 ##   godot --headless --path . res://tools/idle_probe.tscn -- --minutes=150 --seed=101 [--manage] [--franchise=N]
 ##       [--max-tier=N] [--every=M] [--quiet] [--set="recipe.level_cost_mult=35;location.upgrade_cost=[0,5e5]"]
 ## --set menimpa nilai idle.json hanya untuk probe ini (penyetelan P7).
@@ -84,9 +84,9 @@ func _ready() -> void:
 			run_start = pace.now()
 			pace.begin_run()
 		if not _quiet and (m + 1) % _every == 0:
-			print("PROBE min=%d day=%d %s kr=%s rate=%s/s earned=%s sold=%d rep=%.2f staff=%d tier=%d branch=%d %s" % [
+			print("PROBE min=%d day=%d %s kr=%s rate=%s/s earned=%s sold=%d staff=%d tier=%d branch=%d %s" % [
 				m + 1, sim.time.day, Tx.clock(sim.time.time_seconds), Tx.big(sim.economy.balance), Tx.rate(sim.idle_economy.rate(false)),
-				Tx.big(sim.statistics.get_stat("run_earned_kr")), int(sim.statistics.get_stat("total_bread_sold")), sim.reputation.reputation,
+				Tx.big(sim.statistics.get_stat("run_earned_kr")), int(sim.statistics.get_stat("total_bread_sold")),
 				sim.staff.hired_count(), sim.world.location.tier, sim.prestige.run_index,
 				"OK" if sim.check_invariants() == "" else "INVARIANT " + sim.check_invariants()])
 	for k: String in PacingTracker.KEYS:

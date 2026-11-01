@@ -124,7 +124,6 @@ func _complete(c: Customer, lane: QueueLane) -> void:
 		return
 	sim.economy.credit(subtotal, &"SALE_PHYSICAL", c.archetype, {"customer": String(c.id), "units": units})
 	sim.statistics.note_physical_sale(units, subtotal)
-	sim.reputation.on_served()
 	EventBus.sale_completed.emit(subtotal, &"physical")
 	EventBus.sfx.emit(&"cashier_coin", lane.floor_id)
 	EventBus.sfx.emit(&"sale_success", lane.floor_id)

@@ -5,10 +5,10 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_20_WINDOW_SHOPPER", "name": "20.12 a window shopper walks in, looks at the display from a free spot, and leaves without buying or touching the rating", "fn": _lifecycle},
+		{"id": "ACC_20_WINDOW_SHOPPER", "name": "20.12 a window shopper walks in, looks at the display from a free spot, and leaves without buying", "fn": _lifecycle},
 		{"id": "ACC_20_WINDOW_SHOPPER_LIMITS", "name": "20.12 window shoppers need no queue slot and keep to the tier cap, the actor budget and their own spots", "fn": _limits},
 		{"id": "ACC_20_WINDOW_SHOPPER_GIVE_WAY", "name": "20.12 a window shopper standing where a buyer must wait steps aside, and the buyers fare exactly as without it", "fn": _give_way},
-		{"id": "ACC_20_WINDOW_SHOPPER_COSMETIC", "name": "20.12/116 buyers, sales and ratings play out identically with or without window shoppers", "fn": _cosmetic},
+		{"id": "ACC_20_WINDOW_SHOPPER_COSMETIC", "name": "20.12/116 buyers and sales play out identically with or without window shoppers", "fn": _cosmetic},
 		{"id": "ACC_20_WINDOW_SHOPPER_SAVE", "name": "20.12/77.2 a window shopper saved mid-look returns to its spot and the shop plays on identically", "fn": _save},
 		{"id": "TEST_VIS_WINDOW_SHOPPER", "name": "20.12 window shoppers show no patience bar, sweep their head across the shelf, say a funny English line as they give up, and leave empty-handed", "fn": _visual},
 	]
@@ -48,7 +48,6 @@ func _lifecycle() -> void:
 	var s: SimulationRoot = _open_store(2001)
 	stock(s, &"recipe_plain_loaf", 6)
 	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
-	var rating: float = s.reputation.reputation
 	var lane: QueueLane = s.queue.main_lane()
 	var floor_id: StringName = s.world.store_floor()
 	var fg: FloorGrid = s.world.grid(floor_id)
@@ -94,7 +93,6 @@ func _lifecycle() -> void:
 	check(not in_lane, "never took a queue slot")
 	eq(s.customers.customer(w.id), null, "walked out and was cleaned up at the door")
 	eq(s.display.total_units(), 6, "took no bread")
-	near(s.reputation.reputation, rating, 0.000001, "reputation untouched")
 	eq(_stat(s, "total_customers_left_no_purchase"), 0, "not a 'left without buying' failure")
 	eq(_stat(s, "total_customers_lost_patience"), 0, "not an abandonment")
 	eq(_stat(s, "total_customers_missed"), 0, "not missed demand")
@@ -104,7 +102,7 @@ func _lifecycle() -> void:
 	check(s.customers.try_admit_window_shopper(&"customer_school_child"), "window shoppers come even when the shelf is empty")
 	var w2: Customer = _window_shoppers(s)[0]
 	check(_step_until(s, func() -> bool: return s.customers.customer(w2.id) == null), "and leave again")
-	near(s.reputation.reputation, rating, 0.000001, "an empty shelf costs no reputation for a window shopper")
+	eq(_stat(s, "total_customers_left_no_purchase"), 0, "an empty shelf is no lost sale for a window shopper")
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
 

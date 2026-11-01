@@ -20,8 +20,6 @@ func build() -> void:
 		["Customer", func() -> void: sim.debug_spawn_customer(&"customer_generic")],
 		["RotiFood order", func() -> void: sim.debug_spawn_order()],
 		["Finish stations", func() -> void: sim.production.debug_complete_all()],
-		["Reputation 5", func() -> void: sim.debug_set_reputation(5.0)],
-		["Reputation 1", func() -> void: sim.debug_set_reputation(1.0)],
 		["Ledger", func() -> void: _out.text = JSON.stringify(sim.debug_ledger_dump().slice(-8), " ")],
 		["Jobs", func() -> void: _out.text = JSON.stringify(sim.debug_jobs_dump(), " ")],
 		["Invariants", func() -> void: _out.text = "OK" if sim.check_invariants() == "" else sim.check_invariants()],

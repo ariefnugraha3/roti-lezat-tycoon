@@ -26,7 +26,6 @@ func _new_game() -> void:
 	eq(s.display.assignment(d.iid, 0), &"recipe_plain_loaf", "Plain Loaf goes straight into the first slot (GDD idle 8.5)")
 	eq(s.upgrades.unlocked_recipes(), [&"recipe_plain_loaf"] as Array[StringName], "only Plain Loaf is unlocked")
 	eq(s.upgrades.counter_level, 1, "counter Lv 1")
-	eq(s.reputation.reputation, DataRegistry.idlef("reputation.start"), "reputation starts at 3.0")
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
 
@@ -37,8 +36,8 @@ func _first_hours() -> void:
 		run_hours(s, 1.0)
 		eq(s.check_invariants(), "", "invariants after hour %d" % (h + 1))
 	var sold: int = int(s.statistics.get_stat("total_bread_sold"))
-	print("      3 h: sold %d, earned %s, balance %s, reputation %.2f" % [sold, Tx.big(s.statistics.get_stat("run_earned_kr")),
-		Tx.big(s.economy.balance), s.reputation.reputation])
+	print("      3 h: sold %d, earned %s, balance %s" % [sold, Tx.big(s.statistics.get_stat("run_earned_kr")),
+		Tx.big(s.economy.balance)])
 	check(sold > 20, "the shop sold bread with no input (sold %d)" % sold)
 	check(s.statistics.get_stat("run_earned_kr") > 0.0, "run_earned_kr counts the sales")
 	free_sim(s)

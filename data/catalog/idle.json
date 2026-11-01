@@ -56,22 +56,13 @@
  "location": {
   "_gdd": "6.1, 6.5, 8.7",
   "upgrade_cost": [0, 440000, 5000000, 16000000, 26000000],
-  "base_arrivals_per_hour": [24, 32, 42, 54, 70],
+  "base_arrivals_per_hour": [23, 51, 67, 86, 112],
   "rotifood_orders_per_hour": [3, 4, 6, 8, 10]
  },
  "customers": {
   "_gdd": "6.2",
-  "price_weight_exponent": 0.5
- },
- "reputation": {
-  "_gdd": "6.6",
-  "start": 3.0,
-  "min": 1.0,
-  "max": 5.0,
-  "served_delta": 0.01,
-  "lost_delta": 0.03,
-  "mult_base": 0.6,
-  "mult_per_star": 0.2
+  "price_weight_exponent": 0.5,
+  "empty_shelf_look_seconds": 4.0
  },
  "rotifood": {
   "_gdd": "6.5",

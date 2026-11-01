@@ -1057,11 +1057,8 @@ func _validate_idle() -> void:
 		var arr: Variant = loc.get(k2)
 		if not _rising(arr, false) or (arr as Array).size() != 5:
 			_err("idle location.%s needs five non-falling rates" % k2)
-	var rep_min: float = _idle_num("reputation.min")
-	var rep_max: float = _idle_num("reputation.max")
-	var rep_start: float = _idle_num("reputation.start")
-	if not (rep_min < rep_max and rep_start >= rep_min and rep_start <= rep_max):
-		_err("idle reputation start must lie inside min..max")
+	if not (_idle_num("customers.empty_shelf_look_seconds") > 0.0):
+		_err("idle customers.empty_shelf_look_seconds must be > 0")
 	var dec: Variant = (_idle.get("decor", {}) as Dictionary).get("price_mult_by_tier")
 	if not _rising(dec, false) or (dec as Array).size() != 5:
 		_err("idle decor.price_mult_by_tier needs five values")

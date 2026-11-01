@@ -40,7 +40,6 @@ func _ready() -> void:
 			break
 	_equip()
 	for d in days:
-		sim.debug_set_reputation(5.0)
 		for p: String in PARTS:
 			_us[p] = 0
 		_ticks = 0

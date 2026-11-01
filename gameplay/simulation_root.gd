@@ -33,7 +33,6 @@ var customers: CustomerManager
 var demand: DemandManager
 var rotifood: RotiFoodManager
 var staff: StaffManager
-var reputation: ReputationManager
 var weather: WeatherManager
 var prestige: PrestigeManager
 var statistics: StatisticsManager
@@ -76,7 +75,6 @@ func _init() -> void:
 	rotifood = _add(RotiFoodManager.new(), "RotiFoodManager")
 	staff = _add(StaffManager.new(), "StaffManager")
 	player = _add(PlayerTaskManager.new(), "PlayerTaskManager")
-	reputation = _add(ReputationManager.new(), "ReputationManager")
 	weather = _add(WeatherManager.new(), "WeatherManager")
 	tutorial = _add(TutorialManager.new(), "TutorialManager")
 	idle_economy = _add(IdleEconomyManager.new(), "IdleEconomyManager")
@@ -348,7 +346,7 @@ func night_rotifood_mult(t: float) -> float:
 
 ## Pembeli per jam in-game pada jam `t` (GDD idle 6.1).
 func arrival_rate_per_hour(t: float) -> float:
-	return base_arrivals_per_hour() * reputation.mult() * decoration.bonus_mult(&"arrival") * boost_arrival_mult() \
+	return base_arrivals_per_hour() * decoration.bonus_mult(&"arrival") * boost_arrival_mult() \
 		* night_arrival_mult(t) * weather.physical_multiplier() * weather.event_physical_multiplier()
 
 
@@ -441,7 +439,7 @@ func franchise() -> int:
 	var appearance: Dictionary = player.appearance.duplicate()
 	var lifted: Array[int] = decoration.begin_run()
 	for m: SimManager in [economy, upgrades, display, equipment, production, queue, cashier, customers, demand, rotifood,
-			staff, player, reputation, idle_economy]:
+			staff, player, idle_economy]:
 		m.new_game()
 	player.appearance = appearance
 	upgrades.global_levels = kept_globals
@@ -556,7 +554,6 @@ func capture_save() -> Dictionary:
 		"demand": demand.capture(),
 		"rotifood_orders": rotifood.capture(),
 		"staff": staff.capture(),
-		"reputation": reputation.capture(),
 		"weather": weather.capture(),
 		"franchise": prestige.capture(),
 		"tutorial": tutorial.capture(),
@@ -613,7 +610,6 @@ func load_from_save(d: Dictionary) -> void:
 	customers.restore(d.get("customers", {}))
 	demand.restore(d.get("demand", {}))
 	rotifood.restore(d.get("rotifood_orders", {}))
-	reputation.restore(d.get("reputation", {}))
 	weather.restore(d.get("weather", {}))
 	tutorial.restore(d.get("tutorial", {}))
 	offline.restore(d.get("offline", {}))
@@ -655,11 +651,6 @@ func debug_spawn_customer(archetype: StringName) -> bool:
 
 func debug_spawn_order() -> void:
 	rotifood.create_random_order()
-
-
-func debug_set_reputation(v: float) -> void:
-	reputation.reputation = clampf(v, DataRegistry.idlef("reputation.min"), DataRegistry.idlef("reputation.max"))
-	EventBus.reputation_changed.emit(reputation.reputation)
 
 
 func debug_ledger_dump() -> Array:

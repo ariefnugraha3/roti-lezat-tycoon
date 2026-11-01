@@ -23,8 +23,8 @@ func _ready() -> void:
 		var save: Dictionary = s.capture_save()
 		save.erase("stats")
 		save.erase("created_at")
-		print("TRACE day %d tier %d balance %.6f reputation %.6f hash %d" % [s.time.day, s.world.location.tier,
-			s.economy.balance, s.reputation.reputation, JSON.stringify(save, "", true).hash()])
+		print("TRACE day %d tier %d balance %.6f hash %d" % [s.time.day, s.world.location.tier,
+			s.economy.balance, JSON.stringify(save, "", true).hash()])
 	remove_child(s)
 	s.free()
 	get_tree().quit(0)

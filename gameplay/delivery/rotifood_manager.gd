@@ -433,7 +433,6 @@ func _handover(o: DeliveryOrder) -> void:
 		units += ((l as Dictionary)["stack"] as BreadStack).quantity
 	o.economy_committed = true
 	sim.economy.credit(subtotal, &"SALE_ROTIFOOD", &"rotifood", {"order": o.order_id})
-	sim.reputation.on_served()
 	sim.statistics.note_rotifood_sale(units, subtotal)
 	o.reserved_lots.clear()
 	o.handover_at = sim.time.sim_seconds
@@ -447,8 +446,8 @@ func _handover(o: DeliveryOrder) -> void:
 	_driver_leave(o)
 
 
-## Kesabaran driver habis: pesanan batal, roti yang dipesan kembali ke rak, dan
-## reputasi turun (GDD idle 6.5, 6.6).
+## Kesabaran driver habis: pesanan batal dan roti yang dipesan kembali ke rak
+## (GDD idle 6.5).
 func _fail(o: DeliveryOrder, reason: StringName) -> void:
 	if not o.economy_committed:
 		sim.display.return_lots(o.reserved_lots)
@@ -458,7 +457,6 @@ func _fail(o: DeliveryOrder, reason: StringName) -> void:
 	o.cancel_reason = reason
 	o.state = DeliveryOrder.CANCELLED
 	sim.statistics.add(&"total_rotifood_orders_expired", 1)
-	sim.reputation.on_lost()
 	EventBus.sfx.emit(&"rotifood_expired", sim.world.store_floor())
 	if o.driver != null:
 		_driver_leave(o)

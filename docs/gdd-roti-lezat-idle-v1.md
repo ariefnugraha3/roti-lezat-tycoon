@@ -14,8 +14,8 @@
 | Status | Bagian v3.1 | Catatan |
 |---|---|---|
 | **Tetap berlaku** | §4 art direction, §12.2–12.4 rendering & kontrol; §17 grid & navigasi; §28.2 aturan tumpukan modal; §29 input; §30 kamera (kecuali §30.1, lihat Seksi 12.0.4); §31 visual karakter; §32 perabot, interior, lingkungan, kehidupan jalan; §33 kebijakan audio; §34/§77/§106 mekanisme save atomik & 3 profil; §35 arsitektur dasar; §37 & §109 (termasuk §109.3 MeshBake) performa; §43/§127 teks Inggris; §44 aksesibilitas; §57/§60 template layout & dimensi perabot; §68 portal lantai; §72 Decoration Mode; §96–§101 kontrak teknis; §111 asal aset; §115–§117 cache, RNG, logging; §128–§130 toolchain, batas runtime, spesifikasi visual | Dipakai apa adanya kecuali disebut lain di dokumen ini |
-| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §12.5 orientasi & ponsel, §28.4 breakpoint, §30.1 kamera gameplay, §110 matriks resolusi (semuanya menjadi potret, Seksi 12.0); §8/§48 pemasaran; §9/§25 rating; §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
-| **Dihapus** | §18.7 & §62 oven gosong; §19.7–§19.9 kesegaran & roti basi; §20.3 manifest Hari 1–3; §11 & §46 Daily Summary; §15.4 Skip to Open; §15.5 Close Early; §71 kecepatan 2×/3× & Smart Speed; §21.4 kasir manual (popup + OK); §22.5 kemas manual & §22.10 tolak pesanan; §5.2, §24A, §70 pasar bahan & kurir; §5.1.2 beli/ganti/jual alat; §63.2 harga manual; §24.5/§86 utilitas; §24.6/§3.3 gaji; §3.0/§49 bangkrut, talangan, Mode Solo; §104 shutdown 18:00; Ask a Baker | Tidak ada mode lama. Kode dan tesnya ikut dihapus saat implementasi |
+| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §12.5 orientasi & ponsel, §28.4 breakpoint, §30.1 kamera gameplay, §110 matriks resolusi (semuanya menjadi potret, Seksi 12.0); §8/§48 pemasaran; §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
+| **Dihapus** | §9/§25 rating toko & RotiFood Stars (Seksi 6.6); §18.7 & §62 oven gosong; §19.7–§19.9 kesegaran & roti basi; §20.3 manifest Hari 1–3; §11 & §46 Daily Summary; §15.4 Skip to Open; §15.5 Close Early; §71 kecepatan 2×/3× & Smart Speed; §21.4 kasir manual (popup + OK); §22.5 kemas manual & §22.10 tolak pesanan; §5.2, §24A, §70 pasar bahan & kurir; §5.1.2 beli/ganti/jual alat; §63.2 harga manual; §24.5/§86 utilitas; §24.6/§3.3 gaji; §3.0/§49 bangkrut, talangan, Mode Solo; §104 shutdown 18:00; Ask a Baker | Tidak ada mode lama. Kode dan tesnya ikut dihapus saat implementasi |
 
 ## **0.2 Konvensi**
 
@@ -220,18 +220,18 @@ Satu asisten per jalur selain jalur A, dan selalu bertugas. Melayani otomatis de
 
 ```text
 arrivals_per_ingame_hour = base_arrivals(location_tier)
-                           × reputation_mult × decor_arrival_mult × boost_arrival_mult
+                           × decor_arrival_mult × boost_arrival_mult
                            × night_mult × weather_mult × holiday_mult
 ```
 
-- `base_arrivals` per tier lokasi (TUNABLE): **24 / 32 / 42 / 54 / 70** per jam in-game.
+- `base_arrivals` per tier lokasi (TUNABLE): **23 / 51 / 67 / 86 / 112** per jam in-game (sejak 2026-11-01, Seksi 20 no. 44; awalnya 24 / 32 / 42 / 54 / 70 dengan pengali reputasi).
 - Kedatangan tetap berupa proses Poisson memakai stream RNG v3.1 §116. Pembeli tetap berjalan dari ujung trotoar (v3.1 §20.1) dan diterima hanya bila ada slot antrean (v3.1 §57.6).
 - Arketipe pelanggan v3.1 §20.11 tetap ada untuk variasi tampilan dan jumlah beli. Aturan sensitivitas harga dihapus karena harga tidak lagi disetel pemain.
 
 ## **6.2 Pembelian**
 
 - Pembeli memilih resep di antara petak yang berisi, berbobot preferensi arketipe (v3.1 §20.11 tag) × harga relatif. Jumlah beli mengikuti v3.1 §84.1.
-- Bila tidak ada roti sama sekali, pembeli pulang. Itu penjualan yang hilang, tanpa denda selain reputasi (Seksi 6.6).
+- Bila tidak ada roti sama sekali, pembeli **tidak berbalik di pintu**. Ia berjalan ke depan rak, melihat isinya selama `customers.empty_shelf_look_seconds` (TUNABLE **4** detik-simulasi, 2 detik nyata), lalu memeriksa lagi: bila roti sudah keluar ia membeli seperti biasa, bila belum ia pulang. Itu penjualan yang hilang, tanpa denda lain (Seksi 6.6). Keputusan maintainer 2026-11-01.
 
 ## **6.3 Antrean & Kasir**
 
@@ -239,20 +239,20 @@ Jalur, antrean, dan penyeimbangan mengikuti v3.1 §21.1–§21.3. Transaksi otom
 
 ## **6.4 Kesabaran**
 
-Kesabaran dan bar kesabaran v3.1 §20.8 dan §58 tetap ada. Pembeli yang kesabarannya habis meninggalkan antrean dan mengembalikan rotinya ke rak. Hilangnya penjualan dan reputasi sudah cukup sebagai akibat.
+Kesabaran dan bar kesabaran v3.1 §20.8 dan §58 tetap ada. Pembeli yang kesabarannya habis meninggalkan antrean dan mengembalikan rotinya ke rak. Hilangnya penjualan sudah cukup sebagai akibat.
 
 ## **6.5 RotiFood Otomatis**
 
 - Pesanan datang sepanjang hari: `rotifood_orders_per_hour(tier)` (TUNABLE: **3 / 4 / 6 / 8 / 10**) × `night_mult` × weather (hujan ×1,5) × boost.
 - Pesanan **diterima otomatis**. Stok dipesan dari rak saat pesanan datang bila tersedia, lalu dikemas otomatis oleh pemilik atau kasir yang menganggur.
-- Bila stok belum ada, pesanan menunggu. Driver datang dan menunggu dengan kesabaran v3.1 §22.6. Bila habis, pesanan batal tanpa denda selain reputasi.
+- Bila stok belum ada, pesanan menunggu. Driver datang dan menunggu dengan kesabaran v3.1 §22.6. Bila habis, pesanan batal tanpa denda lain.
 - Harga pesanan = harga jual × `rotifood.price_mult` (TUNABLE **1,1**). Tidak ada tolak pesanan dan tidak ada tip.
 
-## **6.6 Reputasi**
+## **6.6 Tanpa Rating**
 
-- Dua rating v3.1 digabung menjadi satu **Reputasi** ★ 1,0–5,0, ID `reputation`.
-- Setiap pembeli atau pesanan yang terlayani: +`reputation.served_delta` (0,01). Setiap yang pergi tanpa terlayani: −`reputation.lost_delta` (0,03). Nilai dibatasi 1–5. Mulai di 3,0.
-- `reputation_mult = 0.6 + 0.2 × reputation` (★1 = ×0,8; ★5 = ×1,6).
+- Game idle ini **tidak punya rating**. Rating toko dan RotiFood Stars v3.1 (§9, §25), juga Reputasi gabungan rancangan awal dokumen ini, dihapus (keputusan maintainer 2026-11-01, Seksi 19 no. 6).
+- Toko berjalan sendiri, jadi pembeli yang pulang tanpa roti, pembeli yang kehabisan kesabaran, dan pesanan RotiFood yang batal hanya berarti penjualan yang hilang. Statistiknya tetap dicatat (`total_customers_left_no_purchase`, `total_customers_lost_patience`, `total_rotifood_orders_expired`).
+- Kedatangan tidak bergantung pada rating. Pemain menambahnya lewat lokasi, dekorasi berbonus, dan promosi (Seksi 6.1).
 
 ## **6.7 Tetap Ada (Kosmetik)**
 
@@ -462,7 +462,7 @@ Nilai default `stars_divisor_kr` = 1e6 dan `stars_exponent` = 0,5 (TUNABLE). Lay
 
 | Direset | Disimpan |
 |---|---|
-| KR (ke `start_kr` + perk), lokasi (ke Tier 1 atau 2), stasiun tambahan & semua level stasiun, level dan buka resep (kecuali perk), staf, dekorasi berbonus (kembali ke inventaris, bonusnya tidak aktif sampai dibeli lagi di putaran baru), upgrade global level 1–5, boost aktif, reputasi (ke 3,0) | Bintang Waralaba, perk, `alltime_earned_kr`, statistik, pencapaian dan badge, skin storefront dan pakaian, nama toko, karakter, pengaturan, nomor putaran (`run_index`) |
+| KR (ke `start_kr` + perk), lokasi (ke Tier 1 atau 2), stasiun tambahan & semua level stasiun, level dan buka resep (kecuali perk), staf, dekorasi berbonus (kembali ke inventaris, bonusnya tidak aktif sampai dibeli lagi di putaran baru), upgrade global level 1–5, boost aktif | Bintang Waralaba, perk, `alltime_earned_kr`, statistik, pencapaian dan badge, skin storefront dan pakaian, nama toko, karakter, pengaturan, nomor putaran (`run_index`) |
 
 Upgrade global di atas level 5 tetap disimpan, sebagai rasa "lebih kuat" lintas putaran.
 
@@ -580,7 +580,7 @@ Keputusan maintainer 2026-10-25 (Seksi 0.3 no. 6). Mengganti orientasi landscape
 Semua posisi relatif terhadap bingkai potret (Seksi 12.0), di dalam safe area.
 
 - **Kiri atas:** KR besar (`Tx.big`), di bawahnya "+{rate}/s" dari `IdleEconomy`, serta ikon boost aktif dengan sisa waktu.
-- **Kanan atas:** Reputasi ★, Bintang Waralaba, tombol pause/pengaturan.
+- **Kanan atas:** Bintang Waralaba, tombol pause/pengaturan.
 - **Bawah, bar tombol:** Upgrades · Menu · Staff · Shop · Decor · Franchise. Setiap tombol diberi titik hijau bila ada sesuatu yang terjangkau di dalamnya.
 - **Dunia:** chip level kecil di atas setiap stasiun ("Lv 12"), dengan panah naik yang berdenyut bila upgrade ×1 terjangkau. Chip adalah kontrol 2D yang diproyeksikan, dengan target sentuh ≥ 48 px (v3.1 §12.4).
 - Tidak ada lagi jam fase, tombol kecepatan, Skip to Open, Close Early, panel stok, atau panel pesanan RotiFood. Jam kecil tetap ada untuk suasana.
@@ -669,10 +669,9 @@ Menggantikan tutorial Hari 1–3 v3.1 (§27, §88). Durasinya sekitar 3 menit da
 | **Diubah** | `CustomerManager`, `DemandManager` | Kedatangan kontinu Seksi 6.1, tanpa manifest; tanpa filter kesegaran/harga manual |
 | **Diubah** | `CashierManager` | Transaksi otomatis dengan durasi dari level kasir; jalur A dilayani pemilik otomatis |
 | **Diubah** | `RotiFoodManager` | Terima, pesan stok, dan kemas otomatis; tanpa tolak |
-| **Diubah** | `ReputationManager` | Satu reputasi (Seksi 6.6) |
 | **Diubah** | `EconomyManager` | Kategori ledger Seksi 7.4; tanpa gaji, utilitas, talangan |
 | **Diubah** | `TutorialManager`, `AchievementManager`, `StatisticsManager` | Seksi 13, 11.4, 12.3 Stats |
-| **Dihapus** | `SupplyOrderManager`, `InventoryManager` (stok bahan), `PricingManager` (harga manual), `BailoutManager`, `DayReportManager`, `AnalyticsManager` (diganti Stats) | Beserta UI dan tesnya |
+| **Dihapus** | `ReputationManager` (tanpa rating, Seksi 6.6), `SupplyOrderManager`, `InventoryManager` (stok bahan), `PricingManager` (harga manual), `BailoutManager`, `DayReportManager`, `AnalyticsManager` (diganti Stats) | Beserta UI dan tesnya |
 
 Aturan kepemilikan state v3.1 §98 tetap berlaku: setiap field baru punya tepat satu manager pemilik.
 
@@ -705,7 +704,6 @@ Satu-satunya rumah untuk nilai TUNABLE dokumen ini, divalidasi saat boot oleh `D
   "location": {"upgrade_cost": [0, 5000, 250000, 25000000, 5000000000],
                "base_arrivals_per_hour": [24, 32, 42, 54, 70],
                "rotifood_orders_per_hour": [3, 4, 6, 8, 10]},
-  "reputation": {"start": 3.0, "served_delta": 0.01, "lost_delta": 0.03, "mult_base": 0.6, "mult_per_star": 0.2},
   "rotifood": {"price_mult": 1.1},
   "decor": {"price_mult_by_tier": [1, 20, 400, 8000, 160000]},
   "offline": {"base_cap_hours": 2, "max_cap_hours": 12, "base_efficiency": 0.5, "max_efficiency": 1.0,
@@ -730,8 +728,8 @@ Perubahan katalog lain:
 ## **15.3 Save**
 
 - Tiga profil dan tulis atomik v3.1 §34/§106 tetap. Root save baru: `"game_mode": "idle"`, `"schema_version": 1` (skema idle mulai dari 1).
-- Field baru: `upgrades` (level per instance, resep, staf, global), `recipes_unlocked`, `slot_recipes` (resep per petak), `franchise` (`stars`, `run_index`, `perks`), `offline` (`last_active_unix`, `rate_kr_per_s`), `boosts` (aktif dan sisa detik, hadiah harian terakhir), `stats` (`run_earned_kr`, `alltime_earned_kr`, `offline_seconds_total`, dll.), `reputation`.
-- Field dihapus: kesegaran stack, kualitas, `inventory`, `supply_orders`, `pricing`, `bailout`, `reports`, manifest, wage liability.
+- Field baru: `upgrades` (level per instance, resep, staf, global), `recipes_unlocked`, `slot_recipes` (resep per petak), `franchise` (`stars`, `run_index`, `perks`), `offline` (`last_active_unix`, `rate_kr_per_s`), `boosts` (aktif dan sisa detik, hadiah harian terakhir), `stats` (`run_earned_kr`, `alltime_earned_kr`, `offline_seconds_total`, dll.).
+- Field dihapus: kesegaran stack, kualitas, `inventory`, `supply_orders`, `pricing`, `bailout`, `reports`, manifest, wage liability, rating. Save idle dari sebelum rating dihapus tetap dimuat; `reputation` dan rekor `highest_reputation` di dalamnya dibuang.
 - **Save v3.1 (tycoon) tidak didukung.** Main Menu menampilkannya sebagai "Classic save (not supported)" dengan tombol Delete. Tidak ada migrasi.
 
 ## **15.4 Determinisme**
@@ -851,7 +849,7 @@ Keputusan di bawah diambil untuk melengkapi rancangan dan **perlu dikonfirmasi m
 | 3 | **Meja Tunggu** dipertahankan sebagai penampung tanpa busuk | Dihapus dari semua layout |
 | 4 | Bintang Waralaba **pasif + perk milestone**, tidak dibelanjakan | Pohon perk yang dibeli dengan bintang |
 | 5 | **Tombol kecepatan 2×/3× dihapus**; percepatan lewat Semangat dan boost | Tetap ada |
-| 6 | Dua rating digabung menjadi **satu Reputasi** | Tetap dua rating |
+| 6 | **Tanpa rating** (Seksi 6.6). Rancangan awal menggabungkan dua rating menjadi satu Reputasi; maintainer menghapusnya pada 2026-11-01 karena pembeli yang berbalik di pintu saat rak kosong menurunkannya terus di toko yang berjalan sendiri | Satu Reputasi ★1–5 yang mengubah kedatangan; tetap dua rating |
 | 7 | **Save tycoon lama tidak didukung** (hanya bisa dihapus) | Konversi kasar ke idle (misalnya KR → modal awal) |
 | 8 | Bahan dibayar otomatis saat batch dimulai; **Pasar dihapus** | Bahan gratis |
 | 9 | Kejutan, pengunjung lihat-lihat, dan kehidupan jalan tetap kosmetik | — |
@@ -911,5 +909,7 @@ Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincin
 | 39 | Pemain biasa untuk pacing (P7) | `SimBot` dengan `manage` (`tests/sim_bot.gd`): pindah lokasi begitu terjangkau, merekrut dan membuka stasiun begitu terjangkau, lalu membeli yang bernilai terbaik (Δ KR/s ÷ biaya) di antara level, membuka resep, dan "mengejar resep" (menaikkan mixer dan oven terbaik ke tier model resep yang lebih untung). Ia menabung untuk lokasi berikutnya bila lokasi itu nilai terbaik dan biayanya ≤ 30 menit penghasilan, dan untuk pembelian terbaik yang ≤ 3 menit lagi. Ia menjual toko (≥ 5 bintang) di Tier 5, atau setelah 20 menit di satu tier bila lokasi berikutnya masih > 30 menit penghasilan (`PacingTracker.franchise_now`). Tidak mengetuk, tidak memakai promosi, dan tanpa kopi harian. `ACC_IDLE_PACING` memakai median seed 101, 202, 303. |
 | 40 | Nilai hasil penyetelan P7 | Diubah dari nilai awal GDD (Seksi 8.8, 10.2–10.3, contoh katalog 15.2), karena pendapatan mendatar di setiap putaran (biaya level resep tumbuh 1,12^L, harga hanya linear dan ×2 per milestone), jadi harga lokasi harus mendekati dataran setiap tier (sekitar 6K/s di Tier 2, 11K/s di Tier 3, 17K/s di Tier 4): `location.upgrade_cost` [0, 440K, 5M, 16M, 26M] (awal [0, 5K, 250K, 25M, 5B]); `staff.hire_cost` [4.500, 100K, 2M, 10M] (awal [300, 3K, 60K, 1,5M]); `decor.price_mult_by_tier` [40, 200, 400, 700, 1.000] (awal [1, 20, 400, 8.000, 160.000]; bonus +2% balik modal kira-kira 10 menit); `prestige.stars_divisor_kr` 250K (awal 1M) dan `prestige.income_per_star` 0,07 (awal 0,02), karena putaran pertama ikut terdorong boost pencapaian yang tidak terulang. Terukur (median seed 101/202/303): penjualan pertama 0,4 menit, upgrade pertama 0 menit, asisten pertama 3,8, resep kedua terjangkau 6,3, Tier 2 12,4, Tier 3 33,4, Tier 4 72,0, Tier 5 112,0, Waralaba pertama 112 (17 bintang), putaran ke-2 sampai Tier 5 dalam 45% waktu. |
 | 41 | Resep kedua | Dengan rumus Seksi 4.4 dan 8.5, resep pertama yang sudah naik level selalu lebih untung per roti daripada resep baru di Lv 1, sehingga Auto tetap memakainya dan membuka resep kedua tidak pernah bernilai. Target "Resep kedua 5–8 menit" karena itu diukur sebagai saat resep kedua **terjangkau** (petunjuk `onb_recipe` muncul). Membuat tangga resep bermakna butuh perubahan rumus dan menunggu keputusan maintainer (`docs/GDD_COMPLIANCE.md`, keputusan terbuka no. 2). |
-| 42 | Reputasi di akhir permainan | Auto memilih laba per roti tertinggi (Seksi 4.2). Di Tier 5 itu bisa resep lambat yang tidak bisa dipasok dapur; KR/s tetap naik tajam, tetapi banyak pembeli kehabisan roti, jadi reputasi turun sampai sekitar ★1 sesuai Seksi 6.6. Dicatat untuk maintainer; aturannya tidak diubah. |
+| 42 | Reputasi di akhir permainan | Auto memilih laba per roti tertinggi (Seksi 4.2). Di Tier 5 itu bisa resep lambat yang tidak bisa dipasok dapur; KR/s tetap naik tajam, tetapi banyak pembeli kehabisan roti. Dulu reputasi karenanya turun sampai sekitar ★1; sejak rating dihapus (2026-11-01, Seksi 6.6) itu hanya berarti penjualan yang hilang. |
+| 43 | Melihat rak kosong | Pembeli yang mendapati semua rak kosong saat masuk (`checking_shelf`) berjalan ke tempat berdiri di depan atau samping rak terdekat, dengan aturan sel pengunjung lihat-lihat (v3.1 §20.12), bukan ke titik browsing. Dengan begitu beberapa pembeli bisa melihat bersamaan tanpa saling menunggu, dan titik browsing tetap bebas untuk pembeli yang membeli. Sel yang dituju pembeli lain tidak dipilih; tempat pengunjung lihat-lihat diabaikan karena merekalah yang minggir, jadi mereka tetap kosmetik. Ia menghadap rak dan menoleh ke sana kemari seperti pengunjung lihat-lihat. Bila tidak ada tempat di dekat rak mana pun, ia langsung pulang. Selama itu ia tetap memegang slot antreannya dan kesabarannya tidak berkurang. Setelah `customers.empty_shelf_look_seconds` ia memilih roti terhadap stok terbaru; bila masih kosong ia pulang dan dihitung `total_customers_left_no_purchase`. Ia hanya melihat sekali. Pembeli yang sudah di rak lalu kehabisan (direbut pembeli lain) tetap pulang langsung. Pemilik dan koki tidak memesan titik browsing, jadi pembeli yang sedang melihat tidak menghalangi pengisian rak. Tatapan ikut tersimpan dan berlanjut sama setelah load. |
+| 44 | Kedatangan setelah rating dihapus | Pemain biasa dulu mencapai ★5 dalam sekitar 10 menit, jadi kedatangannya ×1,6 hampir sepanjang permainan. Tanpa pengali itu bot macet di Tier 3 dan menjual toko di menit ke-60 dengan 9 bintang. `location.base_arrivals_per_hour` karena itu menjadi [23, 51, 67, 86, 112]: Tier 2–5 = nilai awal × 1,6; Tier 1 turun dari 24 ke 23, karena dengan 24 Tier 2 tercapai di 11,97 menit (target 12–18) dan Tier 1 yang lebih sepi juga berarti lebih sedikit pembeli mendapati rak kosong di awal. Tier 1 ≤ 20 jatuh ke "tebing": penghasilan Tier 1 tidak lagi menutup harga Tier 2 dalam 30 menit, sehingga bot tidak menabung dan Tier 2 baru tercapai di menit 27–30. Terukur (median seed 101/202/303, `ACC_IDLE_PACING`): penjualan pertama 0,4 menit, upgrade pertama 0, asisten pertama 4,1, resep kedua terjangkau 6,5, Tier 2 12,5, Tier 3 33,5, Tier 4 72,1, Tier 5 112,6, Waralaba pertama 113 (17 bintang), putaran ke-2 sampai Tier 5 dalam 47% waktu. |
 

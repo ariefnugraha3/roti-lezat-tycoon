@@ -14,7 +14,6 @@ signal sale_completed(amount_kr: float, channel: StringName)
 signal delivery_order_created(order_id: int)
 signal delivery_order_completed(order_id: int)
 signal balance_changed(balance_kr: float)
-signal reputation_changed(reputation: float)
 signal staff_state_changed(staff_id: StringName)
 signal weather_changed(today: StringName, tomorrow: StringName)
 

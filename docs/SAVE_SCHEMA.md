@@ -81,13 +81,12 @@ which keeps fixtures deterministic.
 | `display_inventory` | object | Display iid → `{tier, slots: [{assign, recipe, stacks}]}`. `assign` is the recipe the player set for that slot, or `""` for Auto (idle GDD §15.3 `slot_recipes`). `BreadStack`: `recipe_id`, `quantity`, `slot_id`, `source_job_id`, `produced_at_game_time`. There is no freshness, age or quality any more. |
 | `production_jobs` | object | `jobs` (stage, `stage_duration`/`stage_elapsed`, batch, mixer/oven iid, target slot, `claimed_by`, `carrier_id`, `table_seq`, …), `next_job_id`, `next_table_seq`. No burn stage exists. |
 | `equipment_states` | object | `items: [{iid, def_id, floor_id, grid_x, grid_y, rotation_quarters, placed, job_id}]`, `next_iid`. `def_id` carries the evolved model tier. |
-| `customers` | object | Active customers (state, patience, held lots, targets, `actor`) and `next_num`/`next_window_num`. |
+| `customers` | object | Active customers (state, patience, held lots, targets, `checking_shelf` for a buyer looking at an empty shelf, `actor`) and `next_num`/`next_window_num`. A save without `checking_shelf` loads it as false. |
 | `queues` | object | Per lane: reservations, line and service occupant; `highest_occupancy`. |
 | `cashier` | object | In-progress transactions per lane. |
 | `demand` | object | Next walk-in, RotiFood and window-shopper times and the pending pool. |
 | `rotifood_orders` | object | Orders (items, prices, packed lots, driver state) and `next_order_id`. Orders are accepted and packed automatically. |
 | `staff` | object | `contracts` (`employed`, `hired_day`) and actors. No wages, duty or tiers. |
-| `reputation` | object | `reputation` (stars, idle GDD §6.3). |
 | `weather` | object | `today`, `tomorrow`, `physical_mult`, `delivery_mult`. |
 | `franchise` | object | `PrestigeManager.capture()`: `stars`, `run_index`, `perks` (unlocked perk IDs, derived from stars), `recipes_ever`. |
 | `offline` | object | `OfflineManager.capture()`: `last_active_unix` (0 = unknown), `rate_kr_per_s` (model KR/s without boosts), `pending` (`{amount, seconds, away}` waiting for Collect, or `{}`). |
@@ -101,8 +100,12 @@ which keeps fixtures deterministic.
 
 Removed with the idle pivot (idle GDD §15.3): `inventory`, `supply_orders`, `pricing`,
 `bailout`, `reports`, the Day 1–3 manifest, wage liability, utilities, the day phase,
-`marketing`, `recipe_analytics`, `ratings` (replaced by `reputation`) and every
-freshness or quality field of a bread stack. `ACC_IDLE_SAVE` checks both lists.
+`marketing`, `recipe_analytics`, `ratings` and every freshness or quality field of
+a bread stack. `ACC_IDLE_SAVE` checks both lists.
+
+Removed on 2026-11-01 (idle GDD §6.6, no rating): `reputation` and the
+`highest_reputation` record. Idle saves written before that still load, and the next
+save drops both (`ACC_IDLE_SAVE`).
 
 ## Load reconstruction
 

@@ -7,7 +7,7 @@ extends UISheet
 const MONEY_STATS: Array[String] = ["run_earned_kr", "alltime_earned_kr", "alltime_spent_kr", "highest_balance", "offline_earned_kr"]
 const TIME_STATS: Array[String] = ["total_play_time_real_seconds", "offline_seconds_total"]
 const RECORD_KEYS: Dictionary = {
-	"largest_transaction": true, "highest_rate_kr_per_s": true, "highest_reputation": false, "highest_queue": false,
+	"largest_transaction": true, "highest_rate_kr_per_s": true, "highest_queue": false,
 }
 
 var _tab: int = 0
@@ -36,7 +36,7 @@ func build_page(body: VBoxContainer) -> void:
 		1:
 			for k2: String in RECORD_KEYS.keys():
 				var v2: float = float(sim.statistics.records.get(k2, 0.0))
-				var text2: String = Tx.t("ui_record_none") if v2 <= 0.0 else (Tx.kr(v2) if bool(RECORD_KEYS[k2]) else ("%.1f" % v2 if k2.contains("reputation") else Tx.big(v2)))
+				var text2: String = Tx.t("ui_record_none") if v2 <= 0.0 else (Tx.kr(v2) if bool(RECORD_KEYS[k2]) else Tx.big(v2))
 				_pair(list, Tx.t("ui_record_" + k2), text2)
 			for loc: LocationDefinition in DataRegistry.locations():
 				var day: Variant = sim.statistics.tier_reached_day.get(String(loc.id))

@@ -65,8 +65,6 @@ func _targets(target: StringName) -> Array:
 		match t:
 			"cash":
 				return [hud.cash_chip(), hud.rate_label()]
-			"reputation":
-				return [hud.reputation_chip()]
 		if t.begins_with("tab_"):
 			var b: Button = hud.tab_button(StringName(t.substr(4)))
 			return [b] if b != null else []

@@ -10,19 +10,13 @@
 	"bakery_name": "Test Bakery",
 	"boosts": {
 		"cooldowns": {},
-		"income_left": 586.0000000000127,
+		"income_left": 574.4500000000232,
 		"income_mult": 2.0,
 		"last_gift_date": "",
 		"promo_id": "",
 		"promo_left": 0.0
 	},
-	"cashier": {
-		"lane_a": {
-			"customer": "c90",
-			"duration": 2.0815270829863133,
-			"elapsed": 0.9500000000000003
-		}
-	},
+	"cashier": {},
 	"catalog_versions": {
 		"catalog_schema_version": 1,
 		"content_version": 1
@@ -32,99 +26,52 @@
 		"sim_seconds": 480.00000000007486,
 		"time_seconds": 43200.0
 	},
-	"created_at": "2026-10-27T01:28:51Z",
+	"created_at": "2026-11-01T14:56:08Z",
 	"customers": {
 		"customers": [
 			{
 				"actor": {
 					"carried": {},
 					"facing": [
-						0.24253562092781067,
-						-0.9701424837112427
-					],
-					"floor_id": "floor_1",
-					"goal_cell": [
-						2,
-						0
-					],
-					"goal_floor": "floor_1",
-					"id": "c89",
-					"kind": "customer",
-					"pos": [
-						1.0834864377975464,
-						0.9160540103912354
-					],
-					"seat_iid": -1,
-					"state": "IDLE",
-					"visual_key": "customer_school_child",
-					"visual_seed": 2864790467
-				},
-				"archetype": "customer_school_child",
-				"browse_left": -3.191891195797325e-16,
-				"celebrate_left": -9.71445146547012e-17,
-				"held": [],
-				"id": "c89",
-				"lane_id": "lane_a",
-				"look_cell": [
-					-1,
-					-1
-				],
-				"look_display": -1,
-				"looks_left": 0,
-				"patience": 54.45000000000003,
-				"patience_max": 55.0,
-				"queue_wait": 0.5499999999999999,
-				"spawned_at": 470.35000000007267,
-				"stall_time": 0.5499999999999999,
-				"state": "LEAVING",
-				"substitution_used": false,
-				"target_display": 4,
-				"target_qty": 2,
-				"target_recipe": "recipe_plain_loaf",
-				"window_shopper": false
-			},
-			{
-				"actor": {
-					"carried": {},
-					"facing": [
-						0.0,
-						1.0
+						-0.5547001957893372,
+						0.8320502042770386
 					],
 					"floor_id": "floor_1",
 					"goal_cell": [
 						1,
-						4
+						3
 					],
 					"goal_floor": "floor_1",
-					"id": "c90",
+					"id": "c83",
 					"kind": "customer",
 					"pos": [
-						0.75,
-						2.25
+						1.6557005643844604,
+						0.39144936203956604
 					],
 					"seat_iid": -1,
 					"state": "IDLE",
-					"visual_key": "customer_generic",
-					"visual_seed": 1594420379
+					"visual_key": "customer_indecisive",
+					"visual_seed": 593330899
 				},
-				"archetype": "customer_generic",
+				"archetype": "customer_indecisive",
 				"browse_left": -3.191891195797325e-16,
 				"celebrate_left": 0.0,
+				"checking_shelf": false,
 				"held": [
 					{
 						"display_id": 4,
-						"slot_index": 3,
+						"slot_index": 0,
 						"stack": {
-							"produced_at_game_time": 464.90000000007143,
-							"quantity": 2,
+							"produced_at_game_time": 420.60000000006136,
+							"quantity": 3,
 							"recipe_id": "recipe_plain_loaf",
-							"slot_id": "4:3",
-							"source_job_id": 15
+							"slot_id": "4:0",
+							"source_job_id": 14
 						},
-						"unit_price": 396.71999999999997
+						"unit_price": 421.2
 					}
 				],
-				"id": "c90",
+				"id": "c83",
 				"lane_id": "lane_a",
 				"look_cell": [
 					-1,
@@ -132,64 +79,16 @@
 				],
 				"look_display": -1,
 				"looks_left": 0,
-				"patience": 34.550000000000026,
-				"patience_max": 35.0,
-				"queue_wait": 0.44999999999999996,
-				"spawned_at": 473.9500000000735,
-				"stall_time": 0.44999999999999996,
-				"state": "BEING_SERVED",
+				"patience": 60.0,
+				"patience_max": 60.0,
+				"queue_wait": 0.0,
+				"spawned_at": 476.00000000007395,
+				"stall_time": 0.0,
+				"state": "CARRYING_TO_QUEUE",
 				"substitution_used": false,
 				"target_display": 4,
-				"target_qty": 2,
+				"target_qty": 3,
 				"target_recipe": "recipe_plain_loaf",
-				"window_shopper": false
-			},
-			{
-				"actor": {
-					"carried": {},
-					"facing": [
-						1.0,
-						0.0
-					],
-					"floor_id": "floor_1",
-					"goal_cell": [
-						-1,
-						-1
-					],
-					"goal_floor": "",
-					"id": "c91",
-					"kind": "customer",
-					"pos": [
-						-6.54998254776001,
-						-1.75
-					],
-					"seat_iid": -1,
-					"state": "IDLE",
-					"visual_key": "customer_generic",
-					"visual_seed": 2993981561
-				},
-				"archetype": "customer_generic",
-				"browse_left": 0.0,
-				"celebrate_left": 0.0,
-				"held": [],
-				"id": "c91",
-				"lane_id": "lane_a",
-				"look_cell": [
-					-1,
-					-1
-				],
-				"look_display": -1,
-				"looks_left": 0,
-				"patience": 35.0,
-				"patience_max": 35.0,
-				"queue_wait": 0.0,
-				"spawned_at": 0.0,
-				"stall_time": 0.0,
-				"state": "APPROACHING",
-				"substitution_used": false,
-				"target_display": -1,
-				"target_qty": 0,
-				"target_recipe": "",
 				"window_shopper": false
 			},
 			{
@@ -205,22 +104,72 @@
 						-1
 					],
 					"goal_floor": "",
-					"id": "c92",
+					"id": "c84",
 					"kind": "customer",
 					"pos": [
-						12.709999084472656,
+						1.565030813217163,
+						-1.75
+					],
+					"seat_iid": -1,
+					"state": "IDLE",
+					"visual_key": "customer_bulk_buyer",
+					"visual_seed": 3333379618
+				},
+				"archetype": "customer_bulk_buyer",
+				"browse_left": 0.0,
+				"celebrate_left": 0.0,
+				"checking_shelf": false,
+				"held": [],
+				"id": "c84",
+				"lane_id": "lane_a",
+				"look_cell": [
+					-1,
+					-1
+				],
+				"look_display": -1,
+				"looks_left": 0,
+				"patience": 45.0,
+				"patience_max": 45.0,
+				"queue_wait": 0.0,
+				"spawned_at": 0.0,
+				"stall_time": 0.0,
+				"state": "APPROACHING",
+				"substitution_used": false,
+				"target_display": -1,
+				"target_qty": 0,
+				"target_recipe": "",
+				"window_shopper": false
+			},
+			{
+				"actor": {
+					"carried": {},
+					"facing": [
+						1.0,
+						0.0
+					],
+					"floor_id": "floor_1",
+					"goal_cell": [
+						-1,
+						-1
+					],
+					"goal_floor": "",
+					"id": "c85",
+					"kind": "customer",
+					"pos": [
+						-2.829986572265625,
 						-1.75
 					],
 					"seat_iid": -1,
 					"state": "IDLE",
 					"visual_key": "customer_indecisive",
-					"visual_seed": 593330899
+					"visual_seed": 4044291429
 				},
 				"archetype": "customer_indecisive",
 				"browse_left": 0.0,
 				"celebrate_left": 0.0,
+				"checking_shelf": false,
 				"held": [],
-				"id": "c92",
+				"id": "c85",
 				"lane_id": "lane_a",
 				"look_cell": [
 					-1,
@@ -244,7 +193,7 @@
 				"actor": {
 					"carried": {},
 					"facing": [
-						1.0,
+						-1.0,
 						0.0
 					],
 					"floor_id": "floor_1",
@@ -253,31 +202,32 @@
 						-1
 					],
 					"goal_floor": "",
-					"id": "w25",
+					"id": "c86",
 					"kind": "customer",
 					"pos": [
-						-5.127254486083984,
+						5.9349775314331055,
 						-1.75
 					],
 					"seat_iid": -1,
 					"state": "IDLE",
-					"visual_key": "customer_indecisive",
-					"visual_seed": 1441293090
+					"visual_key": "customer_school_child",
+					"visual_seed": 4185754859
 				},
-				"archetype": "customer_indecisive",
+				"archetype": "customer_school_child",
 				"browse_left": 0.0,
 				"celebrate_left": 0.0,
+				"checking_shelf": false,
 				"held": [],
-				"id": "w25",
-				"lane_id": "",
+				"id": "c86",
+				"lane_id": "lane_a",
 				"look_cell": [
-					4,
-					0
+					-1,
+					-1
 				],
-				"look_display": 4,
-				"looks_left": 2,
-				"patience": 30.0,
-				"patience_max": 30.0,
+				"look_display": -1,
+				"looks_left": 0,
+				"patience": 55.0,
+				"patience_max": 55.0,
 				"queue_wait": 0.0,
 				"spawned_at": 0.0,
 				"stall_time": 0.0,
@@ -286,11 +236,60 @@
 				"target_display": -1,
 				"target_qty": 0,
 				"target_recipe": "",
+				"window_shopper": false
+			},
+			{
+				"actor": {
+					"carried": {},
+					"facing": [
+						0.4472135901451111,
+						0.8944271802902222
+					],
+					"floor_id": "floor_1",
+					"goal_cell": [
+						4,
+						0
+					],
+					"goal_floor": "floor_1",
+					"id": "w27",
+					"kind": "customer",
+					"pos": [
+						2.25,
+						0.25
+					],
+					"seat_iid": -1,
+					"state": "IDLE",
+					"visual_key": "customer_generic",
+					"visual_seed": 1543454049
+				},
+				"archetype": "customer_generic",
+				"browse_left": 3.0062082290649474,
+				"celebrate_left": 0.0,
+				"checking_shelf": false,
+				"held": [],
+				"id": "w27",
+				"lane_id": "",
+				"look_cell": [
+					4,
+					0
+				],
+				"look_display": 4,
+				"looks_left": 1,
+				"patience": 30.0,
+				"patience_max": 30.0,
+				"queue_wait": 0.0,
+				"spawned_at": 477.30000000007425,
+				"stall_time": 0.0,
+				"state": "BROWSING",
+				"substitution_used": false,
+				"target_display": -1,
+				"target_qty": 0,
+				"target_recipe": "",
 				"window_shopper": true
 			}
 		],
-		"next_num": 93,
-		"next_window_num": 26
+		"next_num": 87,
+		"next_window_num": 28
 	},
 	"day": 1,
 	"decorations": {
@@ -327,7 +326,7 @@
 					-1,
 					-1
 				],
-				"deco_id": "decor_plaque_hundred_buns",
+				"deco_id": "decor_floor_mat_smooth",
 				"floor_id": "floor_1",
 				"placed": false,
 				"rot": 0,
@@ -339,7 +338,7 @@
 					-1,
 					-1
 				],
-				"deco_id": "decor_floor_mat_smooth",
+				"deco_id": "decor_plaque_hundred_buns",
 				"floor_id": "floor_1",
 				"placed": false,
 				"rot": 0,
@@ -349,39 +348,68 @@
 		]
 	},
 	"demand": {
-		"next_physical_at": 43355.88100065765,
+		"next_physical_at": 43332.39868277314,
 		"next_rotifood_at": 43615.3649778491,
-		"next_window_shopper_at": 43348.3912091946,
-		"pending": []
+		"next_window_shopper_at": 43994.27001847104,
+		"pending": [
+			{
+				"archetype": "customer_bulk_buyer",
+				"since": 479.45000000007474
+			}
+		]
 	},
 	"display_inventory": {
 		"4": {
 			"slots": [
 				{
 					"assign": "recipe_plain_loaf",
-					"recipe": "",
-					"stacks": []
-				},
-				{
-					"assign": "",
-					"recipe": "",
-					"stacks": []
-				},
-				{
-					"assign": "",
-					"recipe": "",
-					"stacks": []
+					"recipe": "recipe_plain_loaf",
+					"stacks": [
+						{
+							"produced_at_game_time": 420.60000000006136,
+							"quantity": 1,
+							"recipe_id": "recipe_plain_loaf",
+							"slot_id": "4:0",
+							"source_job_id": 14
+						}
+					]
 				},
 				{
 					"assign": "",
 					"recipe": "recipe_plain_loaf",
 					"stacks": [
 						{
-							"produced_at_game_time": 464.90000000007143,
-							"quantity": 10,
+							"produced_at_game_time": 475.8000000000739,
+							"quantity": 18,
+							"recipe_id": "recipe_plain_loaf",
+							"slot_id": "4:1",
+							"source_job_id": 17
+						}
+					]
+				},
+				{
+					"assign": "",
+					"recipe": "recipe_plain_loaf",
+					"stacks": [
+						{
+							"produced_at_game_time": 438.8500000000655,
+							"quantity": 6,
+							"recipe_id": "recipe_plain_loaf",
+							"slot_id": "4:2",
+							"source_job_id": 15
+						}
+					]
+				},
+				{
+					"assign": "",
+					"recipe": "recipe_plain_loaf",
+					"stacks": [
+						{
+							"produced_at_game_time": 458.1000000000699,
+							"quantity": 18,
 							"recipe_id": "recipe_plain_loaf",
 							"slot_id": "4:3",
-							"source_job_id": 15
+							"source_job_id": 16
 						}
 					]
 				},
@@ -400,7 +428,7 @@
 		}
 	},
 	"economy": {
-		"balance_kr": 1074.0,
+		"balance_kr": 502.0,
 		"historical_totals": {},
 		"ledger_recent": [
 			{
@@ -468,25 +496,25 @@
 				"tx_id": 6
 			},
 			{
-				"amount": -58.0,
+				"amount": -53.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29265.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "4",
+				"source_id": "2",
 				"tx_id": 7
 			},
 			{
-				"amount": -53.0,
+				"amount": -58.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29415.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "2",
+				"source_id": "4",
 				"tx_id": 8
 			},
 			{
@@ -504,12 +532,12 @@
 				"amount": 279.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 30208.5,
+				"game_time": 30139.5,
 				"metadata": {
-					"customer": "c4",
+					"customer": "c3",
 					"units": 3
 				},
-				"source_id": "customer_generic",
+				"source_id": "customer_office_worker",
 				"tx_id": 10
 			},
 			{
@@ -524,18 +552,6 @@
 				"tx_id": 11
 			},
 			{
-				"amount": 186.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 30313.5,
-				"metadata": {
-					"customer": "c5",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 12
-			},
-			{
 				"amount": -76.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
@@ -544,30 +560,31 @@
 					"levels": 1
 				},
 				"source_id": "4",
+				"tx_id": 12
+			},
+			{
+				"amount": 370.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 30412.5,
+				"metadata": {
+					"customer": "c4",
+					"units": 2
+				},
+				"source_id": "customer_generic",
 				"tx_id": 13
 			},
 			{
-				"amount": 93.0,
+				"amount": 185.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 30417.0,
+				"game_time": 30517.5,
 				"metadata": {
-					"customer": "c7",
+					"customer": "c5",
 					"units": 1
 				},
-				"source_id": "customer_office_worker",
+				"source_id": "customer_generic",
 				"tx_id": 14
-			},
-			{
-				"amount": -340.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 30418.5,
-				"metadata": {
-					"batch": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 15
 			},
 			{
 				"amount": -70.0,
@@ -578,77 +595,100 @@
 					"levels": 1
 				},
 				"source_id": "2",
+				"tx_id": 15
+			},
+			{
+				"amount": -340.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 30666.0,
+				"metadata": {
+					"batch": 1
+				},
+				"source_id": "recipe_plain_loaf",
 				"tx_id": 16
 			},
 			{
 				"amount": 187.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 31983.0,
+				"game_time": 32079.0,
 				"metadata": {
-					"customer": "c18",
+					"customer": "c15",
 					"units": 1
 				},
 				"source_id": "customer_school_child",
 				"tx_id": 17
 			},
 			{
-				"amount": 374.0,
+				"amount": 187.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 32088.0,
+				"game_time": 32182.5,
 				"metadata": {
-					"customer": "c19",
-					"units": 2
+					"customer": "c16",
+					"units": 1
 				},
-				"source_id": "customer_generic",
+				"source_id": "customer_office_worker",
 				"tx_id": 18
 			},
 			{
 				"amount": 374.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 32191.5,
+				"game_time": 32286.0,
 				"metadata": {
-					"customer": "c21",
+					"customer": "c17",
 					"units": 2
 				},
 				"source_id": "customer_office_worker",
 				"tx_id": 19
 			},
 			{
-				"amount": 187.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 32332.5,
-				"metadata": {
-					"customer": "c20",
-					"units": 1
-				},
-				"source_id": "customer_indecisive",
-				"tx_id": 20
-			},
-			{
 				"amount": -340.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 32334.0,
+				"game_time": 32287.5,
 				"metadata": {
 					"batch": 1
 				},
 				"source_id": "recipe_plain_loaf",
+				"tx_id": 20
+			},
+			{
+				"amount": 187.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 32551.5,
+				"metadata": {
+					"customer": "c18",
+					"units": 1
+				},
+				"source_id": "customer_school_child",
 				"tx_id": 21
+			},
+			{
+				"amount": 187.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 32656.5,
+				"metadata": {
+					"customer": "c19",
+					"units": 1
+				},
+				"source_id": "customer_generic",
+				"tx_id": 22
 			},
 			{
 				"amount": 1236.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 32592.0,
+				"game_time": 32668.5,
 				"metadata": {
 					"order": 1
 				},
 				"source_id": "rotifood",
-				"tx_id": 22
+				"tx_id": 23
 			},
 			{
 				"amount": -900.0,
@@ -659,18 +699,18 @@
 					"levels": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 23
+				"tx_id": 24
 			},
 			{
 				"amount": -340.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 32835.0,
+				"game_time": 32832.0,
 				"metadata": {
 					"batch": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 24
+				"tx_id": 25
 			},
 			{
 				"amount": -80.0,
@@ -681,7 +721,7 @@
 					"levels": 1
 				},
 				"source_id": "2",
-				"tx_id": 25
+				"tx_id": 26
 			},
 			{
 				"amount": -87.0,
@@ -692,7 +732,7 @@
 					"levels": 1
 				},
 				"source_id": "4",
-				"tx_id": 26
+				"tx_id": 27
 			},
 			{
 				"amount": -101.0,
@@ -703,7 +743,7 @@
 					"levels": 1
 				},
 				"source_id": "4",
-				"tx_id": 27
+				"tx_id": 28
 			},
 			{
 				"amount": -93.0,
@@ -714,48 +754,36 @@
 					"levels": 1
 				},
 				"source_id": "2",
-				"tx_id": 28
+				"tx_id": 29
 			},
 			{
-				"amount": 840.0,
+				"amount": 1260.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 33664.5,
+				"game_time": 33666.0,
 				"metadata": {
-					"customer": "c29",
-					"units": 4
+					"customer": "c23",
+					"units": 6
 				},
-				"source_id": "customer_generic",
-				"tx_id": 29
+				"source_id": "customer_bulk_buyer",
+				"tx_id": 30
 			},
 			{
 				"amount": -340.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 33666.0,
+				"game_time": 33667.5,
 				"metadata": {
 					"batch": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 30
-			},
-			{
-				"amount": 420.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 34267.5,
-				"metadata": {
-					"customer": "c30",
-					"units": 2
-				},
-				"source_id": "customer_bulk_buyer",
 				"tx_id": 31
 			},
 			{
 				"amount": -1008.0,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
-				"game_time": 34335.0,
+				"game_time": 33735.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -763,123 +791,123 @@
 				"tx_id": 32
 			},
 			{
-				"amount": -340.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 34383.0,
-				"metadata": {
-					"batch": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 33
-			},
-			{
-				"amount": 458.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 35218.5,
-				"metadata": {
-					"customer": "c38",
-					"units": 2
-				},
-				"source_id": "customer_office_worker",
-				"tx_id": 34
-			},
-			{
-				"amount": -106.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 35235.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "2",
-				"tx_id": 35
-			},
-			{
-				"amount": 458.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 35323.5,
-				"metadata": {
-					"customer": "c39",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 36
-			},
-			{
-				"amount": -122.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 35385.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "2",
-				"tx_id": 37
-			},
-			{
-				"amount": 458.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 35443.5,
-				"metadata": {
-					"customer": "c41",
-					"units": 2
-				},
-				"source_id": "customer_office_worker",
-				"tx_id": 38
-			},
-			{
 				"amount": -116.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 35535.0,
+				"game_time": 33885.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "4",
-				"tx_id": 39
+				"tx_id": 33
 			},
 			{
 				"amount": -340.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 35592.0,
+				"game_time": 34384.5,
 				"metadata": {
 					"batch": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 40
+				"tx_id": 34
 			},
 			{
-				"amount": 924.0,
-				"category": "SALE_ROTIFOOD",
+				"amount": 1386.0,
+				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 35730.0,
+				"game_time": 35155.5,
 				"metadata": {
-					"order": 2
+					"customer": "c30",
+					"units": 6
 				},
-				"source_id": "rotifood",
-				"tx_id": 41
+				"source_id": "customer_bulk_buyer",
+				"tx_id": 35
+			},
+			{
+				"amount": -340.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 35157.0,
+				"metadata": {
+					"batch": 1
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 36
 			},
 			{
 				"amount": -1129.0,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
-				"game_time": 35835.0,
+				"game_time": 35235.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "recipe_plain_loaf",
+				"tx_id": 37
+			},
+			{
+				"amount": 1016.0,
+				"category": "SALE_ROTIFOOD",
+				"day": 1,
+				"game_time": 35788.5,
+				"metadata": {
+					"order": 2
+				},
+				"source_id": "rotifood",
+				"tx_id": 38
+			},
+			{
+				"amount": -106.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 35835.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "2",
+				"tx_id": 39
+			},
+			{
+				"amount": 750.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 35893.5,
+				"metadata": {
+					"customer": "c35",
+					"units": 3
+				},
+				"source_id": "customer_generic",
+				"tx_id": 40
+			},
+			{
+				"amount": -122.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 35985.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "2",
+				"tx_id": 41
+			},
+			{
+				"amount": 500.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 36055.5,
+				"metadata": {
+					"customer": "c36",
+					"units": 2
+				},
+				"source_id": "customer_school_child",
 				"tx_id": 42
 			},
 			{
 				"amount": -133.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 35985.0,
+				"game_time": 36135.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -887,22 +915,22 @@
 				"tx_id": 43
 			},
 			{
-				"amount": 500.0,
+				"amount": 250.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 36096.0,
+				"game_time": 36162.0,
 				"metadata": {
-					"customer": "c44",
-					"units": 2
+					"customer": "c37",
+					"units": 1
 				},
-				"source_id": "customer_indecisive",
+				"source_id": "customer_school_child",
 				"tx_id": 44
 			},
 			{
 				"amount": -60.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 36135.0,
+				"game_time": 36285.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -910,88 +938,130 @@
 				"tx_id": 45
 			},
 			{
-				"amount": 253.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 36247.5,
-				"metadata": {
-					"customer": "c46",
-					"units": 1
-				},
-				"source_id": "customer_bulk_buyer",
-				"tx_id": 46
-			},
-			{
 				"amount": -340.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 36363.0,
+				"game_time": 36310.5,
 				"metadata": {
 					"batch": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 47
-			},
-			{
-				"amount": 462.0,
-				"category": "SALE_ROTIFOOD",
-				"day": 1,
-				"game_time": 36532.5,
-				"metadata": {
-					"order": 3
-				},
-				"source_id": "rotifood",
-				"tx_id": 48
-			},
-			{
-				"amount": 759.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 37090.5,
-				"metadata": {
-					"customer": "c53",
-					"units": 3
-				},
-				"source_id": "customer_office_worker",
-				"tx_id": 49
+				"tx_id": 46
 			},
 			{
 				"amount": -1264.0,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
-				"game_time": 37185.0,
+				"game_time": 36435.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 50
-			},
-			{
-				"amount": 253.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 37191.0,
-				"metadata": {
-					"customer": "c54",
-					"units": 1
-				},
-				"source_id": "customer_office_worker",
-				"tx_id": 51
-			},
-			{
-				"amount": 506.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 37302.0,
-				"metadata": {
-					"customer": "c55",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 52
+				"tx_id": 47
 			},
 			{
 				"amount": -69.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 36585.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "counter",
+				"tx_id": 48
+			},
+			{
+				"amount": 544.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 36697.5,
+				"metadata": {
+					"customer": "c40",
+					"units": 2
+				},
+				"source_id": "customer_indecisive",
+				"tx_id": 49
+			},
+			{
+				"amount": 508.0,
+				"category": "SALE_ROTIFOOD",
+				"day": 1,
+				"game_time": 36709.5,
+				"metadata": {
+					"order": 3
+				},
+				"source_id": "rotifood",
+				"tx_id": 50
+			},
+			{
+				"amount": -153.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 36735.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "4",
+				"tx_id": 51
+			},
+			{
+				"amount": 272.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 36813.0,
+				"metadata": {
+					"customer": "c41",
+					"units": 1
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 52
+			},
+			{
+				"amount": -176.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 36885.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "4",
+				"tx_id": 53
+			},
+			{
+				"amount": -1020.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 36928.5,
+				"metadata": {
+					"batch": 3
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 54
+			},
+			{
+				"amount": -79.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 37035.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "counter",
+				"tx_id": 55
+			},
+			{
+				"amount": -91.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 37185.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "counter",
+				"tx_id": 56
+			},
+			{
+				"amount": -105.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37335.0,
@@ -999,102 +1069,58 @@
 					"levels": 1
 				},
 				"source_id": "counter",
-				"tx_id": 53
+				"tx_id": 57
 			},
 			{
-				"amount": -340.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 37450.5,
-				"metadata": {
-					"batch": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 54
-			},
-			{
-				"amount": -153.0,
+				"amount": -121.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37485.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "4",
-				"tx_id": 55
+				"source_id": "counter",
+				"tx_id": 58
 			},
 			{
-				"amount": -176.0,
+				"amount": 1662.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 37542.0,
+				"metadata": {
+					"customer": "c45",
+					"units": 6
+				},
+				"source_id": "customer_bulk_buyer",
+				"tx_id": 59
+			},
+			{
+				"amount": -139.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37635.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "4",
-				"tx_id": 56
-			},
-			{
-				"amount": -79.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 37785.0,
-				"metadata": {
-					"levels": 1
-				},
 				"source_id": "counter",
-				"tx_id": 57
-			},
-			{
-				"amount": 831.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 37866.0,
-				"metadata": {
-					"customer": "c59",
-					"units": 3
-				},
-				"source_id": "customer_bulk_buyer",
-				"tx_id": 58
-			},
-			{
-				"amount": -91.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 37935.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "counter",
-				"tx_id": 59
+				"tx_id": 60
 			},
 			{
 				"amount": -1020.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 38019.0,
+				"game_time": 37657.5,
 				"metadata": {
 					"batch": 3
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 60
-			},
-			{
-				"amount": -105.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 38085.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "counter",
 				"tx_id": 61
 			},
 			{
-				"amount": 825.0,
+				"amount": 834.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 38100.0,
+				"game_time": 38109.0,
 				"metadata": {
 					"order": 4
 				},
@@ -1102,18 +1128,30 @@
 				"tx_id": 62
 			},
 			{
-				"amount": -121.0,
-				"category": "UPGRADE_STATION",
+				"amount": -1416.0,
+				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 38235.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "counter",
+				"source_id": "recipe_plain_loaf",
 				"tx_id": 63
 			},
 			{
-				"amount": -139.0,
+				"amount": 554.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 38305.5,
+				"metadata": {
+					"customer": "c51",
+					"units": 2
+				},
+				"source_id": "customer_generic",
+				"tx_id": 64
+			},
+			{
+				"amount": -160.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 38385.0,
@@ -1121,72 +1159,60 @@
 					"levels": 1
 				},
 				"source_id": "counter",
-				"tx_id": 64
-			},
-			{
-				"amount": 277.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 38613.0,
-				"metadata": {
-					"customer": "c66",
-					"units": 1
-				},
-				"source_id": "customer_office_worker",
 				"tx_id": 65
 			},
 			{
-				"amount": -1020.0,
-				"category": "INGREDIENT_COST",
+				"amount": 594.0,
+				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 38728.5,
+				"game_time": 38506.5,
 				"metadata": {
-					"batch": 3
+					"customer": "c53",
+					"units": 2
 				},
-				"source_id": "recipe_plain_loaf",
+				"source_id": "customer_office_worker",
 				"tx_id": 66
 			},
 			{
-				"amount": 554.0,
-				"category": "SALE_PHYSICAL",
+				"amount": -202.0,
+				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 39474.0,
+				"game_time": 38535.0,
 				"metadata": {
-					"customer": "c72",
-					"units": 2
+					"levels": 1
 				},
-				"source_id": "customer_generic",
+				"source_id": "4",
 				"tx_id": 67
 			},
 			{
-				"amount": 554.0,
+				"amount": 297.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 39565.5,
+				"game_time": 38593.5,
 				"metadata": {
-					"customer": "c71",
-					"units": 2
+					"customer": "c52",
+					"units": 1
 				},
-				"source_id": "customer_indecisive",
+				"source_id": "customer_school_child",
 				"tx_id": 68
 			},
 			{
-				"amount": 554.0,
+				"amount": 594.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 39652.5,
+				"game_time": 38677.5,
 				"metadata": {
-					"customer": "c73",
+					"customer": "c54",
 					"units": 2
 				},
-				"source_id": "customer_generic",
+				"source_id": "customer_office_worker",
 				"tx_id": 69
 			},
 			{
-				"amount": -1416.0,
+				"amount": -1586.0,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
-				"game_time": 39735.0,
+				"game_time": 38685.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -1194,21 +1220,22 @@
 				"tx_id": 70
 			},
 			{
-				"amount": 897.0,
-				"category": "SALE_ROTIFOOD",
+				"amount": 600.0,
+				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 39826.5,
+				"game_time": 38796.0,
 				"metadata": {
-					"order": 5
+					"customer": "c55",
+					"units": 2
 				},
-				"source_id": "rotifood",
+				"source_id": "customer_generic",
 				"tx_id": 71
 			},
 			{
-				"amount": -160.0,
+				"amount": -184.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 39885.0,
+				"game_time": 38835.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -1216,10 +1243,10 @@
 				"tx_id": 72
 			},
 			{
-				"amount": -202.0,
+				"amount": -233.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 40035.0,
+				"game_time": 38985.0,
 				"metadata": {
 					"levels": 1
 				},
@@ -1227,244 +1254,277 @@
 				"tx_id": 73
 			},
 			{
-				"amount": 594.0,
+				"amount": 320.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 40045.5,
+				"game_time": 39112.5,
 				"metadata": {
-					"customer": "c74",
-					"units": 2
+					"customer": "c56",
+					"units": 1
 				},
 				"source_id": "customer_school_child",
 				"tx_id": 74
 			},
 			{
-				"amount": 297.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 40129.5,
-				"metadata": {
-					"customer": "c75",
-					"units": 1
-				},
-				"source_id": "customer_office_worker",
-				"tx_id": 75
-			},
-			{
-				"amount": -1586.0,
-				"category": "UPGRADE_RECIPE",
-				"day": 1,
-				"game_time": 40185.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 76
-			},
-			{
-				"amount": 594.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 40215.0,
-				"metadata": {
-					"customer": "c76",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 77
-			},
-			{
-				"amount": -340.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 40216.5,
-				"metadata": {
-					"batch": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 78
-			},
-			{
-				"amount": -184.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 40335.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "counter",
-				"tx_id": 79
-			},
-			{
-				"amount": 640.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 40458.0,
-				"metadata": {
-					"customer": "c77",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 80
-			},
-			{
-				"amount": -233.0,
-				"category": "UPGRADE_STATION",
-				"day": 1,
-				"game_time": 40485.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "4",
-				"tx_id": 81
-			},
-			{
-				"amount": 640.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 40540.5,
-				"metadata": {
-					"customer": "c78",
-					"units": 2
-				},
-				"source_id": "customer_generic",
-				"tx_id": 82
-			},
-			{
-				"amount": 1525.0,
-				"category": "SALE_ROTIFOOD",
-				"day": 1,
-				"game_time": 40552.5,
-				"metadata": {
-					"order": 6
-				},
-				"source_id": "rotifood",
-				"tx_id": 83
-			},
-			{
 				"amount": -211.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 40635.0,
+				"game_time": 39135.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "counter",
-				"tx_id": 84
+				"tx_id": 75
 			},
 			{
-				"amount": 646.0,
+				"amount": 969.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 40776.0,
+				"game_time": 39195.0,
 				"metadata": {
-					"customer": "c79",
-					"units": 2
+					"customer": "c58",
+					"units": 3
 				},
-				"source_id": "customer_indecisive",
-				"tx_id": 85
-			},
-			{
-				"amount": -1776.0,
-				"category": "UPGRADE_RECIPE",
-				"day": 1,
-				"game_time": 40785.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 86
+				"source_id": "customer_generic",
+				"tx_id": 76
 			},
 			{
 				"amount": 323.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 40920.0,
+				"game_time": 39277.5,
 				"metadata": {
-					"customer": "c80",
+					"customer": "c57",
 					"units": 1
 				},
 				"source_id": "customer_school_child",
-				"tx_id": 87
+				"tx_id": 77
 			},
 			{
-				"amount": -268.0,
-				"category": "UPGRADE_STATION",
+				"amount": 3553.0,
+				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 40935.0,
+				"game_time": 39406.5,
 				"metadata": {
-					"levels": 1
+					"customer": "c59",
+					"units": 11
 				},
-				"source_id": "4",
-				"tx_id": 88
+				"source_id": "customer_bulk_buyer",
+				"tx_id": 78
 			},
 			{
-				"amount": 610.0,
+				"amount": -4500.0,
+				"category": "STAFF_HIRE",
+				"day": 1,
+				"game_time": 39420.0,
+				"metadata": {},
+				"source_id": "staff_baker_joko",
+				"tx_id": 79
+			},
+			{
+				"amount": -340.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 39421.5,
+				"metadata": {
+					"batch": 1
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 80
+			},
+			{
+				"amount": 323.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 39540.0,
+				"metadata": {
+					"customer": "c60",
+					"units": 1
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 81
+			},
+			{
+				"amount": 915.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 40948.5,
+				"game_time": 39847.5,
 				"metadata": {
-					"order": 7
+					"order": 5
 				},
 				"source_id": "rotifood",
-				"tx_id": 89
+				"tx_id": 82
 			},
 			{
 				"amount": -1020.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 41035.5,
+				"game_time": 39859.5,
 				"metadata": {
 					"batch": 3
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 90
+				"tx_id": 83
 			},
 			{
-				"amount": -243.0,
-				"category": "UPGRADE_STATION",
+				"amount": 646.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 40476.0,
+				"metadata": {
+					"customer": "c66",
+					"units": 2
+				},
+				"source_id": "customer_office_worker",
+				"tx_id": 84
+			},
+			{
+				"amount": -1020.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 40477.5,
+				"metadata": {
+					"batch": 3
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 85
+			},
+			{
+				"amount": 1525.0,
+				"category": "SALE_ROTIFOOD",
+				"day": 1,
+				"game_time": 40531.5,
+				"metadata": {
+					"order": 6
+				},
+				"source_id": "rotifood",
+				"tx_id": 86
+			},
+			{
+				"amount": 704.0,
+				"category": "SALE_ROTIFOOD",
+				"day": 1,
+				"game_time": 41028.0,
+				"metadata": {
+					"order": 7
+				},
+				"source_id": "rotifood",
+				"tx_id": 87
+			},
+			{
+				"amount": -1776.0,
+				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 41085.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "counter",
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 88
+			},
+			{
+				"amount": -340.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 41095.5,
+				"metadata": {
+					"batch": 1
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 89
+			},
+			{
+				"amount": 323.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 41233.5,
+				"metadata": {
+					"customer": "c70",
+					"units": 1
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 90
+			},
+			{
+				"amount": -268.0,
+				"category": "UPGRADE_STATION",
+				"day": 1,
+				"game_time": 41235.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "4",
 				"tx_id": 91
+			},
+			{
+				"amount": 646.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 41319.0,
+				"metadata": {
+					"customer": "c71",
+					"units": 2
+				},
+				"source_id": "customer_indecisive",
+				"tx_id": 92
+			},
+			{
+				"amount": 686.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 41404.5,
+				"metadata": {
+					"customer": "c69",
+					"units": 2
+				},
+				"source_id": "customer_indecisive",
+				"tx_id": 93
 			},
 			{
 				"amount": 346.0,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
-				"game_time": 41334.0,
+				"game_time": 41587.5,
 				"metadata": {
-					"customer": "c81",
+					"customer": "c72",
 					"units": 1
 				},
 				"source_id": "customer_generic",
-				"tx_id": 92
+				"tx_id": 94
 			},
 			{
-				"amount": 1220.0,
+				"amount": 1038.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 41668.5,
+				"metadata": {
+					"customer": "c73",
+					"units": 3
+				},
+				"source_id": "customer_generic",
+				"tx_id": 95
+			},
+			{
+				"amount": -1020.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 41677.5,
+				"metadata": {
+					"batch": 3
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 96
+			},
+			{
+				"amount": 1420.0,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
-				"game_time": 41559.0,
+				"game_time": 41680.5,
 				"metadata": {
 					"order": 8
 				},
 				"source_id": "rotifood",
-				"tx_id": 93
-			},
-			{
-				"amount": 692.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 41646.0,
-				"metadata": {
-					"customer": "c82",
-					"units": 2
-				},
-				"source_id": "customer_school_child",
-				"tx_id": 94
+				"tx_id": 97
 			},
 			{
 				"amount": -1990.0,
@@ -1475,168 +1535,195 @@
 					"levels": 1
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 95
-			},
-			{
-				"amount": -1020.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 41761.5,
-				"metadata": {
-					"batch": 3
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 96
-			},
-			{
-				"amount": 732.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42034.5,
-				"metadata": {
-					"customer": "c83",
-					"units": 2
-				},
-				"source_id": "customer_indecisive",
-				"tx_id": 97
+				"tx_id": 98
 			},
 			{
 				"amount": -308.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 42135.0,
+				"game_time": 41835.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "4",
-				"tx_id": 98
+				"tx_id": 99
 			},
 			{
-				"amount": -279.0,
+				"amount": 732.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 41934.0,
+				"metadata": {
+					"customer": "c74",
+					"units": 2
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 100
+			},
+			{
+				"amount": 1107.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42027.0,
+				"metadata": {
+					"customer": "c75",
+					"units": 3
+				},
+				"source_id": "customer_office_worker",
+				"tx_id": 101
+			},
+			{
+				"amount": -2228.0,
+				"category": "UPGRADE_RECIPE",
+				"day": 1,
+				"game_time": 42135.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 102
+			},
+			{
+				"amount": 738.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42160.5,
+				"metadata": {
+					"customer": "c76",
+					"units": 2
+				},
+				"source_id": "customer_generic",
+				"tx_id": 103
+			},
+			{
+				"amount": 738.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42241.5,
+				"metadata": {
+					"customer": "c77",
+					"units": 2
+				},
+				"source_id": "customer_generic",
+				"tx_id": 104
+			},
+			{
+				"amount": -1020.0,
+				"category": "INGREDIENT_COST",
+				"day": 1,
+				"game_time": 42243.0,
+				"metadata": {
+					"batch": 3
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 105
+			},
+			{
+				"amount": -354.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 42285.0,
 				"metadata": {
 					"levels": 1
 				},
-				"source_id": "counter",
-				"tx_id": 99
-			},
-			{
-				"amount": 4392.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42346.5,
-				"metadata": {
-					"customer": "c84",
-					"units": 12
-				},
-				"source_id": "customer_bulk_buyer",
-				"tx_id": 100
-			},
-			{
-				"amount": -4500.0,
-				"category": "STAFF_HIRE",
-				"day": 1,
-				"game_time": 42360.0,
-				"metadata": {},
-				"source_id": "staff_baker_joko",
-				"tx_id": 101
-			},
-			{
-				"amount": 369.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42424.5,
-				"metadata": {
-					"customer": "c86",
-					"units": 1
-				},
-				"source_id": "customer_school_child",
-				"tx_id": 102
-			},
-			{
-				"amount": -340.0,
-				"category": "INGREDIENT_COST",
-				"day": 1,
-				"game_time": 42505.5,
-				"metadata": {
-					"batch": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 103
-			},
-			{
-				"amount": 369.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42505.5,
-				"metadata": {
-					"customer": "c85",
-					"units": 1
-				},
-				"source_id": "customer_indecisive",
-				"tx_id": 104
-			},
-			{
-				"amount": 3690.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42643.5,
-				"metadata": {
-					"customer": "c87",
-					"units": 10
-				},
-				"source_id": "customer_bulk_buyer",
-				"tx_id": 105
-			},
-			{
-				"amount": -2228.0,
-				"category": "UPGRADE_RECIPE",
-				"day": 1,
-				"game_time": 42735.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "recipe_plain_loaf",
+				"source_id": "4",
 				"tx_id": 106
 			},
 			{
-				"amount": 2583.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 42826.5,
-				"metadata": {
-					"customer": "c88",
-					"units": 7
-				},
-				"source_id": "customer_bulk_buyer",
-				"tx_id": 107
-			},
-			{
-				"amount": -354.0,
+				"amount": -407.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
-				"game_time": 42885.0,
+				"game_time": 42435.0,
 				"metadata": {
 					"levels": 1
 				},
 				"source_id": "4",
+				"tx_id": 107
+			},
+			{
+				"amount": 780.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42483.0,
+				"metadata": {
+					"customer": "c78",
+					"units": 2
+				},
+				"source_id": "customer_generic",
 				"tx_id": 108
+			},
+			{
+				"amount": 794.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42678.0,
+				"metadata": {
+					"customer": "c79",
+					"units": 2
+				},
+				"source_id": "customer_indecisive",
+				"tx_id": 109
+			},
+			{
+				"amount": 794.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42760.5,
+				"metadata": {
+					"customer": "c80",
+					"units": 2
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 110
+			},
+			{
+				"amount": 794.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42841.5,
+				"metadata": {
+					"customer": "c81",
+					"units": 2
+				},
+				"source_id": "customer_generic",
+				"tx_id": 111
 			},
 			{
 				"amount": -1020.0,
 				"category": "INGREDIENT_COST",
 				"day": 1,
-				"game_time": 43003.5,
+				"game_time": 42874.5,
 				"metadata": {
 					"batch": 3
 				},
 				"source_id": "recipe_plain_loaf",
-				"tx_id": 109
+				"tx_id": 112
 			},
 			{
-				"amount": -407.0,
+				"amount": -2496.0,
+				"category": "UPGRADE_RECIPE",
+				"day": 1,
+				"game_time": 42885.0,
+				"metadata": {
+					"levels": 1
+				},
+				"source_id": "recipe_plain_loaf",
+				"tx_id": 113
+			},
+			{
+				"amount": 794.0,
+				"category": "SALE_PHYSICAL",
+				"day": 1,
+				"game_time": 42958.5,
+				"metadata": {
+					"customer": "c82",
+					"units": 2
+				},
+				"source_id": "customer_school_child",
+				"tx_id": 114
+			},
+			{
+				"amount": -468.0,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 43035.0,
@@ -1644,33 +1731,10 @@
 					"levels": 1
 				},
 				"source_id": "4",
-				"tx_id": 110
-			},
-			{
-				"amount": 786.0,
-				"category": "SALE_PHYSICAL",
-				"day": 1,
-				"game_time": 43138.5,
-				"metadata": {
-					"customer": "c89",
-					"units": 2
-				},
-				"source_id": "customer_school_child",
-				"tx_id": 111
-			},
-			{
-				"amount": -2496.0,
-				"category": "UPGRADE_RECIPE",
-				"day": 1,
-				"game_time": 43185.0,
-				"metadata": {
-					"levels": 1
-				},
-				"source_id": "recipe_plain_loaf",
-				"tx_id": 112
+				"tx_id": 115
 			}
 		],
-		"ledger_sequence": 112,
+		"ledger_sequence": 115,
 		"overflowed": false
 	},
 	"equipment_states": {
@@ -1691,7 +1755,7 @@
 				"grid_x": 0,
 				"grid_y": 8,
 				"iid": 2,
-				"job_id": 16,
+				"job_id": -1,
 				"placed": true,
 				"rotation_quarters": 0
 			},
@@ -1701,7 +1765,7 @@
 				"grid_x": 5,
 				"grid_y": 8,
 				"iid": 3,
-				"job_id": 17,
+				"job_id": 18,
 				"placed": true,
 				"rotation_quarters": 0
 			},
@@ -1759,8 +1823,8 @@
 		"actor": {
 			"carried": {},
 			"facing": [
-				0.0,
-				-1.0
+				-1.0,
+				0.0
 			],
 			"floor_id": "floor_1",
 			"goal_cell": [
@@ -1771,11 +1835,11 @@
 			"id": "player",
 			"kind": "player",
 			"pos": [
-				0.75,
-				3.25
+				2.5999999046325684,
+				0.25
 			],
 			"seat_iid": -1,
-			"state": "SERVING_CASHIER",
+			"state": "WALKING",
 			"visual_key": "player",
 			"visual_seed": 0
 		},
@@ -1789,34 +1853,13 @@
 	"production_jobs": {
 		"jobs": [
 			{
-				"batch_multiplier": 1,
-				"carried_units": 0,
-				"carrier_id": "",
-				"claimed_by": "",
-				"created_at": 456.8500000000696,
-				"ingredient_cost_kr": 340.0,
-				"job_id": 16,
-				"mixer_id": 3,
-				"oven_id": 2,
-				"produced_at": 0.0,
-				"quantity_output": 6,
-				"recipe_id": "recipe_plain_loaf",
-				"stage": "BAKING",
-				"stage_duration": 5.172413793103448,
-				"stage_elapsed": 4.6499999999999915,
-				"stage_started_by": "player",
-				"table_seq": 0,
-				"target_display": 4,
-				"target_slot": 1
-			},
-			{
 				"batch_multiplier": 3,
 				"carried_units": 0,
 				"carrier_id": "",
 				"claimed_by": "",
-				"created_at": 473.4500000000734,
+				"created_at": 469.1500000000724,
 				"ingredient_cost_kr": 1020.0,
-				"job_id": 17,
+				"job_id": 18,
 				"mixer_id": 3,
 				"oven_id": -1,
 				"produced_at": 0.0,
@@ -1824,14 +1867,14 @@
 				"recipe_id": "recipe_plain_loaf",
 				"stage": "MIXING",
 				"stage_duration": 12.0,
-				"stage_elapsed": 1.6000000000000008,
+				"stage_elapsed": 6.149999999999986,
 				"stage_started_by": "staff_baker_joko",
 				"table_seq": 0,
 				"target_display": 4,
-				"target_slot": 0
+				"target_slot": 4
 			}
 		],
-		"next_job_id": 18,
+		"next_job_id": 19,
 		"next_table_seq": 1
 	},
 	"profile_id": "profile_1",
@@ -1842,10 +1885,12 @@
 				"id": "lane_a",
 				"line": [],
 				"reservations": [
-					"c91",
-					"c92"
+					"c83",
+					"c84",
+					"c85",
+					"c86"
 				],
-				"service_occupant": "c90"
+				"service_occupant": ""
 			},
 			"lane_b": {
 				"id": "lane_b",
@@ -1854,9 +1899,6 @@
 				"service_occupant": ""
 			}
 		}
-	},
-	"reputation": {
-		"reputation": 1.9300000000000035
 	},
 	"rng_states": {
 		"day_seed": "0",
@@ -1868,15 +1910,15 @@
 			},
 			"cosmetic_rng": {
 				"seed": "2530385989",
-				"state": "5610727904284854776"
+				"state": "3151809585705270424"
 			},
 			"customer_arrival_rng": {
 				"seed": "1762953424",
-				"state": "-6883680010396849740"
+				"state": "2367812942909976304"
 			},
 			"customer_choice_rng": {
 				"seed": "2505302634",
-				"state": "837454174597266852"
+				"state": "-3262519307324536756"
 			},
 			"marketing_rng": {
 				"seed": "1783316240",
@@ -1905,12 +1947,12 @@
 				"driver": {},
 				"driver_arrival_time": 124.58288269042887,
 				"driver_entered_at": 124.64999999999506,
-				"driver_patience": 28.299999999999976,
+				"driver_patience": 25.59499999999997,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 113.3999999999957,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 126.39999999999496,
+				"handover_at": 128.94999999999507,
 				"items": {
 					"recipe_plain_loaf": 6
 				},
@@ -1927,13 +1969,13 @@
 				"created_at": 156.3000000000013,
 				"driver": {},
 				"driver_arrival_time": 226.61417083740363,
-				"driver_entered_at": 229.25000000001788,
+				"driver_entered_at": 231.20000000001832,
 				"driver_patience": 28.13000000000001,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 215.45000000001474,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 231.00000000001828,
+				"handover_at": 232.95000000001872,
 				"items": {
 					"recipe_plain_loaf": 4
 				},
@@ -1950,13 +1992,13 @@
 				"created_at": 181.70000000000707,
 				"driver": {},
 				"driver_arrival_time": 255.39987487793675,
-				"driver_entered_at": 256.00000000002393,
-				"driver_patience": 28.294999999999977,
+				"driver_entered_at": 258.9500000000246,
+				"driver_patience": 24.890000000000025,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 244.20000000002128,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 257.75000000002433,
+				"handover_at": 263.65000000002567,
 				"items": {
 					"recipe_plain_loaf": 2
 				},
@@ -1973,13 +2015,13 @@
 				"created_at": 238.00000000001987,
 				"driver": {},
 				"driver_arrival_time": 305.74202728273474,
-				"driver_entered_at": 308.2500000000358,
+				"driver_entered_at": 308.5500000000359,
 				"driver_patience": 28.13000000000001,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 294.5500000000327,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 310.0000000000362,
+				"handover_at": 310.3000000000363,
 				"items": {
 					"recipe_plain_loaf": 3
 				},
@@ -1996,13 +2038,13 @@
 				"created_at": 288.65000000003135,
 				"driver": {},
 				"driver_arrival_time": 365.7166656494454,
-				"driver_entered_at": 365.8000000000489,
+				"driver_entered_at": 366.50000000004906,
 				"driver_patience": 28.13000000000001,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 354.55000000004634,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 367.5500000000493,
+				"handover_at": 368.25000000004945,
 				"items": {
 					"recipe_plain_loaf": 3
 				},
@@ -2019,13 +2061,13 @@
 				"created_at": 307.90000000003573,
 				"driver": {},
 				"driver_arrival_time": 386.05251922610995,
-				"driver_entered_at": 388.90000000005415,
-				"driver_patience": 27.19999999999996,
+				"driver_entered_at": 389.30000000005424,
+				"driver_patience": 28.13000000000001,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 374.90000000005097,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 391.7500000000548,
+				"handover_at": 391.05000000005464,
 				"items": {
 					"recipe_plain_loaf": 5
 				},
@@ -2042,13 +2084,13 @@
 				"created_at": 335.550000000042,
 				"driver": {},
 				"driver_arrival_time": 403.13531188969046,
-				"driver_entered_at": 403.2000000000574,
-				"driver_patience": 28.299999999999976,
+				"driver_entered_at": 405.850000000058,
+				"driver_patience": 28.13000000000001,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 391.95000000005484,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 404.9500000000578,
+				"handover_at": 407.6000000000584,
 				"items": {
 					"recipe_plain_loaf": 2
 				},
@@ -2065,13 +2107,13 @@
 				"created_at": 356.1500000000467,
 				"driver": {},
 				"driver_arrival_time": 423.4956039429178,
-				"driver_entered_at": 423.550000000062,
-				"driver_patience": 28.22499999999999,
+				"driver_entered_at": 425.7000000000625,
+				"driver_patience": 26.04500000000002,
 				"driver_patience_max": 30.0,
 				"driver_pending_since": 412.30000000005947,
 				"driver_phase": "gone",
 				"economy_committed": true,
-				"handover_at": 425.3000000000624,
+				"handover_at": 429.35000000006335,
 				"items": {
 					"recipe_plain_loaf": 4
 				},
@@ -2106,15 +2148,15 @@
 				"reserved_lots": [
 					{
 						"display_id": 4,
-						"slot_index": 3,
+						"slot_index": 0,
 						"stack": {
-							"produced_at_game_time": 464.90000000007143,
+							"produced_at_game_time": 420.60000000006136,
 							"quantity": 4,
 							"recipe_id": "recipe_plain_loaf",
-							"slot_id": "4:3",
-							"source_job_id": 15
+							"slot_id": "4:0",
+							"source_job_id": 14
 						},
-						"unit_price": 436.392
+						"unit_price": 463.32000000000005
 					}
 				],
 				"state": "TO_PACK"
@@ -2127,8 +2169,8 @@
 			"staff_baker_joko": {
 				"carried": {},
 				"facing": [
-					1.0,
-					0.0
+					0.0,
+					-1.0
 				],
 				"floor_id": "floor_1",
 				"goal_cell": [
@@ -2139,11 +2181,11 @@
 				"id": "staff_baker_joko",
 				"kind": "staff",
 				"pos": [
-					2.399998664855957,
+					2.75,
 					4.75
 				],
-				"seat_iid": -1,
-				"state": "WALKING",
+				"seat_iid": 6,
+				"state": "SITTING",
 				"visual_key": "staff_baker_joko",
 				"visual_seed": 0
 			}
@@ -2159,27 +2201,26 @@
 		"records": {
 			"highest_queue": 4.0,
 			"highest_rate_kr_per_s": 0.0,
-			"highest_reputation": 2.97,
-			"largest_transaction": 4392.0
+			"largest_transaction": 3553.0
 		},
 		"stats": {
-			"alltime_earned_kr": 34747.0,
-			"alltime_spent_kr": 34673.0,
+			"alltime_earned_kr": 35821.0,
+			"alltime_spent_kr": 36319.0,
 			"days_passed": 0.0,
 			"franchise_count": 0.0,
-			"highest_balance": 4622.0,
+			"highest_balance": 5234.0,
 			"location_upgrades_count": 0.0,
 			"offline_earned_kr": 0.0,
 			"offline_seconds_total": 0.0,
-			"run_earned_kr": 34747.0,
+			"run_earned_kr": 35821.0,
 			"staff_hired_count": 1.0,
-			"total_bread_produced": 138.0,
-			"total_bread_sold": 122.0,
-			"total_customers_entered": 90.0,
-			"total_customers_left_no_purchase": 51.0,
+			"total_bread_produced": 174.0,
+			"total_bread_sold": 124.0,
+			"total_customers_entered": 83.0,
+			"total_customers_left_no_purchase": 41.0,
 			"total_customers_lost_patience": 0.0,
 			"total_customers_missed": 0.0,
-			"total_customers_served": 38.0,
+			"total_customers_served": 41.0,
 			"total_play_time_real_seconds": 0.0,
 			"total_rotifood_orders_completed": 8.0,
 			"total_rotifood_orders_expired": 0.0,
@@ -2202,7 +2243,7 @@
 		"skipped": false
 	},
 	"upgrades": {
-		"counter": 13,
+		"counter": 11,
 		"global": {},
 		"recipes": {
 			"recipe_plain_loaf": 11
@@ -2210,7 +2251,7 @@
 		"staff": {},
 		"stations": {
 			"2": 10,
-			"4": 17
+			"4": 18
 		}
 	},
 	"weather": {

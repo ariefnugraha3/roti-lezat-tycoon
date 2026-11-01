@@ -30,7 +30,6 @@ var decoration_active: bool = false
 var _root: Control = null
 var _kr: Label = null
 var _rate: Label = null
-var _rep: Label = null
 var _stars_chip: PanelContainer = null
 var _stars: Label = null
 var _clock: Label = null
@@ -155,11 +154,6 @@ func _build_top_right(frame: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
-	var rep: PanelContainer = ProceduralUIFactory.chip("star", Palette.GOLD_STAR, "", 20, 26)
-	rep.name = "Reputation"
-	rep.tooltip_text = Tx.t("ui_reputation")
-	_rep = rep.get_meta("value")
-	row.add_child(rep)
 	var pause: Button = ProceduralUIFactory.icon_button("pause", Tx.t("ui_pause_title"), "secondary")
 	pause.name = "Pause"
 	pause.pressed.connect(func() -> void: game.modals.open(&"pause"))
@@ -322,7 +316,6 @@ func _refresh_all() -> void:
 	_kr.text = Tx.big(sim.economy.balance)
 	var rate: float = sim.income_rate()
 	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
-	_rep.text = Tx.rating(sim.reputation.reputation)
 	_stars_chip.visible = sim.prestige.stars > 0
 	_stars.text = Tx.big(float(sim.prestige.stars))
 	_refresh_boosts()
@@ -410,10 +403,6 @@ func cash_chip() -> Control:
 
 func rate_label() -> Label:
 	return _rate
-
-
-func reputation_chip() -> Control:
-	return _root.find_child("Reputation", true, false) as Control
 
 
 # ===========================================================================

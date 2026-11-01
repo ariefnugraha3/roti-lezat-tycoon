@@ -7,6 +7,7 @@ func tests() -> Array:
 		{"id": "TEST_QUEUE_001", "name": "no overlap/exclusive queue slots", "fn": _queue_exclusive},
 		{"id": "TEST_QUEUE_002", "name": "pending admission maximum delay; drivers wait for a free slot", "fn": _pending_delay},
 		{"id": "TEST_CUSTOMER_001", "name": "target display, substitution, and recipe weights by preference and relative price", "fn": _target_and_substitution},
+		{"id": "ACC_IDLE_EMPTY_SHELF_LOOK", "name": "idle 6.2 a buyer who finds every shelf empty walks in to a spot next to the shelf (never the browse point), looks at it for customers.empty_shelf_look_seconds facing it, and only then leaves as a lost sale; two such buyers look side by side; bread that comes out during the look is bought; a save in the middle of the look plays on the same", "fn": _empty_shelf_look},
 		{"id": "TEST_CUSTOMER_002", "name": "purchase quantity distributions", "fn": _quantities},
 		{"id": "TEST_CASHIER_001", "name": "estimated-wait lane choice with the counter's checkout time", "fn": _lane_choice},
 		{"id": "TEST_ROTIFOOD_001", "name": "orders take their bread from the shelves all at once when it is there, otherwise wait; packing and handover are automatic at price x1.1", "fn": _rotifood_auto},
@@ -77,7 +78,6 @@ func _pending_delay() -> void:
 	var lane: QueueLane = s.queue.main_lane()
 	for i in lane.capacity():
 		s.queue.reserve(lane, StringName("blocker%d" % i))
-	var rep: float = s.reputation.reputation
 	var missed: float = s.statistics.get_stat("total_customers_missed")
 	s.demand._enqueue({"archetype": &"customer_generic"})
 	eq(s.demand.pending.size(), 1, "full queue -> arrival becomes PENDING")
@@ -87,7 +87,6 @@ func _pending_delay() -> void:
 	s.run_for(1.5)
 	eq(s.demand.pending.size(), 0, "dropped after 30 simulation-seconds (v3.1 67)")
 	eq(s.statistics.get_stat("total_customers_missed"), missed + 1.0, "counted as missed demand")
-	near(s.reputation.reputation, rep, 0.0001, "silent cancellation does not change the reputation")
 	s.demand._enqueue({"archetype": &"customer_generic"})
 	s.run_for(5.0)
 	s.queue.release(&"blocker0")
@@ -125,16 +124,8 @@ func _admit(s: SimulationRoot, archetype: StringName) -> Customer:
 
 
 func _target_and_substitution() -> void:
-	# Tanpa roti: pulang tanpa antre, reputasi turun (GDD idle 6.2, 6.6).
-	var s: SimulationRoot = _quiet_store(71)
-	var rep: float = s.reputation.reputation
-	var c0: Customer = _admit(s, &"customer_generic")
-	eq(c0.state, Customer.LEAVE_NO_STOCK, "no bread -> leaves without queuing")
-	eq(s.queue.lane_of(c0.id), null, "no queue slot kept")
-	near(s.reputation.reputation, rep - DataRegistry.idlef("reputation.lost_delta"), 0.0001, "a lost sale costs reputation.lost_delta")
-	free_sim(s)
 	# Target: rak & resep yang benar-benar punya roti.
-	s = _quiet_store(72)
+	var s: SimulationRoot = _quiet_store(72)
 	var disp: int = s.equipment.placed_list(&"display")[0].iid
 	stock(s, &"recipe_plain_loaf", 6, 1)
 	var c1: Customer = _admit(s, &"customer_generic")
@@ -168,6 +159,103 @@ func _target_and_substitution() -> void:
 	s2.upgrades.recipe_levels[&"recipe_plain_loaf"] = 60
 	eq(CustomerManager.recipe_weights(office, [&"recipe_plain_loaf", &"recipe_sugar_donut"]), w, "recipe levels never change the weights")
 	free_sim(s2)
+
+
+## Rak kosong: pembeli melihat rak dulu, baru pulang (keputusan maintainer
+## 2026-11-01, GDD idle 6.2).
+func _empty_shelf_look() -> void:
+	var s: SimulationRoot = _quiet_store(71)
+	var shelf: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	var acc: Dictionary = s.world.access_of(shelf.iid)
+	var center: Vector2 = CustomerManager._cells_center(shelf.footprint_cells())
+	var look: float = DataRegistry.idlef("customers.empty_shelf_look_seconds")
+	var left: float = s.statistics.get_stat("total_customers_left_no_purchase")
+	var c0: Customer = _admit(s, &"customer_generic")
+	check(c0.checking_shelf and c0.state == Customer.ENTERING, "no bread -> walks in to look at the shelf instead of turning at the door")
+	eq(c0.target_display, shelf.iid, "heads for the shelf")
+	eq(c0.target_recipe, &"", "with no bread in mind")
+	eq(s.statistics.get_stat("total_customers_left_no_purchase"), left, "not a lost sale yet")
+	var looked: float = 0.0
+	var at_shelf: bool = true
+	var point_free: bool = true
+	var faced: bool = true
+	var guard: int = 0
+	while c0.state != Customer.LEAVE_NO_STOCK and guard < 4000:
+		s.step(s.tick_seconds)
+		guard += 1
+		if c0.state == Customer.BROWSING:
+			looked += s.tick_seconds
+			at_shelf = at_shelf and c0.actor.cell() == c0.look_cell and _ring(shelf, c0.look_cell) <= 2
+			point_free = point_free and s.world.point_holder(acc["floor"], acc["cell"]) == &""
+			faced = faced and c0.actor.facing.dot((center - c0.actor.pos).normalized()) > 0.9
+	near(looked, look, s.tick_seconds * 1.5, "looked at the shelf for empty_shelf_look_seconds")
+	check(at_shelf, "from a spot next to the shelf")
+	check(point_free, "leaving the browse point free for buyers who buy")
+	check(faced, "facing the shelf")
+	eq(c0.state, Customer.LEAVE_NO_STOCK, "still no bread -> leaves")
+	eq(s.queue.lane_of(c0.id), null, "no queue slot kept")
+	eq(s.statistics.get_stat("total_customers_left_no_purchase"), left + 1.0, "counted as one lost sale")
+	guard = 0
+	while s.customers.customer(c0.id) != null and guard < 4000:
+		s.step(s.tick_seconds)
+		guard += 1
+	eq(s.customers.customer(c0.id), null, "walks out of the door")
+	eq(s.check_invariants(), "", "invariants")
+	free_sim(s)
+	# Dua pembeli sekaligus melihat bersamaan dari tempat berbeda, tanpa menunggu.
+	s = _quiet_store(75)
+	var before: Array = s.customers.customers.keys()
+	s.customers.try_admit({"archetype": &"customer_generic"})
+	s.customers.try_admit({"archetype": &"customer_generic"})
+	var pair: Array[Customer] = []
+	for k: Variant in s.customers.customers.keys():
+		if not before.has(k):
+			pair.append(s.customers.customers[k])
+	eq(pair.size(), 2, "two buyers come in")
+	var together: bool = false
+	var apart: bool = true
+	guard = 0
+	while guard < 4000 and pair.any(func(c: Customer) -> bool: return s.customers.customer(c.id) != null):
+		s.step(s.tick_seconds)
+		guard += 1
+		if pair[0].state == Customer.BROWSING and pair[1].state == Customer.BROWSING:
+			together = true
+			apart = apart and pair[0].actor.cell() != pair[1].actor.cell()
+	check(together, "both look at the empty shelf at the same time")
+	check(apart, "from different spots")
+	eq(s.statistics.get_stat("total_customers_left_no_purchase"), 2.0, "and both leave as lost sales")
+	free_sim(s)
+	# Roti keluar selagi ia melihat: ia membelinya seperti biasa. Save di tengah
+	# tatapan bermain terus persis sama.
+	s = _quiet_store(74)
+	var c1: Customer = _admit(s, &"customer_generic")
+	guard = 0
+	while c1.state != Customer.BROWSING and guard < 4000:
+		s.step(s.tick_seconds)
+		guard += 1
+	check(c1.checking_shelf and c1.state == Customer.BROWSING, "looking at the empty shelf")
+	var twin: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	var c2: Customer = twin.customers.customer(c1.id)
+	check(c2 != null and c2.checking_shelf and c2.state == Customer.BROWSING, "the look survives a save and load")
+	for x: SimulationRoot in [s, twin]:
+		stock(x, &"recipe_plain_loaf", 6)
+		x.run_for(look + 6.0)
+	check(not c1.held.is_empty(), "bread that comes out during the look is bought")
+	eq(c1.target_recipe, &"recipe_plain_loaf", "it targets the new bread")
+	check(not c1.checking_shelf, "and is a normal buyer again")
+	eq(s.statistics.get_stat("total_customers_left_no_purchase"), 0.0, "no lost sale")
+	same_state(logical_state(twin.capture_save()), logical_state(s.capture_save()), "the loaded game plays on the same")
+	eq(s.check_invariants(), "", "invariants")
+	free_sim(twin)
+	free_sim(s)
+
+
+## Jarak cincin sel ke tapak rak (1 = bersebelahan).
+static func _ring(e: EquipmentInstance, cell: Vector2i) -> int:
+	var ring: int = 1 << 30
+	for f: Vector2i in e.footprint_cells():
+		ring = mini(ring, maxi(absi(cell.x - f.x), absi(cell.y - f.y)))
+	return ring
 
 
 func _quantities() -> void:
@@ -291,7 +379,7 @@ func _rotifood_auto() -> void:
 	check(s.statistics.get_stat("total_rotifood_orders_completed") >= 1.0, "completed orders counted")
 	eq(s.check_invariants(), "", "invariants")
 	free_sim(s)
-	# Driver yang kesabarannya habis: pesanan batal, roti kembali ke rak, reputasi turun.
+	# Driver yang kesabarannya habis: pesanan batal dan roti kembali ke rak.
 	s = _quiet_store(910)
 	stock(s, &"recipe_plain_loaf", 2, 0)
 	var o3: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 2}, 0.0)
@@ -299,12 +387,12 @@ func _rotifood_auto() -> void:
 	# Pengemasan diklaim pemilik tetapi tidak pernah selesai.
 	o3.packer_id = PlayerTaskManager.PLAYER_ID
 	o3.state = DeliveryOrder.PACKING
-	var rep: float = s.reputation.reputation
+	var expired: float = s.statistics.get_stat("total_rotifood_orders_expired")
 	guard = 0
 	while o3.is_active() and guard < 20000:
 		s.step(s.tick_seconds)
 		guard += 1
 	eq(o3.state, DeliveryOrder.CANCELLED, "an impatient driver cancels the order")
 	eq(s.display.sellable_count(&"recipe_plain_loaf"), 2, "the reserved bread went back to the shelf")
-	near(s.reputation.reputation, rep - DataRegistry.idlef("reputation.lost_delta"), 0.0001, "a lost order costs reputation.lost_delta")
+	eq(s.statistics.get_stat("total_rotifood_orders_expired"), expired + 1.0, "counted as an expired order")
 	free_sim(s)

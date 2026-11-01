@@ -128,7 +128,7 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	for rid4: Variant in menu:
 		share_rf[rid4] = float(gw.get(String(rid4), 0.0)) / maxf(gtot, 0.0001)
 	# 3. Laju siang per jam in-game; malam dikali faktor malam.
-	var arr_day: float = sim.base_arrivals_per_hour() * sim.reputation.mult() * sim.decoration.bonus_mult(&"arrival")
+	var arr_day: float = sim.base_arrivals_per_hour() * sim.decoration.bonus_mult(&"arrival")
 	var rf_day: float = sim.base_rotifood_per_hour() * sim.decoration.bonus_mult(&"rotifood")
 	if with_boosts:
 		arr_day *= sim.boost_arrival_mult()

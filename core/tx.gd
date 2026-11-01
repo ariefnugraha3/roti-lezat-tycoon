@@ -133,10 +133,6 @@ static func mult(v: float) -> String:
 	return str(int(v)) if is_equal_approx(v, roundf(v)) else ("%.2f" % v).rstrip("0").rstrip(".")
 
 
-static func rating(v: float) -> String:
-	return "%.1f" % v
-
-
 static func percent(v: float) -> String:
 	return "%d%%" % int(Money.round_half_up(v * 100.0))
 

@@ -12,7 +12,7 @@ func tests() -> Array:
 	return [
 		{"id": "TEST_STAFF_001", "name": "idle 5.5: hiring is paid once from a rising cost list, staff start at once, role caps hold, there are no wages", "fn": _staff_hire},
 		{"id": "TEST_SAVE_001", "name": "roundtrip golden idle fixture; classic v3.1 saves are detected and refused", "fn": _save_roundtrip},
-		{"id": "ACC_IDLE_SAVE", "name": "idle 15.3 the idle save has game_mode idle, schema 1 and every idle field (upgrades, unlocked recipes, slot recipes, franchise, offline, boosts, stats, reputation) and none of the removed tycoon fields; a played, franchised profile survives the disk and plays on exactly the same; v3.1 saves are refused as classic", "fn": _idle_save},
+		{"id": "ACC_IDLE_SAVE", "name": "idle 15.3 the idle save has game_mode idle, schema 1 and every idle field (upgrades, unlocked recipes, slot recipes, franchise, offline, boosts, stats) and none of the removed tycoon fields or the removed reputation; a played, franchised profile survives the disk and plays on exactly the same; v3.1 saves are refused as classic", "fn": _idle_save},
 		{"id": "TEST_SAVE_002", "name": "crash-safe/idempotent transaction recovery", "fn": _save_crash_safe, "expect_errors": true},
 		{"id": "TEST_PROFILE_001", "name": "3-profile isolation", "fn": _profiles},
 		{"id": "TEST_MULTIFLOOR_001", "name": "instant floor transition; an upstairs kitchen keeps working while nobody watches", "fn": _multifloor},
@@ -172,7 +172,7 @@ func _idle_save() -> void:
 	var d: Dictionary = json_copy(s.capture_save())
 	eq(str(d.get("game_mode", "")), "idle", "game_mode is idle")
 	eq(int(d.get("schema_version", 0)), SimulationRoot.SCHEMA_VERSION, "schema_version is the idle schema (1)")
-	for k: String in ["upgrades", "display_inventory", "franchise", "offline", "boosts", "stats", "reputation", "achievements", "decorations", "tutorial"]:
+	for k: String in ["upgrades", "display_inventory", "franchise", "offline", "boosts", "stats", "achievements", "decorations", "tutorial"]:
 		check(d.has(k), "the save has %s" % k)
 	var up: Dictionary = d.get("upgrades", {})
 	for k2: String in ["stations", "counter", "recipes", "staff", "global"]:
@@ -193,8 +193,19 @@ func _idle_save() -> void:
 		check((d["offline"] as Dictionary).has(k4), "offline.%s is saved" % k4)
 	for k5: String in ["run_earned_kr", "alltime_earned_kr", "offline_seconds_total", "franchise_count"]:
 		check(((d["stats"] as Dictionary)["stats"] as Dictionary).has(k5), "stats.%s is saved" % k5)
-	for gone2: String in ["inventory", "supply_orders", "pricing", "bailout", "reports", "manifest", "wage_liability", "utilities", "phase"]:
-		check(not d.has(gone2), "the removed tycoon field %s is gone" % gone2)
+	for gone2: String in ["inventory", "supply_orders", "pricing", "bailout", "reports", "manifest", "wage_liability", "utilities", "phase", "reputation"]:
+		check(not d.has(gone2), "the removed field %s is gone" % gone2)
+	check(not ((d["stats"] as Dictionary)["records"] as Dictionary).has("highest_reputation"), "no reputation record")
+	# Save idle dari sebelum Reputasi dihapus (idle 19 no. 6) tetap dimuat; datanya dibuang.
+	var old: Dictionary = json_copy(d)
+	old["reputation"] = {"reputation": 2.4}
+	((old["stats"] as Dictionary)["records"] as Dictionary)["highest_reputation"] = 3.1
+	var s_old: SimulationRoot = load_sim(old)
+	var resaved: Dictionary = json_copy(s_old.capture_save())
+	check(not resaved.has("reputation"), "an older idle save loads and drops its reputation")
+	check(not ((resaved["stats"] as Dictionary)["records"] as Dictionary).has("highest_reputation"), "and its reputation record")
+	same_state(logical_state(resaved), logical_state(d), "otherwise it is the same game")
+	free_sim(s_old)
 	# Lewat disk (tulis atomik, baca, validasi), lalu bermain terus persis sama.
 	check(SaveManager.write_profile(&"profile_1", d), "atomic write")
 	var r: Dictionary = SaveManager.read_profile(&"profile_1")

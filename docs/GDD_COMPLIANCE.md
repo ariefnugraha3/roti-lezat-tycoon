@@ -34,6 +34,8 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 | 5.2 | Semangat tap boost and its minimum gap | `player_task_manager.gd`, `ui/hud/hud.gd` | ACC_IDLE_TAP_BOOST | Tested |
 | 5.3, 5.5 | Bakers and cashiers work on their own; hiring from a rising cost list; no wages or tiers | `staff/staff_manager.gd` | TEST_STAFF_001, ACC_23_BAKER_WORKS, ACC_3_STAFF_EQUAL, ACC_7_STAFF_HIRE_FROM_DETAIL | Tested |
 | 6.5 | RotiFood accepted and packed automatically | `delivery/rotifood_manager.gd` | ACC_IDLE_AUTOMATION, TEST_ROTIFOOD_001 | Tested |
+| 6.2 | A buyer who finds every shelf empty walks to a spot next to the shelf, looks for `customers.empty_shelf_look_seconds` facing it, then buys what came out meanwhile or leaves; several look side by side; the browse point stays free; the look survives a save | `customers/customer_manager.gd` `_check_empty_shelf`, `world/world_view.gd` | ACC_IDLE_EMPTY_SHELF_LOOK | Tested |
+| 6.6 | No rating: a buyer who finds no bread, an impatient buyer and an expired order are only lost sales; arrivals do not depend on a rating; older saves drop `reputation` | `customers/customer_manager.gd`, `delivery/rotifood_manager.gd`, `simulation_root.gd` `arrival_rate_per_hour` | TEST_CUSTOMER_001, TEST_ROTIFOOD_001, ACC_IDLE_SAVE | Tested |
 
 ## Economy and levels (idle §7–§8)
 
@@ -66,7 +68,7 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 | 11.3 | Rain and holiday multipliers | `world/weather_manager.gd`, `data/catalog/weather.json` | ACC_IDLE_MODEL_MATCH (neutral weather), soaks | Implemented |
 | 11.4 | Idle milestones with badges and a ×2 boost; kept across franchises | `meta/achievement_manager.gd`, `data/catalog/achievements.json` | ACC_IDLE_ACHIEVEMENTS, ACC_72_BADGES | Tested |
 | 13 | Onboarding steps once on their triggers, never holding the economy | `meta/tutorial_manager.gd`, `game_root.gd` `_show_tutorial_prompt` | ACC_IDLE_ONBOARDING, ACC_IDLE_BOOST_UI | Tested |
-| 1.4 | Pacing targets for a typical player (median of three SimBot seeds), franchise, second run ≤ 70% | `tests/sim_bot.gd`, `tests/pacing_tracker.gd`, `tools/idle_probe.tscn`, `data/catalog/idle.json` | ACC_IDLE_PACING (long) | Tested; measured times in idle GDD §20 no. 40; the second recipe is measured as affordable (open decision 2) |
+| 1.4 | Pacing targets for a typical player (median of three SimBot seeds), franchise, second run ≤ 70% | `tests/sim_bot.gd`, `tests/pacing_tracker.gd`, `tools/idle_probe.tscn`, `data/catalog/idle.json` | ACC_IDLE_PACING (long) | Tested; measured times in idle GDD §20 no. 40 and, since the rating was removed, no. 44; the second recipe is measured as affordable (open decision 2) |
 
 ## Portrait UI (idle §12)
 
@@ -77,7 +79,7 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 | 12.0.4 | `KEEP_WIDTH` camera; Tier 1–3 floors whole between the HUD bars | `world/camera_rig.gd` | ACC_IDLE_PORTRAIT_CAMERA, TEST_CAMERA_001 | Tested |
 | 12.0.6 | One-time "Turn your phone upright" hint on sideways phone browsers | `ui/components/orientation_hint.gd` | ACC_12_ORIENTATION_HINT | Tested |
 | 12.0.7 | Every screen fits the frame with no sideways scroll on the whole matrix at 100/125/150% | every screen | ACC_IDLE_PORTRAIT_UI; `tools/ui_resolution_sweep.tscn` (renders) | Tested |
-| 12.1 | HUD: KR, KR/s, boost chips, reputation, stars, tab bar with green dots, level chips | `ui/hud/hud.gd`, `ui/components/level_chips.gd` | ACC_IDLE_LEVEL_CHIPS, ACC_IDLE_BOOST_UI | Tested |
+| 12.1 | HUD: KR, KR/s, boost chips, stars, tab bar with green dots, level chips | `ui/hud/hud.gd`, `ui/components/level_chips.gd` | ACC_IDLE_LEVEL_CHIPS, ACC_IDLE_BOOST_UI | Tested |
 | 12.2 | Upgrade card above its station | `ui/screens/upgrade_card.gd` | ACC_IDLE_UPGRADE_CARD | Tested |
 | 12.3 | Upgrades, Menu, Staff, Shop, Franchise, Stats sheets | `ui/screens/*` | ACC_IDLE_UPGRADES_SHEET, ACC_IDLE_MENU_SLOTS, ACC_IDLE_MENU_RECIPES, ACC_7_STAFF_NO_SIDE_SCROLL, ACC_IDLE_SHOP_SHEET, ACC_IDLE_FRANCHISE_FLOW, TEST_UI_SMOKE_001 | Tested |
 
@@ -121,4 +123,4 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 |---|---|---|
 | 1 | Project license | Open (maintainer) |
 | 2 | Second recipe (idle §1.4 target 5–8 min) | Open (maintainer). With the idle §4.4/§8.5 formulas a recipe level costs `base × level_cost_mult × 1.12^(L−1)` and raises the price by a share of the same base, while the ingredient cost stays fixed. So the first recipe, once levelled, always earns more per bread than any newly unlocked recipe at Lv 1, Auto keeps selling it, and unlocking a second recipe never pays. A "best value" bot therefore never unlocks one; it becomes affordable at the time `MILESTONE second_recipe_affordable` reports (idle §20). Making the recipe ladder matter needs a formula change, e.g. level costs that do not scale with the base price, or a price multiplier per recipe tier. |
-| 3 | Late-game reputation | Open (maintainer). Auto picks the highest net profit per bread (idle §4.2); at Tier 5 that can be a slow recipe the kitchen cannot supply, so KR/s jumps while reputation sinks to about ★1 under idle §6.6 (idle §20 no. 42). |
+| 3 | Late-game reputation | Resolved 2026-11-01: the maintainer removed the rating (idle §6.6, §19 no. 6). Empty shelves now only cost the sales they miss (idle §20 no. 42). |

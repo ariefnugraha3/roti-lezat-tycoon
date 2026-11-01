@@ -43,13 +43,17 @@ var stall_time: float = 0.0
 var last_slot: int = -1
 var spawned_at: float = 0.0
 ## Pengunjung lihat-lihat (v3.1 20.12): ENTERING -> BROWSING di satu atau dua
-## tempat dekat rak -> LEAVING, tanpa antrean, patience, stok, maupun rating.
+## tempat dekat rak -> LEAVING, tanpa antrean, patience, maupun stok.
 var window_shopper: bool = false
 ## Sel tempat ia berdiri melihat-lihat; bukan titik eksklusif (v3.1 83.3).
 var look_cell: Vector2i = Vector2i(-1, -1)
 ## Rak yang sedang dilihat (-1 = melihat-lihat ruangan).
 var look_display: int = -1
 var looks_left: int = 0
+## Pembeli yang mendapati semua rak kosong saat masuk: ia berjalan ke depan rak
+## dan melihat isinya dulu sebelum memutuskan (keputusan maintainer 2026-11-01,
+## GDD idle 6.2). Selama itu `target_recipe` kosong.
+var checking_shelf: bool = false
 
 
 func def() -> CustomerArchetypeDefinition:
@@ -88,7 +92,7 @@ func to_dict() -> Dictionary:
 		"celebrate_left": celebrate_left, "queue_wait": queue_wait, "stall_time": stall_time,
 		"spawned_at": spawned_at,
 		"window_shopper": window_shopper, "look_cell": [look_cell.x, look_cell.y], "look_display": look_display,
-		"looks_left": looks_left, "actor": actor.to_dict(),
+		"looks_left": looks_left, "checking_shelf": checking_shelf, "actor": actor.to_dict(),
 	}
 
 

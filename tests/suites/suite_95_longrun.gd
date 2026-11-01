@@ -35,8 +35,8 @@ func _bounded(s: SimulationRoot) -> Dictionary:
 
 func _progress(label: String, d: int, s: SimulationRoot) -> void:
 	if d % 10 == 9:
-		print("      %s day %d: tier %d, balance %s, reputation %.2f, mem %d MB" % [label, s.time.day, s.world.location.tier,
-			Tx.kr(s.economy.balance), s.reputation.reputation, int(OS.get_static_memory_usage() / 1048576)])
+		print("      %s day %d: tier %d, balance %s, mem %d MB" % [label, s.time.day, s.world.location.tier,
+			Tx.kr(s.economy.balance), int(OS.get_static_memory_usage() / 1048576)])
 
 
 func _day_checks(s: SimulationRoot, day_label: int) -> bool:
@@ -46,8 +46,6 @@ func _day_checks(s: SimulationRoot, day_label: int) -> bool:
 	ok = check(not is_nan(s.economy.balance), "day %d balance is not NaN" % day_label) and ok
 	ok = check(s.economy.overflowed or not is_inf(s.economy.balance), "day %d no INF without the overflow guard" % day_label) and ok
 	ok = check(s.economy.balance >= 0.0, "day %d balance never negative" % day_label) and ok
-	var rep: float = s.reputation.reputation
-	ok = check(rep >= DataRegistry.idlef("reputation.min") and rep <= DataRegistry.idlef("reputation.max"), "day %d reputation in range (%.2f)" % [day_label, rep]) and ok
 	var b: Dictionary = _bounded(s)
 	ok = check(int(b["actors"]) <= DataRegistry.bali("queue.max_visible_customer_actors"), "day %d actors bounded (%d)" % [day_label, b["actors"]]) and ok
 	ok = check(int(b["orders"]) <= 64, "day %d RotiFood orders pruned (%d)" % [day_label, b["orders"]]) and ok
@@ -74,8 +72,8 @@ func _soak_100() -> void:
 	var end_objects: float = Performance.get_monitor(Performance.OBJECT_COUNT)
 	eq(end_nodes, base_nodes, "no node count growth after day 10 (GDD 94 no.1)")
 	check(end_objects <= base_objects * 1.15 + 500.0, "object count stable (%d -> %d)" % [int(base_objects), int(end_objects)])
-	print("      100 days: tier %d -> %d, balance %s, staff %d, reputation %.2f" % [start_tier, s.world.location.tier,
-		Tx.kr(s.economy.balance), s.staff.employed_ids().size(), s.reputation.reputation])
+	print("      100 days: tier %d -> %d, balance %s, staff %d" % [start_tier, s.world.location.tier,
+		Tx.kr(s.economy.balance), s.staff.employed_ids().size()])
 	check(s.economy.reconcile(), "ledger reconciles after 100 days")
 	free_sim(s)
 

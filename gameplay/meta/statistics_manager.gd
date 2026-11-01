@@ -16,7 +16,7 @@ const STAT_KEYS: Array[String] = [
 	"offline_seconds_total", "offline_earned_kr", "days_passed", "franchise_count",
 ]
 const RECORD_KEYS: Array[String] = [
-	"largest_transaction", "highest_reputation", "highest_rate_kr_per_s", "highest_queue",
+	"largest_transaction", "highest_rate_kr_per_s", "highest_queue",
 ]
 
 var stats: Dictionary = {}
@@ -85,10 +85,6 @@ func note_queue_occupancy(n: int) -> void:
 	records["highest_queue"] = maxf(float(records["highest_queue"]), float(n))
 
 
-func note_reputation(rep: float) -> void:
-	records["highest_reputation"] = maxf(float(records["highest_reputation"]), rep)
-
-
 func note_rate(rate: float) -> void:
 	if not is_inf(rate) and not is_nan(rate):
 		records["highest_rate_kr_per_s"] = maxf(float(records["highest_rate_kr_per_s"]), rate)
@@ -124,5 +120,6 @@ func restore(d: Dictionary) -> void:
 		stats[str(k)] = float(s[k])
 	var r: Dictionary = d.get("records", {})
 	for k2: Variant in r.keys():
-		records[str(k2)] = float(r[k2])
+		if RECORD_KEYS.has(str(k2)):
+			records[str(k2)] = float(r[k2])
 	tier_reached_day = d.get("tier_reached_day", tier_reached_day)

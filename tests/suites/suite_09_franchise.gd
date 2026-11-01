@@ -5,7 +5,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_IDLE_PRESTIGE", "name": "idle 10.1-10.5 stars = floor((alltime / divisor)^exponent), franchise needs Tier 3 this run and >= 1 new star, the reset clears KR, location, stations, levels, recipes, staff, shop upgrades up to Lv 5 and reputation while stars, perks, alltime stats, badges, decorations, name and character stay; perks shape the new branch; the result saves, loads and replays deterministically", "fn": _prestige},
+		{"id": "ACC_IDLE_PRESTIGE", "name": "idle 10.1-10.5 stars = floor((alltime / divisor)^exponent), franchise needs Tier 3 this run and >= 1 new star, the reset clears KR, location, stations, levels, recipes, staff, shop upgrades up to Lv 5 while stars, perks, alltime stats, badges, decorations, name and character stay; perks shape the new branch; the result saves, loads and replays deterministically", "fn": _prestige},
 		{"id": "ACC_IDLE_FRANCHISE_FLOW", "name": "idle 10.6, 12.3 the Franchise sheet shows stars, what selling earns, the next star and every perk; Sell & Franchise asks first, plays the Pak Lurah cutscene with the new signboard, then opens Branch #2 behind the loading screen and saves it", "fn": _flow},
 	]
 
@@ -51,7 +51,6 @@ func _prestige() -> void:
 	# State sebelum reset.
 	s.upgrades.global_levels[&"global_tap_power"] = 3
 	s.upgrades.global_levels[&"global_offline_hours"] = 6
-	s.reputation.reputation = 4.6
 	run_hours(s, 0.5)
 	var sold: float = s.statistics.get_stat("total_bread_sold")
 	check(sold > 0.0, "the Tier 3 shop sells before the sale")
@@ -88,7 +87,6 @@ func _prestige() -> void:
 	eq(s.upgrades.unlocked_recipes(), [&"recipe_plain_loaf"] as Array[StringName], "only Plain Loaf is unlocked")
 	eq(s.staff.employed_ids().size(), 0, "no staff")
 	eq(s.upgrades.global_level(&"global_tap_power"), 0, "shop upgrades up to Lv 5 reset")
-	near(s.reputation.reputation, DataRegistry.idlef("reputation.start"), 1e-9, "reputation is back at 3.0")
 	eq(s.customers.sorted().size(), 0, "nobody is left in the old shop")
 	eq(s.production.jobs.size(), 0, "no batch carries over")
 	check(s.world.layout_valid(), "the new branch has a valid layout")
@@ -112,7 +110,6 @@ func _prestige() -> void:
 	twin.statistics.stats["alltime_earned_kr"] = 4.2 * _d()
 	twin.upgrades.global_levels[&"global_tap_power"] = 3
 	twin.upgrades.global_levels[&"global_offline_hours"] = 6
-	twin.reputation.reputation = 4.6
 	run_hours(twin, 0.5)
 	twin.decoration.grant(deco.id)
 	twin.franchise()

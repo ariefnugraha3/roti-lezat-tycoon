@@ -57,7 +57,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
 | Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
 | Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
-| Meta | `gameplay/meta/`: `ReputationManager`, `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11) | Their respective systems. |
+| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.
@@ -73,7 +73,7 @@ time.advance (→ at 00:00 weather, statistics, RotiFood prune) → production �
 → lane rebalancing → demand → customers → cashier → rotifood → boosts → tutorial
 ```
 
-Economy, reputation, statistics and achievements are updated inside those calls, at
+Economy, statistics and achievements are updated inside those calls, at
 the moment each event commits. Presentation never runs inside a tick. The world view,
 HUD and audio read state every frame and react to `EventBus` signals. Iteration inside
 a manager uses sorted IDs, never node order (`TEST_TIME_002`). Text IDs are sorted with
@@ -105,11 +105,15 @@ are pruned. A new game starts at `clock.start_seconds`.
   during a counter focus), otherwise works the kitchen. A tap on a station gives it the
   owner's focus and a Semangat boost (`tap.progress_seconds × tap_power`).
 - **Customers** (GDD 20, 84): `DemandManager` produces arrivals (a Poisson process from
-  `base_arrivals_per_hour × reputation × decor × boost × night × weather`). An arrival
+  `base_arrivals_per_hour × decor × boost × night × weather`; there is no rating, idle §6.6). An arrival
   needs a queue reservation (`QueueManager.reserve`), otherwise it waits in the pending
   pool. An admitted customer walks from an end of the pavement to the door
   (`APPROACHING`, `StreetPaths`), then chooses a recipe and walks to the nearest display
-  with it, takes the bread, queues and pays. Window shoppers only look (GDD 20.12).
+  with it, takes the bread, queues and pays. If every shelf is empty when they come in,
+  they still walk to a free spot in front of the nearest shelf (window-shopper spot
+  rules, ignoring window shoppers, who step aside) and look for
+  `customers.empty_shelf_look_seconds` (`checking_shelf`), then buy what came out
+  meanwhile or leave (idle §6.2). Window shoppers only look (GDD 20.12).
 - **Checkout lanes** (GDD 21.2–21.3): two lanes at Tiers 1–3, three at Tiers 4–5. Lane A
   is the owner's; every other lane belongs to one cashier. `CustomerManager.rebalance_lanes`
   evens the lines each tick before admission.
@@ -126,7 +130,7 @@ are pruned. A new game starts at `clock.start_seconds`.
   with deterministic auto-placement and puts decorations back where they fit. On any
   failure it restores a snapshot.
 - **Franchise** (idle §10): `SimulationRoot.franchise` adds the new stars, bumps the
-  branch number, resets the run (economy, levels, stations, recipes, staff, reputation,
+  branch number, resets the run (economy, levels, stations, recipes, staff,
   boosts, global upgrades up to Lv 5), keeps stars, perks, statistics, achievements,
   decorations, the clock and the tutorial, applies the perks to the new branch, and
   saves. `GameRoot.do_franchise` rebuilds the world and HUD behind the loading screen.
@@ -225,7 +229,7 @@ are pruned. A new game starts at `clock.start_seconds`.
   draws each icon three times (shadow, outline, fill); only primitives in the icon's
   base colour, or colours registered with `_shade()`, get the outline.
 - HUD (idle §12.1): `HUD` refreshes its values 5 times a second: KR, KR/s from the model,
-  boost chips with their time left, reputation, Franchise Stars and the clock, a tab bar
+  boost chips with their time left, Franchise Stars and the clock, a tab bar
   (Upgrades, Menu, Staff, Shop, Decor, Franchise) with a green dot when something inside
   is affordable (`has_affordable`), toasts, and `LevelChips` (projected 2D "Lv n" chips
   over every station, pooled and never rebuilt on refresh). Big screens are `UISheet`
@@ -370,7 +374,7 @@ are pruned. A new game starts at `clock.start_seconds`.
 ## 6. Data catalogs (GDD 101, 134)
 
 `data/catalog/*.json`: idle (the idle economy: levels, costs, milestones, locations,
-reputation, offline, prestige and perks, boosts and promotions, global upgrades, tap,
+offline, prestige and perks, boosts and promotions, global upgrades, tap,
 night), balance (clock, queues, production and other v3.1 tunables still in use),
 recipes, equipment, ingredients (batch costs), customers, staff, locations, weather,
 achievements, decorations (with bonuses), audio_events, quality_presets, strings_en.
