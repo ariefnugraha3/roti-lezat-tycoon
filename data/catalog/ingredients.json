@@ -6,7 +6,7 @@
    "id": "ingredient_flour",
    "localization_key": "ingredient_flour",
    "unit_label_key": "unit_kg_portion",
-   "fixed_buy_price_kr": 150,
+   "fixed_buy_price_kr": 9.7,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -14,7 +14,7 @@
    "id": "ingredient_sugar",
    "localization_key": "ingredient_sugar",
    "unit_label_key": "unit_small_portion",
-   "fixed_buy_price_kr": 80,
+   "fixed_buy_price_kr": 5.17,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -22,7 +22,7 @@
    "id": "ingredient_yeast",
    "localization_key": "ingredient_yeast",
    "unit_label_key": "unit_sachet",
-   "fixed_buy_price_kr": 50,
+   "fixed_buy_price_kr": 3.23,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -30,7 +30,7 @@
    "id": "ingredient_egg",
    "localization_key": "ingredient_egg",
    "unit_label_key": "unit_egg",
-   "fixed_buy_price_kr": 100,
+   "fixed_buy_price_kr": 6.46,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -38,7 +38,7 @@
    "id": "ingredient_butter",
    "localization_key": "ingredient_butter",
    "unit_label_key": "unit_portion",
-   "fixed_buy_price_kr": 120,
+   "fixed_buy_price_kr": 7.76,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -46,7 +46,7 @@
    "id": "ingredient_water_salt",
    "localization_key": "ingredient_water_salt",
    "unit_label_key": "unit_measure",
-   "fixed_buy_price_kr": 20,
+   "fixed_buy_price_kr": 1.29,
    "storage_units_per_purchase": 1,
    "category_id": "basic"
   },
@@ -54,7 +54,7 @@
    "id": "ingredient_chocolate",
    "localization_key": "ingredient_chocolate",
    "unit_label_key": "unit_bar",
-   "fixed_buy_price_kr": 250,
+   "fixed_buy_price_kr": 16.16,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -62,7 +62,7 @@
    "id": "ingredient_cheddar",
    "localization_key": "ingredient_cheddar",
    "unit_label_key": "unit_block",
-   "fixed_buy_price_kr": 300,
+   "fixed_buy_price_kr": 19.39,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -70,7 +70,7 @@
    "id": "ingredient_strawberry_jam",
    "localization_key": "ingredient_strawberry_jam",
    "unit_label_key": "unit_jar",
-   "fixed_buy_price_kr": 200,
+   "fixed_buy_price_kr": 12.93,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -78,7 +78,7 @@
    "id": "ingredient_milk",
    "localization_key": "ingredient_milk",
    "unit_label_key": "unit_portion",
-   "fixed_buy_price_kr": 150,
+   "fixed_buy_price_kr": 9.7,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -86,7 +86,7 @@
    "id": "ingredient_beef_sausage",
    "localization_key": "ingredient_beef_sausage",
    "unit_label_key": "unit_piece",
-   "fixed_buy_price_kr": 350,
+   "fixed_buy_price_kr": 22.62,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -94,7 +94,7 @@
    "id": "ingredient_cinnamon",
    "localization_key": "ingredient_cinnamon",
    "unit_label_key": "unit_portion",
-   "fixed_buy_price_kr": 180,
+   "fixed_buy_price_kr": 11.63,
    "storage_units_per_purchase": 1,
    "category_id": "filling"
   },
@@ -102,7 +102,7 @@
    "id": "ingredient_whole_wheat_flour",
    "localization_key": "ingredient_whole_wheat_flour",
    "unit_label_key": "unit_kg_portion",
-   "fixed_buy_price_kr": 400,
+   "fixed_buy_price_kr": 25.85,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   },
@@ -110,7 +110,7 @@
    "id": "ingredient_organic_butter",
    "localization_key": "ingredient_organic_butter",
    "unit_label_key": "unit_tin",
-   "fixed_buy_price_kr": 600,
+   "fixed_buy_price_kr": 38.78,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   },
@@ -118,7 +118,7 @@
    "id": "ingredient_almond",
    "localization_key": "ingredient_almond",
    "unit_label_key": "unit_bag",
-   "fixed_buy_price_kr": 500,
+   "fixed_buy_price_kr": 32.32,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   },
@@ -126,7 +126,7 @@
    "id": "ingredient_cream_cheese",
    "localization_key": "ingredient_cream_cheese",
    "unit_label_key": "unit_box",
-   "fixed_buy_price_kr": 750,
+   "fixed_buy_price_kr": 48.48,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   },
@@ -134,7 +134,7 @@
    "id": "ingredient_matcha",
    "localization_key": "ingredient_matcha",
    "unit_label_key": "unit_tin",
-   "fixed_buy_price_kr": 800,
+   "fixed_buy_price_kr": 51.71,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   },
@@ -142,7 +142,7 @@
    "id": "ingredient_truffle",
    "localization_key": "ingredient_truffle",
    "unit_label_key": "unit_bottle",
-   "fixed_buy_price_kr": 1200,
+   "fixed_buy_price_kr": 77.56,
    "storage_units_per_purchase": 1,
    "category_id": "premium"
   }

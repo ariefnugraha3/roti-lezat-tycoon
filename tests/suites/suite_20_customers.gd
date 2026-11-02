@@ -352,7 +352,7 @@ func _rotifood_auto() -> void:
 	var o: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 3}, 600.0)
 	eq(o.state, DeliveryOrder.TO_PACK, "accepted automatically and its bread reserved at once (GDD idle 6.5)")
 	eq(s.display.sellable_count(&"recipe_plain_loaf"), 0, "the reserved bread left the shelf")
-	near(o.subtotal(), Money.round_half_up(s.unit_price(&"recipe_plain_loaf", disp) * DataRegistry.idlef("rotifood.price_mult")) * 3.0, 0.001, "order price = shelf price x rotifood.price_mult")
+	near(o.subtotal(), Money.round_cents(s.unit_price(&"recipe_plain_loaf", disp) * DataRegistry.idlef("rotifood.price_mult")) * 3.0, 0.000001, "order price = shelf price x rotifood.price_mult")
 	# Dua resep, satu kurang: tidak ada yang diambil, pesanan menunggu.
 	var o2: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 2, &"recipe_sugar_donut": 2}, 0.0)
 	stock(s, &"recipe_sugar_donut", 1, 1)

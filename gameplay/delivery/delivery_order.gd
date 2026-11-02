@@ -54,7 +54,7 @@ func subtotal() -> float:
 	var s: float = 0.0
 	for l: Variant in reserved_lots:
 		var ld: Dictionary = l
-		s += Money.round_half_up(float(ld["unit_price"])) * (ld["stack"] as BreadStack).quantity
+		s += Money.round_cents(float(ld["unit_price"])) * (ld["stack"] as BreadStack).quantity
 	return s
 
 

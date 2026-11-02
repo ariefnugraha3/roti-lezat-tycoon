@@ -116,7 +116,7 @@ func _complete(c: Customer, lane: QueueLane) -> void:
 	var units: int = 0
 	for lot: Variant in c.held:
 		var st: BreadStack = (lot as Dictionary)["stack"]
-		subtotal += Money.round_half_up(float((lot as Dictionary)["unit_price"])) * st.quantity
+		subtotal += Money.round_cents(float((lot as Dictionary)["unit_price"])) * st.quantity
 		units += st.quantity
 	c.held.clear()
 	if units <= 0:

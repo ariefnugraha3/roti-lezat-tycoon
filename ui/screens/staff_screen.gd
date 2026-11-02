@@ -57,7 +57,7 @@ func _staff_row(parent: Control, def: StaffDefinition) -> void:
 func _hire_button(def: StaffDefinition) -> Button:
 	var cost: float = sim.staff.next_hire_cost()
 	var reason: StringName = sim.staff.hire_block(def.id)
-	var text: String = Tx.t("ui_staff_role_full") if reason == &"full" else Tx.t("ui_staff_hire_for", {"price": Tx.big(cost)})
+	var text: String = Tx.t("ui_staff_role_full") if reason == &"full" else Tx.t("ui_staff_hire_for", {"price": Tx.money(cost)})
 	var b: Button = ProceduralUIFactory.icon_text_button("coin", text, "primary", 20, 16)
 	b.name = "Hire"
 	b.disabled = reason != &""

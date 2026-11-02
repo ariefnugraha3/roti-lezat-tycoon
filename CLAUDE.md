@@ -22,7 +22,7 @@ Layout: `autoload/` (services, no gameplay state), `core/` (helpers, `TimeManage
 
 Deliberate deviation: the logging autoload is `GameLogger`, not `Logger`, because Godot 4.5+ ships a built-in `Logger` class.
 
-The GDD narrative is Indonesian, but **all player-facing text must be English** (v3.1 §43, §127; idle §18); proper nouns such as Budi, Pak Lurah and RotiFood stay as they are. Code calls `Tx.t(key, params)`, and keys live in `data/catalog/strings_en.json`. Currency is **Koin Roti (KR)**; big numbers go through `Tx.big`/`Tx.kr`/`Tx.rate` (idle §7.5).
+The GDD narrative is Indonesian, but **all player-facing text must be English** (v3.1 §43, §127; idle §18); proper nouns such as Budi, Pak Lurah and RotiFood stay as they are. Code calls `Tx.t(key, params)`, and keys live in `data/catalog/strings_en.json`. Currency is **Koin Roti (KR)**; money goes through `Tx.kr`/`Tx.money` (one decimal under 100 KR), other big numbers through `Tx.big`, rates through `Tx.rate` (idle §7.5). A new shop earns 1 KR/s, and every transaction commits to the cent (`Money.round_cents`, idle §7.6), not whole KR as in v3.1 §99.2.
 
 ## Commands
 

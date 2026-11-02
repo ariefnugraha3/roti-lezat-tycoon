@@ -6,6 +6,7 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_STARTING_CASH", "name": "idle 7.1: a new game opens with start_kr in one ledger entry", "fn": _starting_cash},
+		{"id": "ACC_IDLE_START_RATE", "name": "idle 7.1, 7.6: a new shop earns 1.00 KR/s without boosts, and a cost with cents is affordable exactly when the balance holds the amount charged", "fn": _start_rate},
 		{"id": "ACC_55_OJOL_QUEUE", "name": "55.3 dedicated RotiFood queue at Tier 3+", "fn": _ojol_queue},
 		{"id": "ACC_55_PATIENCE", "name": "55.4/58 patience bar and drain", "fn": _patience},
 		{"id": "ACC_SPATIAL", "name": "Appendix spatial scale 1-10", "fn": _spatial},
@@ -27,6 +28,29 @@ func _starting_cash() -> void:
 	eq(s.economy.ledger.size(), 1, "one opening ledger entry")
 	near(float(s.economy.ledger[0]["amount"]), start, 0.001, "opening entry = start_kr")
 	eq(Tx.kr(s.economy.balance), Tx.big(start) + " KR", "HUD formatter renders the balance")
+	free_sim(s)
+
+
+## Pendapatan awal 1 KR/s (keputusan maintainer 2026-11-02, GDD idle 7.1) dan
+## biaya bersen (GDD idle 7.6).
+func _start_rate() -> void:
+	var s: SimulationRoot = new_sim()
+	s.boosts.income_left = 0.0
+	s.idle_economy.invalidate()
+	var rate: float = s.idle_economy.rate(false)
+	near(rate, 1.0, 0.005, "a new shop earns 1 KR/s without boosts (%.4f)" % rate)
+	eq(Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}), Tx.t("ui_kr_per_second", {"amount": "1.00"}), "the HUD reads 1.00 KR/s")
+	# Biaya level oven pertama punya sen: terjangkau tepat saat saldo memuatnya.
+	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
+	var o: Dictionary = s.upgrades.offer(&"station", oven.iid)
+	var cost: float = Money.round_cents(UpgradeManager.offer_cost(o, 1))
+	check(not is_equal_approx(cost, roundf(cost)), "the first oven level costs a fractional amount (%s)" % Tx.kr(cost))
+	s.economy.spend(s.economy.balance - cost + 0.01, &"UPGRADE_STATION", &"test")
+	eq(s.upgrades.buy(&"station", oven.iid, &"x1"), 0, "one cent short: the level cannot be bought")
+	s.economy.credit(0.01, &"GIFT", &"test")
+	eq(s.upgrades.buy(&"station", oven.iid, &"x1"), 1, "with exactly the cost it can")
+	near(s.economy.balance, 0.0, 0.000001, "and the balance is charged to the cent")
+	check(s.economy.reconcile(), "the ledger still reconciles")
 	free_sim(s)
 
 

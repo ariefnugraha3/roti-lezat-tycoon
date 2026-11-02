@@ -26,7 +26,7 @@
 		"sim_seconds": 480.00000000007486,
 		"time_seconds": 43200.0
 	},
-	"created_at": "2026-11-01T14:56:08Z",
+	"created_at": "2026-11-02T01:04:51Z",
 	"customers": {
 		"customers": [
 			{
@@ -68,7 +68,7 @@
 							"slot_id": "4:0",
 							"source_job_id": 14
 						},
-						"unit_price": 421.2
+						"unit_price": 27.2376
 					}
 				],
 				"id": "c83",
@@ -428,11 +428,11 @@
 		}
 	},
 	"economy": {
-		"balance_kr": 502.0,
+		"balance_kr": 32.98000000000002,
 		"historical_totals": {},
 		"ledger_recent": [
 			{
-				"amount": 1000.0,
+				"amount": 65.0,
 				"category": "OTHER_ADJUSTMENT",
 				"day": 1,
 				"game_time": 28800.0,
@@ -441,7 +441,7 @@
 				"tx_id": 1
 			},
 			{
-				"amount": -40.0,
+				"amount": -2.59,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 28800.0,
@@ -452,7 +452,7 @@
 				"tx_id": 2
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 28801.5,
@@ -463,7 +463,7 @@
 				"tx_id": 3
 			},
 			{
-				"amount": -46.0,
+				"amount": -2.98,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 28965.0,
@@ -474,7 +474,7 @@
 				"tx_id": 4
 			},
 			{
-				"amount": -50.0,
+				"amount": -3.23,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29115.0,
@@ -485,7 +485,7 @@
 				"tx_id": 5
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 29257.5,
@@ -496,7 +496,7 @@
 				"tx_id": 6
 			},
 			{
-				"amount": -53.0,
+				"amount": -3.43,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29265.0,
@@ -507,7 +507,7 @@
 				"tx_id": 7
 			},
 			{
-				"amount": -58.0,
+				"amount": -3.71,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29415.0,
@@ -518,7 +518,7 @@
 				"tx_id": 8
 			},
 			{
-				"amount": -66.0,
+				"amount": -4.27,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 29565.0,
@@ -529,7 +529,7 @@
 				"tx_id": 9
 			},
 			{
-				"amount": 279.0,
+				"amount": 17.97,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 30139.5,
@@ -541,7 +541,7 @@
 				"tx_id": 10
 			},
 			{
-				"amount": -61.0,
+				"amount": -3.94,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 30210.0,
@@ -552,7 +552,7 @@
 				"tx_id": 11
 			},
 			{
-				"amount": -76.0,
+				"amount": -4.91,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 30375.0,
@@ -563,7 +563,7 @@
 				"tx_id": 12
 			},
 			{
-				"amount": 370.0,
+				"amount": 23.98,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 30412.5,
@@ -575,7 +575,7 @@
 				"tx_id": 13
 			},
 			{
-				"amount": 185.0,
+				"amount": 11.99,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 30517.5,
@@ -587,7 +587,7 @@
 				"tx_id": 14
 			},
 			{
-				"amount": -70.0,
+				"amount": -4.53,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 30540.0,
@@ -598,7 +598,7 @@
 				"tx_id": 15
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 30666.0,
@@ -609,7 +609,7 @@
 				"tx_id": 16
 			},
 			{
-				"amount": 187.0,
+				"amount": 12.11,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 32079.0,
@@ -621,7 +621,7 @@
 				"tx_id": 17
 			},
 			{
-				"amount": 187.0,
+				"amount": 12.11,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 32182.5,
@@ -633,7 +633,7 @@
 				"tx_id": 18
 			},
 			{
-				"amount": 374.0,
+				"amount": 24.22,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 32286.0,
@@ -645,7 +645,7 @@
 				"tx_id": 19
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 32287.5,
@@ -656,7 +656,7 @@
 				"tx_id": 20
 			},
 			{
-				"amount": 187.0,
+				"amount": 12.11,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 32551.5,
@@ -668,7 +668,7 @@
 				"tx_id": 21
 			},
 			{
-				"amount": 187.0,
+				"amount": 12.11,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 32656.5,
@@ -680,7 +680,7 @@
 				"tx_id": 22
 			},
 			{
-				"amount": 1236.0,
+				"amount": 79.92,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 32668.5,
@@ -691,7 +691,7 @@
 				"tx_id": 23
 			},
 			{
-				"amount": -900.0,
+				"amount": -58.2,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 32685.0,
@@ -702,7 +702,7 @@
 				"tx_id": 24
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 32832.0,
@@ -713,7 +713,7 @@
 				"tx_id": 25
 			},
 			{
-				"amount": -80.0,
+				"amount": -5.21,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 32835.0,
@@ -724,7 +724,7 @@
 				"tx_id": 26
 			},
 			{
-				"amount": -87.0,
+				"amount": -5.65,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 32985.0,
@@ -735,7 +735,7 @@
 				"tx_id": 27
 			},
 			{
-				"amount": -101.0,
+				"amount": -6.5,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 33135.0,
@@ -746,7 +746,7 @@
 				"tx_id": 28
 			},
 			{
-				"amount": -93.0,
+				"amount": -5.99,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 33285.0,
@@ -757,7 +757,7 @@
 				"tx_id": 29
 			},
 			{
-				"amount": 1260.0,
+				"amount": 81.42,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 33666.0,
@@ -769,7 +769,7 @@
 				"tx_id": 30
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 33667.5,
@@ -780,7 +780,7 @@
 				"tx_id": 31
 			},
 			{
-				"amount": -1008.0,
+				"amount": -65.18,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 33735.0,
@@ -791,7 +791,7 @@
 				"tx_id": 32
 			},
 			{
-				"amount": -116.0,
+				"amount": -7.47,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 33885.0,
@@ -802,7 +802,7 @@
 				"tx_id": 33
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 34384.5,
@@ -813,7 +813,7 @@
 				"tx_id": 34
 			},
 			{
-				"amount": 1386.0,
+				"amount": 89.7,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 35155.5,
@@ -825,7 +825,7 @@
 				"tx_id": 35
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 35157.0,
@@ -836,7 +836,7 @@
 				"tx_id": 36
 			},
 			{
-				"amount": -1129.0,
+				"amount": -73.01,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 35235.0,
@@ -847,7 +847,7 @@
 				"tx_id": 37
 			},
 			{
-				"amount": 1016.0,
+				"amount": 65.76,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 35788.5,
@@ -858,7 +858,7 @@
 				"tx_id": 38
 			},
 			{
-				"amount": -106.0,
+				"amount": -6.89,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 35835.0,
@@ -869,7 +869,7 @@
 				"tx_id": 39
 			},
 			{
-				"amount": 750.0,
+				"amount": 48.57,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 35893.5,
@@ -881,7 +881,7 @@
 				"tx_id": 40
 			},
 			{
-				"amount": -122.0,
+				"amount": -7.92,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 35985.0,
@@ -892,7 +892,7 @@
 				"tx_id": 41
 			},
 			{
-				"amount": 500.0,
+				"amount": 32.38,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 36055.5,
@@ -904,7 +904,7 @@
 				"tx_id": 42
 			},
 			{
-				"amount": -133.0,
+				"amount": -8.59,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 36135.0,
@@ -915,7 +915,7 @@
 				"tx_id": 43
 			},
 			{
-				"amount": 250.0,
+				"amount": 16.19,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 36162.0,
@@ -927,7 +927,7 @@
 				"tx_id": 44
 			},
 			{
-				"amount": -60.0,
+				"amount": -3.88,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 36285.0,
@@ -938,7 +938,7 @@
 				"tx_id": 45
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 36310.5,
@@ -949,7 +949,7 @@
 				"tx_id": 46
 			},
 			{
-				"amount": -1264.0,
+				"amount": -81.77,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 36435.0,
@@ -960,7 +960,7 @@
 				"tx_id": 47
 			},
 			{
-				"amount": -69.0,
+				"amount": -4.46,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 36585.0,
@@ -971,7 +971,7 @@
 				"tx_id": 48
 			},
 			{
-				"amount": 544.0,
+				"amount": 35.2,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 36697.5,
@@ -983,7 +983,7 @@
 				"tx_id": 49
 			},
 			{
-				"amount": 508.0,
+				"amount": 32.88,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 36709.5,
@@ -994,7 +994,7 @@
 				"tx_id": 50
 			},
 			{
-				"amount": -153.0,
+				"amount": -9.88,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 36735.0,
@@ -1005,7 +1005,7 @@
 				"tx_id": 51
 			},
 			{
-				"amount": 272.0,
+				"amount": 17.6,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 36813.0,
@@ -1017,7 +1017,7 @@
 				"tx_id": 52
 			},
 			{
-				"amount": -176.0,
+				"amount": -11.36,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 36885.0,
@@ -1028,7 +1028,7 @@
 				"tx_id": 53
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 36928.5,
@@ -1039,7 +1039,7 @@
 				"tx_id": 54
 			},
 			{
-				"amount": -79.0,
+				"amount": -5.13,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37035.0,
@@ -1050,7 +1050,7 @@
 				"tx_id": 55
 			},
 			{
-				"amount": -91.0,
+				"amount": -5.9,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37185.0,
@@ -1061,7 +1061,7 @@
 				"tx_id": 56
 			},
 			{
-				"amount": -105.0,
+				"amount": -6.79,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37335.0,
@@ -1072,7 +1072,7 @@
 				"tx_id": 57
 			},
 			{
-				"amount": -121.0,
+				"amount": -7.8,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37485.0,
@@ -1083,7 +1083,7 @@
 				"tx_id": 58
 			},
 			{
-				"amount": 1662.0,
+				"amount": 107.58,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 37542.0,
@@ -1095,7 +1095,7 @@
 				"tx_id": 59
 			},
 			{
-				"amount": -139.0,
+				"amount": -8.97,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 37635.0,
@@ -1106,7 +1106,7 @@
 				"tx_id": 60
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 37657.5,
@@ -1117,7 +1117,7 @@
 				"tx_id": 61
 			},
 			{
-				"amount": 834.0,
+				"amount": 53.94,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 38109.0,
@@ -1128,7 +1128,7 @@
 				"tx_id": 62
 			},
 			{
-				"amount": -1416.0,
+				"amount": -91.58,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 38235.0,
@@ -1139,7 +1139,7 @@
 				"tx_id": 63
 			},
 			{
-				"amount": 554.0,
+				"amount": 35.86,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 38305.5,
@@ -1151,7 +1151,7 @@
 				"tx_id": 64
 			},
 			{
-				"amount": -160.0,
+				"amount": -10.32,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 38385.0,
@@ -1162,7 +1162,7 @@
 				"tx_id": 65
 			},
 			{
-				"amount": 594.0,
+				"amount": 38.42,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 38506.5,
@@ -1174,7 +1174,7 @@
 				"tx_id": 66
 			},
 			{
-				"amount": -202.0,
+				"amount": -13.07,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 38535.0,
@@ -1185,7 +1185,7 @@
 				"tx_id": 67
 			},
 			{
-				"amount": 297.0,
+				"amount": 19.21,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 38593.5,
@@ -1197,7 +1197,7 @@
 				"tx_id": 68
 			},
 			{
-				"amount": 594.0,
+				"amount": 38.42,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 38677.5,
@@ -1209,7 +1209,7 @@
 				"tx_id": 69
 			},
 			{
-				"amount": -1586.0,
+				"amount": -102.57,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 38685.0,
@@ -1220,7 +1220,7 @@
 				"tx_id": 70
 			},
 			{
-				"amount": 600.0,
+				"amount": 38.76,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 38796.0,
@@ -1232,7 +1232,7 @@
 				"tx_id": 71
 			},
 			{
-				"amount": -184.0,
+				"amount": -11.87,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 38835.0,
@@ -1243,7 +1243,7 @@
 				"tx_id": 72
 			},
 			{
-				"amount": -233.0,
+				"amount": -15.03,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 38985.0,
@@ -1254,7 +1254,7 @@
 				"tx_id": 73
 			},
 			{
-				"amount": 320.0,
+				"amount": 20.67,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 39112.5,
@@ -1266,7 +1266,7 @@
 				"tx_id": 74
 			},
 			{
-				"amount": -211.0,
+				"amount": -13.65,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 39135.0,
@@ -1277,7 +1277,7 @@
 				"tx_id": 75
 			},
 			{
-				"amount": 969.0,
+				"amount": 62.58,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 39195.0,
@@ -1289,7 +1289,7 @@
 				"tx_id": 76
 			},
 			{
-				"amount": 323.0,
+				"amount": 20.86,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 39277.5,
@@ -1301,7 +1301,7 @@
 				"tx_id": 77
 			},
 			{
-				"amount": 3553.0,
+				"amount": 229.46,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 39406.5,
@@ -1313,7 +1313,7 @@
 				"tx_id": 78
 			},
 			{
-				"amount": -4500.0,
+				"amount": -291.0,
 				"category": "STAFF_HIRE",
 				"day": 1,
 				"game_time": 39420.0,
@@ -1322,7 +1322,7 @@
 				"tx_id": 79
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 39421.5,
@@ -1333,7 +1333,7 @@
 				"tx_id": 80
 			},
 			{
-				"amount": 323.0,
+				"amount": 20.86,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 39540.0,
@@ -1345,7 +1345,7 @@
 				"tx_id": 81
 			},
 			{
-				"amount": 915.0,
+				"amount": 59.16,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 39847.5,
@@ -1356,7 +1356,7 @@
 				"tx_id": 82
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 39859.5,
@@ -1367,7 +1367,7 @@
 				"tx_id": 83
 			},
 			{
-				"amount": 646.0,
+				"amount": 41.72,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 40476.0,
@@ -1379,7 +1379,7 @@
 				"tx_id": 84
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 40477.5,
@@ -1390,7 +1390,7 @@
 				"tx_id": 85
 			},
 			{
-				"amount": 1525.0,
+				"amount": 98.6,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 40531.5,
@@ -1401,7 +1401,7 @@
 				"tx_id": 86
 			},
 			{
-				"amount": 704.0,
+				"amount": 45.48,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 41028.0,
@@ -1412,7 +1412,7 @@
 				"tx_id": 87
 			},
 			{
-				"amount": -1776.0,
+				"amount": -114.88,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 41085.0,
@@ -1423,7 +1423,7 @@
 				"tx_id": 88
 			},
 			{
-				"amount": -340.0,
+				"amount": -21.98,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 41095.5,
@@ -1434,7 +1434,7 @@
 				"tx_id": 89
 			},
 			{
-				"amount": 323.0,
+				"amount": 20.86,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41233.5,
@@ -1446,7 +1446,7 @@
 				"tx_id": 90
 			},
 			{
-				"amount": -268.0,
+				"amount": -17.28,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 41235.0,
@@ -1457,7 +1457,7 @@
 				"tx_id": 91
 			},
 			{
-				"amount": 646.0,
+				"amount": 41.72,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41319.0,
@@ -1469,7 +1469,7 @@
 				"tx_id": 92
 			},
 			{
-				"amount": 686.0,
+				"amount": 44.32,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41404.5,
@@ -1481,7 +1481,7 @@
 				"tx_id": 93
 			},
 			{
-				"amount": 346.0,
+				"amount": 22.36,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41587.5,
@@ -1493,7 +1493,7 @@
 				"tx_id": 94
 			},
 			{
-				"amount": 1038.0,
+				"amount": 67.08,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41668.5,
@@ -1505,7 +1505,7 @@
 				"tx_id": 95
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 41677.5,
@@ -1516,7 +1516,7 @@
 				"tx_id": 96
 			},
 			{
-				"amount": 1420.0,
+				"amount": 91.76,
 				"category": "SALE_ROTIFOOD",
 				"day": 1,
 				"game_time": 41680.5,
@@ -1527,7 +1527,7 @@
 				"tx_id": 97
 			},
 			{
-				"amount": -1990.0,
+				"amount": -128.66,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 41685.0,
@@ -1538,7 +1538,7 @@
 				"tx_id": 98
 			},
 			{
-				"amount": -308.0,
+				"amount": -19.87,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 41835.0,
@@ -1549,7 +1549,7 @@
 				"tx_id": 99
 			},
 			{
-				"amount": 732.0,
+				"amount": 47.36,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 41934.0,
@@ -1561,7 +1561,7 @@
 				"tx_id": 100
 			},
 			{
-				"amount": 1107.0,
+				"amount": 71.67,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42027.0,
@@ -1573,7 +1573,7 @@
 				"tx_id": 101
 			},
 			{
-				"amount": -2228.0,
+				"amount": -144.1,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 42135.0,
@@ -1584,7 +1584,7 @@
 				"tx_id": 102
 			},
 			{
-				"amount": 738.0,
+				"amount": 47.78,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42160.5,
@@ -1596,7 +1596,7 @@
 				"tx_id": 103
 			},
 			{
-				"amount": 738.0,
+				"amount": 47.78,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42241.5,
@@ -1608,7 +1608,7 @@
 				"tx_id": 104
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 42243.0,
@@ -1619,7 +1619,7 @@
 				"tx_id": 105
 			},
 			{
-				"amount": -354.0,
+				"amount": -22.85,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 42285.0,
@@ -1630,7 +1630,7 @@
 				"tx_id": 106
 			},
 			{
-				"amount": -407.0,
+				"amount": -26.28,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 42435.0,
@@ -1641,7 +1641,7 @@
 				"tx_id": 107
 			},
 			{
-				"amount": 780.0,
+				"amount": 50.42,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42483.0,
@@ -1653,7 +1653,7 @@
 				"tx_id": 108
 			},
 			{
-				"amount": 794.0,
+				"amount": 51.3,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42678.0,
@@ -1665,7 +1665,7 @@
 				"tx_id": 109
 			},
 			{
-				"amount": 794.0,
+				"amount": 51.3,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42760.5,
@@ -1677,7 +1677,7 @@
 				"tx_id": 110
 			},
 			{
-				"amount": 794.0,
+				"amount": 51.3,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42841.5,
@@ -1689,7 +1689,7 @@
 				"tx_id": 111
 			},
 			{
-				"amount": -1020.0,
+				"amount": -65.94,
 				"category": "INGREDIENT_COST",
 				"day": 1,
 				"game_time": 42874.5,
@@ -1700,7 +1700,7 @@
 				"tx_id": 112
 			},
 			{
-				"amount": -2496.0,
+				"amount": -161.39,
 				"category": "UPGRADE_RECIPE",
 				"day": 1,
 				"game_time": 42885.0,
@@ -1711,7 +1711,7 @@
 				"tx_id": 113
 			},
 			{
-				"amount": 794.0,
+				"amount": 51.3,
 				"category": "SALE_PHYSICAL",
 				"day": 1,
 				"game_time": 42958.5,
@@ -1723,7 +1723,7 @@
 				"tx_id": 114
 			},
 			{
-				"amount": -468.0,
+				"amount": -30.23,
 				"category": "UPGRADE_STATION",
 				"day": 1,
 				"game_time": 43035.0,
@@ -1858,7 +1858,7 @@
 				"carrier_id": "",
 				"claimed_by": "",
 				"created_at": 469.1500000000724,
-				"ingredient_cost_kr": 1020.0,
+				"ingredient_cost_kr": 65.94,
 				"job_id": 18,
 				"mixer_id": 3,
 				"oven_id": -1,
@@ -2156,7 +2156,7 @@
 							"slot_id": "4:0",
 							"source_job_id": 14
 						},
-						"unit_price": 463.32000000000005
+						"unit_price": 29.961360000000003
 					}
 				],
 				"state": "TO_PACK"
@@ -2201,18 +2201,18 @@
 		"records": {
 			"highest_queue": 4.0,
 			"highest_rate_kr_per_s": 0.0,
-			"largest_transaction": 3553.0
+			"largest_transaction": 229.45999999999998
 		},
 		"stats": {
-			"alltime_earned_kr": 35821.0,
-			"alltime_spent_kr": 36319.0,
+			"alltime_earned_kr": 2316.1100000000006,
+			"alltime_spent_kr": 2348.1300000000006,
 			"days_passed": 0.0,
 			"franchise_count": 0.0,
-			"highest_balance": 5234.0,
+			"highest_balance": 339.05,
 			"location_upgrades_count": 0.0,
 			"offline_earned_kr": 0.0,
 			"offline_seconds_total": 0.0,
-			"run_earned_kr": 35821.0,
+			"run_earned_kr": 2316.1100000000006,
 			"staff_hired_count": 1.0,
 			"total_bread_produced": 174.0,
 			"total_bread_sold": 124.0,

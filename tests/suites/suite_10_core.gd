@@ -14,7 +14,7 @@ func tests() -> Array:
 		{"id": "ACC_116_ID_ORDER", "name": "text IDs sort alphabetically in every session", "fn": _id_order},
 		{"id": "TEST_PRODUCTION_001", "name": "paid batch -> mixer -> oven -> its shelf slot, stations hold their contents without a time limit", "fn": _production_happy},
 		{"id": "TEST_PRODUCTION_003", "name": "stage durations follow the recipe, the batch factor and the station level", "fn": _stage_durations},
-		{"id": "TEST_ECONOMY_001", "name": "rounding, rejected spending, ledger categories and reconciliation", "fn": _economy, "expect_errors": true},
+		{"id": "TEST_ECONOMY_001", "name": "rounding (every transaction to the cent, half-up, idle 7.6), rejected spending, ledger categories and reconciliation", "fn": _economy, "expect_errors": true},
 	]
 
 
@@ -233,18 +233,26 @@ func _economy() -> void:
 	eq(Money.round_half_up(3.5), 4.0, "half-up 3.5 (not banker's)")
 	eq(Money.round_half_up(-2.5), -3.0, "half-up away from zero for -2.5")
 	eq(Money.round_half_up(0.49), 0.0, "0.49 -> 0")
+	eq(Money.round_cents(0.125), 0.13, "cents half-up 0.125 -> 0.13")
+	eq(Money.round_cents(0.124), 0.12, "0.124 -> 0.12")
+	eq(Money.round_cents(-0.125), -0.13, "cents half-up away from zero for -0.125")
+	eq(Money.round_cents(5.0), 5.0, "whole amounts stay whole")
 	var s: SimulationRoot = new_sim()
 	var start: float = s.economy.balance
 	check(not s.economy.spend(start + 1.0, &"UPGRADE_STATION", &"t"), "spend beyond balance rejected")
 	near(s.economy.balance, start, 0.001, "rejected spend changes nothing")
 	check(not s.economy.post(5.0, &"STAFF_WAGE", &"t", {}), "removed v3.1 categories are rejected (GDD idle 7.4)")
 	var earned: float = s.statistics.get_stat("run_earned_kr")
-	s.economy.credit(10.4, &"SALE_PHYSICAL", &"t")
-	s.economy.credit(10.5, &"SALE_PHYSICAL", &"t")
-	near(s.economy.balance, start + 21.0, 0.001, "credits commit whole KR, half-up")
-	near(s.statistics.get_stat("run_earned_kr") - earned, 21.0, 0.001, "income counts into run_earned_kr")
-	s.economy.spend(5.0, &"UPGRADE_STATION", &"t")
-	near(s.statistics.get_stat("run_earned_kr") - earned, 21.0, 0.001, "spending is not counted as earnings")
+	s.economy.credit(10.404, &"SALE_PHYSICAL", &"t")
+	s.economy.credit(10.506, &"SALE_PHYSICAL", &"t")
+	near(s.economy.balance, start + 20.91, 0.000001, "credits commit to the cent, half-up")
+	near(s.statistics.get_stat("run_earned_kr") - earned, 20.91, 0.000001, "income counts into run_earned_kr")
+	var before_spend: float = s.economy.balance
+	check(s.economy.spend(2.346, &"UPGRADE_STATION", &"t"), "a fractional cost can be paid")
+	near(before_spend - s.economy.balance, 2.35, 0.000001, "and is charged to the cent")
+	near(s.statistics.get_stat("run_earned_kr") - earned, 20.91, 0.000001, "spending is not counted as earnings")
+	check(s.economy.can_afford(s.economy.balance + 0.004), "a cost that rounds down to the balance is affordable")
+	check(not s.economy.can_afford(s.economy.balance + 0.006), "a cost that rounds above it is not")
 	check(s.economy.reconcile(), "ledger reconciles with the balance")
 	var s2: SimulationRoot = new_sim(31)
 	run_hours(s2, 3.0)
@@ -252,7 +260,8 @@ func _economy() -> void:
 	var sum: float = 0.0
 	for e: Dictionary in s2.economy.ledger:
 		sum += float(e["amount"])
-		check(float(e["amount"]) == roundf(float(e["amount"])), "ledger amounts are whole KR")
+		var c100: float = float(e["amount"]) * 100.0
+		check(absf(c100 - roundf(c100)) < 0.0001, "ledger amounts are whole cents")
 		check(EconomyManager.CATEGORIES.has(StringName(str(e["category"]))), "ledger category %s is an idle category" % e["category"])
 	near(sum, s2.economy.balance, 0.5, "ledger (incl. opening balance) sums to the balance")
 	check(s2.economy.balance >= 0.0, "balance never negative")

@@ -214,18 +214,22 @@ static func series_cost(base: float, growth: float, steps_done: int, n: int) -> 
 
 
 ## Jumlah level terbanyak yang terjangkau dengan `kr` (GDD idle 8.1), dibatasi
-## `room` (sisa batas level).
+## `room` (sisa batas level). Biaya dibandingkan setelah dibulatkan ke sen,
+## seperti yang ditagih EconomyManager.spend.
 static func max_affordable(base: float, growth: float, steps_done: int, kr: float, room: int) -> int:
 	if room <= 0 or kr <= 0.0:
 		return 0
 	var first: float = base * pow(growth, float(steps_done))
-	if first > kr + 0.0001:
+	if Money.round_cents(first) > kr + 0.0001:
 		return 0
 	var n: int = int(floor(log(1.0 + kr * (growth - 1.0) / first) / log(growth) + 1e-9))
-	n = clampi(n, 0, room)
-	# Penjaga pembulatan float: turunkan sampai benar-benar terjangkau.
-	while n > 0 and series_cost(base, growth, steps_done, n) > kr + 0.0001:
+	n = clampi(n, 1, room)
+	# Penjaga pembulatan: turunkan sampai benar-benar terjangkau, lalu naikkan
+	# bila pembulatan sen masih memberi ruang satu level lagi.
+	while n > 0 and Money.round_cents(series_cost(base, growth, steps_done, n)) > kr + 0.0001:
 		n -= 1
+	while n < room and Money.round_cents(series_cost(base, growth, steps_done, n + 1)) <= kr + 0.0001:
+		n += 1
 	return n
 
 
@@ -235,9 +239,9 @@ static func max_affordable(base: float, growth: float, steps_done: int, kr: floa
 static func buy_count(mode: StringName, base: float, growth: float, steps_done: int, kr: float, room: int) -> int:
 	match mode:
 		&"x1":
-			return 1 if room >= 1 and series_cost(base, growth, steps_done, 1) <= kr + 0.0001 else 0
+			return 1 if room >= 1 and Money.round_cents(series_cost(base, growth, steps_done, 1)) <= kr + 0.0001 else 0
 		&"x10":
-			return 10 if room >= 10 and series_cost(base, growth, steps_done, 10) <= kr + 0.0001 else 0
+			return 10 if room >= 10 and Money.round_cents(series_cost(base, growth, steps_done, 10)) <= kr + 0.0001 else 0
 	return max_affordable(base, growth, steps_done, kr, room)
 
 

@@ -14,7 +14,21 @@ static func t(key: String, params: Dictionary = {}) -> String:
 static func kr(v: float) -> String:
 	if is_nan(v):
 		return "? KR"
-	return "%s KR" % big(v)
+	return "%s KR" % money(v)
+
+
+## Jumlah uang (GDD idle 7.5): di bawah 100 KR satu desimal bila tidak bulat
+## ("5.8", "65.4"), karena transaksi idle memakai sen (Seksi 7.6); selebihnya
+## seperti big() ("9,850", "12.4K").
+static func money(v: float) -> String:
+	if is_nan(v) or is_inf(v):
+		return big(v)
+	if v < 0.0:
+		return "-" + money(-v)
+	var t: float = Money.round_half_up(v * 10.0) / 10.0
+	if t < 100.0 and not is_equal_approx(t, roundf(t)):
+		return "%.1f" % t
+	return big(v)
 
 
 static func kr_signed(v: float) -> String:

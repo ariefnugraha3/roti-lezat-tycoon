@@ -143,7 +143,7 @@ func promo_cost(id: StringName) -> float:
 	var p: Dictionary = promo(id)
 	if p.is_empty():
 		return -1.0
-	return maxf(1.0, Money.round_half_up(sim.idle_economy.rate(false) * float(p["cost_income_minutes"]) * 60.0))
+	return maxf(1.0, Money.round_cents(sim.idle_economy.rate(false) * float(p["cost_income_minutes"]) * 60.0))
 
 
 ## &"" bila promosi boleh dimulai; selain itu invalid, running, cooldown, kr.

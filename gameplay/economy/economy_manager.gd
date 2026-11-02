@@ -48,12 +48,13 @@ func open_run(amount: float) -> void:
 		post(amount, &"OTHER_ADJUSTMENT", &"opening_balance", {})
 
 
+## Terjangkau bila jumlah yang benar-benar ditagih (dibulatkan ke sen) muat.
 func can_afford(amount: float) -> bool:
-	return amount <= balance + 0.0001
+	return Money.round_cents(amount) <= balance + 0.0001
 
 
 ## Transaksi mentah. amount positif = pemasukan, negatif = pengeluaran.
-## Semua nilai di-commit dalam KR utuh (half-up).
+## Semua nilai di-commit sampai sen, half-up (GDD idle 7.6).
 func post(amount: float, category: StringName, source_id: StringName, metadata: Dictionary) -> bool:
 	if is_nan(amount):
 		GameLogger.error("ECONOMY", "rejected NaN transaction %s" % category)
@@ -61,7 +62,7 @@ func post(amount: float, category: StringName, source_id: StringName, metadata: 
 	if not CATEGORIES.has(category):
 		GameLogger.error("ECONOMY", "unknown ledger category %s" % category)
 		return false
-	var amt: float = Money.round_half_up(amount)
+	var amt: float = Money.round_cents(amount)
 	if overflowed:
 		# Setelah overflow, transaksi tidak lagi menambah nilai terbatas (v3.1 73).
 		return true
@@ -93,7 +94,7 @@ func post(amount: float, category: StringName, source_id: StringName, metadata: 
 
 ## Pengeluaran: ditolak bila saldo tidak cukup (v3.1 24.3).
 func spend(amount: float, category: StringName, source_id: StringName, metadata: Dictionary = {}) -> bool:
-	var amt: float = Money.round_half_up(amount)
+	var amt: float = Money.round_cents(amount)
 	if amt < 0.0 or not can_afford(amt):
 		return false
 	if amt == 0.0:

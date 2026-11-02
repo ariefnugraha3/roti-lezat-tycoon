@@ -1,8 +1,11 @@
 class_name Money
 extends RefCounted
-## Aturan uang & pembulatan kanonik (GDD 63.2, 73, 99.2).
+## Aturan uang & pembulatan kanonik (GDD idle 7.6; v3.1 73, 99.2).
 ##
-## Saldo disimpan float64; setiap transaksi normal di-commit dalam KR utuh.
+## Saldo disimpan float64. Di game idle setiap transaksi di-commit sampai sen
+## (0,01 KR, half-up), bukan KR utuh seperti v3.1 99.2 (keputusan maintainer
+## 2026-11-02): pendapatan awal hanya 1 KR/s dan harga roti beberapa KR, jadi
+## bonus persen kecil hilang bila dibulatkan ke KR utuh.
 
 
 ## Half-up: x.5 dibulatkan menjauhi nol untuk nilai positif.
@@ -10,6 +13,11 @@ static func round_half_up(v: float) -> float:
 	if v >= 0.0:
 		return floorf(v + 0.5)
 	return -floorf(-v + 0.5)
+
+
+## Sen terdekat, half-up: satuan setiap transaksi idle (GDD idle 7.6).
+static func round_cents(v: float) -> float:
+	return round_half_up(v * 100.0) / 100.0
 
 
 ## Bulatkan ke kelipatan `step` terdekat (half-up), dipakai batas harga 63.2.

@@ -158,7 +158,7 @@ func _automation() -> void:
 		packing_seen = packing_seen or (o.state == DeliveryOrder.PACKING and o.packer_id == PlayerTaskManager.PLAYER_ID)
 	check(packing_seen, "the owner packs it without a tap")
 	eq(o.state, DeliveryOrder.COMPLETED, "the driver collects it")
-	near(r.economy.balance - bal, Money.round_half_up(price * DataRegistry.idlef("rotifood.price_mult")) * 2.0, 1.0, "paid at the shelf price x rotifood.price_mult")
+	near(r.economy.balance - bal, Money.round_cents(price * DataRegistry.idlef("rotifood.price_mult")) * 2.0, 0.011, "paid at the shelf price x rotifood.price_mult")
 	eq(r.statistics.get_stat("total_rotifood_orders_completed"), 1.0, "counted as completed")
 	free_sim(r)
 

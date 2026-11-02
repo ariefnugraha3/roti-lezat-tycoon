@@ -43,8 +43,10 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 |---|---|---|---|---|
 | 7.1 | A new game opens with `start_kr` in one ledger entry | `economy/economy_manager.gd` `open_run` | ACC_IDLE_STARTING_CASH, SMOKE_001 | Tested |
 | 7.2 | Unit price = base × recipe level × shelf bonus × decor × franchise × boost | `simulation_root.gd` `recipe_price`/`unit_price` | ACC_IDLE_PRESTIGE, ACC_IDLE_DECOR_BONUS, ACC_IDLE_BOOSTS | Tested |
-| 7.4 | Ledger categories, rounding, reconciliation | `economy_manager.gd` | TEST_ECONOMY_001 | Tested |
-| 7.5 | Big numbers K…T, aa…; scientific option; finite to 1e300; overflow guard ends at ∞ | `core/tx.gd`, `economy_manager.gd` | ACC_IDLE_BIG_NUMBERS | Tested |
+| 7.1 | A new shop earns 1 KR/s without boosts | `data/catalog/recipes.json`, `ingredients.json`, `idle.json` | ACC_IDLE_START_RATE | Tested |
+| 7.4 | Ledger categories, reconciliation | `economy_manager.gd` | TEST_ECONOMY_001 | Tested |
+| 7.6 | Every transaction to the cent, half-up; affordability checks the charged amount | `core/money.gd` `round_cents`, `economy_manager.gd`, `upgrade_manager.gd` `max_affordable`/`buy_count` | TEST_ECONOMY_001, ACC_IDLE_START_RATE | Tested |
+| 7.5 | Big numbers K…T, aa…; money under 100 KR with one decimal; scientific option; finite to 1e300; overflow guard ends at ∞ | `core/tx.gd`, `economy_manager.gd` | ACC_IDLE_BIG_NUMBERS | Tested |
 | 8.1–8.9 | Cost formulas, ×1/×10/Max, caps, extra instances, opening stations (blocked with no free spot), unlocks, hires, locations, global upgrades | `economy/upgrade_manager.gd` | ACC_IDLE_COSTS, ACC_IDLE_SHOP_SHEET | Tested |
 | 8.2, 8.5 | Milestone multipliers; model evolution (nearest legal spot, or waiting) | `upgrade_manager.gd` `evolve` | ACC_IDLE_MILESTONES | Tested |
 | 8.7 | Moving location while open keeps every level | `simulation_root.gd` `upgrade_location` | TEST_UPGRADE_001, ACC_105_UPGRADE_WITH_DECOR | Tested |

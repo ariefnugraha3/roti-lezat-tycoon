@@ -13,8 +13,8 @@
 
 | Status | Bagian v3.1 | Catatan |
 |---|---|---|
-| **Tetap berlaku** | §4 art direction, §12.2–12.4 rendering & kontrol; §17 grid & navigasi; §28.2 aturan tumpukan modal; §29 input; §30 kamera (kecuali §30.1, lihat Seksi 12.0.4); §31 visual karakter; §32 perabot, interior, lingkungan, kehidupan jalan; §33 kebijakan audio; §34/§77/§106 mekanisme save atomik & 3 profil; §35 arsitektur dasar; §37 & §109 (termasuk §109.3 MeshBake) performa; §43/§127 teks Inggris; §44 aksesibilitas; §57/§60 template layout & dimensi perabot; §68 portal lantai; §72 Decoration Mode; §96–§101 kontrak teknis; §111 asal aset; §115–§117 cache, RNG, logging; §128–§130 toolchain, batas runtime, spesifikasi visual | Dipakai apa adanya kecuali disebut lain di dokumen ini |
-| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §12.5 orientasi & ponsel, §28.4 breakpoint, §30.1 kamera gameplay, §110 matriks resolusi (semuanya menjadi potret, Seksi 12.0); §8/§48 pemasaran; §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
+| **Tetap berlaku** | §4 art direction, §12.2–12.4 rendering & kontrol; §17 grid & navigasi; §28.2 aturan tumpukan modal; §29 input; §30 kamera (kecuali §30.1, lihat Seksi 12.0.4); §31 visual karakter; §32 perabot, interior, lingkungan, kehidupan jalan; §33 kebijakan audio; §34/§77/§106 mekanisme save atomik & 3 profil; §35 arsitektur dasar; §37 & §109 (termasuk §109.3 MeshBake) performa; §43/§127 teks Inggris; §44 aksesibilitas; §57/§60 template layout & dimensi perabot; §68 portal lantai; §72 Decoration Mode; §96–§101 kontrak teknis (kecuali pembulatan uang §99.2, lihat Seksi 7.6); §111 asal aset; §115–§117 cache, RNG, logging; §128–§130 toolchain, batas runtime, spesifikasi visual | Dipakai apa adanya kecuali disebut lain di dokumen ini |
+| **Diubah** | §1–§3 overview, loop, ekonomi; §5 equipment; §6/§64 lokasi; §7/§28.1 UI; §12.5 orientasi & ponsel, §28.4 breakpoint, §30.1 kamera gameplay, §110 matriks resolusi (semuanya menjadi potret, Seksi 12.0); §8/§48 pemasaran; §99.2 pembulatan uang (Seksi 7.6); §15 state & waktu; §16 karakter; §18 produksi; §19 roti & rak; §20 pelanggan; §21 kasir; §22 RotiFood; §23/§87 staf; §24 ekonomi & ledger; §26 cuaca; §27/§88 tutorial; §61/§63 resep & harga; §74/§92/§118 pencapaian; §89 menu utama; §90/§112/§113 lifecycle & offline | Aturan baru ada di seksi terkait dokumen ini |
 | **Dihapus** | §9/§25 rating toko & RotiFood Stars (Seksi 6.6); §18.7 & §62 oven gosong; §19.7–§19.9 kesegaran & roti basi; §20.3 manifest Hari 1–3; §11 & §46 Daily Summary; §15.4 Skip to Open; §15.5 Close Early; §71 kecepatan 2×/3× & Smart Speed; §21.4 kasir manual (popup + OK); §22.5 kemas manual & §22.10 tolak pesanan; §5.2, §24A, §70 pasar bahan & kurir; §5.1.2 beli/ganti/jual alat; §63.2 harga manual; §24.5/§86 utilitas; §24.6/§3.3 gaji; §3.0/§49 bangkrut, talangan, Mode Solo; §104 shutdown 18:00; Ask a Baker | Tidak ada mode lama. Kode dan tesnya ikut dihapus saat implementasi |
 
 ## **0.2 Konvensi**
@@ -269,7 +269,9 @@ Pengunjung lihat-lihat (v3.1 §20.12), kejutan (§31.9), kehidupan jalan, cuaca 
 | **KR** | Penjualan, RotiFood, penghasilan offline, hadiah | Upgrade, staf, lokasi, dekorasi, promosi | Ya, kembali ke `start_kr` |
 | **Bintang Waralaba** | Waralaba (Seksi 10) | Pengali pasif & perk (tidak dibelanjakan) | Tidak |
 
-`start_kr` = **50** (TUNABLE). Tidak ada mata uang premium.
+`start_kr` = **65** (TUNABLE, Seksi 20 no. 45). Tidak ada mata uang premium.
+
+Toko baru menghasilkan **1 KR/s** tanpa boost (keputusan maintainer 2026-11-02). Semua harga dan biaya KR di katalog diskalakan sama supaya tempo permainan tidak berubah (Seksi 20 no. 45).
 
 ## **7.2 Harga Jual per Roti**
 
@@ -292,9 +294,14 @@ Ledger v3.1 §24.1 tetap ada. Kategorinya kini: `SALE_PHYSICAL`, `SALE_ROTIFOOD`
 
 ## **7.5 Angka Besar**
 
+- Jumlah uang (`Tx.kr`, `Tx.money`, juga saldo di HUD) di bawah 100 KR ditulis dengan satu desimal bila tidak bulat ("5.8 KR", "65.4 KR"), karena transaksi memakai sen (Seksi 7.6). Selebihnya mengikuti `Tx.big`.
 - Format `Tx.big(n)`: < 10.000 ditulis utuh dengan pemisah ribuan ("9,850"). Di atasnya 3 angka penting dengan akhiran: K (10³), M (10⁶), B (10⁹), T (10¹²), lalu aa, ab, …, az, ba, … (10¹⁵, 10¹⁸, …). Contoh: "12.4K", "3.07M", "118aa".
 - Pengaturan "Number format: Short / Scientific" (scientific: "1.24e15").
 - Semua nilai uang memakai float 64-bit. Penjaga overflow v3.1 §73 tetap berlaku.
+
+## **7.6 Pembulatan**
+
+Setiap transaksi (penjualan, pesanan RotiFood, biaya bahan, upgrade, pembelian, penghasilan offline, promosi) di-commit sampai **sen (0,01 KR), half-up** (`Money.round_cents`). Harga per roti dibulatkan ke sen sebelum dikali jumlahnya. Biaya dianggap terjangkau bila jumlah yang benar-benar ditagih (setelah dibulatkan) muat di saldo. Aturan ini menggantikan "KR utuh" v3.1 §99.2 (keputusan maintainer 2026-11-02): dengan pendapatan awal 1 KR/s harga roti hanya beberapa KR, jadi bonus persen kecil (+1% harga per level rak, +2–4% dekorasi) akan hilang bila dibulatkan ke KR utuh.
 
 ---
 
@@ -857,6 +864,7 @@ Keputusan di bawah diambil untuk melengkapi rancangan dan **perlu dikonfirmasi m
 | 11 | Taplak sisi = gingham penuh + renda di tepi bingkai + ikon samar melayang dari `CozyBackdrop` | Gingham polos tanpa renda dan ikon, atau seluruh `CozyBackdrop` (latar krem dengan taplak hanya di bawah) |
 | 12 | HP yang dimiringkan tetap bisa main (bingkai kecil + petunjuk sekali), tanpa layar pemblokir | Layar pemblokir "Rotate your phone" versi potret |
 | 13 | Jendela desktop/editor dibuka 540 × 960 | Ukuran lain |
+| 14 | Toko baru menghasilkan **1 KR/s** tanpa boost; semua nilai KR diskalakan sama (Seksi 20 no. 45) dan transaksi dicatat sampai sen (Seksi 7.6). Keputusan maintainer 2026-11-02 | Sekitar 15 KR/s; KR utuh v3.1 §99.2 dengan harga yang dibulatkan |
 
 Pertanyaan terbuka lain: lisensi proyek (masih terbuka sejak v3.1).
 
@@ -912,4 +920,5 @@ Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincin
 | 42 | Reputasi di akhir permainan | Auto memilih laba per roti tertinggi (Seksi 4.2). Di Tier 5 itu bisa resep lambat yang tidak bisa dipasok dapur; KR/s tetap naik tajam, tetapi banyak pembeli kehabisan roti. Dulu reputasi karenanya turun sampai sekitar ★1; sejak rating dihapus (2026-11-01, Seksi 6.6) itu hanya berarti penjualan yang hilang. |
 | 43 | Melihat rak kosong | Pembeli yang mendapati semua rak kosong saat masuk (`checking_shelf`) berjalan ke tempat berdiri di depan atau samping rak terdekat, dengan aturan sel pengunjung lihat-lihat (v3.1 §20.12), bukan ke titik browsing. Dengan begitu beberapa pembeli bisa melihat bersamaan tanpa saling menunggu, dan titik browsing tetap bebas untuk pembeli yang membeli. Sel yang dituju pembeli lain tidak dipilih; tempat pengunjung lihat-lihat diabaikan karena merekalah yang minggir, jadi mereka tetap kosmetik. Ia menghadap rak dan menoleh ke sana kemari seperti pengunjung lihat-lihat. Bila tidak ada tempat di dekat rak mana pun, ia langsung pulang. Selama itu ia tetap memegang slot antreannya dan kesabarannya tidak berkurang. Setelah `customers.empty_shelf_look_seconds` ia memilih roti terhadap stok terbaru; bila masih kosong ia pulang dan dihitung `total_customers_left_no_purchase`. Ia hanya melihat sekali. Pembeli yang sudah di rak lalu kehabisan (direbut pembeli lain) tetap pulang langsung. Pemilik dan koki tidak memesan titik browsing, jadi pembeli yang sedang melihat tidak menghalangi pengisian rak. Tatapan ikut tersimpan dan berlanjut sama setelah load. |
 | 44 | Kedatangan setelah rating dihapus | Pemain biasa dulu mencapai ★5 dalam sekitar 10 menit, jadi kedatangannya ×1,6 hampir sepanjang permainan. Tanpa pengali itu bot macet di Tier 3 dan menjual toko di menit ke-60 dengan 9 bintang. `location.base_arrivals_per_hour` karena itu menjadi [23, 51, 67, 86, 112]: Tier 2–5 = nilai awal × 1,6; Tier 1 turun dari 24 ke 23, karena dengan 24 Tier 2 tercapai di 11,97 menit (target 12–18) dan Tier 1 yang lebih sepi juga berarti lebih sedikit pembeli mendapati rak kosong di awal. Tier 1 ≤ 20 jatuh ke "tebing": penghasilan Tier 1 tidak lagi menutup harga Tier 2 dalam 30 menit, sehingga bot tidak menabung dan Tier 2 baru tercapai di menit 27–30. Terukur (median seed 101/202/303, `ACC_IDLE_PACING`): penjualan pertama 0,4 menit, upgrade pertama 0, asisten pertama 4,1, resep kedua terjangkau 6,5, Tier 2 12,5, Tier 3 33,5, Tier 4 72,1, Tier 5 112,6, Waralaba pertama 113 (17 bintang), putaran ke-2 sampai Tier 5 dalam 47% waktu. |
+| 45 | Pendapatan awal 1 KR/s | Toko baru dulu menghasilkan 15,47 KR/s. Semua nilai KR katalog dibagi 15,47 (keputusan maintainer 2026-11-02, Seksi 7.1, 19 no. 14): harga jual resep dan harga bahan dibulatkan ke sen, biaya batch dihitung ulang dari harga bahan (laba per roti setiap resep bergeser < 0,13%, jadi urutan Auto tetap); `start_kr` 65; `station.*.cost_base` 1,94 / 2,59 / 3,23 / 3,88 (mixer, oven, rak, meja kasir); `station.open_cost` 9,70 / 12,93 / 12,93; `staff.hire_cost` [291, 6.460, 129K, 646K]; `staff.level_cost_base` 6,46; `location.upgrade_cost` [0, 28,4K, 323K, 1,03M, 1,68M]; `decor.price_mult_by_tier` [2,59, 12,9, 25,9, 45,2, 64,6]; `prestige.stars_divisor_kr` 16,2K; `perk_head_start` 323; `global_upgrades.cost_base` 129 / 323 / 32,32 / 64,64 / 129. Biaya level resep dan buka resep mengikuti harga dasar, jadi ikut terskala. Ambang pencapaian "Earn 1K / 1M / 1B / 1T KR" sengaja tidak diubah supaya namanya tetap benar; boost ×2 dari "1M" kini datang lebih lambat saat penghasilan sudah besar, sehingga Tier 4–5 sedikit lebih cepat. Terukur (median seed 101/202/303, `ACC_IDLE_PACING`): asisten pertama 4,1 menit, resep kedua terjangkau 6,5, Tier 2 12,5, Tier 3 34,1, Tier 4 63,8, Tier 5 105,7, Waralaba pertama 106, putaran ke-2 sampai Tier 5 dalam 54% waktu. |
 

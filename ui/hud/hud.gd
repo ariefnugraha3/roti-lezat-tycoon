@@ -313,7 +313,7 @@ func _process(delta: float) -> void:
 
 func _refresh_all() -> void:
 	_root.visible = not decoration_active
-	_kr.text = Tx.big(sim.economy.balance)
+	_kr.text = Tx.money(sim.economy.balance)
 	var rate: float = sim.income_rate()
 	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
 	_stars_chip.visible = sim.prestige.stars > 0

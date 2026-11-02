@@ -21,8 +21,8 @@
    "prep_duration_seconds": 0,
    "bake_duration_seconds": 15,
    "expired_duration_hours": 20,
-   "base_sell_price_kr": 90,
-   "batch_cost_kr": 340,
+   "base_sell_price_kr": 5.82,
+   "batch_cost_kr": 21.98,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -52,8 +52,8 @@
    "prep_duration_seconds": 0,
    "bake_duration_seconds": 16.5,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 150,
-   "batch_cost_kr": 500,
+   "base_sell_price_kr": 9.7,
+   "batch_cost_kr": 32.32,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -80,8 +80,8 @@
    "prep_duration_seconds": 0,
    "bake_duration_seconds": 10.5,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 65,
-   "batch_cost_kr": 220,
+   "base_sell_price_kr": 4.2,
+   "batch_cost_kr": 14.22,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -110,8 +110,8 @@
    "prep_duration_seconds": 3.375,
    "bake_duration_seconds": 11.25,
    "expired_duration_hours": 12,
-   "base_sell_price_kr": 240,
-   "batch_cost_kr": 670,
+   "base_sell_price_kr": 15.51,
+   "batch_cost_kr": 43.31,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -139,8 +139,8 @@
    "prep_duration_seconds": 3,
    "bake_duration_seconds": 10,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 220,
-   "batch_cost_kr": 670,
+   "base_sell_price_kr": 14.22,
+   "batch_cost_kr": 43.31,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -170,8 +170,8 @@
    "prep_duration_seconds": 3.75,
    "bake_duration_seconds": 12.5,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 270,
-   "batch_cost_kr": 780,
+   "base_sell_price_kr": 17.45,
+   "batch_cost_kr": 50.42,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -201,8 +201,8 @@
    "prep_duration_seconds": 4.125,
    "bake_duration_seconds": 13.75,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 210,
-   "batch_cost_kr": 580,
+   "base_sell_price_kr": 13.57,
+   "batch_cost_kr": 37.49,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -230,8 +230,8 @@
    "prep_duration_seconds": 4.5,
    "bake_duration_seconds": 15,
    "expired_duration_hours": 12,
-   "base_sell_price_kr": 215,
-   "batch_cost_kr": 220,
+   "base_sell_price_kr": 13.9,
+   "batch_cost_kr": 14.22,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -261,8 +261,8 @@
    "prep_duration_seconds": 9.375,
    "bake_duration_seconds": 16.875,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 400,
-   "batch_cost_kr": 690,
+   "base_sell_price_kr": 25.85,
+   "batch_cost_kr": 44.61,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -292,8 +292,8 @@
    "prep_duration_seconds": 8.75,
    "bake_duration_seconds": 15.75,
    "expired_duration_hours": 12,
-   "base_sell_price_kr": 375,
-   "batch_cost_kr": 630,
+   "base_sell_price_kr": 24.24,
+   "batch_cost_kr": 40.72,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -322,8 +322,8 @@
    "prep_duration_seconds": 10,
    "bake_duration_seconds": 18,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 450,
-   "batch_cost_kr": 740,
+   "base_sell_price_kr": 29.09,
+   "batch_cost_kr": 47.84,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -353,8 +353,8 @@
    "prep_duration_seconds": 10,
    "bake_duration_seconds": 18,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 440,
-   "batch_cost_kr": 820,
+   "base_sell_price_kr": 28.44,
+   "batch_cost_kr": 53.01,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -384,8 +384,8 @@
    "prep_duration_seconds": 8.125,
    "bake_duration_seconds": 14.625,
    "expired_duration_hours": 14,
-   "base_sell_price_kr": 260,
-   "batch_cost_kr": 750,
+   "base_sell_price_kr": 16.81,
+   "batch_cost_kr": 48.49,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -415,8 +415,8 @@
    "prep_duration_seconds": 13.5,
    "bake_duration_seconds": 20.25,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 700,
-   "batch_cost_kr": 1500,
+   "base_sell_price_kr": 45.25,
+   "batch_cost_kr": 96.96,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -444,8 +444,8 @@
    "prep_duration_seconds": 18,
    "bake_duration_seconds": 27,
    "expired_duration_hours": 30,
-   "base_sell_price_kr": 1100,
-   "batch_cost_kr": 470,
+   "base_sell_price_kr": 71.1,
+   "batch_cost_kr": 30.37,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -475,8 +475,8 @@
    "prep_duration_seconds": 15,
    "bake_duration_seconds": 22.5,
    "expired_duration_hours": 16,
-   "base_sell_price_kr": 750,
-   "batch_cost_kr": 1180,
+   "base_sell_price_kr": 48.48,
+   "batch_cost_kr": 76.27,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -506,8 +506,8 @@
    "prep_duration_seconds": 16.5,
    "bake_duration_seconds": 24.75,
    "expired_duration_hours": 14,
-   "base_sell_price_kr": 875,
-   "batch_cost_kr": 1800,
+   "base_sell_price_kr": 56.56,
+   "batch_cost_kr": 116.35,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -536,8 +536,8 @@
    "prep_duration_seconds": 14.25,
    "bake_duration_seconds": 21.375,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 625,
-   "batch_cost_kr": 1180,
+   "base_sell_price_kr": 40.4,
+   "batch_cost_kr": 76.27,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -567,8 +567,8 @@
    "prep_duration_seconds": 22.5,
    "bake_duration_seconds": 37.5,
    "expired_duration_hours": 6,
-   "base_sell_price_kr": 2750,
-   "batch_cost_kr": 2050,
+   "base_sell_price_kr": 177.75,
+   "batch_cost_kr": 132.51,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -597,8 +597,8 @@
    "prep_duration_seconds": 21,
    "bake_duration_seconds": 35,
    "expired_duration_hours": 10,
-   "base_sell_price_kr": 2000,
-   "batch_cost_kr": 1670,
+   "base_sell_price_kr": 129.27,
+   "batch_cost_kr": 107.93,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -629,8 +629,8 @@
    "prep_duration_seconds": 19.5,
    "bake_duration_seconds": 32.5,
    "expired_duration_hours": 8,
-   "base_sell_price_kr": 1250,
-   "batch_cost_kr": 2100,
+   "base_sell_price_kr": 80.8,
+   "batch_cost_kr": 135.74,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -660,8 +660,8 @@
    "prep_duration_seconds": 18,
    "bake_duration_seconds": 30,
    "expired_duration_hours": 6,
-   "base_sell_price_kr": 1125,
-   "batch_cost_kr": 1800,
+   "base_sell_price_kr": 72.72,
+   "batch_cost_kr": 116.35,
    "required_station_ids": [
     "mixer",
     "oven"
@@ -691,8 +691,8 @@
    "prep_duration_seconds": 27,
    "bake_duration_seconds": 45,
    "expired_duration_hours": 12,
-   "base_sell_price_kr": 4000,
-   "batch_cost_kr": 3450,
+   "base_sell_price_kr": 258.54,
+   "batch_cost_kr": 222.99,
    "required_station_ids": [
     "mixer",
     "oven"

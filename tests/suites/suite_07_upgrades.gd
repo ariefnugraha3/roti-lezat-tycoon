@@ -50,7 +50,7 @@ func _costs() -> void:
 	var bal: float = s.economy.balance
 	eq(s.upgrades.buy(&"station", oven.iid, &"x10"), 10, "x10 buys ten levels")
 	eq(s.upgrades.station_level(oven.iid), 11, "the oven is Lv 11")
-	near(bal - s.economy.balance, Money.round_half_up(UpgradeManager.series_cost(float(o["base"]), float(o["growth"]), 0, 10)), 1.0, "for the series cost")
+	near(bal - s.economy.balance, Money.round_cents(UpgradeManager.series_cost(float(o["base"]), float(o["growth"]), 0, 10)), 0.000001, "for the series cost, to the cent")
 	eq(str(s.economy.ledger[s.economy.ledger.size() - 1]["category"]), "UPGRADE_STATION", "booked as UPGRADE_STATION")
 	eq(s.upgrades.buy(&"station", oven.iid, &"max"), 14, "Max stops at the Tier 1 cap (Lv 25)")
 	eq(s.upgrades.station_level(oven.iid), 25, "Lv 25")

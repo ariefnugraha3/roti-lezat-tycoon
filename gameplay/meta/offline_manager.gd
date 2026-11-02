@@ -78,7 +78,7 @@ func thaw() -> Dictionary:
 ## efisiensi. Mengembalikan {amount, seconds}.
 func earnings_for(away: float) -> Dictionary:
 	var counted: float = clampf(away, 0.0, cap_seconds())
-	return {"amount": Money.round_half_up(maxf(rate_kr_per_s, 0.0) * counted * efficiency()), "seconds": counted}
+	return {"amount": Money.round_cents(maxf(rate_kr_per_s, 0.0) * counted * efficiency()), "seconds": counted}
 
 
 ## Hitung waktu sejak acuan terakhir (GDD idle 9.3, 9.4) lalu perbarui acuan.

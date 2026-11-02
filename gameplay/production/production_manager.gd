@@ -190,7 +190,7 @@ func create_job(recipe_id: StringName, batch: int, mixer: EquipmentInstance, tar
 	j.recipe_id = recipe_id
 	j.batch_multiplier = batch
 	j.quantity_output = r.batch_yield * batch
-	j.ingredient_cost_kr = Money.round_half_up(cost)
+	j.ingredient_cost_kr = Money.round_cents(cost)
 	j.mixer_id = mixer.iid
 	j.target_display = target_display
 	j.target_slot = target_slot

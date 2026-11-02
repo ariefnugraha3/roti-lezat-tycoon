@@ -10,7 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_ACHIEVEMENTS", "name": "idle 11.4 idle milestones (first sale, earn 1K-1T, tiers, Lv 100 station and recipe, all recipes, franchises, overflow) unlock once, grant their badge or decoration and a x2 income boost for 10 min, and survive the franchise", "fn": _achievements},
 		{"id": "ACC_IDLE_ONBOARDING", "name": "idle 13 onboarding steps appear once on their triggers (welcome, first sale, first upgrade, tap boost, hire, recipe, location, franchise), close themselves when done or by Got it, never hold the economy, are saved, and stop after Skip or with hints off", "fn": _onboarding},
 		{"id": "ACC_IDLE_BOOST_UI", "name": "idle 11, 12.1, 12.3 loading a profile on a new device day pours Pak Lurah's coffee with a toast; active boosts show their multiplier and time left under KR/s; the Upgrades sheet lists the promotions with their cost and starts them; the Decor shop shows each bonus; onboarding popups are Pak Lurah's and the upgrade hint pulses the oven chip", "fn": _ui},
-		{"id": "ACC_IDLE_BIG_NUMBERS", "name": "idle 7.5 big numbers: 9,850 / 12.4K / 3.07M / 1.00aa / 1.00ba and scientific 1.24e15, KR/s with three significant digits, huge balances and costs stay exact or finite through saves, and the overflow guard ends at infinity without NaN", "fn": _big},
+		{"id": "ACC_IDLE_BIG_NUMBERS", "name": "idle 7.5 big numbers: 9,850 / 12.4K / 3.07M / 1.00aa / 1.00ba and scientific 1.24e15, KR/s with three significant digits, money under 100 KR with one decimal, huge balances and costs stay exact or finite through saves, and the overflow guard ends at infinity without NaN", "fn": _big},
 	]
 
 
@@ -66,7 +66,7 @@ func _boosts() -> void:
 	var arr0: float = s.arrival_rate_per_hour(t)
 	var rf0: float = s.rotifood_rate_per_hour(t)
 	var flyer: Dictionary = BoostManager.promo(&"promo_flyer")
-	near(b.promo_cost(&"promo_flyer"), Money.round_half_up(s.idle_economy.rate(false) * float(flyer["cost_income_minutes"]) * 60.0), 1.0,
+	near(b.promo_cost(&"promo_flyer"), maxf(1.0, Money.round_cents(s.idle_economy.rate(false) * float(flyer["cost_income_minutes"]) * 60.0)), 0.000001,
 		"Flyers cost 3 minutes of KR/s")
 	var bal: float = s.economy.balance
 	var cost: float = b.promo_cost(&"promo_flyer")
@@ -338,6 +338,10 @@ func _big() -> void:
 	for r: Array in [[0.364, "0.36"], [4.25, "4.25"], [28.44, "28.4"], [150.0, "150"], [12400.0, "12.4K"]]:
 		eq(Tx.rate(float(r[0])), str(r[1]), "KR/s %s reads %s" % [r[0], r[1]])
 	eq(Tx.kr(3.07e6), "3.07M KR", "KR amounts use the same format")
+	# Uang di bawah 100 KR: satu desimal bila tidak bulat (GDD idle 7.5, 7.6).
+	for m: Array in [[5.82, "5.8 KR"], [65.0, "65 KR"], [65.46, "65.5 KR"], [0.04, "0 KR"], [99.94, "99.9 KR"], [99.96, "100 KR"], [250.4, "250 KR"], [28400.0, "28.4K KR"]]:
+		eq(Tx.kr(float(m[0])), str(m[1]), "%s KR reads %s" % [m[0], m[1]])
+	eq(Tx.money(1.94), "1.9", "the HUD balance uses the same rule")
 	# Save menyimpan saldo besar persis.
 	var s: SimulationRoot = _quiet(1107)
 	s.economy.balance = 1.2345678901234e100
