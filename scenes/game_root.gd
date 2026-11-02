@@ -518,23 +518,35 @@ func _on_settings_changed(key: String) -> void:
 # TUTORIAL & LOADING
 # ===========================================================================
 
-## Prompt onboarding (GDD idle 13): popup, sorotan, atau petunjuk HUD.
+## Prompt onboarding (GDD idle 13): popup, sorotan, panduan ketuk, atau
+## petunjuk HUD. Petunjuk yang punya sasaran memakai panduan redup yang membuat
+## sasarannya berkedip (`TutorialGuide`, keputusan maintainer 2026-11-02).
 func _show_tutorial_prompt() -> void:
 	if sim == null or hud == null:
 		return
 	var p: Dictionary = sim.tutorial.prompt
-	if p.is_empty():
-		hud.show_tutorial_hint("", &"")
-		return
+	var key: String = str(p.get("key", ""))
 	var style: String = str(p.get("style", "hint"))
+	var target: String = str(p.get("target", ""))
+	var guided: bool = style == "hint" and target != ""
+	var guide: TutorialGuide = modals.screen(&"tutorial_guide") as TutorialGuide
+	if guide != null and (not guided or guide.key != key):
+		modals.close_screen(guide)
+	if p.is_empty():
+		hud.show_tutorial_hint("")
+		return
 	if style == "popup" or style == "spotlight":
 		var screen: StringName = &"tutorial_spotlight" if style == "spotlight" else &"tutorial"
-		if _tutorial_modal_shown != str(p["key"]) or not modals.is_open(screen):
-			_tutorial_modal_shown = str(p["key"])
-			hud.show_tutorial_hint("", &"")
-			modals.open(screen, {"key": p["key"], "target": str(p.get("target", ""))})
+		if _tutorial_modal_shown != key or not modals.is_open(screen):
+			_tutorial_modal_shown = key
+			hud.show_tutorial_hint("")
+			modals.open(screen, {"key": key, "target": target})
+	elif guided:
+		hud.show_tutorial_hint("")
+		if not modals.is_open(&"tutorial_guide"):
+			modals.open(&"tutorial_guide", {"key": key, "target": target})
 	else:
-		hud.show_tutorial_hint(str(p["key"]), StringName(str(p.get("target", ""))))
+		hud.show_tutorial_hint(key)
 
 
 func _begin_loading(stage_key: String, progress_value: float) -> void:

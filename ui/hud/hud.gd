@@ -36,7 +36,6 @@ var _clock: Label = null
 var _weather_icon: IconCanvas = null
 var _boosts: HBoxContainer = null
 var _income_boost: PanelContainer = null
-var _pulsed_chip: Button = null
 var _promo_boost: PanelContainer = null
 var _tab_bar: HBoxContainer = null
 ## screen id -> Button
@@ -514,27 +513,12 @@ func _on_caption(key: String) -> void:
 	tw.tween_property(_caption, "modulate:a", 0.0, 0.4)
 
 
-## Petunjuk onboarding non-modal di atas bar tab (GDD idle 13). `target` =
-## tab yang dikelilingi cincin berdenyut.
-func show_tutorial_hint(key: String, target: StringName) -> void:
+## Petunjuk onboarding non-modal di atas bar tab untuk langkah tanpa sasaran
+## (GDD idle 13). Langkah yang meminta ketukan memakai `TutorialGuide`.
+func show_tutorial_hint(key: String) -> void:
 	_hint.visible = key != ""
 	if key != "":
 		_hint_label.text = Tx.t(key)
-	for id: Variant in _tabs.keys():
-		var b: Button = _tabs[id]
-		if key != "" and target == StringName("tab_" + String(id)):
-			TutorialPulse.attach(b, ProceduralUIFactory.RADIUS_PILL)
-		else:
-			TutorialPulse.detach(b)
-	# Chip level stasiun (onb_first_upgrade, GDD idle 13).
-	if _pulsed_chip != null and is_instance_valid(_pulsed_chip):
-		TutorialPulse.detach(_pulsed_chip)
-	_pulsed_chip = null
-	var t: String = String(target)
-	if key != "" and t.begins_with("chip_"):
-		_pulsed_chip = level_chips.chip(&"station", int(t.substr(5)))
-		if _pulsed_chip != null:
-			TutorialPulse.attach(_pulsed_chip, ProceduralUIFactory.RADIUS_PILL)
 
 
 func tutorial_hint() -> PanelContainer:

@@ -16,6 +16,7 @@ static func register_all(host: ModalHost) -> void:
 	host.register(&"pause", func() -> UIScreen: return PauseScreen.new())
 	host.register(&"tutorial", func() -> UIScreen: return TutorialModal.new())
 	host.register(&"tutorial_spotlight", func() -> UIScreen: return TutorialSpotlight.new())
+	host.register(&"tutorial_guide", func() -> UIScreen: return TutorialGuide.new())
 	host.register(&"upgrades", func() -> UIScreen: return UpgradesScreen.new())
 	host.register(&"menu", func() -> UIScreen: return MenuScreen.new())
 	host.register(&"shop", func() -> UIScreen: return ShopScreen.new())

@@ -63,6 +63,13 @@ func _location(parent: Control) -> void:
 	body.add_child(_move)
 
 
+## Tombol pindah lokasi bila bisa diketuk sekarang (panduan onboarding), atau null.
+func move_button() -> Button:
+	if _move == null or not is_instance_valid(_move) or _move.disabled or not _move.is_visible_in_tree():
+		return null
+	return _move
+
+
 func _confirm_move() -> void:
 	var nxt: LocationDefinition = sim.next_location()
 	if nxt == null:

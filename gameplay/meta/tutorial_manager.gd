@@ -42,8 +42,10 @@ func has_done(key: String) -> bool:
 
 
 ## Tampilkan langkah `key` sekali. `target` = sasaran sorotan HUD/dunia
-## (`cash`, `tab_<id>`, `chip_<iid>`, `station_<iid>`); `style` = hint
-## (petunjuk di atas bar tab), popup (sapaan Pak Lurah), atau spotlight.
+## (`cash`, `tab_<id>`, `chip_<iid>`, `station_<iid>`); `style` = hint, popup
+## (sapaan Pak Lurah), atau spotlight (penjelasan yang mem-pause). Hint dengan
+## sasaran tampil sebagai panduan redup yang membuat sasarannya berkedip
+## (`TutorialGuide`); hint tanpa sasaran di atas bar tab.
 func show_step(key: String, target: StringName = &"", style: String = "hint") -> void:
 	if done.has(key) or skipped:
 		return
@@ -69,9 +71,11 @@ func dismiss_key(key: String) -> void:
 		dismiss()
 
 
-## Peristiwa permainan yang bisa memicu langkah onboarding.
+## Peristiwa permainan yang bisa menyelesaikan langkah onboarding (mis.
+## waralaba, sebelum cabang baru dibangun).
 func on_event(_ev: StringName) -> void:
-	pass
+	if not skipped:
+		_auto_close()
 
 
 ## Pemicu GDD idle 13, diperiksa tiap CHECK_SECONDS. Hanya membaca state
@@ -96,7 +100,8 @@ func _check() -> void:
 		if oven != null and sim.upgrades.offer_count(sim.upgrades.offer(&"station", oven.iid), &"x1") > 0:
 			show_step("onb_first_upgrade", StringName("chip_%d" % oven.iid))
 	if not done.has("onb_tap_boost") and _any_upgrade():
-		show_step("onb_tap_boost")
+		var tap: int = _tap_target()
+		show_step("onb_tap_boost", StringName("station_%d" % tap) if tap >= 0 else &"")
 	if not done.has("onb_hire") and done.has("onb_first_sale"):
 		var cost: float = sim.staff.next_hire_cost()
 		if cost >= 0.0 and sim.staff.hired_count() == 0 and sim.economy.can_afford(cost):
@@ -119,16 +124,32 @@ func _auto_close() -> void:
 	var key: String = str(prompt.get("key", ""))
 	var finished: bool = false
 	match key:
-		"onb_first_upgrade", "onb_tap_boost":
-			finished = key == "onb_first_upgrade" and _any_upgrade()
+		"onb_first_upgrade":
+			finished = _any_upgrade()
+		"onb_tap_boost":
+			# Pemain baru saja mengetuk stasiun (arahan pemilik, GDD idle 5.1).
+			finished = sim.player.focus_active() and sim.player.focus_iid >= 0
 		"onb_hire":
 			finished = sim.staff.hired_count() > 0
 		"onb_recipe":
 			finished = sim.upgrades.unlocked_recipes().size() > 1
 		"onb_location":
 			finished = sim.world.location.tier > 1
+		"onb_franchise":
+			finished = sim.prestige.franchise_block() != &""
 	if finished:
 		dismiss()
+
+
+## Stasiun yang ditunjuk tip Semangat: oven yang sedang memanggang, mixer yang
+## sedang mengaduk, atau oven pertama; -1 bila tidak ada.
+func _tap_target() -> int:
+	for pair: Array in [[&"oven", ProductionJob.BAKING], [&"mixer", ProductionJob.MIXING]]:
+		for e: EquipmentInstance in sim.equipment.placed_list(pair[0]):
+			if e.job_id >= 0 and sim.production.job_stage(e.job_id) == pair[1]:
+				return e.iid
+	var oven: EquipmentInstance = _first(&"oven")
+	return oven.iid if oven != null else -1
 
 
 func _first(cat: StringName) -> EquipmentInstance:

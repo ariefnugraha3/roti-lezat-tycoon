@@ -70,6 +70,7 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 | 11.3 | Rain and holiday multipliers | `world/weather_manager.gd`, `data/catalog/weather.json` | ACC_IDLE_MODEL_MATCH (neutral weather), soaks | Implemented |
 | 11.4 | Idle milestones with badges and a ×2 boost; kept across franchises | `meta/achievement_manager.gd`, `data/catalog/achievements.json` | ACC_IDLE_ACHIEVEMENTS, ACC_72_BADGES | Tested |
 | 13 | Onboarding steps once on their triggers, never holding the economy | `meta/tutorial_manager.gd`, `game_root.gd` `_show_tutorial_prompt` | ACC_IDLE_ONBOARDING, ACC_IDLE_BOOST_UI | Tested |
+| 13 | A step that asks for a tap dims the screen except the target, which blinks; the hole follows to the button in the sheet or card; Not now; never pauses | `ui/screens/tutorial_guide.gd`, `ui/components/coach_marks.gd` | ACC_IDLE_TUTORIAL_GUIDE | Tested |
 | 1.4 | Pacing targets for a typical player (median of three SimBot seeds), franchise, second run ≤ 70% | `tests/sim_bot.gd`, `tests/pacing_tracker.gd`, `tools/idle_probe.tscn`, `data/catalog/idle.json` | ACC_IDLE_PACING (long) | Tested; measured times in idle GDD §20 no. 40 and, since the rating was removed, no. 44; the second recipe is measured as affordable (open decision 2) |
 
 ## Portrait UI (idle §12)

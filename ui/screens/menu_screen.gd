@@ -131,6 +131,16 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	_unlock_buttons[rid] = b
 
 
+## Tombol Unlock pertama yang bisa diketuk sekarang (panduan onboarding, GDD
+## idle 13), atau null.
+func unlock_button() -> Button:
+	for r: RecipeDefinition in DataRegistry.recipes():
+		var b: Button = _unlock_buttons.get(r.id)
+		if b != null and is_instance_valid(b) and not b.disabled and b.is_visible_in_tree():
+			return b
+	return null
+
+
 ## KR terus berubah: tombol Unlock dan level menyala begitu terjangkau.
 func tick_page() -> void:
 	for lb: BuyButtons in _level_rows:

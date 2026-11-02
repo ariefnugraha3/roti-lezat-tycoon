@@ -458,6 +458,7 @@ func franchise() -> int:
 	statistics.begin_run(world.location.id)
 	statistics.add(&"franchise_count", 1)
 	achievements.check_tier(world.location.tier)
+	tutorial.on_event(&"franchise")
 	_auto_cache = &""
 	_auto_cache_key = "-"
 	if not world.layout_valid():

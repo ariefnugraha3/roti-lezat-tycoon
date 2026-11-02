@@ -9,7 +9,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_DECOR_BONUS", "name": "idle 8.8, 10.5 every shop decoration gives its arrival/price/RotiFood bonus once per run, prices scale with the location tier, skins stay cosmetic; the franchise sends bonus decorations back to the inventory with the bonus off until bought again, while other decorations go back on the wall", "fn": _decor},
 		{"id": "ACC_IDLE_ACHIEVEMENTS", "name": "idle 11.4 idle milestones (first sale, earn 1K-1T, tiers, Lv 100 station and recipe, all recipes, franchises, overflow) unlock once, grant their badge or decoration and a x2 income boost for 10 min, and survive the franchise", "fn": _achievements},
 		{"id": "ACC_IDLE_ONBOARDING", "name": "idle 13 onboarding steps appear once on their triggers (welcome, first sale, first upgrade, tap boost, hire, recipe, location, franchise), close themselves when done or by Got it, never hold the economy, are saved, and stop after Skip or with hints off", "fn": _onboarding},
-		{"id": "ACC_IDLE_BOOST_UI", "name": "idle 11, 12.1, 12.3 loading a profile on a new device day pours Pak Lurah's coffee with a toast; active boosts show their multiplier and time left under KR/s; the Upgrades sheet lists the promotions with their cost and starts them; the Decor shop shows each bonus; onboarding popups are Pak Lurah's and the upgrade hint pulses the oven chip", "fn": _ui},
+		{"id": "ACC_IDLE_BOOST_UI", "name": "idle 11, 12.1, 12.3 loading a profile on a new device day pours Pak Lurah's coffee with a toast; active boosts show their multiplier and time left under KR/s; the Upgrades sheet lists the promotions with their cost and starts them; the Decor shop shows each bonus; and onboarding popups are Pak Lurah's", "fn": _ui},
+		{"id": "ACC_IDLE_TUTORIAL_GUIDE", "name": "idle 13 an onboarding step that asks for a tap dims the screen except what to tap and makes it blink; the shop keeps running; taps inside the hole reach the chip, tab, station or button, taps outside are held; the hole moves on to the button in the card or sheet that opens (scrolled into view); Not now, Back and finishing the step close it; it hides under a confirm", "fn": _guide},
 		{"id": "ACC_IDLE_BIG_NUMBERS", "name": "idle 7.5 big numbers: 9,850 / 12.4K / 3.07M / 1.00aa / 1.00ba and scientific 1.24e15, KR/s with three significant digits, money under 100 KR with one decimal, huge balances and costs stay exact or finite through saves, and the overflow guard ends at infinity without NaN", "fn": _big},
 	]
 
@@ -284,6 +285,17 @@ func _onboarding() -> void:
 	check(_key(s) != "onb_first_upgrade", "buying it closes the hint by itself")
 	check(tm.has_done("onb_tap_boost"), "and brings the tap tip")
 	check(tm.has_done("onb_hire"), "affording the first hire brings the Staff hint")
+	# Tip Semangat menunjuk stasiun yang bisa diketuk, dan menutup sendiri begitu
+	# pemain mengetuk stasiun.
+	while _key(s) != "" and _key(s) != "onb_tap_boost":
+		tm.dismiss()
+	eq(_key(s), "onb_tap_boost", "the tap tip takes its turn")
+	var tap_target: String = str(tm.prompt.get("target", ""))
+	var tap_iid: int = int(tap_target.trim_prefix("station_"))
+	check(tap_target.begins_with("station_") and s.equipment.get_inst(tap_iid) != null, "pointing at a station to tap (%s)" % tap_target)
+	s.player.tap_station(tap_iid)
+	run_for(s, 1.0)
+	check(_key(s) != "onb_tap_boost", "tapping a station closes it by itself")
 	s.debug_add_kr(1.0e7)
 	run_for(s, 1.0)
 	check(tm.has_done("onb_recipe"), "affording a recipe brings the Menu hint")
@@ -305,7 +317,8 @@ func _onboarding() -> void:
 	run_for(s, 1.0)
 	eq(_key(s), "onb_franchise", "franchising pays: the Franchise hint")
 	eq(str(tm.prompt.get("target", "")), "tab_franchise", "on the Franchise tab")
-	tm.dismiss()
+	check(s.franchise() > 0, "franchising")
+	check(_key(s) != "onb_franchise", "closes the Franchise hint at once, before the new branch is shown")
 	free_sim(s)
 	# Skip dan petunjuk mati.
 	var k2: SimulationRoot = new_sim(1105)
@@ -400,6 +413,227 @@ func _frames(n: int) -> void:
 		await runner.get_tree().process_frame
 
 
+## Panduan ketuk onboarding (GDD idle 13, keputusan maintainer 2026-11-02).
+func _guide() -> void:
+	var hints_before: bool = SettingsManager.get_bool("tutorial_hints")
+	var rm_before: Variant = SettingsManager.values.get("reduced_motion", false)
+	SettingsManager.set_value("tutorial_hints", true)
+	SettingsManager.values["reduced_motion"] = false
+	var game: GameRoot = await _boot("Guide Bakery")
+	var sim: SimulationRoot = game.sim
+	var tm: TutorialManager = sim.tutorial
+	game.playing = false
+	game.modals.close_all()
+	PauseManager.clear_all()
+	tm.prompt = {}
+	tm._queue.clear()
+	# Hanya langkah yang sedang diuji yang tampil.
+	for k: String in TutorialManager.STEPS:
+		tm.done[k] = true
+	sim.debug_add_kr(1000.0)
+	var oven: EquipmentInstance = sim.equipment.placed_list(&"oven")[0]
+	var chip: Button = game.hud.level_chips.chip(&"station", oven.iid)
+	# 1. Upgrade pertama: chip oven, lalu tombol ×1 di kartunya.
+	tm.done.erase("onb_first_upgrade")
+	tm.show_step("onb_first_upgrade", StringName("chip_%d" % oven.iid))
+	await _frames(3)
+	var guide: TutorialGuide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	if not check(guide != null and guide.marks() != null, "a step that asks for a tap opens the guide"):
+		await _guide_done(game, hints_before, rm_before)
+		return
+	var marks: CoachMarks = guide.marks()
+	check(not game.hud.tutorial_hint().visible, "instead of the hint above the tab bar")
+	eq(marks.text(), Tx.t("onb_first_upgrade"), "with the step's text")
+	eq(marks.skip_button().text, Tx.t("ui_tutorial_not_now"), "and a Not now button")
+	check(not marks.next_button().visible, "but no Next: the player taps the target")
+	check(guide.target_control() == chip, "the target is the oven's level chip")
+	check(marks.hole().grow(1.0).encloses(chip.get_global_rect()), "the hole frames the chip")
+	check(_dimmed_outside(marks), "everything else is dimmed")
+	# Berkedip: gelap, terang di tengah ketukan, gelap lagi; Reduced Motion diam.
+	marks._t = 0.0
+	near(marks.flash_alpha(), 0.0, 0.001, "the chip blinks: dark at the start of a beat")
+	marks._t = WorldView.BLINK_PERIOD * 0.5
+	check(marks.flash_alpha() >= 0.5, "bright half a beat later (%.2f)" % marks.flash_alpha())
+	SettingsManager.values["reduced_motion"] = true
+	var steady: float = marks.flash_alpha()
+	marks._t = WorldView.BLINK_PERIOD * 0.8
+	check(steady > 0.0 and is_equal_approx(marks.flash_alpha(), steady), "Reduced Motion: a steady glow")
+	SettingsManager.values["reduced_motion"] = false
+	# Toko tetap berjalan: tidak mem-pause dan ketukan dunia tetap hidup.
+	game.playing = true
+	await _frames(2)
+	check(not PauseManager.is_paused(), "the guide never pauses the shop")
+	check(game.commands.enabled, "and leaves world taps on")
+	game.playing = false
+	# Ketukan di luar lubang tertahan.
+	var staff_tab: Button = game.hud.tab_button(&"staff")
+	_tap(staff_tab.get_global_rect().get_center())
+	await _frames(2)
+	check(not game.modals.is_open(&"staff"), "a tap outside the hole is held")
+	# Ketukan di lubang sampai ke chip: kartunya terbuka, lubang pindah ke ×1.
+	_tap(chip.get_global_rect().get_center())
+	await _frames(3)
+	var card: UpgradeCard = game.modals.screen(&"upgrade_card") as UpgradeCard
+	check(card != null, "a tap in the hole reaches the chip and opens its card")
+	check(game.modals.top() == guide, "the guide stays above the card")
+	var x1: Button = card.buttons().button(&"x1") if card != null else null
+	check(x1 != null and guide.target_control() == x1, "the hole moves to the x1 button")
+	eq(marks.text(), Tx.t("onb_first_upgrade_step2"), "with the next instruction")
+	check(x1 != null and marks.hole().grow(1.0).encloses(x1.get_global_rect()), "framing it")
+	var lv: int = int(sim.upgrades.offer(&"station", oven.iid)["level"])
+	if x1 != null:
+		_tap(x1.get_global_rect().get_center())
+	await _frames(1)
+	eq(int(sim.upgrades.offer(&"station", oven.iid)["level"]), lv + 1, "tapping x1 buys the level")
+	tm._auto_close()
+	await _frames(2)
+	check(not game.modals.is_open(&"tutorial_guide"), "and the finished step closes the guide")
+	# 2. Semangat: stasiun di dunia berkedip; lembar yang menutupi dunia ditutup.
+	var iid: int = tm._tap_target()
+	tm.prompt = {}
+	tm._queue.clear()
+	tm.done.erase("onb_tap_boost")
+	tm.show_step("onb_tap_boost", StringName("station_%d" % iid))
+	await _frames(3)
+	guide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide != null, "the tap tip opens the guide")
+	check(not game.modals.is_open(&"upgrade_card"), "and closes the card so the station shows")
+	var node: Node3D = game.world.furniture.get(iid)
+	check(game.world.blink_target() == node and not game.world.blinking_meshes().is_empty(), "the station's model blinks")
+	if guide != null:
+		marks = guide.marks()
+		marks._t = WorldView.BLINK_PERIOD * 0.5
+		eq(marks.flash_alpha(), 0.0, "without a flat flash over the floor")
+		var body: Vector2 = game.world.camera_rig.world_to_screen(((game.world._aabbs[iid] as Dictionary)["aabb"] as AABB).get_center())
+		check(marks.hole().has_point(body), "the hole frames the station")
+		_tap(body)
+		await _frames(1)
+		eq(sim.player.focus_iid, iid, "a tap in the hole reaches the station")
+		tm._auto_close()
+		await _frames(2)
+		check(not game.modals.is_open(&"tutorial_guide"), "and the step closes")
+		check(game.world.blink_target() == null, "the blink stops with it")
+	# 3. Rekrut: tab Staff, lalu tombol Hire di lembarnya.
+	tm.done.erase("onb_hire")
+	tm.show_step("onb_hire", &"tab_staff")
+	await _frames(3)
+	guide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide != null and guide.target_control() == staff_tab, "the hire step points at the Staff tab")
+	_tap(staff_tab.get_global_rect().get_center())
+	await _frames(4)
+	var staff: StaffScreen = game.modals.screen(&"staff") as StaffScreen
+	check(staff != null, "a tap on the tab opens Staff")
+	var hire: Button = staff.hire_button(&"baker") if staff != null else null
+	check(hire != null and guide != null and guide.target_control() == hire, "the hole moves to a Kitchen Assistant's Hire button")
+	if hire != null:
+		var list: ScrollContainer = staff.find_child("StaffList", true, false).get_parent() as ScrollContainer
+		check(list.get_global_rect().grow(1.0).encloses(hire.get_global_rect()), "scrolled into view")
+		_tap(hire.get_global_rect().get_center())
+	await _frames(1)
+	eq(sim.staff.hired_count(), 1, "tapping it hires")
+	tm._auto_close()
+	await _frames(2)
+	check(not game.modals.is_open(&"tutorial_guide"), "and the step closes")
+	game.modals.close_all()
+	# 4. Resep: Menu, lalu Unlock yang tergulir ke pandangan; Not now menutup.
+	sim.debug_add_kr(1.0e5)
+	tm.done.erase("onb_recipe")
+	tm.show_step("onb_recipe", &"tab_menu")
+	await _frames(3)
+	guide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	_tap(game.hud.tab_button(&"menu").get_global_rect().get_center())
+	await _frames(6)
+	var menu: MenuScreen = game.modals.screen(&"menu") as MenuScreen
+	var unlock: Button = menu.unlock_button() if menu != null else null
+	check(unlock != null and guide != null and guide.target_control() == unlock, "Menu opens and the hole moves to Unlock")
+	if unlock != null and guide != null:
+		var ml: ScrollContainer = menu.find_child("MenuList", true, false).get_parent() as ScrollContainer
+		check(ml.get_global_rect().grow(1.0).encloses(unlock.get_global_rect()), "scrolled into view below the shelf slots")
+		check(guide.marks().hole().grow(1.0).encloses(unlock.get_global_rect()), "and framed")
+	if guide != null:
+		var later: Button = guide.marks().skip_button()
+		_tap(later.get_global_rect().get_center())
+		await _frames(2)
+	check(not game.modals.is_open(&"tutorial_guide"), "Not now closes the guide")
+	eq(tm.prompt, {}, "and the prompt")
+	check(game.modals.is_open(&"menu"), "leaving the sheet open")
+	eq(sim.upgrades.unlocked_recipes().size(), 1, "without unlocking anything")
+	game.modals.close_all()
+	# 5. Lapisan sistem di atasnya menyembunyikan panduan; Back menutupnya.
+	tm.done.erase("onb_location")
+	tm.show_step("onb_location", &"tab_shop")
+	await _frames(3)
+	guide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	game.modals.confirm("?", func() -> void: pass)
+	await _frames(2)
+	check(guide != null and not guide.visible, "a confirm on top hides the guide")
+	game.modals.close_id(&"confirm")
+	await _frames(2)
+	check(guide != null and guide.visible, "and it comes back after")
+	# Modal pemblokir (toko di-pause, ketukan dunia mati) juga menyembunyikannya.
+	game.modals.open(&"settings")
+	await _frames(2)
+	check(guide != null and not guide.visible, "so does a blocking screen under it")
+	game.modals.close_id(&"settings")
+	await _frames(2)
+	check(guide != null and guide.visible, "until it closes")
+	game.modals.back()
+	await _frames(2)
+	check(not game.modals.is_open(&"tutorial_guide") and tm.prompt.is_empty(), "Back closes it")
+	# Sasaran di bawah tepi daftar bergulir (layar pendek, teks 150%) digulir
+	# masuk dulu, dan lubangnya hanya bagian yang terlihat.
+	var sc := ScrollContainer.new()
+	sc.size = Vector2(300, 200)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var col := VBoxContainer.new()
+	sc.add_child(col)
+	for i in 10:
+		var filler := Control.new()
+		filler.custom_minimum_size = Vector2(10, 60)
+		col.add_child(filler)
+	var far := Button.new()
+	far.custom_minimum_size = Vector2(100, 50)
+	col.add_child(far)
+	runner.add_child(sc)
+	await _frames(2)
+	check(not sc.get_global_rect().intersects(far.get_global_rect()), "(a button below the fold)")
+	eq(TutorialGuide._visible_rect(far).get_area(), 0.0, "nothing of it is framed while hidden")
+	await _frames(2)
+	check(sc.get_global_rect().grow(1.0).encloses(far.get_global_rect()), "it is scrolled into view")
+	check(TutorialGuide._visible_rect(far).size.y > 49.0, "and framed whole")
+	sc.queue_free()
+	await _guide_done(game, hints_before, rm_before)
+
+
+## Semua layar di luar lubang tertutup lapisan redup yang menahan ketukan.
+func _dimmed_outside(marks: CoachMarks) -> bool:
+	var area: float = 0.0
+	for i in 4:
+		var d: ColorRect = marks.get_node("Dim%d" % i) as ColorRect
+		if d == null or d.mouse_filter != Control.MOUSE_FILTER_STOP or d.color.a < 0.4:
+			return false
+		area += d.size.x * d.size.y
+	var full: float = marks.size.x * marks.size.y
+	return absf(area + marks.hole().get_area() - full) < 2.0
+
+
+func _guide_done(game: GameRoot, hints_before: bool, rm_before: Variant) -> void:
+	SettingsManager.values["reduced_motion"] = rm_before
+	SettingsManager.set_value("tutorial_hints", hints_before)
+	await _finish(game)
+
+
+func _tap(pos: Vector2) -> void:
+	for pressed: bool in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = pressed
+		e.position = pos
+		e.global_position = pos
+		e.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		runner.get_viewport().push_input(e, true)
+
+
 func _toast(game: GameRoot, text: String) -> bool:
 	for c: Node in game.hud.find_child("Toasts", true, false).get_children():
 		if str(c.get_meta("text", "")) == text:
@@ -478,12 +712,6 @@ func _ui() -> void:
 	check(found and want.begins_with(Tx.t("ui_decor_bonus_arrival", {"percent": Tx.percent(float(plant.bonus["value"]))})), "its card shows the bonus and price")
 	game.modals.close_all()
 	await _frames(1)
-	# Petunjuk upgrade pertama berdenyut di chip oven.
-	var oven: EquipmentInstance = sim.equipment.placed_list(&"oven")[0]
-	game.hud.show_tutorial_hint("onb_first_upgrade", StringName("chip_%d" % oven.iid))
-	var oc: Button = game.hud.level_chips.chip(&"station", oven.iid)
-	check(oc != null and oc.get_node_or_null(TutorialPulse.NODE_NAME) is TutorialPulse, "the oven chip pulses")
-	game.hud.show_tutorial_hint("", &"")
 	BoostManager.date_override = ""
 	SettingsManager.set_value("tutorial_hints", hints_before)
 	await _finish(game)

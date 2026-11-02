@@ -72,6 +72,21 @@ func _hire_button(def: StaffDefinition) -> Button:
 	return b
 
 
+## Tombol Hire yang bisa diketuk sekarang, peran `role` lebih dulu (panduan
+## onboarding, GDD idle 13), atau null.
+func hire_button(role: StringName) -> Button:
+	var other: Button = null
+	for sid: Variant in _hire_buttons.keys():
+		var b: Button = _hire_buttons[sid]
+		if not is_instance_valid(b) or b.disabled or not b.is_visible_in_tree():
+			continue
+		if DataRegistry.staff(StringName(str(sid))).role_id == role:
+			return b
+		if other == null:
+			other = b
+	return other
+
+
 ## Detail staf: polaroid, bio, tugas perannya, kegiatannya sekarang, lalu
 ## rekrut atau level.
 func _detail(body: VBoxContainer, sid: StringName) -> void:

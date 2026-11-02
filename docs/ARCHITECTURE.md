@@ -272,9 +272,12 @@ are pruned. A new game starts at `clock.start_seconds`.
   sim-s it checks the triggers (first sale, an affordable oven upgrade, first upgrade,
   first hire, an affordable recipe, Tier 2 in reach, franchising available) and shows
   each step once as a Pak Lurah popup (`TutorialModal`), a `TutorialSpotlight` over HUD
-  panels or world models, or a hint above the tab bar with a pulsing tab or level chip
-  (`HUD.show_tutorial_hint`, `TutorialPulse`). Hints the player has carried out close
-  themselves. `WorldView.highlight` marks a world target (GDD 27.5): besides the gold
+  panels or world models (explains, pauses), or, for a step that asks for a tap, a
+  `TutorialGuide`: a non-blocking overlay whose `CoachMarks` dims everything but the
+  thing to tap and makes it blink, with the hole moving on from the tab or level chip to
+  the button in the sheet or card that opens (scrolled into view). A hint without a
+  target stays above the tab bar (`HUD.show_tutorial_hint`). Steps the player has
+  carried out close themselves. `WorldView.highlight` marks a world target (GDD 27.5): besides the gold
   floor ring, every mesh of the target model gets
   `ProceduralMeshFactory.flash_material()` as `material_overlay`, and `_update_blink`
   pulses its alpha each frame (steady with Reduced Motion) and re-applies it when the

@@ -7,8 +7,9 @@ extends Control
 ## Got it. Bagian yang disorot tetap bisa diketuk, bagian lain tertutup lapisan
 ## redup. Sasaran dicari ulang tiap frame, jadi tur tetap benar walau isi
 ## layarnya dibangun ulang atau sasarannya bergerak. Sasaran boleh Control atau
-## Rect2 di koordinat kanvas (mis. model di dunia, dari WorldView). Flat: warna
-## polos tanpa bayangan.
+## Rect2 di koordinat kanvas (mis. model di dunia, dari WorldView). Langkah
+## yang meminta ketukan (`flash`, TutorialGuide) membuat sasarannya berkedip
+## terang. Flat: warna polos tanpa bayangan.
 
 signal finished
 
@@ -20,9 +21,17 @@ const GAP: float = 14.0
 const EDGE: float = 12.0
 const CALLOUT_TEXT_W: float = 380.0
 const PERIOD: float = 0.9
+## Kilau kedip di atas sasaran yang harus diketuk (keputusan maintainer
+## 2026-11-02): ritmenya sama dengan kedip model di dunia
+## (`WorldView.blink_alpha`), alfanya dikali FLASH_ALPHA supaya tulisan tombol
+## tetap terbaca di puncak kedip.
+const FLASH_ALPHA: float = 0.75
+const FLASH_RADIUS: int = 16
 
 ## [{targets: Callable -> Array (Control atau Rect2), key: String, next: bool,
-##   enter: Callable (opsional, dipanggil saat langkah dimulai, mis. pindah tab)}]
+##   enter: Callable (opsional, dipanggil saat langkah dimulai, mis. pindah tab),
+##   flash: bool (opsional, sasaran berkedip), skip_key: String (opsional, teks
+##   tombol Skip)}]
 var _steps: Array[Dictionary] = []
 var _i: int = 0
 var _blockers: Array[ColorRect] = []
@@ -33,8 +42,11 @@ var _count: Label = null
 var _skip: Button = null
 var _next: Button = null
 var _hole: Rect2 = Rect2()
+## Sasaran tanpa jarak PAD (lokal), tempat kilau kedip digambar.
+var _target: Rect2 = Rect2()
 var _t: float = 0.0
 var _ring_box := StyleBoxFlat.new()
+var _flash_box := StyleBoxFlat.new()
 
 
 func _init() -> void:
@@ -84,6 +96,25 @@ func text() -> String:
 	return _text.text if _text != null else ""
 
 
+## Ganti teks penjelasan langkah ini (mis. panduan yang maju ke tombol
+## berikutnya di lembar yang baru terbuka).
+func set_text(key: String) -> void:
+	var t: String = Tx.t(key)
+	if _text == null or _text.text == t:
+		return
+	_text.text = t
+	_callout.reset_size()
+	_layout()
+
+
+## Alfa kilau kedip di atas sasaran saat ini; 0 bila langkah ini tidak berkedip
+## atau sasarannya tidak terlihat.
+func flash_alpha() -> float:
+	if _steps.is_empty() or not bool(_steps[_i].get("flash", false)) or not _target.has_area():
+		return 0.0
+	return WorldView.blink_alpha(_t, SettingsManager.reduced_motion()) * FLASH_ALPHA
+
+
 ## Langkah berikutnya; melewati langkah terakhir mengakhiri tur.
 func next_step() -> void:
 	if _i + 1 >= _steps.size():
@@ -121,6 +152,8 @@ func _build() -> void:
 	_ring_box.draw_center = false
 	_ring_box.set_border_width_all(RING_PX)
 	_ring_box.anti_aliasing = true
+	_flash_box.set_corner_radius_all(FLASH_RADIUS)
+	_flash_box.anti_aliasing = true
 	_callout = PanelContainer.new()
 	_callout.name = "Callout"
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.BUTTER_YELLOW, 20, true)
@@ -174,6 +207,8 @@ func _show_step() -> void:
 	# Satu langkah saja: tanpa nomor; Skip hanya bila tidak ada Got it.
 	_count.text = Tx.t("ui_tour_count", {"n": _i + 1, "total": _steps.size()}) if _steps.size() > 1 else ""
 	_skip.visible = _steps.size() > 1 or not has_next
+	_skip.text = Tx.t(str(s.get("skip_key", "ui_tour_skip")))
+	_t = 0.0
 	_next.visible = has_next
 	_next.text = Tx.t("ui_tutorial_got_it") if last else Tx.t("ui_tour_next")
 	_callout.reset_size()
@@ -186,7 +221,7 @@ func _process(delta: float) -> void:
 	_ring.queue_redraw()
 
 
-## Kotak gabungan sasaran langkah ini (lokal), diberi jarak PAD. Rect2 kosong
+## Kotak gabungan sasaran langkah ini (lokal), tanpa jarak PAD. Rect2 kosong
 ## bila tidak ada sasaran yang terlihat.
 func _target_rect() -> Rect2:
 	var r := Rect2()
@@ -207,7 +242,7 @@ func _target_rect() -> Rect2:
 			g = inv * ctl.get_global_rect()
 		r = g if not any else r.merge(g)
 		any = true
-	return r.grow(PAD) if any else Rect2()
+	return r if any else Rect2()
 
 
 func _layout() -> void:
@@ -215,7 +250,8 @@ func _layout() -> void:
 		return
 	var view := Rect2(Vector2.ZERO, size)
 	var target: Rect2 = _target_rect()
-	_hole = target.intersection(view) if target.has_area() else Rect2()
+	_target = target.intersection(view) if target.has_area() else Rect2()
+	_hole = target.grow(PAD).intersection(view) if target.has_area() else Rect2()
 	# Tepi di piksel utuh: sasaran dunia jatuh di pecahan piksel, dan lapisan
 	# redup yang bertemu di pecahan piksel menyisakan garis terang.
 	if _hole.has_area():
@@ -254,6 +290,10 @@ func _layout() -> void:
 func _draw_ring() -> void:
 	if not _hole.has_area():
 		return
+	var flash: float = flash_alpha()
+	if flash > 0.0:
+		_flash_box.bg_color = Color(Palette.FLOUR_WHITE, flash)
+		_ring.draw_style_box(_flash_box, _target)
 	var k: float = 0.5 if SettingsManager.reduced_motion() else 0.5 - 0.5 * cos(TAU * _t / PERIOD)
 	_ring_box.border_color = Color(Palette.HONEY, 1.0 - 0.45 * k)
 	_ring_box.set_corner_radius_all(16)

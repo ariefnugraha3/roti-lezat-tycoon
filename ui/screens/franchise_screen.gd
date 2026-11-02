@@ -76,6 +76,14 @@ func tick_page() -> void:
 	_sell.disabled = block != &""
 
 
+## Tombol Sell & Franchise bila bisa diketuk sekarang (panduan onboarding), atau
+## null.
+func sell_button() -> Button:
+	if _sell == null or not is_instance_valid(_sell) or _sell.disabled or not _sell.is_visible_in_tree():
+		return null
+	return _sell
+
+
 ## Teks berisi {stars}: kunci `_one` untuk tepat satu bintang.
 static func stars_text(key: String, n: int) -> String:
 	return Tx.t(key + "_one") if n == 1 else Tx.t(key, {"stars": Tx.big(float(n))})

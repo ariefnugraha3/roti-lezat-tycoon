@@ -39,10 +39,15 @@ func top() -> UIScreen:
 
 
 func is_open(id: StringName) -> bool:
+	return screen(id) != null
+
+
+## Layar terbuka dengan id ini (yang paling bawah bila ada beberapa), atau null.
+func screen(id: StringName) -> UIScreen:
 	for s: UIScreen in _stack:
 		if s.screen_id == id:
-			return true
-	return false
+			return s
+	return null
 
 
 ## Buka layar. Modal utama baru menutup modal utama lain (maks satu modal
@@ -101,6 +106,13 @@ func close_screen(s: UIScreen) -> void:
 func close_all() -> void:
 	for s: UIScreen in _stack.duplicate():
 		close_screen(s)
+
+
+## Tutup semua lembar bawah dan kartu upgrade (mis. supaya dunia terlihat).
+func close_sheets() -> void:
+	for s: UIScreen in _stack.duplicate():
+		if s.sheet:
+			close_screen(s)
 
 
 ## Tutup layar dengan id ini saja (mis. menu Pause), bukan seluruh tumpukan.
