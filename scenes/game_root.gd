@@ -308,6 +308,7 @@ func _process(delta: float) -> void:
 	if not playing or sim == null:
 		return
 	var was_paused: bool = PauseManager.is_paused()
+	_check_date_change(delta)
 	sim.advance(delta)
 	if not was_paused:
 		sim.statistics.add_play_time(delta)
@@ -491,6 +492,12 @@ func check_daily_gift() -> void:
 	if sim == null:
 		return
 	var today: String = BoostManager.today()
+	_date_seen = today
+	if sim.events.set_date(today) and world != null:
+		world.refresh_holiday()
+	for ev: Dictionary in sim.events.take_announcements():
+		EventBus.notify.emit(1, "ui_event_started", {"name": Tx.t(str(ev["id"])),
+			"percent": int(round((DataRegistry.idlef("events.featured_mult") - 1.0) * 100.0))}, &"party")
 	if sim.boosts.claim_gift(today):
 		EventBus.notify.emit(1, "ui_daily_gift", {"mult": Tx.mult(DataRegistry.idlef("boosts.daily_gift.mult")),
 			"minutes": int(DataRegistry.idlef("boosts.daily_gift.minutes"))}, &"heart")
@@ -503,6 +510,21 @@ func check_daily_gift() -> void:
 				wb.closed.connect(_open_calendar_after, CONNECT_ONE_SHOT)
 		else:
 			modals.open(&"calendar", {"date": today})
+
+
+## Tanggal perangkat yang terakhir diperiksa; berganti saat bermain (lewat
+## tengah malam) = kopi, cap, dan event hari baru (GDD idle 11.1, 21.3, 21.6).
+var _date_seen: String = ""
+var _date_check: float = 0.0
+
+
+func _check_date_change(delta: float) -> void:
+	_date_check -= delta
+	if _date_check > 0.0:
+		return
+	_date_check = 5.0
+	if BoostManager.today() != _date_seen:
+		check_daily_gift()
 
 
 func _open_calendar_after(_s: UIScreen) -> void:

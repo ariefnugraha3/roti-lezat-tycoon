@@ -95,10 +95,11 @@ func _target_for(t: Dictionary) -> float:
 
 
 ## Hadiah satu tujuan bila terbit sekarang: `goals.reward_income_minutes` menit
-## KR/s model tanpa boost, paling sedikit `goals.reward_min_kr`.
+## KR/s model tanpa boost, paling sedikit `goals.reward_min_kr`, dikali hadiah
+## event musiman (GDD idle 21.6).
 func reward_now() -> float:
-	var kr: float = sim.idle_economy.rate(false) * 60.0 * DataRegistry.idlef("goals.reward_income_minutes")
-	return nice(maxf(kr, DataRegistry.idlef("goals.reward_min_kr")))
+	var kr: float = sim.idle_economy.rate(false) * 60.0 * DataRegistry.idlef("goals.reward_income_minutes") * sim.events.goal_reward_mult()
+	return nice(maxf(kr, DataRegistry.idlef("goals.reward_min_kr") * sim.events.goal_reward_mult()))
 
 
 ## Angka bulat yang enak dibaca: dua angka penting (minimal bilangan bulat).

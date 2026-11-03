@@ -46,6 +46,9 @@ var _craving: Button = null
 var _craving_art: BreadArt = null
 var _craving_label: Label = null
 var _craving_lock: IconCanvas = null
+## Pil event musiman (GDD idle 21.6); mengetuknya membuka Menu.
+var _event: Button = null
+var _event_label: Label = null
 var _weather_icon: IconCanvas = null
 var _boosts: HBoxContainer = null
 var _income_boost: PanelContainer = null
@@ -287,6 +290,7 @@ func _build_top_center(frame: Control) -> void:
 	_clock.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	h.add_child(_clock)
 	_build_craving(col)
+	_build_event(col)
 
 
 ## Pil craving (GDD idle 21.1): gambar roti, "Craving: {recipe}", gembok bila
@@ -328,6 +332,40 @@ func _refresh_craving() -> void:
 	_craving_label.text = Tx.t("ui_craving_chip", {"recipe": Tx.recipe_name(rid)})
 	_craving_lock.visible = not sim.upgrades.is_unlocked(rid)
 	_craving.custom_minimum_size = Vector2(_craving_label.get_combined_minimum_size().x + 34.0 + 18.0 + 52.0, 48.0)
+
+
+## Pil event musiman: ikon pesta dan "{event} · until {date}". Dibuat sekali.
+func _build_event(col: Control) -> void:
+	_event = ProceduralUIFactory.button("", "soft")
+	_event.name = "Event"
+	_event.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var h := HBoxContainer.new()
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 6)
+	_event.add_child(h)
+	h.add_child(ProceduralUIFactory.icon("party", 24, Palette.STRAWBERRY))
+	_event_label = ProceduralUIFactory.label("", 14, Palette.UI_WOOD_DEEP)
+	_event_label.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	h.add_child(_event_label)
+	_event.pressed.connect(func() -> void: open_tab(&"menu"))
+	_event.visible = false
+	col.add_child(_event)
+
+
+func _refresh_event() -> void:
+	var on: bool = not sim.events.active().is_empty()
+	_event.visible = on
+	if not on:
+		return
+	_event_label.text = Tx.t("ui_event_chip", {"name": sim.events.names(), "date": Tx.short_date(sim.events.last_end())})
+	_event.custom_minimum_size = Vector2(_event_label.get_combined_minimum_size().x + 24.0 + 52.0, 48.0)
+
+
+## Pil event (untuk tes).
+func event_chip() -> Button:
+	return _event
 
 
 ## Pil craving (untuk tes).
@@ -511,6 +549,7 @@ func _refresh_all() -> void:
 	_stars.text = Tx.big(float(sim.prestige.stars))
 	_refresh_boosts()
 	_refresh_craving()
+	_refresh_event()
 	_refresh_goals()
 	_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
 	_weather_icon.configure("rain" if sim.weather.is_rain() else ("moon" if sim.time.is_night() else "sun"), 22,

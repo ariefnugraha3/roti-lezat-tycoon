@@ -12,6 +12,10 @@ extends RefCounted
 ## tidak pernah menutupi lantai (geser layarnya selalu ke +x, GDD 32.5).
 
 const THEMES: int = 3
+## Semua tema (0-2 libur in-game bergiliran, 3-8 event musiman, GDD idle 21.6):
+## 3 Imlek merah-emas berlampion, 4 musim dingin merah-hijau-putih berbola hias,
+## 5 Sweetheart merah muda, 6 musim semi bunga, 7 piknik musim panas, 8 panen.
+const ALL_THEMES: int = 9
 const PENNANT_W: float = 0.13
 const PENNANT_H: float = 0.15
 const PENNANT_STEP: float = 0.17
@@ -33,6 +37,10 @@ static func theme_for(day: int) -> int:
 	return posmod(int(floor(float(day - start) / float(period))), THEMES)
 
 
+static func has_theme(theme: int) -> bool:
+	return theme >= 0 and theme < ALL_THEMES
+
+
 static func _colors(theme: int) -> Array[Color]:
 	var out: Array[Color] = []
 	match theme:
@@ -40,6 +48,18 @@ static func _colors(theme: int) -> Array[Color]:
 			out = [Palette.SIGN_RED, Palette.FLOUR_WHITE]
 		1:
 			out = [Palette.PASTEL_STRAWBERRY, Palette.BUTTER_YELLOW, Palette.PASTEL_MINT, Palette.PASTEL_PERIWINKLE]
+		3:
+			out = [Palette.SIGN_RED, Palette.GOLD_STAR]
+		4:
+			out = [Palette.SIGN_RED, Palette.FLOUR_WHITE, Palette.LEAF_DEEP]
+		5:
+			out = [Palette.PASTEL_STRAWBERRY, Palette.FLOUR_WHITE, Palette.STRAWBERRY]
+		6:
+			out = [Palette.BLOSSOM, Palette.FLOUR_WHITE, Palette.PASTEL_MINT]
+		7:
+			out = [Palette.HOUSE_SKY, Palette.BUTTER_YELLOW, Palette.PASTEL_STRAWBERRY]
+		8:
+			out = [Palette.APRON_ORANGE_PASTEL, Palette.CARAMEL, Palette.GOLD_STAR]
 		_:
 			out = [Palette.MATCHA, Palette.BUTTER_YELLOW]
 	return out
@@ -101,13 +121,17 @@ static func _string(mb: MeshBuilder, a: Vector3, b: Vector3, n: Vector3, theme: 
 		var p1: Vector3 = mid + dir * PENNANT_W * 0.5
 		var tip: Vector3 = mid + Vector3(0.0, -PENNANT_H, 0.0)
 		mb.triangle(p0, p1, tip, n, colors[k % colors.size()])
-		if theme != 0 and k % 4 == 2:
+		if theme in [1, 2, 3, 4] and k % 4 == 2:
 			_ornament(mb, mid + Vector3(0.0, -PENNANT_H - 0.07, 0.0) + n * 0.03, theme)
 
 
-## Lampion merah bertutup emas (tema 1), atau ketupat anyaman hijau (tema 2).
+## Lampion merah bertutup emas (tema 1 dan 3), bola hias (tema 4), atau ketupat
+## anyaman hijau (tema 2).
 static func _ornament(mb: MeshBuilder, p: Vector3, theme: int) -> void:
-	if theme == 1:
+	if theme == 4:
+		mb.ellipsoid(Transform3D(Basis.IDENTITY, p), Vector3(0.05, 0.05, 0.05), Palette.SIGN_RED if posmod(int(round((p.x + p.z) * 5.0)), 2) == 0 else Palette.GOLD_STAR, 8, 4)
+		mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0.0, 0.055, 0.0)), 0.02, 0.015, 0.015, Palette.BRASS, 6)
+	elif theme == 1 or theme == 3:
 		mb.ellipsoid(Transform3D(Basis.IDENTITY, p), Vector3(0.055, 0.065, 0.055), Palette.SIGN_RED, 8, 4)
 		mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0.0, 0.068, 0.0)), 0.02, 0.03, 0.03, Palette.BRASS, 6)
 		mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0.0, -0.068, 0.0)), 0.02, 0.03, 0.03, Palette.BRASS, 6)

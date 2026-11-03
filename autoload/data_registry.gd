@@ -1135,6 +1135,33 @@ func _validate_idle() -> void:
 					_err("idle goal %s needs minutes > 0" % tid)
 			else:
 				_err("idle goal %s unknown kind %s" % [tid, kind])
+	# Event musiman (GDD idle 21.6).
+	if not (_idle_num("events.featured_mult") >= 1.0) or not (_idle_num("events.goal_reward_mult") >= 1.0):
+		_err("idle events multipliers must be >= 1")
+	var ev_ids: Dictionary = {}
+	for ex: Variant in (_idle.get("events", {}) as Dictionary).get("list", []):
+		var ev: Dictionary = ex if ex is Dictionary else {}
+		var eid: String = str(ev.get("id", ""))
+		if eid == "" or ev_ids.has(eid):
+			_err("idle event id %s is empty or repeated" % eid)
+		ev_ids[eid] = true
+		_check_text(StringName(eid), "event")
+		if not HolidayFactory.has_theme(int(ev.get("theme", -1))):
+			_err("idle event %s unknown theme" % eid)
+		var feat: Array = ev.get("featured", []) if ev.get("featured") is Array else []
+		if feat.is_empty():
+			_err("idle event %s needs featured recipes" % eid)
+		for fr: Variant in feat:
+			if recipe(StringName(str(fr))) == null:
+				_err("idle event %s featured %s is not a recipe" % [eid, fr])
+		if ev.has("dates"):
+			for dv: Variant in ev["dates"]:
+				if EventManager.day_number(str(dv)) < 0:
+					_err("idle event %s bad date %s" % [eid, dv])
+			if int(ev.get("before", -1)) < 0 or int(ev.get("after", -1)) < 0:
+				_err("idle event %s needs before/after days" % eid)
+		elif EventManager.day_number("2031-" + str(ev.get("from", ""))) < 0 or EventManager.day_number("2031-" + str(ev.get("to", ""))) < 0:
+			_err("idle event %s needs from/to as MM-DD" % eid)
 	if not (_idle_num("calendar.boost_mult") > 1.0) or not (_idle_num("calendar.min_kr") > 0.0):
 		_err("idle calendar needs boost_mult > 1 and min_kr > 0")
 	var cr: Variant = (_idle.get("calendar", {}) as Dictionary).get("rewards")

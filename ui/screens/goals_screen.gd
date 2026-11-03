@@ -48,6 +48,14 @@ func build_page(body: VBoxContainer) -> void:
 	_stamp_btn.pressed.connect(_open_calendar)
 	v.add_child(_stamp_btn)
 	section(list, Tx.t("ui_goals_today"))
+	if not sim.events.active().is_empty():
+		var banner: PanelContainer = UISheet.card(list)
+		banner.name = "EventBanner"
+		banner.add_theme_stylebox_override("panel", ProceduralUIFactory.panel(Palette.PASTEL_PERIWINKLE.lightened(0.55), 18, false))
+		var bh: HBoxContainer = hbox(banner, 10)
+		bh.add_child(ProceduralUIFactory.icon("party", 28, Palette.APRON_NAVY))
+		var bl: Label = lbl(bh, Tx.t("ui_event_goals", {"name": sim.events.names()}), 15, Palette.APRON_NAVY, true)
+		bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not sim.goals.started():
 		var wait: Label = lbl(UISheet.card(list), Tx.t("ui_goals_first_day", {"day": DataRegistry.idlei("goals.first_day")}), 15, Palette.UI_WOOD_DEEP, true)
 		wait.name = "FirstDay"

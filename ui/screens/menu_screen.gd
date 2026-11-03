@@ -75,6 +75,14 @@ func _craving_card(parent: Control) -> void:
 	var fav: Label = lbl(v, Tx.t("ui_favorite_card", {"recipes": ", ".join(names),
 		"percent": int(round((DataRegistry.idlef("craving.favorite_mult") - 1.0) * 100.0))}), 14, Palette.MATCHA_DEEP, true)
 	fav.name = "Favorites"
+	# Event musiman (GDD idle 21.6).
+	if not sim.events.active().is_empty():
+		var feat: PackedStringArray = PackedStringArray()
+		for fid: StringName in sim.events.featured():
+			feat.append(Tx.recipe_name(fid))
+		var ev: Label = lbl(v, Tx.t("ui_event_card", {"name": sim.events.names(), "date": Tx.short_date(sim.events.last_end()),
+			"recipes": ", ".join(feat), "percent": int(round((DataRegistry.idlef("events.featured_mult") - 1.0) * 100.0))}), 14, Palette.APRON_NAVY, true)
+		ev.name = "EventLine"
 
 
 ## Pil "Craving" dan "Local favorite" di bawah teks baris resep `rid`.
@@ -86,9 +94,17 @@ func _tags(h: HBoxContainer, rid: StringName) -> void:
 	tags.name = "Tags"
 	tags.add_theme_constant_override("separation", 6)
 	if rid == sim.cravings.today():
-		tags.add_child(ProceduralUIFactory.pill("star", Tx.t("ui_craving_pill"), Palette.HONEY_SOFT, Palette.HONEY_DEEP, 13))
+		var cp: PanelContainer = ProceduralUIFactory.pill("star", Tx.t("ui_craving_pill"), Palette.HONEY_SOFT, Palette.HONEY_DEEP, 13)
+		cp.name = "CravingPill"
+		tags.add_child(cp)
 	if sim.cravings.is_favorite(rid):
-		tags.add_child(ProceduralUIFactory.pill("heart", Tx.t("ui_favorite_pill"), Palette.MATCHA_SOFT, Palette.MATCHA_DEEP, 13))
+		var fp: PanelContainer = ProceduralUIFactory.pill("heart", Tx.t("ui_favorite_pill"), Palette.MATCHA_SOFT, Palette.MATCHA_DEEP, 13)
+		fp.name = "FavoritePill"
+		tags.add_child(fp)
+	if sim.events.is_featured(rid):
+		var ep: PanelContainer = ProceduralUIFactory.pill("party", Tx.t("ui_event_pill"), Palette.PASTEL_PERIWINKLE.lightened(0.45), Palette.APRON_NAVY, 13)
+		ep.name = "EventPill"
+		tags.add_child(ep)
 	if tags.get_child_count() > 0:
 		text_col.add_child(tags)
 	else:

@@ -137,6 +137,30 @@
    {"id": "goal_taps", "stat": "semangat_taps", "kind": "fixed", "by_tier": [15, 15, 20, 20, 25]}
   ]
  },
+ "events": {
+  "_gdd": "21.6",
+  "_doc": "Device-date events. Fixed windows use from/to MM-DD (may wrap the new year); lunar events list one date per year (Lunar New Year confirmed; Lebaran dates are estimates, the window absorbs a day either way) with days before/after. theme = HolidayFactory colour theme.",
+  "featured_mult": 1.25,
+  "goal_reward_mult": 2.0,
+  "list": [
+   {"id": "event_lunar_new_year", "dates": ["2027-02-06", "2028-01-26", "2029-02-13", "2030-02-03", "2031-01-23"], "before": 2, "after": 5, "theme": 3,
+    "featured": ["recipe_sugar_donut", "recipe_danish_cheese", "recipe_truffle_bun"]},
+   {"id": "event_sweetheart", "from": "02-07", "to": "02-14", "theme": 5,
+    "featured": ["recipe_strawberry_donut", "recipe_pain_au_chocolat", "recipe_premium_cream_cheese_danish"]},
+   {"id": "event_lebaran", "dates": ["2027-03-10", "2028-02-26", "2029-02-14", "2030-02-05"], "before": 4, "after": 4, "theme": 2,
+    "featured": ["recipe_sweet_cheese_bread", "recipe_milk_pullapart", "recipe_luxury_almond_croissant"]},
+   {"id": "event_spring", "from": "03-21", "to": "04-04", "theme": 6,
+    "featured": ["recipe_plain_loaf", "recipe_classic_croissant", "recipe_matcha_brioche"]},
+   {"id": "event_summer", "from": "07-01", "to": "07-14", "theme": 7,
+    "featured": ["recipe_sausage_roll", "recipe_classic_baguette", "recipe_matcha_mille_crepes"]},
+   {"id": "event_merdeka", "from": "08-10", "to": "08-20", "theme": 0,
+    "featured": ["recipe_plain_fried_bread", "recipe_chocolate_bread", "recipe_golden_artisan"]},
+   {"id": "event_harvest", "from": "10-18", "to": "10-31", "theme": 8,
+    "featured": ["recipe_plain_loaf", "recipe_cinnamon_roll", "recipe_whole_wheat_sourdough"]},
+   {"id": "event_winter", "from": "12-18", "to": "01-02", "theme": 4,
+    "featured": ["recipe_chocolate_bread", "recipe_gourmet_brioche", "recipe_almond_artisan_croissant"]}
+  ]
+ },
  "calendar": {
   "_gdd": "21.3",
   "boost_mult": 2.0,

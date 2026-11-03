@@ -44,6 +44,7 @@ var boosts: BoostManager
 var cravings: CravingManager
 var goals: GoalManager
 var calendar: CalendarManager
+var events: EventManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Crumbtown Bakery"
@@ -89,6 +90,7 @@ func _init() -> void:
 	cravings = _add(CravingManager.new(), "CravingManager")
 	goals = _add(GoalManager.new(), "GoalManager")
 	calendar = _add(CalendarManager.new(), "CalendarManager")
+	events = _add(EventManager.new(), "EventManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -271,13 +273,14 @@ func recipe_price(recipe_id: StringName, live: bool = true) -> float:
 	return p * boost_income_mult() if live else p
 
 
-## Harga biasa per roti: harga dasar × level resep × selera lingkungan ×
-## dekorasi × waralaba, tanpa boost dan craving.
+## Harga biasa per roti: harga dasar × level resep × selera lingkungan × roti
+## unggulan event × dekorasi × waralaba, tanpa boost dan craving.
 func plain_price(recipe_id: StringName) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * decoration.bonus_mult(&"price") * prestige.income_mult()
+	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * events.featured_mult(recipe_id) \
+		* decoration.bonus_mult(&"price") * prestige.income_mult()
 
 
 ## Harga biasa roti termahal yang bisa dijual sekarang (terbuka, alatnya ada).
@@ -619,6 +622,7 @@ func capture_save() -> Dictionary:
 		"cravings": cravings.capture(),
 		"goals": goals.capture(),
 		"calendar": calendar.capture(),
+		"events": events.capture(),
 		"rng_states": rng.capture(),
 	}
 
@@ -673,6 +677,7 @@ func load_from_save(d: Dictionary) -> void:
 	cravings.restore(d.get("cravings", {}))
 	cravings.ensure_today()
 	calendar.restore(d.get("calendar", {}))
+	events.restore(d.get("events", {}))
 	goals.restore(d.get("goals", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).

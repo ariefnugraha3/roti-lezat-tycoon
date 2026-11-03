@@ -1188,6 +1188,10 @@ static func toast(parent: CanvasLayer, text: String, icon_name: String) -> void:
 ## Kartu toast (GDD 131): pil krem berbibir dengan lencana ikon bundar di kiri.
 ## Prioritas 0 (kritis) memakai lencana stroberi dan tepi merah; prioritas 1
 ## lencana madu; sisanya lencana krem.
+## Lebar teks toast paling besar sebelum dibungkus (px logis).
+const TOAST_TEXT_MAX_W: float = 540.0
+
+
 static func toast_card(text: String, icon_name: String, priority: int) -> PanelContainer:
 	var box: PanelContainer = PanelContainer.new()
 	box.name = "Toast"
@@ -1213,6 +1217,10 @@ static func toast_card(text: String, icon_name: String, priority: int) -> PanelC
 		row.add_child(badge(icon_name, face, tint, 36))
 	var l: Label = label(text, 17, Palette.UI_WOOD_DEEP)
 	l.add_theme_font_override("font", display_font())
+	# Teks panjang dibungkus supaya toast tetap di dalam bingkai 720 px.
+	if _text_width(text, 17, true) > TOAST_TEXT_MAX_W:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = TOAST_TEXT_MAX_W
 	row.add_child(l)
 	box.set_meta("label", l)
 	return box

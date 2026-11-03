@@ -1206,15 +1206,20 @@ func _apply_weather() -> void:
 
 
 ## Hiasan hari libur (GDD 32.10): dipasang ulang setiap dunia dirakit dan setiap
-## hari berganti (cuaca dan hari libur sama-sama berganti pukul 05:00).
+## hari berganti (cuaca dan hari libur sama-sama berganti pukul 05:00). Event
+## musiman (GDD idle 21.6) memasang hiasan warna event-nya, mendahului libur.
 func _apply_holiday() -> void:
 	for n: Node3D in _holiday_nodes:
 		if is_instance_valid(n):
 			n.queue_free()
 	_holiday_nodes.clear()
-	if not sim.weather.holiday_today():
+	var theme: int = -1
+	if not sim.events.active().is_empty():
+		theme = int(sim.events.active()[0].get("theme", 0))
+	elif sim.weather.holiday_today():
+		theme = HolidayFactory.theme_for(sim.time.day)
+	if theme < 0:
 		return
-	var theme: int = HolidayFactory.theme_for(sim.time.day)
 	var store: FloorDefinition = sim.world.location.floor_def(sim.world.location.store_floor())
 	var room: Node3D = floors.get(sim.world.location.store_floor())
 	if store == null or room == null:
@@ -1226,6 +1231,11 @@ func _apply_holiday() -> void:
 		var outside: MeshInstance3D = HolidayFactory.build_outside(store, theme)
 		_neighborhood.add_child(outside)
 		_holiday_nodes.append(outside)
+
+
+## Pasang ulang hiasan (tanggal perangkat berganti, event mulai atau selesai).
+func refresh_holiday() -> void:
+	_apply_holiday()
 
 
 ## Hiasan hari libur yang terpasang (untuk tes).

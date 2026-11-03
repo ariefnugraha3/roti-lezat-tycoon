@@ -151,6 +151,13 @@ static func percent(v: float) -> String:
 	return "%d%%" % int(Money.round_half_up(v * 100.0))
 
 
+## Tanggal pendek "Jan 2" dari "YYYY-MM-DD" (event musiman, GDD idle 21.6).
+static func short_date(d: String) -> String:
+	if d.length() != 10:
+		return d
+	return t("ui_date_short", {"month": t("ui_month_%d" % int(d.substr(5, 2))), "day": int(d.substr(8, 2))})
+
+
 static func recipe_name(recipe_id: StringName) -> String:
 	return t(String(recipe_id))
 

@@ -57,7 +57,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
 | Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
 | Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
-| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3) | Their respective systems. |
+| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3), `EventManager` (device-date seasonal events, idle §21.6) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.
@@ -163,6 +163,12 @@ are pruned. A new game starts at `clock.start_seconds`.
   `real_seconds_per_hour`). `CalendarManager` never reads the device clock:
   `GameRoot.check_daily_gift` passes `BoostManager.today()` and opens the `calendar`
   popup (after Welcome Back). Rewards post to the ledger as `REWARD`, which is not income.
+- **Seasonal events** (idle §21.6): `EventManager` turns the device date that
+  `GameRoot.check_daily_gift` passes in (also every 5 s of play, so midnight brings the
+  new coffee, stamp and events) into the active events from `events.list`. Featured
+  breads go into `SimulationRoot.plain_price`, goals issued during an event pay more, and
+  `WorldView.refresh_holiday` swaps in the event's `HolidayFactory` theme. The runner
+  switches events off (`EventManager.enabled`) so other tests never depend on the date.
 - **Share and photo mode** (idle §21.4–21.5): `ShareCard` captures the game viewport with
   the HUD and modal layers hidden for two frames, builds the 1080×1350 card in a temporary
   `SubViewport` and exports PNGs (`WebPlatform.share_or_download_png` on Web, otherwise

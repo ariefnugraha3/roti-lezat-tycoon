@@ -1,6 +1,7 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
-## misi ringan harian, kalender cap, Share my bakery, dan photo mode.
+## misi ringan harian, kalender cap, Share my bakery, photo mode, dan event
+## musiman.
 
 
 func tests() -> Array:
@@ -12,6 +13,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_GOALS_UI", "name": "idle 21.2-21.3 the HUD Goals button lights up and toasts for a finished goal, the Goals sheet claims it, and a new device date opens the Daily Stamps popup that stamps the card", "fn": _goals_ui},
 		{"id": "ACC_IDLE_SHARE", "name": "idle 21.4 Share my bakery from the Pause menu photographs the shop without the HUD, bakes a 1080x1350 card with the name, place and four numbers, previews it, and saves a PNG with a safe file name", "fn": _share},
 		{"id": "ACC_IDLE_PHOTO_MODE", "name": "idle 21.5 Photo mode from the Pause menu hides the HUD while the shop runs, pans freely without world taps, tints with filters, adds a polaroid frame, captures the screen without its buttons, and restores everything on Close", "fn": _photo},
+		{"id": "ACC_IDLE_EVENTS", "name": "idle 21.6 device-date events: fixed windows (also across the new year), Lunar New Year and Lebaran from their date tables, overlapping events, featured breads at 1.25x in the shop and the model, double goal rewards, one announcement per event, off without a date", "fn": _events},
+		{"id": "ACC_IDLE_EVENTS_UI", "name": "idle 21.6 an event date toasts the event, shows a HUD chip with the end date that opens the Menu (Event pills and a card line), a Goals banner, and event decorations in the shop; the next date takes them away", "fn": _events_ui},
 	]
 
 
@@ -585,9 +588,114 @@ func _photo() -> void:
 	await _end_share(game)
 
 
+static func _event_ids(d: String) -> Array:
+	var out: Array = []
+	for ev: Dictionary in EventManager.events_on(d):
+		out.append(str(ev["id"]))
+	return out
+
+
+func _events() -> void:
+	EventManager.enabled = true
+	# Kalender: jendela tetap, melewati tahun baru, dan tanggal Imlek/Lebaran.
+	eq(_event_ids("2030-12-17"), [], "the day before the winter window has no event")
+	eq(_event_ids("2030-12-18"), ["event_winter"], "the winter window opens on Dec 18")
+	eq(_event_ids("2031-01-02"), ["event_winter"], "and runs past the new year to Jan 2")
+	eq(_event_ids("2031-01-03"), [], "then ends")
+	eq(str(EventManager.events_on("2031-01-01")[0]["start"]), "2030-12-18", "a wrapping window starts in the old year")
+	eq(str(EventManager.events_on("2031-01-01")[0]["end"]), "2031-01-02", "and ends in the new one")
+	eq(_event_ids("2027-02-04"), ["event_lunar_new_year"], "Lunar New Year starts two days before Feb 6, 2027")
+	eq(_event_ids("2027-02-08"), ["event_lunar_new_year", "event_sweetheart"], "two events can run together")
+	eq(_event_ids("2027-02-12"), ["event_sweetheart"], "Lunar New Year ends five days after")
+	eq(_event_ids("2027-03-06"), ["event_lebaran"], "Lebaran 2027 starts four days before Mar 10")
+	eq(_event_ids("2027-03-15"), [], "and ends four days after")
+	eq(_event_ids("2026-08-17"), ["event_merdeka"], "Merdeka Week covers Aug 17")
+	eq(_event_ids(""), [], "no device date, no event")
+	eq(Tx.short_date("2031-01-02"), "Jan 2", "short dates read like Jan 2")
+	# Efek di toko.
+	var s: SimulationRoot = new_sim(5601)
+	s.tutorial.skip()
+	var choc: StringName = &"recipe_chocolate_bread"
+	var before_price: float = s.plain_price(choc)
+	var before_rate: float = s.idle_economy.rate(false)
+	check(s.events.set_date("2030-12-20"), "a winter date starts the event")
+	check(not s.events.set_date("2030-12-20"), "the same date changes nothing")
+	check(s.events.is_featured(choc) and not s.events.is_featured(&"recipe_plain_loaf"), "featured breads come from the event")
+	near(s.plain_price(choc), before_price * DataRegistry.idlef("events.featured_mult"), 1e-6, "featured breads sell for 1.25x")
+	eq(s.events.featured(), [choc, &"recipe_almond_artisan_croissant", &"recipe_gourmet_brioche"], "featured list in catalog order")
+	near(s.events.goal_reward_mult(), DataRegistry.idlef("events.goal_reward_mult"), 1e-9, "goal rewards are doubled")
+	var reward_on: float = s.goals.reward_now()
+	s.events.set_date("2031-01-10")
+	check(s.events.active().is_empty(), "after the window the event is over")
+	near(s.plain_price(choc), before_price, 1e-6, "prices go back")
+	check(reward_on > s.goals.reward_now(), "goals issued during the event pay more")
+	near(s.idle_economy.rate(false), before_rate, 1e-6, "the model forgets the event")
+	# Pengumuman sekali per kemunculan event, ikut tersimpan.
+	s.events.set_date("2030-12-20")
+	eq(s.events.take_announcements().size(), 1, "a new event is announced once")
+	eq(s.events.take_announcements().size(), 0, "not twice")
+	var u: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	u.events.set_date("2030-12-21")
+	eq(u.events.take_announcements().size(), 0, "a reload does not announce it again")
+	u.events.set_date("2031-12-20")
+	eq(u.events.take_announcements().size(), 1, "next year's winter is announced again")
+	free_sim(u)
+	# Mati di tes lain.
+	EventManager.enabled = false
+	s.events.set_date("2030-12-25")
+	check(s.events.active().is_empty(), "with events off no date starts one")
+	free_sim(s)
+
+
+func _events_ui() -> void:
+	EventManager.enabled = true
+	BoostManager.date_override = "2030-12-20"
+	var toasts: Array = []
+	var catch_toast: Callable = func(_p: int, key: String, params: Dictionary, _i: StringName) -> void:
+		if key == "ui_event_started":
+			toasts.append(params)
+	EventBus.notify.connect(catch_toast)
+	var game: GameRoot = await _boot_share("Event Bakery")
+	EventBus.notify.disconnect(catch_toast)
+	var sim: SimulationRoot = game.sim
+	eq(toasts.size(), 1, "the event is announced with a toast")
+	game.playing = false
+	game.hud._refresh_all()
+	var chip: Button = game.hud.event_chip()
+	check(chip != null and chip.visible, "the HUD shows the event")
+	var texts: Array = []
+	for n: Node in chip.find_children("*", "Label", true, false):
+		texts.append((n as Label).text)
+	check(texts.has(Tx.t("ui_event_chip", {"name": Tx.t("event_winter"), "date": "Jan 2"})), "with its name and end date (%s)" % [texts])
+	check(chip.get_global_rect().size.y >= 48.0, "the event chip is a 48 px touch target")
+	check(not game.world.holiday_nodes().is_empty(), "the shop is decorated")
+	chip.pressed.emit()
+	await _frames(2)
+	var menu: MenuScreen = game.modals.screen(&"menu") as MenuScreen
+	check(menu != null, "the chip opens the Menu")
+	if menu != null:
+		var row: Node = menu.content().find_child("Recipe_recipe_chocolate_bread", true, false)
+		check(row != null and _has_pill(row, Tx.t("ui_event_pill")), "featured breads carry an Event pill")
+		check(menu.content().find_child("EventLine", true, false) != null, "the Menu card explains the event")
+	game.modals.close_all()
+	game.hud.open_tab(&"goals")
+	await _frames(2)
+	var goals: GoalsScreen = game.modals.screen(&"goals") as GoalsScreen
+	check(goals != null and goals.content().find_child("EventBanner", true, false) != null, "the Goals sheet says goals pay double")
+	game.modals.close_all()
+	# Tanggal berganti saat bermain: event selesai, hiasan dicopot.
+	BoostManager.date_override = "2031-01-10"
+	game.check_daily_gift()
+	game.hud._refresh_all()
+	check(not chip.visible, "the chip goes away after the event")
+	check(game.world.holiday_nodes().is_empty() or sim.weather.holiday_today(), "the decorations come down")
+	BoostManager.date_override = ""
+	await _end_share(game)
+
+
 static func _has_pill(row: Node, text: String) -> bool:
 	for n: Node in row.find_children("*", "Label", true, false):
-		if (n as Label).text == text and n.get_parent().get_parent() is PanelContainer and String(n.get_parent().get_parent().name).begins_with("Pill"):
+		if (n as Label).text == text and n.get_parent().get_parent() is PanelContainer and String(n.get_parent().get_parent().name).ends_with("Pill"):
 			return true
 	return false
 

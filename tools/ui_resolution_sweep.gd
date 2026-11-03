@@ -9,7 +9,8 @@ extends Node
 ## Folder potret: env LINEUP_OUT, atau user://lineup bila tidak diisi.
 ## Filter opsional: -- --res=720x1280,1920x1080 --scales=100,150
 ## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
-## --full (potret ukuran penuh, bukan setengah).
+## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
+## perangkat palsu, mis. untuk event musiman).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -46,6 +47,9 @@ func _ready() -> void:
 		elif a.begins_with("--screens="):
 			for t3: String in a.substr(10).split(","):
 				_screens.append(StringName(t3))
+		elif a.begins_with("--date="):
+			# Tanggal perangkat palsu, mis. untuk event musiman (GDD idle 21.6).
+			BoostManager.date_override = a.substr(7)
 	_out = OS.get_environment("LINEUP_OUT")
 	if _out == "":
 		_out = ProjectSettings.globalize_path("user://lineup")
@@ -160,7 +164,12 @@ func _params_for(id: StringName) -> Dictionary:
 		&"goals":
 			# Satu tujuan selesai, satu setengah jalan, dan cap hari ini tersedia.
 			var g: GoalManager = game.sim.goals
-			if g.progress(g.goals[0]) <= 0.0:
+			if g.goals.is_empty():
+				# Tujuan mulai hari 2: lewati tengah malam dulu.
+				game.sim.debug_set_time(86400.0 - 1.0)
+				for i in 8:
+					game.sim.step(game.sim.tick_seconds)
+			if not g.goals.is_empty() and g.progress(g.goals[0]) <= 0.0:
 				game.sim.statistics.add(StringName(str(g.goals[0]["stat"])), float(g.goals[0]["target"]))
 				game.sim.statistics.add(StringName(str(g.goals[1]["stat"])), float(g.goals[1]["target"]) * 0.5)
 			_stamp_card(3)
