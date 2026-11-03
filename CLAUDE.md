@@ -55,7 +55,11 @@ The official 4.7.2 export templates were installed on 2026-09-29 (`%APPDATA%\God
 "$G" --headless --path . res://tools/idle_probe.tscn -- --minutes=150 --seed=101 --manage [--franchise=8] [--set="idle.path=json"]   # pacing milestones (idle §1.4)
 "$G" --headless --path . res://tools/model_probe.tscn -- --hours=24 --warm=2 [--bare]   # KR/s model vs the live shop (idle §9.1)
 "$G" --path . --resolution 720x1280 res://tools/ui_resolution_sweep.tscn [-- --res=720x1280 --scales=100,150 --screens=upgrades]   # idle §12.0.7 renders
+"$G" --path . --resolution 720x1280 res://tools/ui_art_lineup.tscn [-- --zoom=2]   # Pak Lurah, New Game portraits, save-card bakeries
+"$G" --path . --resolution 1920x1080 res://tools/trailer.tscn -- --stills   # 60 s promo trailer, one still per shot
 ```
+
+- **Promo trailer** (`tools/trailer.gd`, 1920×1080, 30 fps, its own 96 bpm music): Movie Maker records at the project window size (540×960) and ignores `--resolution`, so while recording only, put an `override.cfg` in the project root with `[display]` `window/size/viewport_width=1920`, `viewport_height=1080`, `window_width_override=1920`, `window_height_override=1080`, `window/stretch/mode="viewport"`, `aspect="keep"`, then run `"$G" --path . --write-movie <dir>/frame.png --fixed-fps 30 res://tools/trailer.tscn` and delete `override.cfg`. The log line `TRAILER_START <n>` is the first trailer frame (earlier frames are the game booting); encode with ffmpeg (`D:\ffmpeg\bin`) from frame `n` with the WAV offset by `n/30` s, as the script header shows. Output goes in `build/trailer/` (git-ignored).
 
 - **Run tests and tools as scenes, never `--script`.** In `--script` mode Godot does not register autoloads, so scripts that use `DataRegistry`, `EventBus` and the rest fail to compile *silently*.
 - The runner installs a custom `Logger`. Any engine or script error during a test fails it, unless the test sets `"expect_errors": true`. A GDScript runtime error does not throw, so without this a crashed test would look green. A script error inside a probe's `_ready` stops it before `quit()`, so the probe hangs: always run probes under `timeout`.
