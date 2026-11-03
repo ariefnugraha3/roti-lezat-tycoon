@@ -18,19 +18,24 @@ func sheet_title() -> String:
 	return Tx.t("ui_tab_menu")
 
 
+func sheet_icon() -> String:
+	return "bread"
+
+
 func build_page(body: VBoxContainer) -> void:
 	_unlock_buttons.clear()
 	_level_rows.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "MenuList"
-	lbl(list, Tx.t("ui_menu_slots"), 15, Palette.TEXT_MUTED)
+	section(list, Tx.t("ui_menu_slots"))
 	var shelves: Array[EquipmentInstance] = sim.equipment.placed_list(&"display")
 	for n in shelves.size():
 		var e: EquipmentInstance = shelves[n]
-		lbl(list, Tx.t("ui_menu_shelf", {"n": n + 1, "capacity": sim.display.slot_capacity(e.iid)}), 16, Palette.UI_WOOD, true)
+		var shelf: Label = lbl(list, Tx.t("ui_menu_shelf", {"n": n + 1, "capacity": sim.display.slot_capacity(e.iid)}), 16, Palette.UI_WOOD_DEEP, true)
+		shelf.add_theme_font_override("font", ProceduralUIFactory.display_font())
 		for i in sim.display.slot_count(e.iid):
 			_slot_row(list, e.iid, i)
-	lbl(list, Tx.t("ui_menu_recipes"), 15, Palette.TEXT_MUTED)
+	section(list, Tx.t("ui_menu_recipes"))
 	for r: RecipeDefinition in DataRegistry.recipes():
 		_recipe_row(list, r)
 

@@ -4,9 +4,11 @@ extends CanvasLayer
 ## perintah ke SimulationRoot atau ModalHost. Semua posisi relatif terhadap
 ## bingkai potret di dalam safe area (GDD idle 12.0).
 ##
-## Kiri atas: KR besar dan "+{rate}/s". Kanan atas: Reputasi, Bintang Waralaba,
-## pause. Tengah atas: jam kecil, hari, cuaca (suasana). Bawah: bar enam tab;
-## tab diberi titik hijau bila ada sesuatu yang terjangkau di dalamnya.
+## Kiri atas: chip KR besar dengan "+{rate}/s" di bawahnya, lalu boost aktif.
+## Kanan atas: pause dan Bintang Waralaba. Tengah atas: jam kecil, hari, cuaca
+## (suasana) di atas pil krem. Bawah: bar enam tab; tab yang lembarnya terbuka
+## bermuka madu (v3.1 130.6: tab aktif selalu terlihat), dan tab diberi titik
+## hijau bila ada sesuatu yang terjangkau di dalamnya.
 
 const REFRESH_HZ: float = 5.0
 ## Tab bar bawah (GDD idle 12.1): [screen id, kunci teks, ikon].
@@ -28,6 +30,7 @@ var sim: SimulationRoot = null
 var decoration_active: bool = false
 
 var _root: Control = null
+var _cash_chip: PanelContainer = null
 var _kr: Label = null
 var _rate: Label = null
 var _stars_chip: PanelContainer = null
@@ -40,6 +43,8 @@ var _promo_boost: PanelContainer = null
 var _tab_bar: HBoxContainer = null
 ## screen id -> Button
 var _tabs: Dictionary = {}
+## Tab yang lembarnya sedang terbuka (&"" = tidak ada).
+var _active_tab: StringName = &""
 var _hint: PanelContainer = null
 var _hint_label: Label = null
 var _hint_ok: Button = null
@@ -94,6 +99,8 @@ func _ready() -> void:
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_caption.modulate.a = 0.0
 	frame.add_child(_caption)
+	if game != null and game.modals != null:
+		game.modals.stack_changed.connect(_sync_active_tab)
 	EventBus.notify.connect(_on_notify)
 	EventBus.feedback.connect(_on_feedback)
 	EventBus.coin_popup.connect(_on_coin)
@@ -113,14 +120,37 @@ func _build_top_left(frame: Control) -> void:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 2)
 	frame.add_child(v)
-	var kr: PanelContainer = ProceduralUIFactory.chip("coin", Palette.GOLD_STAR, "", 30, 38)
-	kr.name = "CashChip"
-	_kr = kr.get_meta("value")
-	v.add_child(kr)
-	_rate = ProceduralUIFactory.label("", 18, Palette.UI_WOOD_DEEP)
+	# KR dan "+{rate}/s" di satu pil krem, supaya angka penghasilan tidak
+	# melayang di atas dunia tanpa latar.
+	_cash_chip = PanelContainer.new()
+	_cash_chip.name = "CashChip"
+	var ksb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.UI_CREAM, 0.97), 24, true)
+	ksb.content_margin_left = 8.0
+	ksb.content_margin_right = 18.0
+	ksb.content_margin_top = 4.0
+	ksb.content_margin_bottom = 4.0
+	_cash_chip.add_theme_stylebox_override("panel", ksb)
+	_cash_chip.mouse_filter = Control.MOUSE_FILTER_PASS
+	_cash_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	v.add_child(_cash_chip)
+	var kh := HBoxContainer.new()
+	kh.add_theme_constant_override("separation", 8)
+	kh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cash_chip.add_child(kh)
+	kh.add_child(ProceduralUIFactory.icon("coin", 42, Palette.GOLD_STAR))
+	var kv := VBoxContainer.new()
+	kv.add_theme_constant_override("separation", -4)
+	kv.alignment = BoxContainer.ALIGNMENT_CENTER
+	kv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kh.add_child(kv)
+	_kr = ProceduralUIFactory.label("", 30, Palette.UI_WOOD_DEEP)
+	_kr.name = "Value"
+	_kr.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	kv.add_child(_kr)
+	_rate = ProceduralUIFactory.label("", 15, Palette.MATCHA_DEEP)
 	_rate.name = "Rate"
 	_rate.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	v.add_child(_rate)
+	kv.add_child(_rate)
 	_boosts = HBoxContainer.new()
 	_boosts.name = "Boosts"
 	_boosts.add_theme_constant_override("separation", 6)
@@ -128,15 +158,26 @@ func _build_top_left(frame: Control) -> void:
 	v.add_child(_boosts)
 	# Boost aktif dengan sisa waktu (GDD idle 12.1): dibuat sekali, hanya teksnya
 	# yang diperbarui.
-	_income_boost = ProceduralUIFactory.chip("bolt", Palette.HONEY, "", 15, 20)
+	_income_boost = _boost_chip("bolt", Palette.HONEY_DEEP, Palette.BUTTER_SOFT)
 	_income_boost.name = "IncomeBoost"
 	_income_boost.tooltip_text = Tx.t("ui_boost_income")
 	_income_boost.visible = false
 	_boosts.add_child(_income_boost)
-	_promo_boost = ProceduralUIFactory.chip("megaphone", Palette.PASTEL_PERIWINKLE, "", 15, 20)
+	_promo_boost = _boost_chip("megaphone", Palette.UI_WOOD_DEEP, Palette.PASTEL_PERIWINKLE.lightened(0.35))
 	_promo_boost.name = "PromoBoost"
 	_promo_boost.visible = false
 	_boosts.add_child(_promo_boost)
+
+
+## Pil boost aktif: muka berwarna lembut, ikon dan sisa waktu tebal.
+func _boost_chip(icon_name: String, tint: Color, face: Color) -> PanelContainer:
+	var c: PanelContainer = ProceduralUIFactory.chip(icon_name, tint, "", 15, 20)
+	var sb: StyleBoxFlat = (c.get_theme_stylebox("panel") as StyleBoxFlat).duplicate()
+	sb.bg_color = face
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 12.0
+	c.add_theme_stylebox_override("panel", sb)
+	return c
 
 
 func _build_top_right(frame: Control) -> void:
@@ -153,7 +194,13 @@ func _build_top_right(frame: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
-	var pause: Button = ProceduralUIFactory.icon_button("pause", Tx.t("ui_pause_title"), "secondary")
+	# Pause: bundar krem tanpa garis tepi, senada chip KR di seberangnya.
+	var pause: Button = ProceduralUIFactory.icon_button("pause", Tx.t("ui_pause_title"), "plain", 24, Palette.UI_WOOD_DEEP)
+	pause.custom_minimum_size = Vector2(56, 56)
+	for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+		var psb: StyleBoxFlat = (pause.get_theme_stylebox(st) as StyleBoxFlat).duplicate()
+		psb.bg_color = Color(Palette.UI_CREAM, 0.97) if st == "normal" else (Palette.FLOUR_WHITE if st == "hover" else Palette.UI_CREAM_DEEP)
+		pause.add_theme_stylebox_override(st, psb)
 	pause.name = "Pause"
 	pause.pressed.connect(func() -> void: game.modals.open(&"pause"))
 	row.add_child(pause)
@@ -165,19 +212,30 @@ func _build_top_right(frame: Control) -> void:
 
 
 func _build_top_center(frame: Control) -> void:
+	# Jam di atas pil krem tipis, supaya terbaca di atas dinding maupun jalan.
+	var pill := PanelContainer.new()
+	pill.name = "ClockPill"
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.UI_CREAM, 0.88), 16, false)
+	sb.content_margin_left = 10.0
+	sb.content_margin_right = 14.0
+	sb.content_margin_top = 3.0
+	sb.content_margin_bottom = 3.0
+	pill.add_theme_stylebox_override("panel", sb)
+	pill.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	pill.offset_top = 14.0
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(pill)
 	var h := HBoxContainer.new()
 	h.name = "Clock"
-	h.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	h.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	h.offset_top = 64.0
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_theme_constant_override("separation", 6)
-	frame.add_child(h)
+	pill.add_child(h)
 	_weather_icon = ProceduralUIFactory.icon("sun", 22, Palette.GOLD_STAR)
 	_weather_icon.name = "Weather"
 	h.add_child(_weather_icon)
-	_clock = ProceduralUIFactory.label("", 15, Palette.UI_WOOD)
+	_clock = ProceduralUIFactory.label("", 15, Palette.UI_WOOD_DEEP)
 	_clock.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	h.add_child(_clock)
 
@@ -185,7 +243,7 @@ func _build_top_center(frame: Control) -> void:
 func _build_tab_bar(frame: Control) -> void:
 	var pc := PanelContainer.new()
 	pc.name = "TabBar"
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.96), 22, true)
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.97), 26, true)
 	sb.set_content_margin_all(6)
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -202,6 +260,7 @@ func _build_tab_bar(frame: Control) -> void:
 		_tab_bar.add_child(b)
 		_tabs[id] = b
 	_sync_tabs()
+	_sync_active_tab()
 
 
 func _tab_button(icon_name: String, key: String, id: StringName) -> Button:
@@ -210,37 +269,71 @@ func _tab_button(icon_name: String, key: String, id: StringName) -> Button:
 	b.custom_minimum_size = Vector2(104, TAB_BAR_H - 12.0)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.tooltip_text = Tx.t(key)
-	ProceduralUIFactory.apply_kind(b, "secondary")
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ProceduralUIFactory.apply_kind(b, "tab")
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 2)
 	b.add_child(v)
-	var ic: IconCanvas = ProceduralUIFactory.icon(icon_name, 34, Palette.UI_WOOD_DEEP)
+	var ic: IconCanvas = ProceduralUIFactory.icon(icon_name, 34, Palette.UI_WOOD)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var l: Label = ProceduralUIFactory.label(Tx.t(key), 14, Palette.UI_WOOD_DEEP)
+	var l: Label = ProceduralUIFactory.label(Tx.t(key), 14, Palette.UI_WOOD)
 	l.name = "Caption"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	v.add_child(l)
+	b.set_meta("icon", ic)
+	b.set_meta("caption", l)
+	# Titik hijau bercincin krem, supaya tetap terpisah dari tab aktif yang madu.
 	var dot := Panel.new()
 	dot.name = "Dot"
 	var dsb := StyleBoxFlat.new()
 	dsb.bg_color = Palette.MATCHA
-	dsb.set_corner_radius_all(8)
+	dsb.border_color = Palette.PANEL
+	dsb.set_border_width_all(3)
+	dsb.set_corner_radius_all(10)
+	dsb.anti_aliasing = true
 	dot.add_theme_stylebox_override("panel", dsb)
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	dot.offset_left = -20.0
-	dot.offset_top = 6.0
-	dot.offset_right = -6.0
-	dot.offset_bottom = 20.0
+	dot.offset_left = -24.0
+	dot.offset_top = 4.0
+	dot.offset_right = -4.0
+	dot.offset_bottom = 24.0
 	dot.visible = false
 	b.add_child(dot)
 	b.pressed.connect(func() -> void: open_tab(id))
 	return b
+
+
+## Tab yang lembarnya terbuka bermuka madu dengan ikon dan teks krem; tab lain
+## rata tanpa garis tepi (v3.1 130.6). Hanya digambar ulang saat berubah.
+func _sync_active_tab() -> void:
+	if game == null or game.modals == null:
+		return
+	var want: StringName = &""
+	for id: Variant in _tabs.keys():
+		if game.modals.is_open(screen_for_tab(StringName(str(id)))):
+			want = StringName(str(id))
+	if want == _active_tab:
+		return
+	_active_tab = want
+	for id2: Variant in _tabs.keys():
+		var b: Button = _tabs[id2]
+		var on: bool = StringName(str(id2)) == want
+		ProceduralUIFactory.apply_kind(b, "primary" if on else "tab")
+		var ink: Color = Palette.FLOUR_WHITE if on else Palette.UI_WOOD
+		(b.get_meta("icon") as IconCanvas).icon_color = ink
+		(b.get_meta("caption") as Label).add_theme_color_override("font_color", ink)
+
+
+## Tab yang sedang aktif (lembarnya terbuka), atau &"" (tes).
+func active_tab() -> StringName:
+	return _active_tab
 
 
 ## Buka layar tab `id`; mengetuk tab layar yang sedang terbuka menutupnya.
@@ -295,6 +388,10 @@ func _build_toasts(frame: Control) -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toasts.add_theme_constant_override("separation", 6)
 	frame.add_child(_toasts)
+	# Selalu di bawah kolom KR dan boost, yang ikut meninggi pada skala teks 150%.
+	var top_left: Control = frame.get_node("TopLeft")
+	top_left.minimum_size_changed.connect(func() -> void:
+		_toasts.offset_top = maxf(TOP_BAR_H, top_left.get_combined_minimum_size().y + 12.0))
 
 
 # ===========================================================================
@@ -397,7 +494,7 @@ func tab_button(id: StringName) -> Button:
 
 
 func cash_chip() -> Control:
-	return _kr.get_parent().get_parent() if _kr != null else null
+	return _cash_chip
 
 
 func rate_label() -> Label:

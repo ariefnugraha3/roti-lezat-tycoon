@@ -11,13 +11,19 @@ func _init() -> void:
 
 
 func build() -> void:
-	var body: VBoxContainer = make_popup(Tx.t("ui_help"), Vector2(620, 340), false)
-	var row: HBoxContainer = hbox(body, 14)
+	var body: VBoxContainer = make_popup(Tx.t("ui_help"), Vector2(620, 300 + 120.0 * maxf(0.0, SettingsManager.text_scale() - 1.0)), false)
+	var row: HBoxContainer = hbox(body, 22)
 	var lurah := LurahPortrait.new()
 	lurah.name = "Lurah"
-	lurah.custom_minimum_size = Vector2(96, 96)
+	lurah.custom_minimum_size = Vector2(104, 104)
+	lurah.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(lurah)
-	lbl(row, Tx.t(str(params.get("key", ""))), 20, Palette.TEXT, true)
+	var said: Label = ProceduralUIFactory.label(Tx.t(str(params.get("key", ""))), 19, Palette.TEXT)
+	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var bubble: PanelContainer = ProceduralUIFactory.speech_bubble(said)
+	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bubble.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(bubble)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(spacer)

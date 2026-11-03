@@ -17,6 +17,10 @@ func sheet_title() -> String:
 	return Tx.t("ui_statistics")
 
 
+func sheet_icon() -> String:
+	return "trophy"
+
+
 func build_page(body: VBoxContainer) -> void:
 	body.add_child(ProceduralUIFactory.tab_bar([Tx.t("ui_statistics"), Tx.t("ui_records"), Tx.t("ui_achievements")], _tab, func(idx: int) -> void:
 		_tab = idx
@@ -24,6 +28,7 @@ func build_page(body: VBoxContainer) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	match _tab:
 		0:
+			list = _table(list)
 			_pair(list, Tx.t("ui_stat_rate"), Tx.t("ui_kr_per_second", {"amount": Tx.rate(sim.income_rate())}))
 			for k: String in StatisticsManager.STAT_KEYS:
 				var v: float = sim.statistics.get_stat(k)
@@ -34,6 +39,7 @@ func build_page(body: VBoxContainer) -> void:
 					text = duration_text(v)
 				_pair(list, Tx.t("ui_stat_" + k), text)
 		1:
+			list = _table(list)
 			for k2: String in RECORD_KEYS.keys():
 				var v2: float = float(sim.statistics.records.get(k2, 0.0))
 				var text2: String = Tx.t("ui_record_none") if v2 <= 0.0 else (Tx.kr(v2) if bool(RECORD_KEYS[k2]) else Tx.big(v2))
@@ -54,9 +60,25 @@ static func duration_text(seconds: float) -> String:
 	return Tx.duration(seconds)
 
 
+## Satu kartu berisi baris-baris statistik yang dipisah garis tipis.
+func _table(parent: Control) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.name = "Table"
+	v.add_theme_constant_override("separation", 6)
+	card(parent).add_child(v)
+	return v
+
+
 func _pair(parent: Control, left: String, right: String) -> void:
+	if parent.get_child_count() > 0:
+		var line := ColorRect.new()
+		line.color = Color(Palette.UI_WOOD, 0.10)
+		line.custom_minimum_size = Vector2(0, 2)
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		parent.add_child(line)
 	var row: HBoxContainer = hbox(parent, 10)
 	var l: Label = lbl(row, left, 17)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl(row, right, 17, Palette.UI_WOOD)
+	var r: Label = lbl(row, right, 17, Palette.UI_WOOD_DEEP)
+	r.add_theme_font_override("font", ProceduralUIFactory.display_font())

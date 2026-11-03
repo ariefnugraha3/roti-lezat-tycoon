@@ -20,7 +20,7 @@ extends Control
 ## [/codeblock]
 
 
-## Seluruh nama ikon yang dikenali (40 nama).
+## Seluruh nama ikon yang dikenali (44 nama).
 const NAMES: Array[String] = [
 	"coin", "star", "clock", "bolt", "bread", "bag", "cart", "people", "heart",
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
@@ -28,7 +28,7 @@ const NAMES: Array[String] = [
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock",
+	"back", "up", "lock", "whisk",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -53,7 +53,7 @@ const PASS_SHADOW: int = 2
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock"
+	"back", "up", "lock", "whisk"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -213,6 +213,7 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"pause": _i_pause(c, s, col)
 		"play": _i_play(c, s, col)
 		"kitchen": _i_kitchen(c, s, col)
+		"whisk": _i_whisk(c, s, col)
 		"shop": _i_shop(c, s, col)
 		"frame": _i_frame(c, s, col)
 		"gear": _i_gear(c, s, col)
@@ -584,17 +585,37 @@ func _i_warning(c: Vector2, s: float, col: Color) -> void:
 	_dot(c, s, 0.0, 0.24, 0.065, ink)
 
 
-## Api — roti gosong & oven terlalu panas (GDD 4.2).
+## Api — oven (GDD 4.2): lidah api dengan ujung kedua di kiri dan nyala dalam.
+## Nyala dalam ikon terang (putih di lencana) berwarna madu, supaya tidak
+## lebur menjadi tetesan polos; ikon gelap mendapat nyala dalam yang terang.
 func _i_fire(c: Vector2, s: float, col: Color) -> void:
 	_blob(c, s, [
-		Vector2(0.02, -0.48), Vector2(0.20, -0.22), Vector2(0.30, 0.04),
-		Vector2(0.22, 0.32), Vector2(0.00, 0.44), Vector2(-0.22, 0.30),
-		Vector2(-0.30, 0.02), Vector2(-0.14, -0.20), Vector2(-0.05, -0.31),
+		Vector2(0.06, -0.48), Vector2(0.22, -0.28), Vector2(0.34, -0.06),
+		Vector2(0.34, 0.18), Vector2(0.24, 0.36), Vector2(0.04, 0.46),
+		Vector2(-0.18, 0.42), Vector2(-0.32, 0.26), Vector2(-0.36, 0.04),
+		Vector2(-0.28, -0.16), Vector2(-0.18, -0.06), Vector2(-0.14, -0.26),
 	], col)
+	var inner: Color = _lit(col) if col.get_luminance() < 0.80 else col.lerp(Palette.HONEY, 0.85)
 	_blob(c, s, [
-		Vector2(0.02, -0.14), Vector2(0.16, 0.10), Vector2(0.10, 0.32),
-		Vector2(-0.06, 0.38), Vector2(-0.17, 0.22), Vector2(-0.12, 0.02),
-	], _lit(col))
+		Vector2(0.04, -0.10), Vector2(0.16, 0.08), Vector2(0.18, 0.26),
+		Vector2(0.06, 0.38), Vector2(-0.10, 0.38), Vector2(-0.19, 0.24),
+		Vector2(-0.14, 0.06),
+	], inner)
+
+
+## Pengocok di dalam mangkuk — mixer (GDD idle 4.3).
+func _i_whisk(c: Vector2, s: float, col: Color) -> void:
+	# Gagang dan kawat pengocok, lalu mangkuk di depannya.
+	_bar(c, s, 0.30, -0.46, 0.12, -0.22, 0.09, col)
+	for end: Vector2 in [Vector2(-0.20, 0.02), Vector2(-0.06, 0.06), Vector2(0.08, 0.04)]:
+		_bar(c, s, 0.12, -0.22, end.x, end.y, 0.045, col)
+	var bowl: Array = []
+	for i in 13:
+		var a: float = PI * float(i) / 12.0
+		bowl.append(Vector2(cos(a) * 0.44, 0.04 + sin(a) * 0.36))
+	_blob(c, s, bowl, col)
+	_round_rect(c, s, -0.48, -0.02, 0.96, 0.10, 0.05, col)
+	_round_rect(c, s, -0.15, 0.36, 0.30, 0.08, 0.04, col)
 
 
 ## Kardus pesanan — paket delivery & stok gudang (GDD 11.3).

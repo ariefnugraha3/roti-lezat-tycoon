@@ -5,6 +5,7 @@ extends HBoxContainer
 ## terjangkau dan muat dalam batas; Max menyebut jumlah levelnya ("Max (+37)").
 ## `refresh()` memperbarui teks dan status tanpa membangun ulang tombol, jadi
 ## ketukan tidak pernah hilang karena tombol diganti di tengah tekan.
+## ×1 madu, ×10 dan Max madu muda; yang belum terjangkau krem pudar.
 
 signal bought(levels: int)
 
@@ -24,7 +25,7 @@ func setup(s: SimulationRoot, offer_kind: StringName, offer_id: Variant, button_
 	name = "BuyButtons"
 	add_theme_constant_override("separation", 6)
 	for mode: StringName in MODES:
-		var b: Button = ProceduralUIFactory.button("", "primary" if mode == &"x1" else "secondary")
+		var b: Button = ProceduralUIFactory.button("", "primary" if mode == &"x1" else "soft")
 		b.name = "Buy_" + String(mode)
 		b.custom_minimum_size = Vector2(button_w, 58)
 		b.clip_contents = true
@@ -89,7 +90,7 @@ func refresh() -> void:
 			shown_n = 1 if mode != &"x10" else mini(10, int(o["cap"]) - int(o["level"]))
 		cost.text = Tx.t("ui_level_maxed") if maxed else Tx.kr(UpgradeManager.offer_cost(o, shown_n))
 		b.disabled = n <= 0
-		var ink: Color = Palette.TEXT_MUTED if b.disabled else Palette.UI_WOOD_DEEP
+		var ink: Color = ProceduralUIFactory.disabled_ink() if b.disabled else Palette.UI_WOOD_DEEP
 		top.add_theme_color_override("font_color", ink)
 		cost.add_theme_color_override("font_color", ink)
 

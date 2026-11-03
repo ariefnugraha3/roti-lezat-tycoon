@@ -34,8 +34,8 @@ func build() -> void:
 	id = params.get("id", &"counter")
 	_panel = PanelContainer.new()
 	_panel.name = "Card"
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.PARCHMENT, 20, true)
-	sb.border_color = Color(Palette.UI_WOOD, 0.45)
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 22, true)
+	sb.border_color = Color(Palette.CREAM_LIP, 0.9)
 	sb.set_border_width_all(2)
 	sb.content_margin_left = 14
 	sb.content_margin_right = 14
@@ -53,7 +53,7 @@ func build() -> void:
 	_title = lbl(head, "", 20, Palette.UI_WOOD_DEEP, true)
 	_title.name = "Title"
 	_title.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	var close_b: Button = ProceduralUIFactory.icon_button("cross", Tx.t("ui_close"), "ghost")
+	var close_b: Button = ProceduralUIFactory.icon_button("cross", Tx.t("ui_close"), "plain", 22, Palette.UI_WOOD_DEEP)
 	close_b.name = "Close"
 	close_b.pressed.connect(close)
 	head.add_child(close_b)

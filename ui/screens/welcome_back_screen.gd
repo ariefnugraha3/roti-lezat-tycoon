@@ -19,22 +19,36 @@ func build() -> void:
 	var amount: float = float(p.get("amount", 0.0))
 	var away: float = float(p.get("away", 0.0))
 	var body: VBoxContainer = make_popup(Tx.t("ui_welcome_back_title"), Vector2(620, 480.0 + 240.0 * maxf(0.0, SettingsManager.text_scale() - 1.0)), false)
-	var row: HBoxContainer = hbox(body, 14)
+	var row: HBoxContainer = hbox(body, 22)
 	var lurah := LurahPortrait.new()
 	lurah.name = "Lurah"
-	lurah.custom_minimum_size = Vector2(120, 120)
+	lurah.custom_minimum_size = Vector2(110, 110)
 	row.add_child(lurah)
-	var greet: Label = lbl(row, Tx.t("ui_welcome_back_lurah"), 18, Palette.TEXT, true)
+	var greet: Label = ProceduralUIFactory.label(Tx.t("ui_welcome_back_lurah"), 18, Palette.TEXT)
 	greet.name = "Greeting"
-	greet.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	greet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var bubble: PanelContainer = ProceduralUIFactory.speech_bubble(greet)
+	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bubble.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(bubble)
 	var text: Label = lbl(body, Tx.t("ui_welcome_back_body", {"time": Tx.duration(away), "amount": Tx.kr(amount)}), 20, Palette.TEXT, true)
 	text.name = "AwayText"
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Hadiahnya di pil mentega, supaya angka yang dikumpulkan paling menonjol.
 	var center := CenterContainer.new()
 	body.add_child(center)
-	var h: HBoxContainer = hbox(center, 10)
+	var prize := PanelContainer.new()
+	prize.name = "Prize"
+	var psb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.BUTTER_SOFT, 26, false)
+	psb.content_margin_left = 16.0
+	psb.content_margin_right = 26.0
+	psb.content_margin_top = 6.0
+	psb.content_margin_bottom = 6.0
+	prize.add_theme_stylebox_override("panel", psb)
+	center.add_child(prize)
+	var h: HBoxContainer = hbox(prize, 10)
 	h.add_child(ProceduralUIFactory.icon("coin", 44, Palette.GOLD_STAR))
-	var amt: Label = lbl(h, "+" + Tx.kr(amount), 34, Palette.UI_WOOD)
+	var amt: Label = lbl(h, "+" + Tx.kr(amount), 34, Palette.UI_WOOD_DEEP)
 	amt.name = "Amount"
 	if sim != null:
 		if away > float(p.get("seconds", 0.0)) + 1.0:

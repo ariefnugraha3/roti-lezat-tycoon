@@ -132,6 +132,27 @@ const STRAWBERRY_DEEP: Color = Color(0.674510, 0.227451, 0.282353)  # #AC3A48
 const CREAM_LIP: Color = Color(0.815686, 0.682353, 0.525490)  # #D0AE86
 
 # ---------------------------------------------------------------------------
+# Pemolesan UI flat 2026-11-03: lembar berlatar krem yang sedikit lebih pekat
+# dengan kartu nyaris putih di atasnya, supaya setiap baris terbaca sebagai satu
+# kartu tanpa bayangan atau garis tepi.
+# ---------------------------------------------------------------------------
+
+## Latar lembar bawah dan kartu popup.
+const SHEET: Color = Color(0.968627, 0.925490, 0.843137)  # #F7ECD7
+## Kartu baris di atas lembar.
+const CARD: Color = Color(1.000000, 0.988235, 0.964706)  # #FFFCF6
+## Madu muda: tombol beli sekunder (×10, Max) yang terjangkau.
+const HONEY_SOFT: Color = Color(0.992157, 0.890196, 0.733333)  # #FDE3BB
+## Krem pudar: muka tombol nonaktif.
+const DISABLED_FACE: Color = Color(0.925490, 0.874510, 0.788235)  # #ECDFC9
+## Cokelat pudar: teks dan ikon tombol nonaktif (masih terbaca, kontras ~3,5:1).
+const DISABLED_INK: Color = Color(0.580392, 0.443137, 0.329412)  # #947154
+## Matcha muda: latar chip "+KR/s".
+const MATCHA_SOFT: Color = Color(0.882353, 0.949020, 0.858824)  # #E1F2DB
+## Mentega muda: latar chip boost penghasilan.
+const BUTTER_SOFT: Color = Color(0.996078, 0.937255, 0.745098)  # #FEEFBE
+
+# ---------------------------------------------------------------------------
 # GDD 4.1 (Cozy) -- Interior bernostalgia awal 2000-an
 # ---------------------------------------------------------------------------
 

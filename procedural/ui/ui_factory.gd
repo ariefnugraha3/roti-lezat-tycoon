@@ -153,7 +153,7 @@ static func rim_color(face: Color) -> Color:
 static func card(title_text: String, radius := 22) -> PanelContainer:
 	var root: PanelContainer = PanelContainer.new()
 	root.name = "Card"
-	root.add_theme_stylebox_override("panel", panel(Palette.PANEL_ALT, radius, true))
+	root.add_theme_stylebox_override("panel", panel(Palette.CARD, radius, true))
 
 	var pad: MarginContainer = MarginContainer.new()
 	pad.name = "Pad"
@@ -221,7 +221,9 @@ static func card(title_text: String, radius := 22) -> PanelContainer:
 ##   "scrim" ColorRect     — sambungkan `gui_input` untuk "ketuk di luar = tutup"
 ##   "close_slot" Control  — tempat tombol tutup di sudut kartu
 ##   "title_label" Label   — teks pita judul
-static func popup(title_text: String, ukuran: Vector2 = POPUP_SIZE) -> Control:
+## [param face] = warna kartu; popup berisi kartu (profil) memakai
+## `Palette.SHEET` supaya kartu di dalamnya terbaca.
+static func popup(title_text: String, ukuran: Vector2 = POPUP_SIZE, face_color: Color = Palette.PANEL) -> Control:
 	var root: Control = Control.new()
 	root.name = "Popup"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -237,7 +239,7 @@ static func popup(title_text: String, ukuran: Vector2 = POPUP_SIZE) -> Control:
 
 	var kartu: PanelContainer = PanelContainer.new()
 	kartu.name = "Kartu"
-	var face: StyleBoxFlat = panel(Palette.PANEL, 26, true)
+	var face: StyleBoxFlat = panel(face_color, 26, true)
 	if not flat_style:
 		face.border_color = Palette.CREAM_LIP
 		face.set_border_width_all(3)
@@ -451,7 +453,8 @@ static func chalkboard_panel() -> PanelContainer:
 
 
 ## Tombol "bantal" timbul. [param kind] = "primary" (madu) | "secondary" (krem) |
-## "danger" (stroberi) | "success" (matcha) | "ghost" (bergaris saja) | "tab".
+## "danger" (stroberi) | "success" (matcha) | "ghost" (bergaris saja) | "tab" |
+## "soft" (madu muda tanpa garis tepi) | "plain" (krem pekat tanpa garis tepi).
 ## Setiap tombol otomatis memantul (GDD 7 "squishy bounce"), berbunyi ketukan
 ## kayu lembut, dan mukanya turun PRESS_SHIFT px selama ditekan.
 static func button(text: String, kind := "primary") -> Button:
@@ -502,6 +505,14 @@ static func kind_colors(kind: String) -> Dictionary:
 		"tab":
 			k = {"face": Color(Palette.UI_CREAM, 0.0), "deep": Color(Palette.UI_WOOD, 0.0), "ink": Palette.UI_WOOD,
 				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
+		# Madu muda tanpa garis tepi: pilihan beli kedua (×10, Max) yang terjangkau.
+		"soft":
+			k = {"face": Palette.HONEY_SOFT, "deep": Color(Palette.HONEY_DEEP, 0.0), "ink": Palette.UI_WOOD_DEEP,
+				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
+		# Krem pekat tanpa garis tepi: tombol tutup dan kembali di kepala lembar.
+		"plain":
+			k = {"face": Palette.UI_CREAM_DEEP, "deep": Color(Palette.CREAM_LIP, 0.0), "ink": Palette.UI_WOOD_DEEP,
+				"outline": Color(0.0, 0.0, 0.0, 0.0), "gloss": false}
 		_:
 			k = {"face": Palette.HONEY, "deep": Palette.HONEY_DEEP, "ink": Palette.FLOUR_WHITE,
 				"outline": Palette.HONEY_DEEP, "gloss": true}
@@ -531,7 +542,7 @@ static func apply_kind(b: Button, kind: String) -> void:
 	b.add_theme_color_override("font_pressed_color", ink)
 	b.add_theme_color_override("font_hover_pressed_color", ink)
 	b.add_theme_color_override("font_focus_color", ink)
-	b.add_theme_color_override("font_disabled_color", Color(Palette.FLOUR_WHITE, 0.95) if outline.a > 0.0 else Color(Palette.TEXT_MUTED, 0.85))
+	b.add_theme_color_override("font_disabled_color", Color(Palette.FLOUR_WHITE, 0.95) if outline.a > 0.0 else disabled_ink())
 	b.add_theme_color_override("font_outline_color", Color(outline, 0.55) if outline.a > 0.0 else outline)
 	b.add_theme_constant_override("outline_size", 5 if outline.a > 0.0 else 0)
 	for st: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
@@ -583,9 +594,10 @@ static func icon_button(icon_name: String, tooltip: String, kind := "secondary",
 
 
 ## Tombol ikon + teks dalam satu pil (Rotate, Skip to Open, dsb.). Seluruh
-## tombol tetap bidang sentuhnya; isinya ikut turun saat ditekan.
+## tombol tetap bidang sentuhnya; isinya ikut turun saat ditekan. [param pad] =
+## total ruang kosong di kiri, kanan, dan antara ikon dan teks.
 static func icon_text_button(icon_name: String, text: String, kind := "primary",
-		icon_size := 22, font_size := 17) -> Button:
+		icon_size := 22, font_size := 17, pad := 52.0) -> Button:
 	var b: Button = button("", kind)
 	var k: Dictionary = kind_colors(kind)
 	var row: HBoxContainer = HBoxContainer.new()
@@ -610,7 +622,7 @@ static func icon_text_button(icon_name: String, text: String, kind := "primary",
 	# tombol. Tanpa garis tepi, putih di muka pucat sulit dibaca; keduanya
 	# meredup selama tombolnya nonaktif.
 	if flat_style:
-		var muted: Color = Color(Palette.TEXT_MUTED, 0.95)
+		var muted: Color = disabled_ink()
 		b.draw.connect(func() -> void:
 			var want: Color = muted if b.disabled else ink
 			if l.get_theme_color("font_color") != want:
@@ -618,7 +630,11 @@ static func icon_text_button(icon_name: String, text: String, kind := "primary",
 				ic.icon_color = want)
 	b.set_meta("icon", ic)
 	b.set_meta("caption", l)
-	b.custom_minimum_size = Vector2(l.get_combined_minimum_size().x + float(icon_size) + 52.0, TOUCH_MIN)
+	# Label di luar pohon scene mengukur dirinya ~20 px terlalu sempit; lebar
+	# huruf tebalnya diukur langsung dari font supaya teks tidak menumpuk ke
+	# tombol sebelahnya pada skala teks 150%.
+	var text_w: float = maxf(l.get_combined_minimum_size().x, _text_width(text, font_size, true))
+	b.custom_minimum_size = Vector2(text_w + float(icon_size) + pad, TOUCH_MIN)
 	b.tooltip_text = text
 	return b
 
@@ -900,7 +916,7 @@ static func polaroid(staff_id: String) -> Control:
 	return root
 
 
-## Ikon prosedural siap pakai (lihat [IconCanvas] untuk daftar 30 namanya).
+## Ikon prosedural siap pakai (daftar namanya di [constant IconCanvas.NAMES]).
 static func icon(name: String, size := 32, color := Color.WHITE) -> IconCanvas:
 	var ic: IconCanvas = IconCanvas.new()
 	ic.icon_name = name
@@ -1448,7 +1464,10 @@ static func cushion(face: Color, deep: Color, radius: int = RADIUS_PILL, state: 
 ## Tombol gaya flat: satu bidang warna polos, tanpa bibir, bayangan, atau kilap.
 ## Muka berwarna tanpa garis tepi; muka krem atau transparan (secondary, ghost)
 ## bergaris tepi tipis seragam agar tetap terlihat di atas panel krem. Hover
-## sedikit lebih terang, tekan sedikit lebih gelap, nonaktif memudar ke krem.
+## sedikit lebih terang, tekan sedikit lebih gelap. Nonaktif memudar ke satu
+## krem yang sama untuk semua jenis (pemolesan UI 2026-11-03), jadi tombol yang
+## terjangkau selalu berwarna dan yang belum selalu krem; tombol transparan
+## (ghost) tetap transparan dengan garis tepi yang memudar.
 static func _flat_button_box(face: Color, deep: Color, radius: int, state: String) -> StyleBoxFlat:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.corner_detail = 12
@@ -1462,8 +1481,8 @@ static func _flat_button_box(face: Color, deep: Color, radius: int, state: Strin
 		"pressed":
 			f = face.darkened(0.08) if face.a > 0.01 else Color(Palette.UI_CREAM_DEEP, 0.75)
 		"disabled":
-			f = face.lerp(Palette.UI_CREAM_DEEP, 0.62) if face.a > 0.01 else face
-			d = Color(deep.lerp(Palette.CREAM_LIP, 0.6), deep.a * 0.7)
+			f = Palette.DISABLED_FACE if face.a > 0.01 else face
+			d = Color(deep.lerp(Palette.CREAM_LIP, 0.6), deep.a * 0.7) if face.a <= 0.01 else Color(deep, 0.0)
 	sb.bg_color = f
 	var light: bool = face.a <= 0.01 or face.get_luminance() > 0.85
 	if light and d.a > 0.01:
@@ -1474,6 +1493,99 @@ static func _flat_button_box(face: Color, deep: Color, radius: int, state: Strin
 	sb.content_margin_top = 7.0
 	sb.content_margin_bottom = 7.0
 	return sb
+
+
+## Warna teks dan ikon tombol nonaktif: cokelat pudar yang masih terbaca di
+## muka krem nonaktif (gaya flat), atau abu-cokelat lama (bantal empuk).
+static func disabled_ink() -> Color:
+	return Palette.DISABLED_INK if flat_style else Color(Palette.TEXT_MUTED, 0.85)
+
+
+## Judul bagian di dalam lembar ("PROMOTIONS", "RECIPES"): huruf tebal kecil
+## berhuruf kapital dan berjarak, cokelat karamel, dengan ruang di atasnya
+## supaya setiap kelompok kartu terpisah jelas. Teks aslinya tidak diubah
+## (`Label.uppercase`).
+static func section_label(text: String) -> Label:
+	var l: Label = label(text, 14, Palette.CARAMEL)
+	l.name = "Section"
+	l.add_theme_font_override("font", section_font())
+	l.uppercase = true
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	l.custom_minimum_size = Vector2(0.0, float(scaled(14)) + 18.0)
+	return l
+
+
+## Huruf judul bagian: huruf tebal dengan jarak antarhuruf yang lebih lebar.
+static func section_font() -> FontVariation:
+	if _font_cache.has("section"):
+		return _font_cache["section"]
+	var fv: FontVariation = FontVariation.new()
+	fv.base_font = ThemeDB.fallback_font
+	fv.variation_embolden = 0.62
+	fv.set_spacing(TextServer.SPACING_GLYPH, 2)
+	fv.set_spacing(TextServer.SPACING_TOP, 1)
+	fv.set_spacing(TextServer.SPACING_BOTTOM, 1)
+	_font_cache["section"] = fv
+	return fv
+
+
+## Kartu baris di dalam lembar: bidang krem nyaris putih bersudut membulat,
+## tanpa garis tepi atau bayangan, di atas latar lembar yang lebih pekat.
+static func card_box(radius := 18) -> StyleBoxFlat:
+	var sb: StyleBoxFlat = panel(Palette.CARD, radius, false)
+	sb.content_margin_left = 12.0
+	sb.content_margin_right = 12.0
+	sb.content_margin_top = 10.0
+	sb.content_margin_bottom = 10.0
+	return sb
+
+
+## Pil kecil berwarna berisi ikon dan teks tebal (mis. "+0.25/s" di baris
+## upgrade). Labelnya ada di meta "label".
+static func pill(icon_name: String, text: String, face: Color, ink: Color, font_size := 14) -> PanelContainer:
+	var pc: PanelContainer = PanelContainer.new()
+	pc.name = "Pill"
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb: StyleBoxFlat = panel(face, 14, false)
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 12.0
+	sb.content_margin_top = 3.0
+	sb.content_margin_bottom = 3.0
+	pc.add_theme_stylebox_override("panel", sb)
+	var h: HBoxContainer = HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 4)
+	pc.add_child(h)
+	if icon_name != "":
+		h.add_child(icon(icon_name, scaled(font_size) + 2, ink))
+	var l: Label = label(text, font_size, ink)
+	l.add_theme_font_override("font", display_font())
+	h.add_child(l)
+	pc.set_meta("label", l)
+	return pc
+
+
+## Balon bicara (Pak Lurah di popup tutorial dan Selamat Datang): bidang krem
+## pekat bersudut membulat dengan ekor segitiga di kiri yang menunjuk ke
+## pembicaranya. Flat: tanpa garis tepi atau bayangan.
+static func speech_bubble(content: Control) -> PanelContainer:
+	var pc: PanelContainer = PanelContainer.new()
+	pc.name = "Bubble"
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb: StyleBoxFlat = panel(Palette.UI_CREAM_DEEP, 20, false)
+	sb.content_margin_left = 18.0
+	sb.content_margin_right = 18.0
+	sb.content_margin_top = 12.0
+	sb.content_margin_bottom = 12.0
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.add_child(content)
+	var tail: Polygon2D = Polygon2D.new()
+	tail.name = "Tail"
+	tail.color = Palette.UI_CREAM_DEEP
+	tail.polygon = PackedVector2Array([Vector2(1.0, -11.0), Vector2(-13.0, 0.0), Vector2(1.0, 11.0)])
+	pc.add_child(tail)
+	pc.resized.connect(func() -> void: tail.position = Vector2(0.0, minf(pc.size.y * 0.5, 40.0)))
+	return pc
 
 
 ## Geser isi khusus tombol (baris ikon+teks, ikon) mengikuti mukanya saat ditekan.

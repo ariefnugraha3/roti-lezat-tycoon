@@ -10,7 +10,9 @@ func _init() -> void:
 
 
 func build() -> void:
-	var body: VBoxContainer = make_popup(Tx.t("ui_pause_title"), Vector2(460, 560))
+	# Kartu setinggi isinya: lima tombol 58 px (+ Debug 48 px di build debug).
+	var h: float = 5.0 * 68.0 + (58.0 if OS.is_debug_build() else 0.0) + 80.0
+	var body: VBoxContainer = make_popup(Tx.t("ui_pause_title"), Vector2(460, h * maxf(1.0, SettingsManager.text_scale())))
 	for item: Array in [
 		["play", "ui_resume", "primary", close],
 		["trophy", "ui_statistics", "secondary", func() -> void: _open(&"stats")],

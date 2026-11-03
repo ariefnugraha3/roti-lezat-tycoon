@@ -15,22 +15,28 @@ func sheet_title() -> String:
 	return Tx.t("ui_tab_staff")
 
 
+func sheet_icon() -> String:
+	return "people"
+
+
 func build_page(body: VBoxContainer) -> void:
 	_hire_buttons.clear()
 	var loc: LocationDefinition = sim.world.location
-	var cap: Label = lbl(body, Tx.t("ui_staff_capacity", {"cashiers": sim.staff.employed_ids(&"cashier").size(),
+	var pill: PanelContainer = ProceduralUIFactory.pill("people", Tx.t("ui_staff_capacity", {"cashiers": sim.staff.employed_ids(&"cashier").size(),
 		"max_cashiers": loc.staff_capacity(&"cashier"), "bakers": sim.staff.employed_ids(&"baker").size(),
-		"max_bakers": loc.staff_capacity(&"baker")}), 16, Palette.UI_WOOD, true)
-	cap.name = "Capacity"
+		"max_bakers": loc.staff_capacity(&"baker")}), Palette.UI_CREAM_DEEP, Palette.UI_WOOD_DEEP, 15)
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	(pill.get_meta("label") as Label).name = "Capacity"
+	body.add_child(pill)
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "StaffList"
 	var team: Array[StringName] = sim.staff.employed_ids()
 	if not team.is_empty():
-		lbl(list, Tx.t("ui_staff_team"), 15, Palette.TEXT_MUTED)
+		section(list, Tx.t("ui_staff_team"))
 		for id: StringName in team:
 			_staff_row(list, DataRegistry.staff(id))
 	for role: StringName in [&"cashier", &"baker"]:
-		lbl(list, Tx.t("ui_staff_candidates_" + String(role)), 15, Palette.TEXT_MUTED)
+		section(list, Tx.t("ui_staff_candidates_" + String(role)))
 		for def: StaffDefinition in DataRegistry.staff_list():
 			if def.role_id == role and not sim.staff.is_employed(def.id):
 				_staff_row(list, def)
@@ -47,7 +53,7 @@ func _staff_row(parent: Control, def: StaffDefinition) -> void:
 	if not hired:
 		var b: Button = _hire_button(def)
 		h.add_child(b)
-	var open: Button = ProceduralUIFactory.icon_button("play", Tx.t("ui_staff_details"), "ghost")
+	var open: Button = ProceduralUIFactory.icon_button("play", Tx.t("ui_staff_details"), "plain", 22, Palette.UI_WOOD_DEEP)
 	open.name = "Details"
 	var sid: StringName = def.id
 	open.pressed.connect(func() -> void: push_page(def.display_name, _detail.bind(sid)))

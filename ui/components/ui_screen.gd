@@ -67,7 +67,7 @@ func on_closed() -> void:
 
 
 ## Helper: popup standar dengan tombol tutup (X) di baris judul.
-func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_SIZE, closable: bool = true) -> VBoxContainer:
+func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_SIZE, closable: bool = true, face: Color = Palette.PANEL) -> VBoxContainer:
 	var inset: Vector4 = ProceduralUIFactory.safe_area_margin()
 	var vp: Vector2 = get_viewport_rect().size if is_inside_tree() else Vector2(720, 1280)
 	# Pita judul menumpang setengahnya di atas kartu dan ikut membesar dengan
@@ -77,7 +77,7 @@ func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_
 	var ribbon_h: float = ProceduralUIFactory.RIBBON_H + maxf(0.0, SettingsManager.text_scale() - 1.25) * 56.0
 	var max_h: float = minf(vp.y - inset.y - inset.w - 24.0, vp.y - inset.y - inset.w - ribbon_h - 4.0)
 	var sz := Vector2(minf(minf(size_v.x, ProceduralUIFactory.POPUP_MAX_WIDTH), vp.x - inset.x - inset.z - 24.0), minf(size_v.y, max_h))
-	var p: Control = ProceduralUIFactory.popup(title_text, sz)
+	var p: Control = ProceduralUIFactory.popup(title_text, sz, face)
 	add_child(p)
 	if closable:
 		ProceduralUIFactory.add_popup_close(p, Tx.t("ui_close"), on_back)

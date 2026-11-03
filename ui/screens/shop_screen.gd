@@ -13,16 +13,20 @@ func sheet_title() -> String:
 	return Tx.t("ui_tab_shop")
 
 
+func sheet_icon() -> String:
+	return "shop"
+
+
 func build_page(body: VBoxContainer) -> void:
 	_rows.clear()
 	_open_buttons.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "ShopList"
 	_location(list)
-	lbl(list, Tx.t("ui_shop_open_stations"), 15, Palette.TEXT_MUTED)
+	section(list, Tx.t("ui_shop_open_stations"))
 	for cat: StringName in [&"mixer", &"oven", &"display"]:
 		_open_row(list, cat)
-	lbl(list, Tx.t("ui_shop_global"), 15, Palette.TEXT_MUTED)
+	section(list, Tx.t("ui_shop_global"))
 	for g: Variant in DataRegistry.idle("global_upgrades"):
 		_global_row(list, StringName(str((g as Dictionary)["id"])))
 
@@ -31,7 +35,7 @@ func build_page(body: VBoxContainer) -> void:
 func _location(parent: Control) -> void:
 	var cur: LocationDefinition = sim.world.location
 	var nxt: LocationDefinition = sim.next_location()
-	lbl(parent, Tx.t("ui_shop_location"), 15, Palette.TEXT_MUTED)
+	section(parent, Tx.t("ui_shop_location"))
 	var card: PanelContainer = ProceduralUIFactory.card(Tx.t(String(cur.localization_key)) if nxt == null else Tx.t("ui_shop_move_title", {"from": Tx.t(String(cur.localization_key)), "to": Tx.t(String(nxt.localization_key))}))
 	card.name = "Location"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -112,21 +116,15 @@ func _open_row(parent: Control, cat: StringName) -> void:
 
 func _global_row(parent: Control, gid: StringName) -> void:
 	var o: Dictionary = sim.upgrades.offer(&"global", gid)
-	var pc := PanelContainer.new()
+	var pc: PanelContainer = card(parent)
 	pc.name = "Global_" + String(gid)
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.UI_CREAM, 18, false)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(pc)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	pc.add_child(v)
 	var top: HBoxContainer = hbox(v, 10)
-	top.add_child(UpgradeInfo.icon(sim, o, 44))
+	var ic: Control = UpgradeInfo.icon(sim, o, 44)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(ic)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(text)

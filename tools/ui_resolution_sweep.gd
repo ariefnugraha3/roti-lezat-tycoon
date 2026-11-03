@@ -8,7 +8,8 @@ extends Node
 ##   godot --path . --resolution 540x960 res://tools/ui_resolution_sweep.tscn
 ## Folder potret: env LINEUP_OUT, atau user://lineup bila tidak diisi.
 ## Filter opsional: -- --res=720x1280,1920x1080 --scales=100,150
-## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi).
+## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
+## --full (potret ukuran penuh, bukan setengah).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -16,7 +17,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -25,6 +26,8 @@ var _issues: int = 0
 var _res: Array[Vector2i] = RES.duplicate()
 var _scales: Array[int] = SCALES.duplicate()
 var _screens: Array[StringName] = []
+## Potret ukuran penuh (--full); bawaannya diperkecil setengah.
+var _full: bool = false
 
 
 func _ready() -> void:
@@ -38,6 +41,8 @@ func _ready() -> void:
 			_scales.clear()
 			for t2: String in a.substr(9).split(","):
 				_scales.append(int(t2))
+		elif a == "--full":
+			_full = true
 		elif a.begins_with("--screens="):
 			for t3: String in a.substr(10).split(","):
 				_screens.append(StringName(t3))
@@ -122,7 +127,8 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 		_check(s, label + "_p2", r, sc)
 		await _shot(label + "_p2", r, sc)
 	game.modals.close_all()
-	game.sim.offline.pending = {}
+	if game.sim != null:
+		game.sim.offline.pending = {}
 	await _frames(1)
 
 
@@ -136,6 +142,8 @@ func _params_for(id: StringName) -> Dictionary:
 			return {"stars": 12, "number": 3}
 		&"tutorial":
 			return {"key": "onb_welcome"}
+		&"upgrade_card":
+			return {"kind": &"station", "id": game.sim.equipment.placed_list(&"oven")[0].iid}
 	return {}
 
 
@@ -175,7 +183,8 @@ func _shot(label: String, r: Vector2i, sc: int) -> void:
 	await RenderingServer.frame_post_draw
 	var img: Image = get_viewport().get_texture().get_image()
 	img.convert(Image.FORMAT_RGB8)
-	img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_BILINEAR)
+	if not _full:
+		img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_BILINEAR)
 	img.save_png(_out.path_join("%dx%d_%d_%s.png" % [r.x, r.y, sc, label]))
 
 

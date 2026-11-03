@@ -152,28 +152,48 @@ func build() -> void:
 # BANGUN
 # ===========================================================================
 
-## Bilah atas: judul, petunjuk/status, tombol lantai (Tier 2-3), dan Done.
+## Bilah atas: lencana dan judul, tombol lantai (Tier 2-3), dan Done di baris
+## pertama; petunjuk/status selebar bilah di baris kedua, supaya kalimatnya
+## tidak terjepit menjadi kolom sempit (pemolesan UI 2026-11-03).
 func _build_top_bar(frame: Control) -> void:
 	_top = PanelContainer.new()
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.94), 18, true)
-	sb.content_margin_left = 14
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.96), 22, true)
+	sb.content_margin_left = 10
 	sb.content_margin_right = 10
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
 	_top.add_theme_stylebox_override("panel", sb)
 	_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_top.mouse_filter = Control.MOUSE_FILTER_STOP
 	frame.add_child(_top)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	_top.add_child(col)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	_top.add_child(row)
-	row.add_child(ProceduralUIFactory.icon("frame", 26, Palette.UI_WOOD))
-	row.add_child(ProceduralUIFactory.title(Tx.t("ui_decoration"), 22))
-	_status = ProceduralUIFactory.label(Tx.t("ui_decor_hint"), 16, Palette.TEXT)
+	row.add_theme_constant_override("separation", 10)
+	col.add_child(row)
+	var badge: PanelContainer = ProceduralUIFactory.badge("frame", Palette.HONEY, Palette.FLOUR_WHITE, 44)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(badge)
+	var title: Label = ProceduralUIFactory.title(Tx.t("ui_decoration"), 22)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.clip_text = true
+	row.add_child(title)
+	_status = ProceduralUIFactory.label(Tx.t("ui_decor_hint"), 15, Palette.TEXT)
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(_status)
+	var hint := PanelContainer.new()
+	var hsb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.UI_CREAM_DEEP, 14, false)
+	hsb.content_margin_left = 12
+	hsb.content_margin_right = 12
+	hsb.content_margin_top = 5
+	hsb.content_margin_bottom = 5
+	hint.add_theme_stylebox_override("panel", hsb)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint.add_child(_status)
+	col.add_child(hint)
 	if sim.world.location.is_multi_floor():
 		for f: FloorDefinition in sim.world.location.floors:
 			var fid: StringName = f.id
@@ -186,8 +206,9 @@ func _build_top_bar(frame: Control) -> void:
 	_done_btn = done
 
 
-## Tepi bawah: baki barang (tertutup sampai sebuah tab diketuk) di atas baris
-## keterangan arsiran + tiga tab.
+## Tepi bawah: keterangan arsiran, baki barang (tertutup sampai sebuah tab
+## diketuk), lalu tiga tab di tengah. Keterangan punya barisnya sendiri supaya
+## ketiga tab muat di lebar 720 pada skala teks 150% (GDD idle 12.0.5).
 func _build_bottom(frame: Control) -> void:
 	_bottom = VBoxContainer.new()
 	_bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -195,6 +216,10 @@ func _build_bottom(frame: Control) -> void:
 	_bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bottom.add_theme_constant_override("separation", 8)
 	frame.add_child(_bottom)
+	var legend_row := HBoxContainer.new()
+	legend_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bottom.add_child(legend_row)
+	legend_row.add_child(_build_legend())
 	_tray = PanelContainer.new()
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.96), 20, true)
 	sb.set_content_margin_all(10.0)
@@ -211,20 +236,11 @@ func _build_bottom(frame: Control) -> void:
 	_tray.visible = false
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_bottom.add_child(row)
-	# Tab di tengah: sisi kiri (keterangan) dan kanan sama lebar.
-	var left := HBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(left)
-	left.add_child(_build_legend())
 	_tabs_box = HBoxContainer.new()
 	_tabs_box.add_theme_constant_override("separation", 8)
 	row.add_child(_tabs_box)
-	var right := Control.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(right)
 
 
 ## Keterangan arsiran ubin (GDD 17.4): contoh warna + teks pendek; kalimat
@@ -301,6 +317,10 @@ func _build_warning(frame: Control) -> void:
 	area.offset_top = 74
 	area.offset_bottom = 170
 	frame.add_child(area)
+	# Tepat di bawah bilah atas, yang tingginya ikut panjang petunjuknya.
+	_top.resized.connect(func() -> void:
+		area.offset_top = _top.size.y + 8.0
+		area.offset_bottom = area.offset_top + 96.0)
 	_warn = PanelContainer.new()
 	_warn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.PANEL, 18, true)
@@ -327,9 +347,11 @@ func _build_warning(frame: Control) -> void:
 	_warn.visible = false
 
 
-## Tombol pil berisi ikon + teks; seluruh tombol tetap bidang sentuhnya.
+## Tombol pil berisi ikon + teks; seluruh tombol tetap bidang sentuhnya. Tepinya
+## lebih rapat dari tombol biasa supaya ketiga tab muat di 720 px pada skala
+## teks 150%.
 static func _icon_text_button(icon_name: String, text: String, kind: String, cb: Callable) -> Button:
-	var b: Button = ProceduralUIFactory.icon_text_button(icon_name, text, kind, 22, 16)
+	var b: Button = ProceduralUIFactory.icon_text_button(icon_name, text, kind, 22, 16, 36.0)
 	b.pressed.connect(cb)
 	return b
 

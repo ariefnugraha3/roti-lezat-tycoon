@@ -218,7 +218,11 @@ are pruned. A new game starts at `clock.start_seconds`.
   (the release setting), `panel()`, `cushion()` (`_flat_button_box`), badges, chips,
   popups, `IconCanvas` and the backdrop skip every shadow, lip, gloss, outline,
   gradient and paper grain, and `lip()`, `press_shift()` and `content_lift()` return 0,
-  so content centres on the face. The rest of this bullet describes the cushion style,
+  so content centres on the face. Since the 2026-11-03 polish (idle GDD §20 no. 47),
+  sheets are `Palette.SHEET` with every row a `Palette.CARD` card (`UISheet.card`/`row`)
+  under `section_label` titles, disabled buttons of every kind share
+  `DISABLED_FACE`/`DISABLED_INK`, and the `soft` (light honey) and `plain` (deep cream)
+  kinds have no outline. The rest of this bullet describes the cushion style,
   which is still in the code behind that flag.
   `ProceduralUIFactory` owns every style. `cushion()` builds the
   button StyleBoxFlat for a state, `apply_kind()` restyles an existing button (tabs,
@@ -228,10 +232,11 @@ are pruned. A new game starts at `clock.start_seconds`.
   `tab_bar()`, switches through `toggle()`, and HUD values through `chip()`. `IconCanvas`
   draws each icon three times (shadow, outline, fill); only primitives in the icon's
   base colour, or colours registered with `_shade()`, get the outline.
-- HUD (idle §12.1): `HUD` refreshes its values 5 times a second: KR, KR/s from the model,
-  boost chips with their time left, Franchise Stars and the clock, a tab bar
-  (Upgrades, Menu, Staff, Shop, Decor, Franchise) with a green dot when something inside
-  is affordable (`has_affordable`), toasts, and `LevelChips` (projected 2D "Lv n" chips
+- HUD (idle §12.1): `HUD` refreshes its values 5 times a second: KR with KR/s from the
+  model in one chip, boost chips with their time left, Franchise Stars and the clock, a
+  tab bar (Upgrades, Menu, Staff, Shop, Decor, Franchise) with a green dot when something
+  inside is affordable (`has_affordable`) and a honey face on the tab whose sheet is open
+  (`ModalHost.stack_changed`), toasts, and `LevelChips` (projected 2D "Lv n" chips
   over every station, pooled and never rebuilt on refresh). Big screens are `UISheet`
   bottom sheets (non-blocking, one at a time, detail pages with Back); small popups
   (confirm, Welcome Back, cutscenes, tips) are cards or system overlays. Never rebuild a

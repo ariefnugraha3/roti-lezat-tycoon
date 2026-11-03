@@ -676,7 +676,7 @@
   "ui_shop_open_no_room": "No free spot. Move furniture in Decor to make room.",
   "ui_welcome_back_title": "Welcome back!",
   "ui_welcome_back_body": "You were away for {time}. Your bakery earned {amount}.",
-  "ui_welcome_back_lurah": "Pak Lurah: \"I kept an eye on the shop for you. The ovens never stopped!\"",
+  "ui_welcome_back_lurah": "I kept an eye on the shop for you. The ovens never stopped!",
   "ui_welcome_back_capped": "Only the first {hours} h away count. Longer Away Shifts in the Shop raises the limit.",
   "ui_collect": "Collect",
   "ui_offline_cap": "Earns while you are away for up to {hours} h at {percent}%",

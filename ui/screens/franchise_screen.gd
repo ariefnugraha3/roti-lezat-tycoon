@@ -14,6 +14,10 @@ func sheet_title() -> String:
 	return Tx.t("ui_franchise_title")
 
 
+func sheet_icon() -> String:
+	return "star"
+
+
 func build_page(body: VBoxContainer) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "FranchiseList"
@@ -42,7 +46,7 @@ func build_page(body: VBoxContainer) -> void:
 	var rs: Label = lbl(cb, Tx.t("ui_franchise_resets"), 14, Palette.TEXT_MUTED, true)
 	rs.name = "Resets"
 	lbl(cb, Tx.t("ui_franchise_keeps"), 14, Palette.TEXT_MUTED, true)
-	lbl(list, Tx.t("ui_franchise_perks"), 15, Palette.TEXT_MUTED)
+	section(list, Tx.t("ui_franchise_perks"))
 	for x: Variant in DataRegistry.idle("perks"):
 		var perk: Dictionary = x
 		var id: StringName = StringName(str(perk["id"]))

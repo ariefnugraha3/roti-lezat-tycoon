@@ -5,7 +5,7 @@ extends RefCounted
 ## berikutnya. Dipakai kartu upgrade, layar Upgrades, Menu, Staff, dan Shop.
 
 const ICONS: Dictionary = {
-	&"mixer": "kitchen", &"oven": "fire", &"display": "bread", &"counter": "bag",
+	&"mixer": "whisk", &"oven": "fire", &"display": "bread", &"counter": "bag",
 	&"global_offline_hours": "moon", &"global_offline_efficiency": "hourglass", &"global_tap_power": "bolt",
 	&"global_walk_speed": "scooter", &"global_queue_patience": "heart",
 }

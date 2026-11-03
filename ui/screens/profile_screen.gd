@@ -14,7 +14,7 @@ func build() -> void:
 	bg.color = Color(Palette.BG, 0.96)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(640, 760))
+	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(640, 760), true, Palette.SHEET)
 	# Bingkai potret (GDD idle 12.0.5): tiga kartu bertumpuk, satu per baris.
 	var list: VBoxContainer = scroll_box(body)
 	list.add_theme_constant_override("separation", 14)
