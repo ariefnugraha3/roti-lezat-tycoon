@@ -55,7 +55,7 @@
  },
  "location": {
   "_gdd": "6.1, 6.5, 8.7",
-  "upgrade_cost": [0, 32500, 323000, 960000, 1680000],
+  "upgrade_cost": [0, 32500, 345000, 1100000, 1800000],
   "base_arrivals_per_hour": [23, 51, 67, 86, 112],
   "rotifood_orders_per_hour": [3, 4, 6, 8, 10]
  },
