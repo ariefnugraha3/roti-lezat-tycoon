@@ -1,7 +1,7 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
 ## misi ringan harian, kalender cap, Share my bakery, photo mode, event
-## musiman, dan Peta Crumbtown.
+## musiman, Peta Crumbtown, dan tip untuk semuanya.
 
 
 func tests() -> Array:
@@ -17,6 +17,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_EVENTS_UI", "name": "idle 21.6 an event date toasts the event, shows a HUD chip with the end date that opens the Menu (Event pills and a card line), a Goals banner, and event decorations in the shop; the next date takes them away", "fn": _events_ui},
 		{"id": "ACC_IDLE_TOWN_MAP", "name": "idle 21.7 a franchise records the sold branch (tier, stars, KR, income, days); the map lists every branch plus the open one, survives saves, and fills older saves with placeholders", "fn": _town_map},
 		{"id": "ACC_IDLE_TOWN_MAP_UI", "name": "idle 21.7 the Franchise sheet opens the Crumbtown map: bakeries along streets in their tier's look, You are here on the open branch, a lot for the next one, and a story page per bakery", "fn": _town_map_ui},
+		{"id": "ACC_IDLE_TIPS", "name": "idle 21.8 one-off tips for the craving, daily goals, a seasonal event, Share/Photo mode (Tier 2) and the Crumbtown map (second branch), each once, archived in Help, none with hints off", "fn": _tips},
+		{"id": "ACC_IDLE_TIPS_UI", "name": "idle 21.8 a tip for a HUD button opens as a tap guide on that button and finishes when its screen opens; the next tip follows", "fn": _tips_ui},
 	]
 
 
@@ -783,6 +785,108 @@ func _town_map_ui() -> void:
 				found = true
 	check(found, "the story shows the stars it earned")
 	game.modals.close_all()
+	await _end_share(game)
+
+
+## Langkah onboarding dasar (sebelum tip fitur retensi) dianggap sudah tampil.
+static func _base_steps_done(s: SimulationRoot) -> void:
+	for k: String in TutorialManager.STEPS:
+		if k in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]:
+			continue
+		s.tutorial.done[k] = true
+	s.tutorial.prompt = {}
+
+
+static func _tip_step(s: SimulationRoot) -> void:
+	for i in int(1.0 / s.tick_seconds):
+		s.step(s.tick_seconds)
+
+
+func _tips() -> void:
+	var hints_before: bool = SettingsManager.get_bool("tutorial_hints")
+	SettingsManager.set_value("tutorial_hints", true)
+	CravingManager.enabled = true
+	var s: SimulationRoot = new_sim(5801)
+	_base_steps_done(s)
+	_tip_step(s)
+	eq(s.tutorial.prompt, {}, "no new tip on day 1")
+	_cross_midnight(s)
+	_tip_step(s)
+	eq(str(s.tutorial.prompt.get("key", "")), "onb_craving", "day 2 points at the craving chip")
+	eq(str(s.tutorial.prompt.get("target", "")), "hud_craving", "with the HUD target")
+	s.tutorial.dismiss()
+	eq(str(s.tutorial.prompt.get("key", "")), "onb_goals", "then at the Goals button")
+	eq(str(s.tutorial.prompt.get("target", "")), "hud_goals", "with its HUD target")
+	s.tutorial.dismiss()
+	jump_to_tier(s, 2)
+	_tip_step(s)
+	eq(str(s.tutorial.prompt.get("key", "")), "onb_share", "a bigger shop suggests Share and Photo mode")
+	eq(str(s.tutorial.prompt.get("target", "")), "hud_pause", "through the Pause button")
+	s.tutorial.dismiss()
+	EventManager.enabled = true
+	s.events.set_date("2030-12-20")
+	_tip_step(s)
+	eq(str(s.tutorial.prompt.get("key", "")), "onb_event", "a seasonal event points at its chip")
+	s.tutorial.dismiss()
+	s.prestige.run_index = 2
+	_tip_step(s)
+	eq(str(s.tutorial.prompt.get("key", "")), "onb_map", "a second branch points at the Crumbtown map")
+	eq(str(s.tutorial.prompt.get("target", "")), "tab_franchise", "through the Franchise tab")
+	s.tutorial.dismiss()
+	_cross_midnight(s)
+	_tip_step(s)
+	eq(s.tutorial.prompt, {}, "every tip shows only once")
+	for k: String in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]:
+		check(s.tutorial.archive().has(k), "%s is in the Help archive" % k)
+		check(Tx.t(k) != k, "%s has English text" % k)
+	free_sim(s)
+	# Tip mati: tidak ada yang tampil.
+	SettingsManager.set_value("tutorial_hints", false)
+	var t: SimulationRoot = new_sim(5802)
+	_base_steps_done(t)
+	_cross_midnight(t)
+	_tip_step(t)
+	eq(t.tutorial.prompt, {}, "with hints off no tip appears")
+	free_sim(t)
+	SettingsManager.set_value("tutorial_hints", hints_before)
+
+
+func _tips_ui() -> void:
+	var hints_before: bool = SettingsManager.get_bool("tutorial_hints")
+	SettingsManager.set_value("tutorial_hints", true)
+	CravingManager.enabled = true
+	var game: GameRoot = await _boot_share("Tip Bakery")
+	var sim: SimulationRoot = game.sim
+	game.modals.close_all()
+	sim.tutorial.skipped = false
+	_base_steps_done(sim)
+	game.playing = false
+	_cross_midnight(sim)
+	_tip_step(sim)
+	game.hud._refresh_all()
+	await _frames(3)
+	var guide: TutorialGuide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide != null and guide.key == "onb_craving", "the craving tip opens as a tap guide")
+	if guide != null:
+		await _frames(2)
+		eq(guide.target_control(), game.hud.craving_chip(), "the hole sits on the craving chip")
+	game.hud.craving_chip().pressed.emit()
+	await _frames(3)
+	check(game.modals.is_open(&"menu"), "tapping the chip opens the Menu")
+	check(str(sim.tutorial.prompt.get("key", "")) != "onb_craving", "and finishes the craving tip")
+	game.modals.close_id(&"menu")
+	await _frames(3)
+	var guide2: TutorialGuide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide2 != null and guide2.key == "onb_goals", "the Goals tip follows")
+	if guide2 != null:
+		await _frames(2)
+		eq(guide2.target_control(), game.hud.goals_button(), "pointing at the Goals button")
+	game.hud.goals_button().pressed.emit()
+	await _frames(3)
+	check(game.modals.is_open(&"goals") and not game.modals.is_open(&"tutorial_guide"), "opening Goals closes the tip")
+	eq(sim.tutorial.prompt, {}, "no tip is left")
+	game.modals.close_all()
+	SettingsManager.set_value("tutorial_hints", hints_before)
 	await _end_share(game)
 
 

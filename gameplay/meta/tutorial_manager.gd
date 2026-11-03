@@ -5,8 +5,11 @@ extends SimManager
 ## ekonomi: tidak ada ketukan yang ditahan dan tidak ada fitur yang dikunci.
 
 ## Langkah onboarding, urut seperti tabel GDD idle 13.
+## Lalu tip fitur retensi (GDD idle 21.8): craving, tujuan harian, event,
+## Share/Photo mode, dan Peta Crumbtown.
 const STEPS: Array[String] = ["onb_welcome", "onb_first_sale", "onb_first_upgrade", "onb_tap_boost", "onb_hire",
-	"onb_recipe", "onb_offline", "onb_location", "onb_franchise"]
+	"onb_recipe", "onb_offline", "onb_location", "onb_franchise",
+	"onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]
 ## Detik-simulasi antar-pemeriksaan pemicu.
 const CHECK_SECONDS: float = 0.5
 
@@ -115,6 +118,17 @@ func _check() -> void:
 		show_step("onb_location", &"tab_shop")
 	if not done.has("onb_franchise") and sim.prestige.franchise_block() == &"":
 		show_step("onb_franchise", &"tab_franchise")
+	# Tip fitur retensi (GDD idle 21.8): sekali, saat fiturnya pertama terlihat.
+	if not done.has("onb_craving") and done.has("onb_first_sale") and sim.cravings.today() != &"":
+		show_step("onb_craving", &"hud_craving")
+	if not done.has("onb_goals") and sim.goals.started() and not sim.goals.goals.is_empty():
+		show_step("onb_goals", &"hud_goals")
+	if not done.has("onb_event") and done.has("onb_first_sale") and not sim.events.active().is_empty():
+		show_step("onb_event", &"hud_event")
+	if not done.has("onb_share") and sim.world.location.tier >= 2:
+		show_step("onb_share", &"hud_pause")
+	if not done.has("onb_map") and sim.prestige.run_index >= 2:
+		show_step("onb_map", &"tab_franchise")
 
 
 ## Petunjuk yang sudah dikerjakan pemain menutup sendiri.

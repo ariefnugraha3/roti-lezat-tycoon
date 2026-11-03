@@ -1005,3 +1005,17 @@ Tujuan: Waralaba terasa seperti membangun kota, bukan hanya mengulang dari nol.
 - **Catatan cabang.** Saat Waralaba, cabang yang dijual dicatat di save (`PrestigeManager.branches`): nomor cabang, tier lokasi tertinggi, Bintang Waralaba yang didapat, KR yang didapat putaran itu, KR/s model saat dijual, hari dibuka, dan hari dijual. Hari buka cabang baru (`run_started_day`) ikut tersimpan. Save dari sebelum peta hanya tahu nomor cabangnya: cabang lama tampil sebagai kavling bertoko tier 3 tanpa cerita ("its story is lost to time").
 - **Peta** (lembar bawah, dari tombol "Crumbtown map" di lembar Franchise): jalan-jalan kota bertumpuk ke bawah, tiga kavling per jalan, dengan rumput, pohon bulat di antara kavling, dan jalan beraspal bergaris. Setiap cabang berdiri di kavlingnya dengan gambar etalase tier yang dicapainya (`ShopFrontArt`, sama dengan kartu save) dan label "Branch #n"; cabang yang sedang buka berlabel madu "You are here", dan kavling terakhir berisi siluet "Next branch" untuk Waralaba berikutnya.
 - **Cerita cabang**: mengetuk sebuah toko membuka halaman berisi etalase besar, nama toko dan lokasinya, bintang yang didapat (cabang yang buka: "Stars if you franchise now"), KR yang didapat, penghasilan per detik, dan "Day x to day y".
+
+## **21.8 Tip untuk Fitur Baru**
+
+Permintaan maintainer 2026-11-03: fitur Seksi 21 harus ditemukan pemain. Lima tip onboarding baru (Seksi 13) tampil sekali, bisa ditutup, ikut arsip Help, dan tidak tampil bila tip dimatikan:
+
+| Kunci | Pemicu | Sasaran |
+|---|---|---|
+| `onb_craving` | craving pertama (hari 2) | pil craving di HUD; selesai saat Menu terbuka |
+| `onb_goals` | tujuan harian pertama (hari 2) | tombol Goals; selesai saat lembar Goals terbuka |
+| `onb_event` | event musiman pertama | pil event di HUD; selesai saat Menu terbuka |
+| `onb_share` | pindah ke Tier 2 | tombol Pause; selesai saat menu Pause terbuka |
+| `onb_map` | cabang kedua (setelah Waralaba) | tab Franchise, lalu tombol "Crumbtown map"; selesai saat peta terbuka |
+
+Tip bersasaran tombol HUD memakai panduan ketuk yang sama (`TutorialGuide`, sasaran `hud_<name>`). Kalender cap tidak diberi tip karena popupnya sudah menjelaskan diri sendiri.

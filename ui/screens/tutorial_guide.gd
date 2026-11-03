@@ -13,7 +13,8 @@ extends UIScreen
 ## terbuka di atasnya atau modal pemblokir terbuka di bawahnya: selama itu toko
 ## di-pause dan scrim modal itu menelan ketukan di lubang sorotan.
 ##
-## Params: {key, target}; target `chip_<iid>`, `tab_<id>`, atau `station_<iid>`.
+## Params: {key, target}; target `chip_<iid>`, `tab_<id>`, `station_<iid>`, atau
+## `hud_<name>` (tombol HUD: craving, goals, event, pause; GDD idle 21.8).
 
 ## Teks balon setelah pemain membuka lembar atau kartu yang benar.
 const SECOND_TEXT: Dictionary = {
@@ -22,6 +23,18 @@ const SECOND_TEXT: Dictionary = {
 	"onb_recipe": "onb_recipe_step2",
 	"onb_location": "onb_location_step2",
 	"onb_franchise": "onb_franchise_step2",
+	"onb_map": "onb_map_step2",
+}
+## Tip yang selesai sendiri begitu layarnya terbuka (tombol HUD tanpa langkah
+## kedua, dan Peta Crumbtown dari lembar Franchise).
+const DONE_SCREENS: Dictionary = {
+	"hud_craving": &"menu",
+	"hud_goals": &"goals",
+	"hud_event": &"menu",
+	"hud_pause": &"pause",
+}
+const DONE_KEYS: Dictionary = {
+	"onb_map": &"town_map",
 }
 
 var key: String = ""
@@ -89,6 +102,10 @@ func _not_now() -> void:
 
 
 func _process(_delta: float) -> void:
+	var done_screen: StringName = DONE_KEYS.get(key, DONE_SCREENS.get(target, &""))
+	if done_screen != &"" and host != null and host.is_open(done_screen):
+		_not_now()
+		return
 	visible = host == null or (host.top() == self and not host.has_blocking())
 	_resolve()
 
@@ -115,10 +132,12 @@ func _resolve() -> void:
 	elif target.begins_with("tab_"):
 		var tab: StringName = StringName(target.substr(4))
 		var sheet: UIScreen = host.screen(HUD.screen_for_tab(tab)) if host != null else null
-		_control = _inner_button(tab, sheet)
+		_control = _inner_button(tab, sheet, key)
 		second = _control != null
 		if not second and hud != null:
 			_control = hud.tab_button(tab)
+	elif target.begins_with("hud_") and hud != null:
+		_control = hud.tutorial_target(target.substr(4))
 	elif _world_iid >= 0 and game != null and game.world != null:
 		var node: Variant = game.world.furniture.get(_world_iid)
 		if node != null:
@@ -130,7 +149,7 @@ func _resolve() -> void:
 
 
 ## Tombol yang harus diketuk di lembar tab yang terbuka, atau null.
-static func _inner_button(tab: StringName, sheet: UIScreen) -> Button:
+static func _inner_button(tab: StringName, sheet: UIScreen, step_key: String = "") -> Button:
 	if sheet == null:
 		return null
 	match tab:
@@ -141,6 +160,8 @@ static func _inner_button(tab: StringName, sheet: UIScreen) -> Button:
 		&"shop":
 			return (sheet as ShopScreen).move_button() if sheet is ShopScreen else null
 		&"franchise":
+			if step_key == "onb_map":
+				return sheet.find_child("TownMap", true, false) as Button
 			return (sheet as FranchiseScreen).sell_button() if sheet is FranchiseScreen else null
 	return null
 

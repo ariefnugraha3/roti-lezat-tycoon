@@ -586,6 +586,20 @@ func goals_button() -> Button:
 	return _goals
 
 
+## Sasaran tip onboarding `hud_<name>` (GDD idle 21.8), atau null.
+func tutorial_target(target_name: String) -> Control:
+	match target_name:
+		"craving":
+			return _craving
+		"goals":
+			return _goals
+		"event":
+			return _event
+		"pause":
+			return _root.find_child("Pause", true, false) as Control
+	return null
+
+
 ## Ada sesuatu yang terjangkau di tab `id` (titik hijau, GDD idle 12.1).
 func has_affordable(id: StringName) -> bool:
 	var up: UpgradeManager = sim.upgrades
