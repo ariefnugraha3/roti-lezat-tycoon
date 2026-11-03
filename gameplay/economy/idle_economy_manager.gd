@@ -69,7 +69,7 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	var slot_count: Dictionary = {}
 	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
 		for i in sim.display.slot_count(e.iid):
-			var rid: StringName = sim.display.effective_recipe(e.iid, i)
+			var rid: StringName = sim.display.effective_recipe(e.iid, i, with_boosts)
 			if rid == &"":
 				continue
 			slot_cap[rid] = maxi(int(slot_cap.get(rid, 0)), sim.display.slot_capacity(e.iid))

@@ -55,6 +55,9 @@ var _in_step: bool = false
 var _managers: Array[SimManager] = []
 var _auto_cache: StringName = &""
 var _auto_cache_key: String = "-"
+## Resep Auto tanpa craving (model offline, GDD idle 9.1, 21.1).
+var _auto_plain: StringName = &""
+var _auto_plain_key: String = "-"
 
 
 func _init() -> void:
@@ -314,33 +317,42 @@ func boost_income_mult() -> float:
 
 
 ## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost, dengan
-## selera dan craving: harga − biaya bahan per unit (biaya bahan tidak ikut
-## level, GDD idle 4.4).
-func net_per_unit(recipe_id: StringName) -> float:
+## selera dan (bila `live`) craving: harga − biaya bahan per unit (biaya bahan
+## tidak ikut level, GDD idle 4.4).
+func net_per_unit(recipe_id: StringName, live: bool = true) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	return _with_craving(recipe_id, plain_price(recipe_id), true) - r.unit_cogs_kr()
+	return _with_craving(recipe_id, plain_price(recipe_id), live) - r.unit_cogs_kr()
 
 
 ## Resep "Auto" (GDD idle 4.2): resep terbuka yang bisa dibuat dengan laba
 ## bersih per roti tertinggi; seri dipecah urutan katalog.
-func auto_recipe() -> StringName:
+## `live` = false: tanpa craving, seperti model penghasilan offline yang juga
+## mengabaikan craving (GDD idle 9.1), supaya KR/s offline tidak menilai petak
+## Auto dengan resep craving berharga biasa.
+func auto_recipe(live: bool = true) -> StringName:
 	var key: String = "%s|%s|%s|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars,
-		cravings.active(), world.location.tier]
-	if key == _auto_cache_key:
+		cravings.active() if live else &"", world.location.tier]
+	if live and key == _auto_cache_key:
 		return _auto_cache
+	if not live and key == _auto_plain_key:
+		return _auto_plain
 	var best: StringName = &""
 	var best_v: float = -INF
 	for r: RecipeDefinition in DataRegistry.recipes():
 		if not can_make(r.id):
 			continue
-		var v: float = net_per_unit(r.id)
+		var v: float = net_per_unit(r.id, live)
 		if v > best_v + 0.000001:
 			best_v = v
 			best = r.id
-	_auto_cache = best
-	_auto_cache_key = key
+	if live:
+		_auto_cache = best
+		_auto_cache_key = key
+	else:
+		_auto_plain = best
+		_auto_plain_key = key
 	return best
 
 
@@ -500,6 +512,7 @@ func franchise() -> int:
 	tutorial.on_event(&"franchise")
 	_auto_cache = &""
 	_auto_cache_key = "-"
+	_auto_plain_key = "-"
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "new branch layout failed protected-path validation")
 	GameLogger.important("FRANCHISE", "branch #%d opened with %d new stars (%d total)" % [prestige.run_index, gained, prestige.stars])
@@ -669,6 +682,7 @@ func load_from_save(d: Dictionary) -> void:
 	customers.reconstruct()
 	rotifood.reconstruct()
 	_auto_cache_key = "-"
+	_auto_plain_key = "-"
 	goals.ensure_today()
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "loaded layout failed protected-path validation")

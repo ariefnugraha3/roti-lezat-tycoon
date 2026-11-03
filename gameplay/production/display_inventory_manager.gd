@@ -136,14 +136,15 @@ func set_assignment(iid: int, index: int, recipe_id: StringName) -> bool:
 
 
 ## Resep yang sedang dijual petak itu: pilihan pemain, atau resep Auto. &"" bila
-## tidak ada resep yang bisa dibuat.
-func effective_recipe(iid: int, index: int) -> StringName:
+## tidak ada resep yang bisa dibuat. `live` = false: Auto tanpa craving (model
+## offline).
+func effective_recipe(iid: int, index: int, live: bool = true) -> StringName:
 	var a: StringName = assignment(iid, index)
 	if a != &"" and sim.can_make(a):
 		return a
 	if a != &"":
 		return &""
-	return sim.auto_recipe()
+	return sim.auto_recipe(live)
 
 
 ## Berapa unit `recipe` yang masih bisa masuk ke petak itu. Petak yang masih

@@ -66,6 +66,22 @@ func _craving() -> void:
 	check(best2 > s.plain_price(c1) * 2.0, "another bread is far better levelled")
 	near(s.recipe_price(c1), best2 * DataRegistry.idlef("craving.best_mult") * s.boost_income_mult(), 1e-6, "the craving sells for 1.2x a far better levelled bread")
 	eq(s.auto_recipe(), c1, "Auto still prefers the craving")
+	# Model offline: tanpa craving sama sekali, juga untuk pilihan Auto (semua
+	# petak di Auto).
+	for e: EquipmentInstance in s.equipment.placed_list(&"display"):
+		for si in s.display.slot_count(e.iid):
+			s.display.set_assignment(e.iid, si, &"")
+	s.idle_economy.invalidate()
+	var off_rate: float = float(s.idle_economy.compute(false)["rate"])
+	CravingManager.enabled = false
+	s.idle_economy.invalidate()
+	var plain_rate: float = float(s.idle_economy.compute(false)["rate"])
+	var plain_auto: StringName = s.auto_recipe()
+	CravingManager.enabled = true
+	s.idle_economy.invalidate()
+	check(plain_auto != c1, "with cravings off another bread is Auto")
+	near(off_rate, plain_rate, 1e-9, "the offline KR/s is the same as with cravings off")
+	eq(s.auto_recipe(false), plain_auto, "the offline model keeps the usual Auto recipe (%s, live %s)" % [plain_auto, c1])
 	s.upgrades.recipe_levels[other] = 1
 	s.idle_economy.invalidate()
 	# Undian berikutnya tidak mengulang kemarin.

@@ -134,8 +134,9 @@ func _manage() -> void:
 ## level stasiun yang paling murah dari paket itu.
 func _recipe_goals() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var auto: StringName = sim.auto_recipe()
-	var cur_net: float = sim.net_per_unit(auto) if auto != &"" else 0.0
+	# Rencana jangka panjang tanpa craving hari ini (seperti KR/s model).
+	var auto: StringName = sim.auto_recipe(false)
+	var cur_net: float = sim.net_per_unit(auto, false) if auto != &"" else 0.0
 	var cap: int = sim.upgrades.level_cap()
 	var thresholds: Array = DataRegistry.idle("station.model_tier_thresholds")
 	var rate: float = sim.idle_economy.rate(false)
@@ -146,7 +147,7 @@ func _recipe_goals() -> Array[Dictionary]:
 		var need_level: int = 1 if need_tier <= 1 else int(thresholds[need_tier - 2])
 		if need_level > cap:
 			continue
-		var net_new: float = sim.net_per_unit(r.id)
+		var net_new: float = sim.net_per_unit(r.id, false)
 		if net_new <= cur_net or cur_net <= 0.0:
 			continue
 		var total: float = UpgradeManager.unlock_cost(r)
