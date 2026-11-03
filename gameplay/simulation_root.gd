@@ -41,6 +41,9 @@ var tutorial: TutorialManager
 var idle_economy: IdleEconomyManager
 var offline: OfflineManager
 var boosts: BoostManager
+var cravings: CravingManager
+var goals: GoalManager
+var calendar: CalendarManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Crumbtown Bakery"
@@ -80,6 +83,9 @@ func _init() -> void:
 	idle_economy = _add(IdleEconomyManager.new(), "IdleEconomyManager")
 	offline = _add(OfflineManager.new(), "OfflineManager")
 	boosts = _add(BoostManager.new(), "BoostManager")
+	cravings = _add(CravingManager.new(), "CravingManager")
+	goals = _add(GoalManager.new(), "GoalManager")
+	calendar = _add(CalendarManager.new(), "CalendarManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -108,6 +114,8 @@ func start_new_game(pid: StringName, name_text: String, gender: String, master_s
 		m.new_game()
 	player.appearance = {"gender": gender}
 	_setup_run(1)
+	cravings.ensure_today()
+	goals.ensure_today()
 	GameLogger.important("BOOT", "new game in %s seed %d" % [pid, master_seed])
 
 
@@ -220,6 +228,8 @@ func _on_new_day() -> void:
 	weather.on_new_day()
 	statistics.on_new_day()
 	rotifood.prune()
+	cravings.on_new_day()
+	goals.on_new_day()
 	EventBus.day_started.emit(time.day)
 
 
@@ -246,13 +256,40 @@ func can_make(recipe_id: StringName) -> bool:
 	return r != null and upgrades.is_unlocked(recipe_id) and production.owns_equipment_for(r)
 
 
-## Harga per roti tanpa bonus rak (GDD idle 7.2): harga dasar × level resep ×
-## dekorasi × waralaba × boost.
-func recipe_price(recipe_id: StringName) -> float:
+## Harga per roti tanpa bonus rak (GDD idle 7.2, 21.1): harga biasa × boost; resep
+## craving yang terbuka dijual ×`craving.best_mult` harga biasa roti termahal yang
+## bisa dijual (termasuk dirinya sendiri).
+## `live` = false: tanpa boost dan craving (model penghasilan offline, GDD idle 9.1).
+func recipe_price(recipe_id: StringName, live: bool = true) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * price_mult()
+	var p: float = _with_craving(recipe_id, plain_price(recipe_id), live)
+	return p * boost_income_mult() if live else p
+
+
+## Harga biasa per roti: harga dasar × level resep × selera lingkungan ×
+## dekorasi × waralaba, tanpa boost dan craving.
+func plain_price(recipe_id: StringName) -> float:
+	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
+	if r == null:
+		return 0.0
+	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * decoration.bonus_mult(&"price") * prestige.income_mult()
+
+
+## Harga biasa roti termahal yang bisa dijual sekarang (terbuka, alatnya ada).
+func best_plain_price() -> float:
+	var best: float = 0.0
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if can_make(r.id):
+			best = maxf(best, plain_price(r.id))
+	return best
+
+
+func _with_craving(recipe_id: StringName, plain: float, live: bool) -> float:
+	if not live or recipe_id != cravings.active():
+		return plain
+	return maxf(plain, best_plain_price()) * DataRegistry.idlef("craving.best_mult")
 
 
 ## Harga per roti di rak `display_iid` (GDD idle 7.2); -1 = tanpa bonus rak.
@@ -276,20 +313,21 @@ func boost_income_mult() -> float:
 	return boosts.income_now()
 
 
-## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost: harga −
-## biaya bahan per unit (biaya bahan tidak ikut level, GDD idle 4.4).
+## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost, dengan
+## selera dan craving: harga − biaya bahan per unit (biaya bahan tidak ikut
+## level, GDD idle 4.4).
 func net_per_unit(recipe_id: StringName) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	var price: float = r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * decoration.bonus_mult(&"price") * prestige.income_mult()
-	return price - r.unit_cogs_kr()
+	return _with_craving(recipe_id, plain_price(recipe_id), true) - r.unit_cogs_kr()
 
 
 ## Resep "Auto" (GDD idle 4.2): resep terbuka yang bisa dibuat dengan laba
 ## bersih per roti tertinggi; seri dipecah urutan katalog.
 func auto_recipe() -> StringName:
-	var key: String = "%s|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars]
+	var key: String = "%s|%s|%s|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars,
+		cravings.active(), world.location.tier]
 	if key == _auto_cache_key:
 		return _auto_cache
 	var best: StringName = &""
@@ -457,6 +495,7 @@ func franchise() -> int:
 	decoration.replace_lifted(lifted)
 	statistics.begin_run(world.location.id)
 	statistics.add(&"franchise_count", 1)
+	goals.new_run()
 	achievements.check_tier(world.location.tier)
 	tutorial.on_event(&"franchise")
 	_auto_cache = &""
@@ -564,6 +603,9 @@ func capture_save() -> Dictionary:
 		"stats": statistics.capture(),
 		"offline": offline.capture(),
 		"boosts": boosts.capture(),
+		"cravings": cravings.capture(),
+		"goals": goals.capture(),
+		"calendar": calendar.capture(),
 		"rng_states": rng.capture(),
 	}
 
@@ -615,6 +657,10 @@ func load_from_save(d: Dictionary) -> void:
 	tutorial.restore(d.get("tutorial", {}))
 	offline.restore(d.get("offline", {}))
 	boosts.restore(d.get("boosts", {}))
+	cravings.restore(d.get("cravings", {}))
+	cravings.ensure_today()
+	calendar.restore(d.get("calendar", {}))
+	goals.restore(d.get("goals", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).
 	production.recover_orphans()
@@ -623,6 +669,7 @@ func load_from_save(d: Dictionary) -> void:
 	customers.reconstruct()
 	rotifood.reconstruct()
 	_auto_cache_key = "-"
+	goals.ensure_today()
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "loaded layout failed protected-path validation")
 	GameLogger.important("SAVE", "profile %s loaded at day %d" % [profile_id, time.day])

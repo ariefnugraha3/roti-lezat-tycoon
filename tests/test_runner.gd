@@ -53,6 +53,9 @@ func _ready() -> void:
 			_skip_long = true
 	GameLogger.quiet = true
 	OS.add_logger(_errors)
+	# Craving harian (GDD idle 21.1) mengubah harga satu resep per hari dari seed;
+	# tes harga dan ekonomi memakai harga biasa. Tes craving menyalakannya sendiri.
+	CravingManager.enabled = false
 	# Menunggu satu frame agar semua autoload selesai _ready.
 	await get_tree().process_frame
 	var code: int = await _run_all()
@@ -85,6 +88,7 @@ func _run_all() -> int:
 				continue
 			suite.failures.clear()
 			suite.checks = 0
+			CravingManager.enabled = false
 			var started: int = Time.get_ticks_msec()
 			PauseManager.clear_all()
 			_errors.reset()

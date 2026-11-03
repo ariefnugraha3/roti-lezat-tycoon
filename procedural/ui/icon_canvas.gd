@@ -28,7 +28,7 @@ const NAMES: Array[String] = [
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock", "whisk",
+	"back", "up", "lock", "whisk", "flag", "calendar",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -53,7 +53,7 @@ const PASS_SHADOW: int = 2
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock", "whisk"
+	"back", "up", "lock", "whisk", "flag", "calendar"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -224,6 +224,8 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"back": _i_back(c, s, col)
 		"up": _i_up(c, s, col)
 		"lock": _i_lock(c, s, col)
+		"flag": _i_flag(c, s, col)
+		"calendar": _i_calendar(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -738,6 +740,28 @@ func _i_lock(c: Vector2, s: float, col: Color) -> void:
 	_round_rect(c, s, -0.30, -0.10, 0.60, 0.48, 0.10, col)
 	_dot(c, s, 0.0, 0.10, 0.07, ink)
 	_bar(c, s, 0.0, 0.10, 0.0, 0.22, 0.06, ink)
+
+
+## Bendera tujuan — misi ringan harian (GDD idle 21.2).
+func _i_flag(c: Vector2, s: float, col: Color) -> void:
+	_bar(c, s, -0.28, -0.44, -0.28, 0.40, 0.09, col)
+	_blob(c, s, [
+		Vector2(-0.26, -0.42), Vector2(0.06, -0.34), Vector2(0.40, -0.40),
+		Vector2(0.36, -0.04), Vector2(0.04, 0.02), Vector2(-0.26, -0.06),
+	], col)
+	_round_rect(c, s, -0.44, 0.34, 0.32, 0.10, 0.05, col)
+
+
+## Kalender cap harian (GDD idle 21.3): lembar dengan dua cincin dan petak hari.
+func _i_calendar(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.40, -0.32, 0.80, 0.74, 0.11, col)
+	_round_rect(c, s, -0.40, -0.32, 0.80, 0.20, 0.08, _shade(col, 0.18))
+	for x: float in [-0.18, 0.18]:
+		_bar(c, s, x, -0.44, x, -0.24, 0.08, ink)
+	for r in 2:
+		for k in 3:
+			_dot(c, s, -0.22 + 0.22 * float(k), 0.02 + 0.2 * float(r), 0.06, ink)
 
 
 ## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).

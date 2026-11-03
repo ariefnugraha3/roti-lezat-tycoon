@@ -17,7 +17,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -144,7 +144,24 @@ func _params_for(id: StringName) -> Dictionary:
 			return {"key": "onb_welcome"}
 		&"upgrade_card":
 			return {"kind": &"station", "id": game.sim.equipment.placed_list(&"oven")[0].iid}
+		&"goals":
+			# Satu tujuan selesai, satu setengah jalan, dan cap hari ini tersedia.
+			var g: GoalManager = game.sim.goals
+			if g.progress(g.goals[0]) <= 0.0:
+				game.sim.statistics.add(StringName(str(g.goals[0]["stat"])), float(g.goals[0]["target"]))
+				game.sim.statistics.add(StringName(str(g.goals[1]["stat"])), float(g.goals[1]["target"]) * 0.5)
+			_stamp_card(3)
+		&"calendar":
+			_stamp_card(3)
+			return {"date": BoostManager.today()}
 	return {}
+
+
+## Kartu cap contoh: `n` cap sudah diambil, cap hari ini tersedia.
+func _stamp_card(n: int) -> void:
+	game.sim.calendar.first_date = "2000-01-01"
+	game.sim.calendar.last_date = ""
+	game.sim.calendar.stamps = n
 
 
 func _inside_clip(c: Control) -> bool:

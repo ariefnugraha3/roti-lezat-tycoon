@@ -29,6 +29,9 @@ var save_location_minutes: float = 30.0
 var wait_best_minutes: float = 3.0
 ## Probe: bot tidak pindah melewati tier ini.
 var max_tier: int = 5
+## Pemain biasa membuka resep craving hari ini (GDD idle 21.1) yang masih
+## terkunci bila biayanya paling banyak sekian menit penghasilan.
+var craving_unlock_minutes: float = 3.0
 
 
 func _init(s: SimulationRoot) -> void:
@@ -57,6 +60,9 @@ func think() -> void:
 ## berikutnya yang sudah dekat dan untuk pembelian terbaik yang sebentar lagi
 ## terjangkau. Paling banyak satu pembelian per langkah.
 func _manage() -> void:
+	# Tujuan harian yang selesai langsung diklaim (GDD idle 21.2).
+	for gi in sim.goals.goals.size():
+		sim.goals.claim(gi)
 	var may_move: bool = sim.world.location.tier < max_tier
 	if may_move and sim.upgrade_block_reason() == "" and sim.upgrade_location() == "":
 		return
@@ -71,6 +77,11 @@ func _manage() -> void:
 		if sim.upgrades.open_station_block(cat) == &"":
 			sim.upgrades.open_station(cat)
 			return
+	var crave: StringName = sim.cravings.today()
+	if crave != &"" and sim.upgrades.unlock_block(crave) == &"" \
+			and UpgradeManager.unlock_cost(DataRegistry.recipe(crave)) <= sim.idle_economy.rate(false) * 60.0 * craving_unlock_minutes:
+		sim.upgrades.unlock_recipe(crave)
+		return
 	if sim.time.sim_seconds < _next_upgrade_at:
 		return
 	_next_upgrade_at = sim.time.sim_seconds + upgrade_every_seconds

@@ -129,6 +129,7 @@ func tap_station(iid: int, now_ms: int = -1) -> Dictionary:
 	if (e.category() == &"mixer" or e.category() == &"oven") and _boost_allowed(iid, now_ms):
 		boosted = sim.production.boost_station(iid, tap_seconds())
 		if boosted:
+			sim.statistics.add(&"semangat_taps", 1)
 			EventBus.tap_boost.emit(iid, sim.world.access_of(iid).get("cell", e.anchor), e.floor_id)
 			EventBus.sfx.emit(&"tap_boost_pop", e.floor_id)
 	return {"focus": true, "boosted": boosted}
@@ -148,6 +149,7 @@ func tap_cashier(lane_id: StringName, now_ms: int = -1) -> Dictionary:
 	if _boost_allowed("lane:" + String(lane_id), now_ms):
 		boosted = sim.cashier.boost_lane(lane_id, tap_seconds())
 		if boosted:
+			sim.statistics.add(&"semangat_taps", 1)
 			EventBus.tap_boost.emit(-1, lane.service_point, lane.floor_id)
 			EventBus.sfx.emit(&"tap_boost_pop", lane.floor_id)
 	return {"focus": true, "boosted": boosted}

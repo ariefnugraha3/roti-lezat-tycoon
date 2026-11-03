@@ -5,7 +5,8 @@ extends CanvasLayer
 ## bingkai potret di dalam safe area (GDD idle 12.0).
 ##
 ## Kiri atas: chip KR besar dengan "+{rate}/s" di bawahnya, lalu boost aktif.
-## Kanan atas: pause dan Bintang Waralaba. Tengah atas: jam kecil, hari, cuaca
+## Kanan atas: pause, Goals (bertitik hijau bila ada tujuan atau cap harian yang
+## bisa diambil, GDD idle 21.2-21.3), dan Bintang Waralaba. Tengah atas: jam kecil, hari, cuaca
 ## (suasana) di atas pil krem. Bawah: bar enam tab; tab yang lembarnya terbuka
 ## bermuka madu (v3.1 130.6: tab aktif selalu terlihat), dan tab diberi titik
 ## hijau bila ada sesuatu yang terjangkau di dalamnya.
@@ -34,8 +35,17 @@ var _cash_chip: PanelContainer = null
 var _kr: Label = null
 var _rate: Label = null
 var _stars_chip: PanelContainer = null
+var _goals: Button = null
+## Tujuan selesai yang belum diklaim pada refresh terakhir (-1 = belum dihitung);
+## bertambah = toast "Goal complete".
+var _last_claimable: int = -1
 var _stars: Label = null
 var _clock: Label = null
+## Pil craving harian di bawah jam (GDD idle 21.1); mengetuknya membuka Menu.
+var _craving: Button = null
+var _craving_art: BreadArt = null
+var _craving_label: Label = null
+var _craving_lock: IconCanvas = null
 var _weather_icon: IconCanvas = null
 var _boosts: HBoxContainer = null
 var _income_boost: PanelContainer = null
@@ -194,21 +204,53 @@ func _build_top_right(frame: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
-	# Pause: bundar krem tanpa garis tepi, senada chip KR di seberangnya.
-	var pause: Button = ProceduralUIFactory.icon_button("pause", Tx.t("ui_pause_title"), "plain", 24, Palette.UI_WOOD_DEEP)
-	pause.custom_minimum_size = Vector2(56, 56)
-	for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
-		var psb: StyleBoxFlat = (pause.get_theme_stylebox(st) as StyleBoxFlat).duplicate()
-		psb.bg_color = Color(Palette.UI_CREAM, 0.97) if st == "normal" else (Palette.FLOUR_WHITE if st == "hover" else Palette.UI_CREAM_DEEP)
-		pause.add_theme_stylebox_override(st, psb)
+	var pause: Button = _round_button("pause", Tx.t("ui_pause_title"))
 	pause.name = "Pause"
 	pause.pressed.connect(func() -> void: game.modals.open(&"pause"))
 	row.add_child(pause)
+	_goals = _round_button("flag", Tx.t("ui_goals_title"))
+	_goals.name = "Goals"
+	_goals.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_goals.pressed.connect(func() -> void: open_tab(&"goals"))
+	_goals.add_child(_dot())
+	v.add_child(_goals)
 	_stars_chip = ProceduralUIFactory.chip("star", Palette.PASTEL_PERIWINKLE, "", 18, 24)
 	_stars_chip.name = "FranchiseStars"
 	_stars_chip.tooltip_text = Tx.t("ui_franchise_stars")
 	_stars = _stars_chip.get_meta("value")
 	v.add_child(_stars_chip)
+
+
+## Tombol bundar krem tanpa garis tepi, senada chip KR di seberangnya.
+func _round_button(icon_name: String, tip: String) -> Button:
+	var b: Button = ProceduralUIFactory.icon_button(icon_name, tip, "plain", 24, Palette.UI_WOOD_DEEP)
+	b.custom_minimum_size = Vector2(56, 56)
+	for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+		var psb: StyleBoxFlat = (b.get_theme_stylebox(st) as StyleBoxFlat).duplicate()
+		psb.bg_color = Color(Palette.UI_CREAM, 0.97) if st == "normal" else (Palette.FLOUR_WHITE if st == "hover" else Palette.UI_CREAM_DEEP)
+		b.add_theme_stylebox_override(st, psb)
+	return b
+
+
+## Titik hijau bercincin krem di pojok kanan atas tombol (tersembunyi).
+func _dot() -> Panel:
+	var dot := Panel.new()
+	dot.name = "Dot"
+	var dsb := StyleBoxFlat.new()
+	dsb.bg_color = Palette.MATCHA
+	dsb.border_color = Palette.PANEL
+	dsb.set_border_width_all(3)
+	dsb.set_corner_radius_all(10)
+	dsb.anti_aliasing = true
+	dot.add_theme_stylebox_override("panel", dsb)
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	dot.offset_left = -20.0
+	dot.offset_top = 0.0
+	dot.offset_right = 0.0
+	dot.offset_bottom = 20.0
+	dot.visible = false
+	return dot
 
 
 func _build_top_center(frame: Control) -> void:
@@ -221,11 +263,17 @@ func _build_top_center(frame: Control) -> void:
 	sb.content_margin_top = 3.0
 	sb.content_margin_bottom = 3.0
 	pill.add_theme_stylebox_override("panel", sb)
-	pill.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	pill.offset_top = 14.0
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(pill)
+	var col := VBoxContainer.new()
+	col.name = "TopCenter"
+	col.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	col.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	col.offset_top = 14.0
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 6)
+	frame.add_child(col)
+	col.add_child(pill)
 	var h := HBoxContainer.new()
 	h.name = "Clock"
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -238,6 +286,53 @@ func _build_top_center(frame: Control) -> void:
 	_clock = ProceduralUIFactory.label("", 15, Palette.UI_WOOD_DEEP)
 	_clock.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	h.add_child(_clock)
+	_build_craving(col)
+
+
+## Pil craving (GDD idle 21.1): gambar roti, "Craving: {recipe}", gembok bila
+## resepnya belum terbuka. Dibuat sekali; gambar dan teksnya diganti di tempat.
+func _build_craving(col: Control) -> void:
+	_craving = ProceduralUIFactory.button("", "soft")
+	_craving.name = "Craving"
+	_craving.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_craving.tooltip_text = Tx.t("ui_craving_pill")
+	var h := HBoxContainer.new()
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 6)
+	_craving.add_child(h)
+	_craving_art = BreadArt.for_recipe(&"", 34.0)
+	_craving_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(_craving_art)
+	_craving_label = ProceduralUIFactory.label("", 15, Palette.UI_WOOD_DEEP)
+	_craving_label.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	h.add_child(_craving_label)
+	_craving_lock = ProceduralUIFactory.icon("lock", 18, Palette.HONEY_DEEP)
+	h.add_child(_craving_lock)
+	_craving.pressed.connect(func() -> void: open_tab(&"menu"))
+	_craving.visible = false
+	col.add_child(_craving)
+
+
+func _refresh_craving() -> void:
+	var rid: StringName = sim.cravings.today()
+	_craving.visible = rid != &""
+	if rid == &"":
+		return
+	var r: RecipeDefinition = DataRegistry.recipe(rid)
+	var prof: String = String(r.visual_profile_id) if r != null else ""
+	if _craving_art.profile != prof:
+		_craving_art.profile = prof
+		_craving_art.queue_redraw()
+	_craving_label.text = Tx.t("ui_craving_chip", {"recipe": Tx.recipe_name(rid)})
+	_craving_lock.visible = not sim.upgrades.is_unlocked(rid)
+	_craving.custom_minimum_size = Vector2(_craving_label.get_combined_minimum_size().x + 34.0 + 18.0 + 52.0, 48.0)
+
+
+## Pil craving (untuk tes).
+func craving_chip() -> Button:
+	return _craving
 
 
 func _build_tab_bar(frame: Control) -> void:
@@ -415,6 +510,8 @@ func _refresh_all() -> void:
 	_stars_chip.visible = sim.prestige.stars > 0
 	_stars.text = Tx.big(float(sim.prestige.stars))
 	_refresh_boosts()
+	_refresh_craving()
+	_refresh_goals()
 	_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
 	_weather_icon.configure("rain" if sim.weather.is_rain() else ("moon" if sim.time.is_night() else "sun"), 22,
 		Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() or sim.time.is_night() else Palette.GOLD_STAR)
@@ -434,6 +531,20 @@ func _refresh_boosts() -> void:
 		var p: Dictionary = BoostManager.promo(b.promo_id)
 		(_promo_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(float(p.get("arrival_mult", 1.0))), "time": Tx.timer(b.promo_left)})
 		_promo_boost.tooltip_text = Tx.t(String(b.promo_id))
+
+
+## Titik di tombol Goals dan toast saat tujuan baru selesai (GDD idle 21.2).
+func _refresh_goals() -> void:
+	var n: int = sim.goals.claimable()
+	if _last_claimable >= 0 and n > _last_claimable:
+		EventBus.notify.emit(2, "ui_goals_ready", {}, &"flag")
+	_last_claimable = n
+	(_goals.get_node("Dot") as Control).visible = n > 0 or sim.calendar.available(BoostManager.today())
+
+
+## Tombol Goals (tes).
+func goals_button() -> Button:
+	return _goals
 
 
 ## Ada sesuatu yang terjangkau di tab `id` (titik hijau, GDD idle 12.1).

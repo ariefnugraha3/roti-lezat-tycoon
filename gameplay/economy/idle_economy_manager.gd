@@ -194,11 +194,10 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	var net_w: float = 0.0
 	var net_rf: float = 0.0
 	var rf_mult: float = DataRegistry.idlef("rotifood.price_mult")
-	var boost_div: float = 1.0 if with_boosts else maxf(sim.boost_income_mult(), 0.0001)
 	for rid7: Variant in menu:
 		var rr: RecipeDefinition = DataRegistry.recipe(StringName(str(rid7)))
 		var bonus: float = float(slot_price_bonus[rid7]) / float(slot_count[rid7])
-		var price: float = sim.recipe_price(rr.id) * (1.0 + bonus) / boost_div
+		var price: float = sim.recipe_price(rr.id, with_boosts) * (1.0 + bonus)
 		net_w += float(share_walk[rid7]) * (price - rr.unit_cogs_kr())
 		net_rf += float(share_rf[rid7]) * (price * rf_mult - rr.unit_cogs_kr())
 	# 6. Siang dan malam: unit terjual = terbesar yang muat permintaan, antrean,
@@ -206,6 +205,8 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	var units_total: float = 0.0
 	var demand_total: float = 0.0
 	var kr_total: float = 0.0
+	var customers_total: float = 0.0
+	var rf_total: float = 0.0
 	for period: int in 2:
 		var hours: float = float(day_hours if period == 0 else night_hours)
 		if hours <= 0.0:
@@ -235,11 +236,18 @@ func compute(with_boosts: bool = true) -> Dictionary:
 			units = lo
 		units_total += units * hours
 		kr_total += units * (d_walk * net_w + d_rf * net_rf) / d * hours
+		customers_total += d_walk / q_mean * units / d * hours
+		rf_total += rf * units / d * hours
 	out["units_per_hour"] = units_total / 24.0
 	out["demand"] = demand_total / 24.0
 	out["production"] = p_machine
 	out["net_per_unit"] = kr_total / maxf(units_total, 0.0001)
+	# Pembeli dilayani dan pesanan RotiFood selesai per jam in-game (target misi,
+	# GDD idle 21.2), dan detik nyata satu jam in-game.
+	out["customers_per_hour"] = customers_total / 24.0
+	out["rotifood_per_hour"] = rf_total / 24.0
 	var real_per_hour: float = h_sim / maxf(DataRegistry.sim_seconds_per_real_second(), 0.0001)
+	out["real_seconds_per_hour"] = real_per_hour
 	out["rate"] = maxf(0.0, kr_total / 24.0 / real_per_hour)
 	return out
 

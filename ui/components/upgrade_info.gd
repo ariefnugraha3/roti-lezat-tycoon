@@ -69,7 +69,7 @@ static func effect_at(sim: SimulationRoot, o: Dictionary, level: int) -> String:
 		&"recipe":
 			var r: RecipeDefinition = DataRegistry.recipe(StringName(str(o["id"])))
 			var mult: float = UpgradeManager.recipe_price_mult_for(level, sim.upgrades.recipe_milestone_mult())
-			return Tx.t("ui_effect_recipe_price", {"value": Tx.kr(r.base_sell_price_kr * mult * sim.price_mult())})
+			return Tx.t("ui_effect_recipe_price", {"value": Tx.kr(r.base_sell_price_kr * mult * sim.cravings.favorite_mult(r.id) * sim.price_mult())})
 		&"staff":
 			return Tx.t("ui_effect_speed", {"value": _x(1.0 + DataRegistry.idlef("staff.speed_per_level") * float(level - 1))})
 		&"global":

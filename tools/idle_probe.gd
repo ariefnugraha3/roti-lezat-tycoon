@@ -3,7 +3,8 @@ extends Node
 ## mencetak satu baris per jam in-game (KR, penghasilan, roti terjual, staf,
 ## tier) serta waktu bermain aktif setiap milestone Seksi 1.4.
 ##   godot --headless --path . res://tools/idle_probe.tscn -- --minutes=150 --seed=101 [--manage] [--franchise=N]
-##       [--max-tier=N] [--every=M] [--quiet] [--set="recipe.level_cost_mult=35;location.upgrade_cost=[0,5e5]"]
+##       [--max-tier=N] [--every=M] [--quiet] [--no-craving] [--set="recipe.level_cost_mult=35;location.upgrade_cost=[0,5e5]"]
+## --no-craving: tanpa craving harian (GDD idle 21.1), untuk membandingkan pacing.
 ## --set menimpa nilai idle.json hanya untuk probe ini (penyetelan P7).
 ## --franchise=N: bot menjual toko seperti pemain biasa (di Tier 5, atau bila
 ## lokasi berikutnya lebih dari 30 menit penghasilan) begitu Waralaba memberi
@@ -54,6 +55,8 @@ func _ready() -> void:
 			_every = int(a.substr(8))
 		elif a.begins_with("--set="):
 			_override(a.substr(6))
+		elif a == "--no-craving":
+			CravingManager.enabled = false
 	SaveManager.dir = "user://probe_saves"
 	GameLogger.quiet = true
 	await get_tree().process_frame

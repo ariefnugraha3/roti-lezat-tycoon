@@ -411,7 +411,7 @@ func _models() -> void:
 				var fp: Vector2 = Vector2(def.overlay_size_tiles) * T
 				check(absf(b.size.x - fp.x) <= 0.07 and absf(b.size.z - fp.y) <= 0.07 and b.size.y <= 0.012, "%s covers its footprint flat (%s)" % [def.id, b.size])
 		n.free()
-	eq(seen, 25, "all 25 placeable decorations (including the two achievement badges) were checked")
+	eq(seen, 28, "all 28 placeable decorations (including the two achievement badges and the three calendar gifts) were checked")
 	var clock: Node3D = DecorFactory.build(&"decor_wall_clock_pendulum")
 	check(clock.find_child(DecorFactory.SWING_NODE, true, false) != null, "the pendulum clock has a pendulum to swing")
 	clock.free()

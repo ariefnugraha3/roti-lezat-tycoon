@@ -57,7 +57,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
 | Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
 | Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
-| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11) | Their respective systems. |
+| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.
@@ -148,6 +148,21 @@ are pruned. A new game starts at `clock.start_seconds`.
   reward; a new one adds time) and one promotion with per-promotion cooldowns, all in
   real seconds of active play. `GameRoot.check_daily_gift` pours the coffee once per
   device date.
+- **Cravings and local taste** (idle §21.1): `CravingManager` draws one craving per
+  in-game day from day 2 (seeded by master seed and day, never yesterday's) and knows the
+  two favourites per location. Every price goes through `SimulationRoot.recipe_price`
+  (`plain_price` × boost, the craving priced at 1.2× the best plain price, itself
+  included); `recipe_price(id, false)` drops boost and craving for the offline model.
+  Tests run with `CravingManager.enabled = false` (set by the runner); craving tests turn
+  it on.
+- **Goals and daily stamps** (idle §21.2–21.3): `GoalManager` issues three goals per
+  in-game day from day 2; each stores the statistic it follows and that statistic's value
+  at issue, so progress needs no hooks beyond the counters in `StatisticsManager` (`levels_bought`
+  from `UpgradeManager.buy_offer`, `semangat_taps` from `PlayerTaskManager`). Targets come
+  from the analytic model (`customers_per_hour`, `rotifood_per_hour`, `units_per_hour`,
+  `real_seconds_per_hour`). `CalendarManager` never reads the device clock:
+  `GameRoot.check_daily_gift` passes `BoostManager.today()` and opens the `calendar`
+  popup (after Welcome Back). Rewards post to the ledger as `REWARD`, which is not income.
 - **Street arrivals** (GDD 20.1, 22.6): buyers, window shoppers and RotiFood drivers walk
   in from the pavement (`core/street_paths.gd`); drivers set off early by the length of
   the walk. Whoever leaves through the door is released by the simulation;

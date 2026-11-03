@@ -16,6 +16,11 @@
 		"promo_id": "",
 		"promo_left": 0.0
 	},
+	"calendar": {
+		"first_date": "",
+		"last_date": "",
+		"stamps": 0
+	},
 	"cashier": {},
 	"catalog_versions": {
 		"catalog_schema_version": 1,
@@ -26,7 +31,12 @@
 		"sim_seconds": 480.00000000007486,
 		"time_seconds": 43200.0
 	},
-	"created_at": "2026-11-02T01:04:51Z",
+	"cravings": {
+		"day": 1,
+		"previous": "",
+		"recipe": ""
+	},
+	"created_at": "2026-11-03T07:56:47Z",
 	"customers": {
 		"customers": [
 			{
@@ -1813,6 +1823,10 @@
 	},
 	"game_mode": "idle",
 	"game_version": "1.0.0",
+	"goals": {
+		"day": 1,
+		"goals": []
+	},
 	"location_id": "location_t1_garage",
 	"offline": {
 		"last_active_unix": 0.0,
@@ -2206,13 +2220,17 @@
 		"stats": {
 			"alltime_earned_kr": 2316.1100000000006,
 			"alltime_spent_kr": 2348.1300000000006,
+			"calendar_stamps": 0.0,
 			"days_passed": 0.0,
 			"franchise_count": 0.0,
+			"goals_completed": 0.0,
 			"highest_balance": 339.05,
+			"levels_bought": 46.0,
 			"location_upgrades_count": 0.0,
 			"offline_earned_kr": 0.0,
 			"offline_seconds_total": 0.0,
 			"run_earned_kr": 2316.1100000000006,
+			"semangat_taps": 0.0,
 			"staff_hired_count": 1.0,
 			"total_bread_produced": 174.0,
 			"total_bread_sold": 124.0,

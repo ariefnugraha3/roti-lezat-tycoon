@@ -12,6 +12,8 @@ const ART_LIST: float = 44.0
 var _unlock_buttons: Dictionary = {}
 ## Tombol level resep yang tampil, diperbarui tiap tick.
 var _level_rows: Array[BuyButtons] = []
+## Craving yang tampil di kartu; halaman dibangun ulang bila hari berganti.
+var _shown_craving: StringName = &""
 
 
 func sheet_title() -> String:
@@ -36,8 +38,62 @@ func build_page(body: VBoxContainer) -> void:
 		for i in sim.display.slot_count(e.iid):
 			_slot_row(list, e.iid, i)
 	section(list, Tx.t("ui_menu_recipes"))
+	_craving_card(list)
 	for r: RecipeDefinition in DataRegistry.recipes():
 		_recipe_row(list, r)
+
+
+## Kartu craving hari ini dan roti favorit lokasi (GDD idle 21.1).
+func _craving_card(parent: Control) -> void:
+	_shown_craving = sim.cravings.today()
+	var pc: PanelContainer = card(parent)
+	pc.name = "CravingCard"
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	pc.add_child(h)
+	var rid: StringName = _shown_craving
+	var left: Control = BreadArt.for_recipe(rid, 56.0) if rid != &"" else ProceduralUIFactory.badge("star", Palette.HONEY_SOFT, Palette.HONEY_DEEP, 56)
+	left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(left)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 3)
+	h.add_child(v)
+	if rid != &"":
+		var t: Label = lbl(v, Tx.t("ui_craving_card_title", {"recipe": Tx.recipe_name(rid)}), 18, Palette.UI_WOOD_DEEP, true)
+		t.add_theme_font_override("font", ProceduralUIFactory.display_font())
+		t.name = "CravingTitle"
+		lbl(v, Tx.t("ui_craving_card_rule", {"best": int(round((DataRegistry.idlef("craving.best_mult") - 1.0) * 100.0))}), 14, Palette.TEXT_MUTED, true)
+		if not sim.upgrades.is_unlocked(rid):
+			var lk: Label = lbl(v, Tx.t("ui_craving_card_locked"), 14, Palette.HONEY_DEEP, true)
+			lk.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	else:
+		lbl(v, Tx.t("ui_craving_card_none", {"day": DataRegistry.idlei("craving.first_day")}), 15, Palette.UI_WOOD_DEEP, true)
+	var names: PackedStringArray = PackedStringArray()
+	for fid: StringName in sim.cravings.favorites():
+		names.append(Tx.recipe_name(fid))
+	var fav: Label = lbl(v, Tx.t("ui_favorite_card", {"recipes": ", ".join(names),
+		"percent": int(round((DataRegistry.idlef("craving.favorite_mult") - 1.0) * 100.0))}), 14, Palette.MATCHA_DEEP, true)
+	fav.name = "Favorites"
+
+
+## Pil "Craving" dan "Local favorite" di bawah teks baris resep `rid`.
+func _tags(h: HBoxContainer, rid: StringName) -> void:
+	var text_col: VBoxContainer = h.get_meta("text") as VBoxContainer
+	if text_col == null:
+		return
+	var tags := HBoxContainer.new()
+	tags.name = "Tags"
+	tags.add_theme_constant_override("separation", 6)
+	if rid == sim.cravings.today():
+		tags.add_child(ProceduralUIFactory.pill("star", Tx.t("ui_craving_pill"), Palette.HONEY_SOFT, Palette.HONEY_DEEP, 13))
+	if sim.cravings.is_favorite(rid):
+		tags.add_child(ProceduralUIFactory.pill("heart", Tx.t("ui_favorite_pill"), Palette.MATCHA_SOFT, Palette.MATCHA_DEEP, 13))
+	if tags.get_child_count() > 0:
+		text_col.add_child(tags)
+	else:
+		tags.free()
+
 
 
 ## Satu petak: gambar resep yang sedang dijual, isi petak, dan tombol ganti.
@@ -77,6 +133,8 @@ func _choose_page(body: VBoxContainer, iid: int, index: int) -> void:
 func _choice_row(parent: Control, title: String, sub: String, left: Control, selected: bool, iid: int, index: int, rid: StringName) -> void:
 	var h: HBoxContainer = UISheet.row(parent, title, sub, left)
 	h.get_parent().name = "Choice_" + (String(rid) if rid != &"" else "auto")
+	if rid != &"":
+		_tags(h, rid)
 	var b: Button = ProceduralUIFactory.button(Tx.t("ui_menu_selected") if selected else Tx.t("ui_menu_choose"), "primary" if not selected else "secondary")
 	b.name = "Pick"
 	b.disabled = selected
@@ -107,6 +165,7 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 			sub += " · " + str(m["text"])
 	var h: HBoxContainer = UISheet.row(parent, title, sub, art)
 	h.get_parent().name = "Recipe_" + String(r.id)
+	_tags(h, r.id)
 	if owned:
 		var buy: BuyButtons = BuyButtons.new().setup(sim, &"recipe", r.id, 96.0)
 		buy.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -146,8 +205,12 @@ func unlock_button() -> Button:
 	return null
 
 
-## KR terus berubah: tombol Unlock dan level menyala begitu terjangkau.
+## KR terus berubah: tombol Unlock dan level menyala begitu terjangkau. Craving
+## baru (pukul 00:00) membangun ulang halaman utama.
 func tick_page() -> void:
+	if page_depth() == 0 and sim.cravings.today() != _shown_craving:
+		refresh()
+		return
 	for lb: BuyButtons in _level_rows:
 		if is_instance_valid(lb):
 			lb.refresh()

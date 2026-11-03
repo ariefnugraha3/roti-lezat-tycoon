@@ -334,6 +334,7 @@ func buy_offer(o: Dictionary, n: int) -> bool:
 		&"global":
 			global_levels[StringName(str(o["id"]))] = after
 	_note_levels(o, before, after)
+	sim.statistics.add(&"levels_bought", n)
 	sim.idle_economy.invalidate()
 	sim.achievements.check_all()
 	SaveManager.request_autosave("upgrade")

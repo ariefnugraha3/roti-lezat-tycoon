@@ -485,14 +485,29 @@ func check_offline() -> void:
 
 ## Kopi Pak Lurah sekali per hari kalender perangkat (GDD idle 11.1): diberikan
 ## saat profil dimuat atau aplikasi kembali ke depan, lalu berjalan hanya selama
-## bermain aktif.
+## bermain aktif. Cap harian (GDD idle 21.3) dicek di saat yang sama: popupnya
+## terbuka sendiri, sesudah popup Selamat Datang bila keduanya ada.
 func check_daily_gift() -> void:
 	if sim == null:
 		return
-	if sim.boosts.claim_gift(BoostManager.today()):
+	var today: String = BoostManager.today()
+	if sim.boosts.claim_gift(today):
 		EventBus.notify.emit(1, "ui_daily_gift", {"mult": Tx.mult(DataRegistry.idlef("boosts.daily_gift.mult")),
 			"minutes": int(DataRegistry.idlef("boosts.daily_gift.minutes"))}, &"heart")
 		EventBus.sfx.emit(&"welcome_back_chime", &"")
+	sim.calendar.note_date(today)
+	if sim.calendar.available(today) and not modals.is_open(&"calendar"):
+		var wb: UIScreen = modals.screen(&"welcome_back")
+		if wb != null:
+			if not wb.closed.is_connected(_open_calendar_after):
+				wb.closed.connect(_open_calendar_after, CONNECT_ONE_SHOT)
+		else:
+			modals.open(&"calendar", {"date": today})
+
+
+func _open_calendar_after(_s: UIScreen) -> void:
+	if sim != null and playing and sim.calendar.available(BoostManager.today()) and not modals.is_open(&"calendar"):
+		modals.open(&"calendar", {"date": BoostManager.today()})
 
 
 ## Popup Selamat Datang bila ada penghasilan yang menunggu Collect; pergi

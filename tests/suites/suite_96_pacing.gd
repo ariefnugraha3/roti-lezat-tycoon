@@ -71,6 +71,9 @@ static func _median(values: Array) -> float:
 
 
 func _pacing() -> void:
+	# Pemain biasa memainkan game utuh, termasuk craving harian (GDD idle 21.1);
+	# runner mematikannya untuk tes lain.
+	CravingManager.enabled = true
 	var sessions: Array[Dictionary] = []
 	for sd: int in SEEDS:
 		var r: Dictionary = _session(sd)

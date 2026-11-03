@@ -212,4 +212,5 @@ static func row(parent: Control, title_text: String, sub_text: String, left: Con
 		s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		s.name = "Sub"
 		v.add_child(s)
+	h.set_meta("text", v)
 	return h

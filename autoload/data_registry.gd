@@ -1094,6 +1094,61 @@ func _validate_idle() -> void:
 			_err("idle global upgrade %s needs cost_base > 0, cost_growth > 1, max_level >= 1, per_level > 0" % gid)
 	if seen_g.size() != GLOBAL_UPGRADES.size():
 		_err("idle global_upgrades must list every global upgrade once")
+	# Craving dan selera lingkungan (GDD idle 21.1).
+	if not (_idle_num("craving.first_day") >= 1.0):
+		_err("idle craving.first_day must be at least 1")
+	for k3: String in ["craving.best_mult", "craving.favorite_mult"]:
+		if not (_idle_num(k3) >= 1.0):
+			_err("idle %s must be >= 1" % k3)
+	var fav: Variant = (_idle.get("craving", {}) as Dictionary).get("favorites_by_tier")
+	if not (fav is Array) or (fav as Array).size() != 5:
+		_err("idle craving.favorites_by_tier needs five lists")
+	else:
+		for lst: Variant in fav:
+			for rid: Variant in (lst as Array):
+				if recipe(StringName(str(rid))) == null:
+					_err("idle craving favorite %s is not a recipe" % rid)
+	# Misi ringan dan kalender cap (GDD idle 21.2, 21.3).
+	if not (_idle_num("goals.first_day") >= 1.0) or not (_idle_num("goals.per_day") >= 1.0) or not (_idle_num("goals.reward_income_minutes") > 0.0) or not (_idle_num("goals.reward_min_kr") > 0.0):
+		_err("idle goals need first_day >= 1, per_day >= 1 and positive rewards")
+	var gt: Variant = (_idle.get("goals", {}) as Dictionary).get("templates")
+	var gt_ids: Dictionary = {}
+	if not (gt is Array) or (gt as Array).size() < int(_idle_num("goals.per_day")):
+		_err("idle goals.templates needs at least goals.per_day templates")
+	else:
+		for t: Variant in gt:
+			var td: Dictionary = t if t is Dictionary else {}
+			var tid: String = str(td.get("id", ""))
+			if tid == "" or gt_ids.has(tid):
+				_err("idle goal template id %s is empty or repeated" % tid)
+			gt_ids[tid] = true
+			_check_text(StringName(tid), "goal")
+			if not StatisticsManager.STAT_KEYS.has(str(td.get("stat", ""))):
+				_err("idle goal %s unknown stat %s" % [tid, td.get("stat")])
+			var kind: String = str(td.get("kind", ""))
+			if kind == "fixed":
+				var bt: Variant = td.get("by_tier")
+				if not (bt is Array) or (bt as Array).size() != 5:
+					_err("idle goal %s needs five by_tier targets" % tid)
+			elif ["units", "customers", "rotifood", "kr"].has(kind):
+				if not (float(td.get("minutes", 0.0)) > 0.0):
+					_err("idle goal %s needs minutes > 0" % tid)
+			else:
+				_err("idle goal %s unknown kind %s" % [tid, kind])
+	if not (_idle_num("calendar.boost_mult") > 1.0) or not (_idle_num("calendar.min_kr") > 0.0):
+		_err("idle calendar needs boost_mult > 1 and min_kr > 0")
+	var cr: Variant = (_idle.get("calendar", {}) as Dictionary).get("rewards")
+	if not (cr is Array) or (cr as Array).size() != 7:
+		_err("idle calendar.rewards needs seven stamps")
+	else:
+		for r: Variant in cr:
+			var rd: Dictionary = r if r is Dictionary else {}
+			if not (float(rd.get("kr_minutes", 0.0)) > 0.0 or float(rd.get("boost_minutes", 0.0)) > 0.0):
+				_err("idle calendar stamp needs kr_minutes or boost_minutes")
+	for did: Variant in (_idle.get("calendar", {}) as Dictionary).get("decor_rewards", []):
+		var dd2: MiscDefinitions.DecorationDefinition = decoration(StringName(str(did)))
+		if dd2 == null or dd2.source != &"calendar":
+			_err("idle calendar reward %s must be a calendar decoration" % did)
 	var bo: Dictionary = _idle.get("boosts", {})
 	for b: String in ["daily_gift", "achievement"]:
 		if not (_idle_num("boosts.%s.mult" % b) > 1.0) or not (_idle_num("boosts.%s.minutes" % b) > 0.0):

@@ -66,7 +66,7 @@ static func has_model(profile: StringName) -> bool:
 		&"hanging_lamp", &"plaque_bronze", &"plaque_silver", &"plaque_gold", &"photo_frame", &"plaque_infinity",
 		&"cassette_radio", &"coin_jar", &"trophy_small", &"calculator", &"brass_bell",
 		&"potted_plant", &"basket_stack", &"trophy_large", &"umbrella_stand", &"terracotta_rug", &"floor_mat",
-		&"badge_crumb", &"badge_savings"]
+		&"badge_crumb", &"badge_savings", &"stamp_card", &"golden_croissant", &"bunting"]
 
 
 ## Model utuh satu dekorasi. Dekorasi tak dikenal menghasilkan node kosong.
@@ -124,6 +124,12 @@ static func build(deco_id: StringName) -> Node3D:
 			_badge_rosette(k, &"crumb", badge_ribbon(def.visual_profile_id), BRONZE)
 		&"badge_savings":
 			_badge_rosette(k, &"savings", badge_ribbon(def.visual_profile_id), GOLD)
+		&"stamp_card":
+			_stamp_card(k)
+		&"golden_croissant":
+			_golden_croissant(k)
+		&"bunting":
+			_bunting(k)
 	var root: Node3D = k.done()
 	root.set_meta("deco_id", deco_id)
 	root.set_meta("placement_type", def.placement_type)
@@ -466,6 +472,80 @@ static func _badge_rosette(k: Kit, emblem: StringName, ribbon: Color, metal: Col
 			# Koin dengan bintang timbul.
 			k.s.cylinder(_xf(Vector3(0.0, 0.0, -0.034), Vector3(90.0, 0.0, 0.0)), 0.006, 0.036, 0.036, GOLD.lightened(0.12), 20)
 			k.m.polygon(_xf(Vector3(0.0, 0.0, -0.0375)), _star_pts(0.022, 0.009, 5), Palette.BUTTER_YELLOW, Vector3.FORWARD)
+
+
+## Kartu cap pelanggan setia (hadiah kalender, GDD idle 21.3): papan walnut,
+## kartu krem berpita madu dengan roti kecil, enam cap stroberi dan satu bintang
+## emas di lingkaran ketujuh.
+static func _stamp_card(k: Kit) -> void:
+	_rounded_board(k.m, Vector3(0.0, 0.0, -0.01), Vector2(0.36, 0.27), 0.02, 0.026, WALNUT)
+	k.m.box(_xf(Vector3(0.0, -0.004, -0.0215)), Vector3(0.31, 0.22, 0.004), Palette.VANILLA_CREAM)
+	k.m.box(_xf(Vector3(0.0, 0.08, -0.0245)), Vector3(0.31, 0.052, 0.002), Palette.HONEY)
+	k.m.ellipsoid(_xf(_v(-0.118, 0.08, -0.027)), Vector3(0.022, 0.013, 0.005), Palette.GOLDEN_CRUST, 10, 4)
+	for j in 3:
+		k.m.box(_xf(_v(-0.128 + 0.01 * float(j), 0.083, -0.0315), Vector3(0.0, 0.0, 25.0)), Vector3(0.003, 0.01, 0.001), Palette.FLOUR_WHITE)
+	for i2 in 4:
+		k.m.box(_xf(_v(-0.06 + float(i2) * 0.05, 0.08, -0.026)), Vector3(0.036, 0.008, 0.001), Palette.FLOUR_WHITE)
+	for i in 7:
+		var u: float = -0.105 + float(i) * 0.07 if i < 4 else -0.07 + float(i - 4) * 0.07
+		var v: float = 0.012 if i < 4 else -0.066
+		k.m.torus(_xf(_v(u, v, -0.025), Vector3(90.0, 0.0, 0.0)), 0.025, 0.0035, Palette.STRAWBERRY.lightened(0.25), 16, 4)
+		if i < 6:
+			k.m.polygon(_xf(_v(u, v, -0.0245), Vector3(0.0, 0.0, 12.0 * float(i % 3 - 1))), _star_pts(0.018, 0.008), Palette.STRAWBERRY, Vector3.FORWARD)
+		else:
+			k.s.cylinder(_xf(_v(u, v, -0.026), Vector3(90.0, 0.0, 0.0)), 0.004, 0.021, 0.021, GOLD, 18)
+			k.m.polygon(_xf(_v(u, v, -0.0285)), _star_pts(0.016, 0.007), Palette.BUTTER_YELLOW, Vector3.FORWARD)
+	k.s.ellipsoid(_xf(Vector3(0.0, 0.145, -0.012)), Vector3(0.01, 0.01, 0.01), BRASS, 8, 4)
+
+
+## Croissant emas (hadiah kalender, GDD idle 21.3): croissant bersegmen emas di
+## atas bantal stroberi dan alas walnut berpelat madu.
+static func _golden_croissant(k: Kit) -> void:
+	k.m.cylinder(_xf(Vector3(0.0, 0.016, 0.0)), 0.032, 0.078, 0.084, WALNUT, 18)
+	k.m.torus(_xf(Vector3(0.0, 0.032, 0.0)), 0.076, 0.004, WALNUT.lightened(0.15), 18, 4)
+	k.s.box(_xf(Vector3(0.0, 0.016, -0.081), Vector3(-4.0, 0.0, 0.0)), Vector3(0.07, 0.016, 0.004), Palette.HONEY)
+	k.m.ellipsoid(_xf(Vector3(0.0, 0.04, 0.0)), Vector3(0.074, 0.014, 0.072), Palette.PASTEL_STRAWBERRY, 14, 5)
+	# Croissant bersegmen di bidang miring ke arah pembeli, supaya bulan sabitnya
+	# terbaca dari kamera atas-depan.
+	var base := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-28.0)), Vector3(0.0, 0.07, 0.012))
+	var segs: int = 7
+	var rad: float = 0.068
+	for i in segs:
+		var t: float = float(i) / float(segs - 1) * 2.0 - 1.0
+		var a: float = t * 1.5
+		var r: float = lerpf(0.034, 0.012, pow(absf(t), 1.3))
+		var c := Vector3(sin(a) * rad, 0.0, -cos(a) * rad + 0.03)
+		var col: Color = GOLD if i % 2 == 0 else GOLD.darkened(0.12)
+		k.s.ellipsoid(base * _xf(c, Vector3(0.0, -rad_to_deg(a), 0.0)), Vector3(r * 0.78, r * 0.82, r * 1.05), col, 12, 6)
+	for sx: float in [-1.0, 1.0]:
+		var tip := Vector3(sx * sin(1.72) * rad, -0.004, -cos(1.72) * rad + 0.03)
+		k.s.ellipsoid(base * _xf(tip), Vector3(0.008, 0.007, 0.008), GOLD.darkened(0.12), 8, 4)
+	k.s.ellipsoid(base * _xf(Vector3(-0.012, 0.024, -0.05)), Vector3(0.012, 0.005, 0.004), Palette.BUTTER_YELLOW, 8, 3)
+
+
+## Untaian bendera pesta (hadiah kalender, GDD idle 21.3): tali melengkung di
+## antara dua paku kuningan dengan tujuh bendera segitiga pastel bertitik.
+static func _bunting(k: Kit) -> void:
+	var half: float = 0.25
+	var sag: float = 0.045
+	var top: float = 0.13
+	var pts: Array[Vector3] = []
+	for i in 11:
+		var u: float = lerpf(-half, half, float(i) / 10.0)
+		pts.append(_v(u, top - sag * (1.0 - pow(u / half, 2.0)), -0.02))
+	for j in pts.size() - 1:
+		_seg(k.m, pts[j], pts[j + 1], Vector2(0.005, 0.005), Palette.FLOUR_WHITE.darkened(0.12))
+	for s: float in [-1.0, 1.0]:
+		k.s.ellipsoid(_xf(_v(s * half, top, -0.014)), Vector3(0.011, 0.011, 0.012), BRASS, 8, 4)
+	var cols: Array[Color] = [Palette.PASTEL_STRAWBERRY, Palette.BUTTER_YELLOW, Palette.PASTEL_MINT, Palette.PASTEL_PERIWINKLE,
+		Palette.HONEY, Palette.PASTEL_MINT, Palette.PASTEL_STRAWBERRY]
+	var flag := PackedVector2Array([Vector2(-0.027, 0.0), Vector2(0.027, 0.0), Vector2(0.0, -0.075)])
+	for f in 7:
+		var u2: float = lerpf(-half * 0.8, half * 0.8, float(f) / 6.0)
+		var v2: float = top - sag * (1.0 - pow(u2 / half, 2.0)) - 0.003
+		var tilt: float = rad_to_deg(atan(2.0 * sag * u2 / (half * half)))
+		k.m.polygon(_xf(_v(u2, v2, -0.022), Vector3(0.0, 0.0, tilt)), flag, cols[f], Vector3.FORWARD)
+		k.m.polygon(_xf(_v(u2, v2 - 0.024, -0.0225)), _oval_pts(0.007, 0.007, 8), Palette.FLOUR_WHITE, Vector3.FORWARD)
 
 
 ## Plakat bintang kenaikan tier: papan melengkung, pelat perak (atau emas dengan
