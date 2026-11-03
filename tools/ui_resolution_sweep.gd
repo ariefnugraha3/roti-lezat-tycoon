@@ -18,7 +18,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -176,6 +176,14 @@ func _params_for(id: StringName) -> Dictionary:
 		&"calendar":
 			_stamp_card(3)
 			return {"date": BoostManager.today()}
+		&"town_map":
+			# Empat cabang yang sudah dijual, lalu cabang ke-5 yang buka.
+			var pm: PrestigeManager = game.sim.prestige
+			if pm.branches.is_empty():
+				for t: int in [3, 4, 5, 4]:
+					pm.branches.append({"number": pm.branches.size() + 1, "tier": t, "stars": 5 * t, "earned": 1.0e6 * t,
+						"rate": 400.0 * t, "opened_day": 1, "sold_day": 5})
+				pm.run_index = 5
 	return {}
 
 

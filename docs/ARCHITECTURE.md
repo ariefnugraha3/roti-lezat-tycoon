@@ -169,6 +169,9 @@ are pruned. A new game starts at `clock.start_seconds`.
   breads go into `SimulationRoot.plain_price`, goals issued during an event pay more, and
   `WorldView.refresh_holiday` swaps in the event's `HolidayFactory` theme. The runner
   switches events off (`EventManager.enabled`) so other tests never depend on the date.
+- **Crumbtown map** (idle §21.7): `SimulationRoot.franchise` calls
+  `PrestigeManager.record_branch` before the reset; `TownMapScreen.branches` joins the
+  sold branches, placeholders for older saves and `current_branch()`.
 - **Share and photo mode** (idle §21.4–21.5): `ShareCard` captures the game viewport with
   the HUD and modal layers hidden for two frames, builds the 1080×1350 card in a temporary
   `SubViewport` and exports PNGs (`WebPlatform.share_or_download_png` on Web, otherwise

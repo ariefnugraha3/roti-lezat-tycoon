@@ -10,12 +10,37 @@ var stars: int = 0
 var run_index: int = 1
 ## Resep yang pernah dibuka di putaran mana pun (perk_recipe_memory).
 var recipes_ever: Dictionary = {}
+## Cabang yang sudah dijual, untuk Peta Crumbtown (GDD idle 21.7): {number,
+## tier, stars, earned, rate, opened_day, sold_day}.
+var branches: Array[Dictionary] = []
+## Hari in-game cabang sekarang dibuka.
+var run_started_day: int = 1
 
 
 func new_game() -> void:
 	stars = 0
 	run_index = 1
 	recipes_ever.clear()
+	branches.clear()
+	run_started_day = 1
+
+
+## Cabang yang sedang buka, dalam bentuk catatan cabang (Peta Crumbtown):
+## bintang = yang didapat bila dijual sekarang.
+func current_branch() -> Dictionary:
+	return {"number": run_index, "tier": sim.world.location.tier if sim.world.location != null else 1, "stars": stars_gain(),
+		"earned": sim.statistics.get_stat("run_earned_kr"), "rate": sim.idle_economy.rate(false),
+		"opened_day": run_started_day, "current": true}
+
+
+## Waralaba (SimulationRoot.franchise): catat cabang yang dijual dengan
+## `gained` bintang, sebelum putarannya direset.
+func record_branch(gained: int) -> void:
+	var b: Dictionary = current_branch()
+	b.erase("current")
+	b["stars"] = gained
+	b["sold_day"] = sim.time.day
+	branches.append(b)
 
 
 ## Perk `id` sudah terbuka oleh total bintang (GDD idle 10.4).
@@ -113,7 +138,7 @@ func note_recipe_unlocked(recipe_id: StringName) -> void:
 
 func capture() -> Dictionary:
 	return {"stars": stars, "run_index": run_index, "perks": Array(perks()).map(func(x: StringName) -> String: return String(x)),
-		"recipes_ever": recipes_ever.keys()}
+		"recipes_ever": recipes_ever.keys(), "branches": branches.duplicate(true), "run_started_day": run_started_day}
 
 
 func restore(d: Dictionary) -> void:
@@ -123,3 +148,12 @@ func restore(d: Dictionary) -> void:
 	for r: Variant in d.get("recipes_ever", []):
 		if DataRegistry.recipe(StringName(str(r))) != null:
 			recipes_ever[str(r)] = true
+	run_started_day = maxi(1, int(d.get("run_started_day", 1)))
+	for b: Variant in d.get("branches", []):
+		if b is Dictionary and int((b as Dictionary).get("number", 0)) >= 1:
+			var e: Dictionary = {}
+			for k: String in ["number", "tier", "stars", "opened_day", "sold_day"]:
+				e[k] = int((b as Dictionary).get(k, 0))
+			for k2: String in ["earned", "rate"]:
+				e[k2] = float((b as Dictionary).get(k2, 0.0))
+			branches.append(e)

@@ -481,6 +481,7 @@ func franchise() -> int:
 		return 0
 	SaveManager.request_autosave("franchise_before", true)
 	var gained: int = prestige.stars_gain()
+	prestige.record_branch(gained)
 	_clear_actors()
 	prestige.stars += gained
 	prestige.run_index += 1
@@ -510,6 +511,7 @@ func franchise() -> int:
 	decoration.replace_lifted(lifted)
 	statistics.begin_run(world.location.id)
 	statistics.add(&"franchise_count", 1)
+	prestige.run_started_day = time.day
 	goals.new_run()
 	achievements.check_tier(world.location.tier)
 	tutorial.on_event(&"franchise")

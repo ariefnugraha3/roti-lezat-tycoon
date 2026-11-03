@@ -88,7 +88,7 @@ which keeps fixtures deterministic.
 | `rotifood_orders` | object | Orders (items, prices, packed lots, driver state) and `next_order_id`. Orders are accepted and packed automatically. |
 | `staff` | object | `contracts` (`employed`, `hired_day`) and actors. No wages, duty or tiers. |
 | `weather` | object | `today`, `tomorrow`, `physical_mult`, `delivery_mult`. |
-| `franchise` | object | `PrestigeManager.capture()`: `stars`, `run_index`, `perks` (unlocked perk IDs, derived from stars), `recipes_ever`. |
+| `franchise` | object | `PrestigeManager.capture()`: `stars`, `run_index`, `perks` (unlocked perk IDs, derived from stars), `recipes_ever`, and since idle GDD §21.7 `run_started_day` (in-game day the open branch opened) and `branches` (sold branches for the Crumbtown map: `{number, tier, stars, earned, rate, opened_day, sold_day}`). Both optional: older saves show earlier branches as placeholders. |
 | `offline` | object | `OfflineManager.capture()`: `last_active_unix` (0 = unknown), `rate_kr_per_s` (model KR/s without boosts), `pending` (`{amount, seconds, away}` waiting for Collect, or `{}`). |
 | `boosts` | object | `BoostManager.capture()`: `income_mult`, `income_left` (real seconds), `promo_id`, `promo_left`, `cooldowns` (promotion → real seconds), `last_gift_date` (device date of the last coffee). |
 | `tutorial` | object | Onboarding steps already shown (`done`), `skipped`, and the current `prompt` (`key`, `target`, `style`). |

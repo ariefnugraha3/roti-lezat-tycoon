@@ -43,6 +43,11 @@ func build_page(body: VBoxContainer) -> void:
 	_sell.custom_minimum_size = Vector2(0, 60)
 	_sell.pressed.connect(_confirm)
 	cb.add_child(_sell)
+	var map_b: Button = ProceduralUIFactory.icon_text_button("shop", Tx.t("ui_map_open"), "soft", 20, 16)
+	map_b.name = "TownMap"
+	map_b.custom_minimum_size = Vector2(0, 52)
+	map_b.pressed.connect(func() -> void: game.modals.open(&"town_map"))
+	cb.add_child(map_b)
 	var rs: Label = lbl(cb, Tx.t("ui_franchise_resets"), 14, Palette.TEXT_MUTED, true)
 	rs.name = "Resets"
 	lbl(cb, Tx.t("ui_franchise_keeps"), 14, Palette.TEXT_MUTED, true)

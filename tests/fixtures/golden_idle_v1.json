@@ -36,7 +36,7 @@
 		"previous": "",
 		"recipe": ""
 	},
-	"created_at": "2026-11-03T09:02:25Z",
+	"created_at": "2026-11-03T09:06:51Z",
 	"customers": {
 		"customers": [
 			{
@@ -1819,9 +1819,11 @@
 		"economy_overflowed": false
 	},
 	"franchise": {
+		"branches": [],
 		"perks": [],
 		"recipes_ever": [],
 		"run_index": 1,
+		"run_started_day": 1,
 		"stars": 0
 	},
 	"game_mode": "idle",

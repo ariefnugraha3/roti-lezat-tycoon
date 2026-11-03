@@ -1,7 +1,7 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
-## misi ringan harian, kalender cap, Share my bakery, photo mode, dan event
-## musiman.
+## misi ringan harian, kalender cap, Share my bakery, photo mode, event
+## musiman, dan Peta Crumbtown.
 
 
 func tests() -> Array:
@@ -15,6 +15,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_PHOTO_MODE", "name": "idle 21.5 Photo mode from the Pause menu hides the HUD while the shop runs, pans freely without world taps, tints with filters, adds a polaroid frame, captures the screen without its buttons, and restores everything on Close", "fn": _photo},
 		{"id": "ACC_IDLE_EVENTS", "name": "idle 21.6 device-date events: fixed windows (also across the new year), Lunar New Year and Lebaran from their date tables, overlapping events, featured breads at 1.25x in the shop and the model, double goal rewards, one announcement per event, off without a date", "fn": _events},
 		{"id": "ACC_IDLE_EVENTS_UI", "name": "idle 21.6 an event date toasts the event, shows a HUD chip with the end date that opens the Menu (Event pills and a card line), a Goals banner, and event decorations in the shop; the next date takes them away", "fn": _events_ui},
+		{"id": "ACC_IDLE_TOWN_MAP", "name": "idle 21.7 a franchise records the sold branch (tier, stars, KR, income, days); the map lists every branch plus the open one, survives saves, and fills older saves with placeholders", "fn": _town_map},
+		{"id": "ACC_IDLE_TOWN_MAP_UI", "name": "idle 21.7 the Franchise sheet opens the Crumbtown map: bakeries along streets in their tier's look, You are here on the open branch, a lot for the next one, and a story page per bakery", "fn": _town_map_ui},
 	]
 
 
@@ -690,6 +692,97 @@ func _events_ui() -> void:
 	check(not chip.visible, "the chip goes away after the event")
 	check(game.world.holiday_nodes().is_empty() or sim.weather.holiday_today(), "the decorations come down")
 	BoostManager.date_override = ""
+	await _end_share(game)
+
+
+func _town_map() -> void:
+	var s: SimulationRoot = new_sim(5701)
+	s.tutorial.skip()
+	eq(s.prestige.branches.size(), 0, "a new bakery has no sold branches")
+	var cur: Dictionary = s.prestige.current_branch()
+	check(bool(cur["current"]) and int(cur["number"]) == 1 and int(cur["opened_day"]) == 1, "the open shop is branch 1 since day 1")
+	eq(TownMapScreen.branches(s).size(), 1, "the map starts with one bakery")
+	# Waralaba mencatat cabang yang dijual.
+	jump_to_tier(s, 3)
+	equip_shop(s, 30)
+	var d: float = DataRegistry.idlef("prestige.stars_divisor_kr")
+	s.statistics.stats["alltime_earned_kr"] = 3.5 * d
+	s.statistics.stats["run_earned_kr"] = 12345.0
+	run_hours(s, 0.2)
+	var earned: float = s.statistics.get_stat("run_earned_kr")
+	var sold_day: int = s.time.day
+	var gained: int = s.prestige.stars_gain()
+	check(gained > 0 and s.franchise() == gained, "franchise")
+	eq(s.prestige.branches.size(), 1, "the sold branch is recorded")
+	var b: Dictionary = s.prestige.branches[0]
+	eq(int(b["number"]), 1, "as branch 1")
+	eq(int(b["tier"]), 3, "with the tier it reached")
+	eq(int(b["stars"]), gained, "the stars it earned")
+	near(float(b["earned"]), earned, 0.01, "the KR it earned")
+	eq(int(b["sold_day"]), sold_day, "and the day it was sold")
+	check(not b.has("current"), "a sold branch is not current")
+	eq(s.prestige.run_started_day, s.time.day, "the new branch opens today")
+	var lots: Array[Dictionary] = TownMapScreen.branches(s)
+	eq(lots.size(), 2, "the map now shows two bakeries")
+	check(bool(lots[1]["current"]) and int(lots[1]["number"]) == 2, "the second is the open branch")
+	# Save / load dan save lama.
+	var u: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	same_state({"b": u.prestige.branches}, {"b": s.prestige.branches}, "branches survive save and load")
+	eq(u.prestige.run_started_day, s.prestige.run_started_day, "and the opening day")
+	free_sim(u)
+	var old: Dictionary = json_copy(s.capture_save())
+	(old["franchise"] as Dictionary).erase("branches")
+	old["franchise"]["run_index"] = 3
+	var v: SimulationRoot = load_sim(old)
+	var lots2: Array[Dictionary] = TownMapScreen.branches(v)
+	eq(lots2.size(), 3, "an older save shows every branch number")
+	check(bool(lots2[0].get("unknown", false)) and bool(lots2[1].get("unknown", false)), "earlier branches without a story are placeholders")
+	free_sim(v)
+	free_sim(s)
+
+
+func _town_map_ui() -> void:
+	var game: GameRoot = await _boot_share("Map Bakery")
+	var sim: SimulationRoot = game.sim
+	game.playing = false
+	sim.prestige.branches.append({"number": 1, "tier": 4, "stars": 9, "earned": 1.5e6, "rate": 812.0, "opened_day": 1, "sold_day": 6})
+	sim.prestige.run_index = 2
+	game.hud.open_tab(&"franchise")
+	await _frames(2)
+	var fr: UIScreen = game.modals.screen(&"franchise")
+	var open_b: Button = fr.find_child("TownMap", true, false) as Button if fr != null else null
+	check(open_b != null and open_b.get_global_rect().size.y >= 48.0, "the Franchise sheet has a Crumbtown map button")
+	open_b.pressed.emit()
+	await _frames(2)
+	var map: TownMapScreen = game.modals.screen(&"town_map") as TownMapScreen
+	check(map != null, "it opens the map")
+	if map == null:
+		await _end_share(game)
+		return
+	var b1: Button = map.content().find_child("Branch1", true, false) as Button
+	var b2: Button = map.content().find_child("Branch2", true, false) as Button
+	check(b1 != null and b2 != null and map.content().find_child("NextLot", true, false) != null, "two bakeries and a lot for the next one")
+	var art1: ShopFrontArt = b1.find_child("*", true, false) as ShopFrontArt
+	for n: Node in b1.find_children("*", "ShopFrontArt", true, false):
+		art1 = n as ShopFrontArt
+	eq(art1.tier if art1 != null else -1, 4, "a branch looks like the tier it reached")
+	var here: bool = false
+	for l: Node in b2.find_children("*", "Label", true, false):
+		if (l as Label).text == Tx.t("ui_map_here"):
+			here = true
+	check(here, "the open branch says You are here")
+	check(map.content().find_child("Street1", true, false) != null, "bakeries stand along a street")
+	b1.pressed.emit()
+	await _frames(3)
+	check(map.page_depth() == 1, "tapping a bakery opens its story")
+	var story: Node = map.content().find_child("BranchStory", true, false)
+	var found: bool = false
+	if story != null:
+		for l2: Node in story.find_children("*", "Label", true, false):
+			if (l2 as Label).text == Tx.big(9.0):
+				found = true
+	check(found, "the story shows the stars it earned")
+	game.modals.close_all()
 	await _end_share(game)
 
 
