@@ -36,6 +36,7 @@ func _session(seed_value: int) -> Dictionary:
 	var s: SimulationRoot = new_sim(seed_value)
 	var bot := SimBot.new(s)
 	bot.manage = true
+	bot.catch_golden = true
 	var pace := PacingTracker.new(s)
 	var ticks_per_minute: int = int(round(60.0 * DataRegistry.sim_seconds_per_real_second() / s.tick_seconds))
 	var run1: Dictionary = {}

@@ -1135,6 +1135,23 @@ func _validate_idle() -> void:
 					_err("idle goal %s needs minutes > 0" % tid)
 			else:
 				_err("idle goal %s unknown kind %s" % [tid, kind])
+	# Roti Emas (GDD idle 21.9).
+	var gi: Variant = (_idle.get("golden", {}) as Dictionary).get("interval_minutes")
+	if not (_idle_num("golden.first_after_minutes") > 0.0) or not (_idle_num("golden.visible_seconds") > 0.0) or not (_idle_num("golden.min_kr") > 0.0) \
+			or not (gi is Array) or (gi as Array).size() != 2 or float(gi[0]) <= 0.0 or float(gi[1]) < float(gi[0]):
+		_err("idle golden needs positive times and interval_minutes [min, max]")
+	var gw: float = 0.0
+	for gx: Variant in (_idle.get("golden", {}) as Dictionary).get("rewards", []):
+		var gd: Dictionary = gx if gx is Dictionary else {}
+		var gid: String = str(gd.get("id", ""))
+		if not ["golden_kr", "golden_frenzy", "golden_rush"].has(gid):
+			_err("idle golden reward %s unknown" % gid)
+		_check_text(StringName(gid), "golden reward")
+		gw += maxf(0.0, float(gd.get("weight", 0.0)))
+		if gid != "golden_kr" and (not (float(gd.get("mult", 0.0)) > 1.0) or not (float(gd.get("seconds", 0.0)) > 0.0)):
+			_err("idle golden %s needs mult > 1 and seconds > 0" % gid)
+	if not (gw > 0.0):
+		_err("idle golden rewards need weights")
 	# Event musiman (GDD idle 21.6).
 	if not (_idle_num("events.featured_mult") >= 1.0) or not (_idle_num("events.goal_reward_mult") >= 1.0):
 		_err("idle events multipliers must be >= 1")

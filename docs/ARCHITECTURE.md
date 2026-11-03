@@ -169,6 +169,12 @@ are pruned. A new game starts at `clock.start_seconds`.
   breads go into `SimulationRoot.plain_price`, goals issued during an event pay more, and
   `WorldView.refresh_holiday` swaps in the event's `HolidayFactory` theme. The runner
   switches events off (`EventManager.enabled`) so other tests never depend on the date.
+- **Golden bread** (idle §21.9): `GoldenManager` counts real seconds of play in
+  `SimulationRoot.step`, so it never runs offline; its flight number and the master seed
+  draw the next gap and the reward. `GoldenBread` (a CanvasLayer above the sheets, below
+  nothing blocking) places the button from `progress()`; catches go through
+  `GoldenManager.catch`, and Golden hour / Rush hour are extra factors in
+  `BoostManager.income_now` / `arrival_now`.
 - **Crumbtown map** (idle §21.7): `SimulationRoot.franchise` calls
   `PrestigeManager.record_branch` before the reset; `TownMapScreen.branches` joins the
   sold branches, placeholders for older saves and `current_branch()`.

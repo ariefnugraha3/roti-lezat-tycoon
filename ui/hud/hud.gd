@@ -53,6 +53,10 @@ var _weather_icon: IconCanvas = null
 var _boosts: HBoxContainer = null
 var _income_boost: PanelContainer = null
 var _promo_boost: PanelContainer = null
+## Hadiah Roti Emas yang berjalan (GDD idle 21.9): Golden hour dan Rush hour.
+var _frenzy_boost: PanelContainer = null
+var _rush_boost: PanelContainer = null
+var golden: GoldenBread = null
 var _tab_bar: HBoxContainer = null
 ## screen id -> Button
 var _tabs: Dictionary = {}
@@ -114,6 +118,10 @@ func _ready() -> void:
 	frame.add_child(_caption)
 	if game != null and game.modals != null:
 		game.modals.stack_changed.connect(_sync_active_tab)
+	golden = GoldenBread.new()
+	golden.game = game
+	golden.sim = sim
+	add_child(golden)
 	EventBus.notify.connect(_on_notify)
 	EventBus.feedback.connect(_on_feedback)
 	EventBus.coin_popup.connect(_on_coin)
@@ -180,6 +188,20 @@ func _build_top_left(frame: Control) -> void:
 	_promo_boost.name = "PromoBoost"
 	_promo_boost.visible = false
 	_boosts.add_child(_promo_boost)
+	# Baris kedua: hadiah Roti Emas, supaya empat pil tidak menabrak jam di tengah.
+	var row2 := HBoxContainer.new()
+	row2.name = "GoldenBoosts"
+	row2.add_theme_constant_override("separation", 6)
+	row2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(row2)
+	_frenzy_boost = _boost_chip("bread", Palette.HONEY_DEEP, Palette.GOLD_STAR.lightened(0.55))
+	_frenzy_boost.name = "FrenzyBoost"
+	_frenzy_boost.visible = false
+	row2.add_child(_frenzy_boost)
+	_rush_boost = _boost_chip("people", Palette.UI_WOOD_DEEP, Palette.MATCHA_SOFT)
+	_rush_boost.name = "RushBoost"
+	_rush_boost.visible = false
+	row2.add_child(_rush_boost)
 
 
 ## Pil boost aktif: muka berwarna lembut, ikon dan sisa waktu tebal.
@@ -565,6 +587,12 @@ func _refresh_boosts() -> void:
 	_income_boost.visible = b.income_left > 0.0
 	if _income_boost.visible:
 		(_income_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.income_mult), "time": Tx.timer(b.income_left)})
+	_frenzy_boost.visible = b.frenzy_left > 0.0
+	if _frenzy_boost.visible:
+		(_frenzy_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.frenzy_mult), "time": Tx.timer(b.frenzy_left)})
+	_rush_boost.visible = b.rush_left > 0.0
+	if _rush_boost.visible:
+		(_rush_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.rush_mult), "time": Tx.timer(b.rush_left)})
 	_promo_boost.visible = b.promo_left > 0.0
 	if _promo_boost.visible:
 		var p: Dictionary = BoostManager.promo(b.promo_id)
@@ -597,6 +625,8 @@ func tutorial_target(target_name: String) -> Control:
 			return _event
 		"pause":
 			return _root.find_child("Pause", true, false) as Control
+		"golden":
+			return golden.button if golden != null and golden.button.visible else null
 	return null
 
 

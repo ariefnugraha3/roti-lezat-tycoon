@@ -21,6 +21,12 @@ var promo_left: float = 0.0
 var cooldowns: Dictionary = {}
 ## Tanggal perangkat (YYYY-MM-DD) Kopi Pak Lurah terakhir diberikan.
 var last_gift_date: String = ""
+## Hadiah Roti Emas (GDD idle 21.9): Golden hour mengalikan penghasilan di atas
+## boost lain, Rush hour mengalikan kedatangan di atas promosi; sisa detik nyata.
+var frenzy_mult: float = 1.0
+var frenzy_left: float = 0.0
+var rush_mult: float = 1.0
+var rush_left: float = 0.0
 
 
 func new_game() -> void:
@@ -36,10 +42,24 @@ func new_run() -> void:
 	promo_id = &""
 	promo_left = 0.0
 	cooldowns.clear()
+	frenzy_mult = 1.0
+	frenzy_left = 0.0
+	rush_mult = 1.0
+	rush_left = 0.0
 
 
 func step(dt: float) -> void:
 	var r: float = DataRegistry.real_seconds(dt)
+	if frenzy_left > 0.0:
+		frenzy_left = maxf(0.0, frenzy_left - r)
+		if frenzy_left <= 0.0:
+			frenzy_mult = 1.0
+			sim.idle_economy.invalidate()
+	if rush_left > 0.0:
+		rush_left = maxf(0.0, rush_left - r)
+		if rush_left <= 0.0:
+			rush_mult = 1.0
+			sim.idle_economy.invalidate()
 	if income_left > 0.0:
 		income_left = maxf(0.0, income_left - r)
 		if income_left <= 0.0:
@@ -64,11 +84,26 @@ func step(dt: float) -> void:
 # ===========================================================================
 
 func income_now() -> float:
-	return income_mult if income_left > 0.0 else 1.0
+	return (income_mult if income_left > 0.0 else 1.0) * (frenzy_mult if frenzy_left > 0.0 else 1.0)
 
 
 func arrival_now() -> float:
-	return float(promo(promo_id).get("arrival_mult", 1.0)) if promo_left > 0.0 else 1.0
+	return (float(promo(promo_id).get("arrival_mult", 1.0)) if promo_left > 0.0 else 1.0) * (rush_mult if rush_left > 0.0 else 1.0)
+
+
+## Golden hour (Roti Emas): ×`mult` penghasilan selama `seconds` detik nyata,
+## di atas boost penghasilan lain; yang baru menyegarkan ke yang lebih panjang.
+func add_frenzy(mult: float, seconds: float) -> void:
+	frenzy_mult = maxf(frenzy_mult if frenzy_left > 0.0 else 1.0, mult)
+	frenzy_left = maxf(frenzy_left, seconds)
+	sim.idle_economy.invalidate()
+
+
+## Rush hour (Roti Emas): ×`mult` kedatangan pembeli selama `seconds` detik nyata.
+func add_rush(mult: float, seconds: float) -> void:
+	rush_mult = maxf(rush_mult if rush_left > 0.0 else 1.0, mult)
+	rush_left = maxf(rush_left, seconds)
+	sim.idle_economy.invalidate()
 
 
 func rotifood_now() -> float:
@@ -184,7 +219,8 @@ func start_promo(id: StringName) -> bool:
 
 func capture() -> Dictionary:
 	return {"income_mult": income_mult, "income_left": income_left, "promo_id": String(promo_id), "promo_left": promo_left,
-		"cooldowns": cooldowns.duplicate(), "last_gift_date": last_gift_date}
+		"cooldowns": cooldowns.duplicate(), "last_gift_date": last_gift_date,
+		"frenzy_mult": frenzy_mult, "frenzy_left": frenzy_left, "rush_mult": rush_mult, "rush_left": rush_left}
 
 
 func restore(d: Dictionary) -> void:
@@ -200,3 +236,7 @@ func restore(d: Dictionary) -> void:
 		if not promo(StringName(str(k))).is_empty() and float(d["cooldowns"][k]) > 0.0:
 			cooldowns[str(k)] = float(d["cooldowns"][k])
 	last_gift_date = str(d.get("last_gift_date", ""))
+	frenzy_left = maxf(0.0, float(d.get("frenzy_left", 0.0)))
+	frenzy_mult = maxf(1.0, float(d.get("frenzy_mult", 1.0))) if frenzy_left > 0.0 else 1.0
+	rush_left = maxf(0.0, float(d.get("rush_left", 0.0)))
+	rush_mult = maxf(1.0, float(d.get("rush_mult", 1.0))) if rush_left > 0.0 else 1.0

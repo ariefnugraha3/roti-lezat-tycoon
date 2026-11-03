@@ -9,7 +9,7 @@ extends SimManager
 ## Share/Photo mode, dan Peta Crumbtown.
 const STEPS: Array[String] = ["onb_welcome", "onb_first_sale", "onb_first_upgrade", "onb_tap_boost", "onb_hire",
 	"onb_recipe", "onb_offline", "onb_location", "onb_franchise",
-	"onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]
+	"onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map", "onb_golden"]
 ## Detik-simulasi antar-pemeriksaan pemicu.
 const CHECK_SECONDS: float = 0.5
 
@@ -129,6 +129,8 @@ func _check() -> void:
 		show_step("onb_share", &"hud_pause")
 	if not done.has("onb_map") and sim.prestige.run_index >= 2:
 		show_step("onb_map", &"tab_franchise")
+	if not done.has("onb_golden") and sim.golden.is_flying():
+		show_step("onb_golden", &"hud_golden")
 
 
 ## Petunjuk yang sudah dikerjakan pemain menutup sendiri.
@@ -151,6 +153,8 @@ func _auto_close() -> void:
 			finished = sim.world.location.tier > 1
 		"onb_franchise":
 			finished = sim.prestige.franchise_block() != &""
+		"onb_golden":
+			finished = not sim.golden.is_flying()
 	if finished:
 		dismiss()
 

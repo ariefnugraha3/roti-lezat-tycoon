@@ -10,7 +10,7 @@ extends Node
 ## Filter opsional: -- --res=720x1280,1920x1080 --scales=100,150
 ## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
-## perangkat palsu, mis. untuk event musiman).
+## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -23,6 +23,7 @@ const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop"
 var game: GameRoot = null
 var shell: PortraitShell = null
 var _out: String = ""
+var _golden: bool = false
 var _issues: int = 0
 var _res: Array[Vector2i] = RES.duplicate()
 var _scales: Array[int] = SCALES.duplicate()
@@ -47,6 +48,9 @@ func _ready() -> void:
 		elif a.begins_with("--screens="):
 			for t3: String in a.substr(10).split(","):
 				_screens.append(StringName(t3))
+		elif a == "--golden":
+			# Roti Emas di tengah terbang dan hadiah boost-nya di HUD (GDD idle 21.9).
+			_golden = true
 		elif a.begins_with("--date="):
 			# Tanggal perangkat palsu, mis. untuk event musiman (GDD idle 21.6).
 			BoostManager.date_override = a.substr(7)
@@ -91,6 +95,12 @@ func _ready() -> void:
 		for sc2: int in _scales:
 			SettingsManager.set_value("text_scale", sc2)
 			game.modals.close_all()
+			if _golden:
+				sim.golden.next_in = 0.0
+				sim.golden.step(sim.tick_seconds)
+				sim.golden.visible_left = DataRegistry.idlef("golden.visible_seconds") * 0.5
+				sim.boosts.add_frenzy(3.0, 30.0)
+				sim.boosts.add_rush(2.0, 60.0)
 			await _frames(4)
 			_check(game.hud, "hud", r2, sc2)
 			await _shot("hud", r2, sc2)

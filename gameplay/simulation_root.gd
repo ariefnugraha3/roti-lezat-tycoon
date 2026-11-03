@@ -45,6 +45,7 @@ var cravings: CravingManager
 var goals: GoalManager
 var calendar: CalendarManager
 var events: EventManager
+var golden: GoldenManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Crumbtown Bakery"
@@ -91,6 +92,7 @@ func _init() -> void:
 	goals = _add(GoalManager.new(), "GoalManager")
 	calendar = _add(CalendarManager.new(), "CalendarManager")
 	events = _add(EventManager.new(), "EventManager")
+	golden = _add(GoldenManager.new(), "GoldenManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -224,6 +226,7 @@ func step(dt: float) -> void:
 	cashier.step(dt)
 	rotifood.step(dt)
 	boosts.step(dt)
+	golden.step(dt)
 	tutorial.step(dt)
 	_in_step = false
 
@@ -625,6 +628,7 @@ func capture_save() -> Dictionary:
 		"goals": goals.capture(),
 		"calendar": calendar.capture(),
 		"events": events.capture(),
+		"golden": golden.capture(),
 		"rng_states": rng.capture(),
 	}
 
@@ -680,6 +684,7 @@ func load_from_save(d: Dictionary) -> void:
 	cravings.ensure_today()
 	calendar.restore(d.get("calendar", {}))
 	events.restore(d.get("events", {}))
+	golden.restore(d.get("golden", {}))
 	goals.restore(d.get("goals", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).

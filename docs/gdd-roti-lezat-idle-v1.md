@@ -1019,3 +1019,17 @@ Permintaan maintainer 2026-11-03: fitur Seksi 21 harus ditemukan pemain. Lima ti
 | `onb_map` | cabang kedua (setelah Waralaba) | tab Franchise, lalu tombol "Crumbtown map"; selesai saat peta terbuka |
 
 Tip bersasaran tombol HUD memakai panduan ketuk yang sama (`TutorialGuide`, sasaran `hud_<name>`). Kalender cap tidak diberi tip karena popupnya sudah menjelaskan diri sendiri.
+
+## **21.9 Roti Emas (TUNABLE: `golden.*`)**
+
+Permintaan maintainer 2026-11-03: momen seru selama bermain aktif, seperti "golden cookie".
+
+- **Hanya saat bermain aktif.** Roti emas pertama muncul setelah `golden.first_after_minutes` (8) menit nyata bermain (sesudah tutorial pertama; dengan 3 menit, hadiahnya mempercepat Tier 2 ke menit 11,6), berikutnya setiap `golden.interval_minutes` (5–8) menit. Semua timer dalam detik nyata permainan aktif (berhenti saat pause, di latar, dan offline), jadi roti emas tidak pernah muncul atau memberi apa pun saat pemain pergi.
+- **Terbang** melintasi bingkai selama `golden.visible_seconds` (9) detik, bergantian dari kiri dan kanan dengan gelombang naik-turun, di atas lembar bawah (bisa ditangkap selagi lembar terbuka), tetapi tersembunyi selama modal pemblokir, Decoration Mode, dan Photo mode. Gambarnya roti emas bergaris dengan lingkar cahaya berdenyut dan dua kilau; sasaran ketuknya 112 px. Kalau tidak diketuk, ia terbang pergi tanpa hukuman.
+- **Hadiah acak berbobot** (`golden.rewards`), diundi dari seed master dan nomor penerbangan (tanpa stream RNG lain):
+  - *Golden bread* (bobot 50): KR sebesar 1,5 menit KR/s model tanpa boost (paling sedikit `golden.min_kr`), masuk sebagai `REWARD`.
+  - *Golden hour* (30): penghasilan ×3 selama 30 detik, **di atas** boost lain (kopi ×2 + Golden hour = ×6), hanya di KR/s hidup.
+  - *Rush hour* (20): kedatangan pembeli ×2 selama 60 detik, di atas promosi.
+  Golden hour dan Rush hour tampil sebagai pil boost di baris kedua di bawah KR, ikut tersimpan, dan direset oleh Waralaba seperti boost lain. Toast menyebut hadiahnya; KR disertai hujan koin.
+- **Tip** `onb_golden` menunjuk roti emas pertama (panduan ketuk yang mengikuti posisinya) dan selesai sendiri saat roti itu tertangkap atau pergi.
+- **Pacing.** Pemain biasa (`SimBot.catch_golden`) menangkap setiap penerbangan bernomor genap (separuhnya); probe dan `ACC_IDLE_PACING` memakainya.

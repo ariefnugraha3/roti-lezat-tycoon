@@ -14,7 +14,7 @@ const STAT_KEYS: Array[String] = [
 	"total_rotifood_orders_received", "total_rotifood_orders_completed", "total_rotifood_orders_expired",
 	"staff_hired_count", "location_upgrades_count", "total_play_time_real_seconds",
 	"offline_seconds_total", "offline_earned_kr", "days_passed", "franchise_count",
-	"levels_bought", "semangat_taps", "goals_completed", "calendar_stamps",
+	"levels_bought", "semangat_taps", "goals_completed", "calendar_stamps", "golden_caught",
 ]
 const RECORD_KEYS: Array[String] = [
 	"largest_transaction", "highest_rate_kr_per_s", "highest_queue",

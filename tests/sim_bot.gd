@@ -32,6 +32,9 @@ var max_tier: int = 5
 ## Pemain biasa membuka resep craving hari ini (GDD idle 21.1) yang masih
 ## terkunci bila biayanya paling banyak sekian menit penghasilan.
 var craving_unlock_minutes: float = 3.0
+## Pemain biasa menangkap sebagian Roti Emas (GDD idle 21.9): penerbangan yang
+## nomornya habis dibagi 2 (separuhnya), setelah terlihat beberapa detik.
+var catch_golden: bool = false
 
 
 func _init(s: SimulationRoot) -> void:
@@ -41,6 +44,8 @@ func _init(s: SimulationRoot) -> void:
 func think() -> void:
 	if dismiss_tips and not sim.tutorial.prompt.is_empty():
 		sim.tutorial.dismiss()
+	if catch_golden and sim.golden.is_flying() and sim.golden.flight % 2 == 0 and sim.golden.progress() > 0.3:
+		sim.golden.catch()
 	_cooldown -= 1
 	if _cooldown > 0:
 		return

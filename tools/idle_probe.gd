@@ -65,6 +65,7 @@ func _ready() -> void:
 	sim.start_new_game(&"profile_probe", "Probe Bakery", "male", _seed)
 	var bot := SimBot.new(sim)
 	bot.manage = _manage
+	bot.catch_golden = _manage
 	bot.max_tier = _max_tier
 	var t0: int = Time.get_ticks_usec()
 	var pace := PacingTracker.new(sim)

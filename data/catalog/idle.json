@@ -161,6 +161,19 @@
     "featured": ["recipe_chocolate_bread", "recipe_gourmet_brioche", "recipe_almond_artisan_croissant"]}
   ]
  },
+ "golden": {
+  "_gdd": "21.9",
+  "_doc": "Golden bread: real minutes of active play only. Rewards: KR (income_minutes of no-boost KR/s), frenzy (income x mult for seconds), rush (arrivals x mult for seconds).",
+  "first_after_minutes": 8,
+  "interval_minutes": [5, 8],
+  "visible_seconds": 9,
+  "min_kr": 10,
+  "rewards": [
+   {"id": "golden_kr", "weight": 50, "income_minutes": 1.5},
+   {"id": "golden_frenzy", "weight": 30, "mult": 3.0, "seconds": 30},
+   {"id": "golden_rush", "weight": 20, "mult": 2.0, "seconds": 60}
+  ]
+ },
  "calendar": {
   "_gdd": "21.3",
   "boost_mult": 2.0,

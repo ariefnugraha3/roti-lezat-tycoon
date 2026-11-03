@@ -1,7 +1,7 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
 ## misi ringan harian, kalender cap, Share my bakery, photo mode, event
-## musiman, Peta Crumbtown, dan tip untuk semuanya.
+## musiman, Peta Crumbtown, tip untuk semuanya, dan Roti Emas.
 
 
 func tests() -> Array:
@@ -19,6 +19,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_TOWN_MAP_UI", "name": "idle 21.7 the Franchise sheet opens the Crumbtown map: bakeries along streets in their tier's look, You are here on the open branch, a lot for the next one, and a story page per bakery", "fn": _town_map_ui},
 		{"id": "ACC_IDLE_TIPS", "name": "idle 21.8 one-off tips for the craving, daily goals, a seasonal event, Share/Photo mode (Tier 2) and the Crumbtown map (second branch), each once, archived in Help, none with hints off", "fn": _tips},
 		{"id": "ACC_IDLE_TIPS_UI", "name": "idle 21.8 a tip for a HUD button opens as a tap guide on that button and finishes when its screen opens; the next tip follows", "fn": _tips_ui},
+		{"id": "ACC_IDLE_GOLDEN", "name": "idle 21.9 golden bread flies during play only (real seconds), can be missed, and gives a seeded reward: KR (not income), Golden hour on top of other boosts (live KR/s only) or Rush hour; saved mid-flight, reset by a franchise", "fn": _golden},
+		{"id": "ACC_IDLE_GOLDEN_UI", "name": "idle 21.9 the golden bread flies across the frame as a big touch target with a first-time tip, hides under blocking popups and in Decoration Mode, and one tap catches it with a toast and a boost chip", "fn": _golden_ui},
 	]
 
 
@@ -791,7 +793,7 @@ func _town_map_ui() -> void:
 ## Langkah onboarding dasar (sebelum tip fitur retensi) dianggap sudah tampil.
 static func _base_steps_done(s: SimulationRoot) -> void:
 	for k: String in TutorialManager.STEPS:
-		if k in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]:
+		if k in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map", "onb_golden"]:
 			continue
 		s.tutorial.done[k] = true
 	s.tutorial.prompt = {}
@@ -886,6 +888,147 @@ func _tips_ui() -> void:
 	check(game.modals.is_open(&"goals") and not game.modals.is_open(&"tutorial_guide"), "opening Goals closes the tip")
 	eq(sim.tutorial.prompt, {}, "no tip is left")
 	game.modals.close_all()
+	SettingsManager.set_value("tutorial_hints", hints_before)
+	await _end_share(game)
+
+
+## Langsung terbangkan roti emas berikutnya.
+static func _launch_golden(s: SimulationRoot) -> void:
+	s.golden.next_in = 0.0
+	s.step(s.tick_seconds)
+
+
+func _golden() -> void:
+	var s: SimulationRoot = new_sim(5901)
+	s.tutorial.skip()
+	var g: GoldenManager = s.golden
+	near(g.next_in, DataRegistry.idlef("golden.first_after_minutes") * 60.0, 0.001, "the first golden bread waits a few minutes of play")
+	check(not g.is_flying(), "nothing flies at the start")
+	g.next_in = 1.0
+	s.run_for(1.5 * DataRegistry.sim_seconds_per_real_second())
+	check(g.is_flying() and g.flight == 1, "after the wait it flies (counted in real seconds of play)")
+	var vis: float = DataRegistry.idlef("golden.visible_seconds")
+	s.run_for(vis * 0.5 * DataRegistry.sim_seconds_per_real_second())
+	near(g.progress(), (vis * 0.5 + 0.5) / vis, 0.03, "it crosses the screen in golden.visible_seconds")
+	s.run_for(vis * 0.6 * DataRegistry.sim_seconds_per_real_second())
+	check(not g.is_flying(), "a missed golden bread flies away")
+	var span: Array = DataRegistry.idle("golden.interval_minutes")
+	check(g.next_in >= float(span[0]) * 60.0 - 1.0 and g.next_in <= float(span[1]) * 60.0, "the next one comes within the interval (%.0f s)" % g.next_in)
+	eq(g.catch(), {}, "nothing to catch when nothing flies")
+	# Hadiah: sama dengan undiannya, dan semua jenis muncul.
+	var seen: Dictionary = {}
+	var coffee: bool = false
+	for i in 40:
+		_launch_golden(s)
+		var want: Dictionary = g.reward_now()
+		var before: float = s.economy.balance
+		var earned: float = s.statistics.get_stat("run_earned_kr")
+		var got: Dictionary = g.catch()
+		eq(got, want, "flight %d gives the drawn reward" % g.flight)
+		check(not g.is_flying(), "a caught golden bread is gone")
+		match str(got["id"]):
+			"golden_kr":
+				near(s.economy.balance - before, float(got["kr"]), 0.001, "golden KR arrive")
+				eq(s.statistics.get_stat("run_earned_kr"), earned, "and are not income")
+			"golden_frenzy":
+				if not coffee:
+					s.boosts.add_income(2.0, 900.0)
+					coffee = true
+				near(s.boosts.income_now(), 2.0 * float(got["mult"]), 1e-9, "Golden hour multiplies on top of the coffee")
+				near(s.boosts.frenzy_left, float(got["seconds"]), 0.001, "for its seconds")
+				s.idle_economy.invalidate()
+				check(s.idle_economy.rate(true) > s.idle_economy.rate(false) * 2.5, "the live KR/s counts it")
+			"golden_rush":
+				near(s.boosts.arrival_now(), float(got["mult"]), 1e-9, "Rush hour brings more customers")
+		seen[str(got["id"])] = true
+		s.boosts.frenzy_left = 0.0
+		s.boosts.frenzy_mult = 1.0
+		s.boosts.rush_left = 0.0
+		s.boosts.rush_mult = 1.0
+	eq(seen.size(), 3, "all three rewards turn up (%s)" % [seen.keys()])
+	eq(s.statistics.get_stat("golden_caught"), 40.0, "catches are counted")
+	# Boost berakhir dalam detik nyata.
+	s.boosts.add_frenzy(3.0, 2.0)
+	s.run_for(2.5 * DataRegistry.sim_seconds_per_real_second())
+	near(s.boosts.frenzy_mult, 1.0, 1e-9, "Golden hour ends on time")
+	# Seed sama, penerbangan sama.
+	var t: SimulationRoot = new_sim(5901, &"profile_twin")
+	t.golden.flight = g.flight
+	eq(t.golden.reward_now(), g.reward_now(), "the same seed and flight draw the same reward")
+	free_sim(t)
+	# Save / load di tengah terbang.
+	_launch_golden(s)
+	s.boosts.add_rush(2.0, 30.0)
+	var u: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	check(u.golden.is_flying() and is_equal_approx(u.golden.visible_left, g.visible_left), "a flying golden bread survives save and load")
+	near(u.boosts.rush_left, s.boosts.rush_left, 0.001, "and so does Rush hour")
+	free_sim(u)
+	# Waralaba menghentikan hadiahnya.
+	s.boosts.new_run()
+	check(s.boosts.rush_left == 0.0 and s.boosts.frenzy_left == 0.0, "a new branch starts without golden boosts")
+	# Mati: tidak terbang.
+	GoldenManager.enabled = false
+	var w: SimulationRoot = new_sim(5903)
+	w.golden.next_in = 0.0
+	w.step(w.tick_seconds)
+	check(not w.golden.is_flying(), "switched off, nothing flies")
+	GoldenManager.enabled = true
+	free_sim(w)
+	free_sim(s)
+
+
+func _golden_ui() -> void:
+	var hints_before: bool = SettingsManager.get_bool("tutorial_hints")
+	SettingsManager.set_value("tutorial_hints", true)
+	var game: GameRoot = await _boot_share("Golden Bakery")
+	var sim: SimulationRoot = game.sim
+	game.modals.close_all()
+	sim.tutorial.skipped = false
+	_base_steps_done(sim)
+	for k: String in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map"]:
+		sim.tutorial.done[k] = true
+	game.playing = false
+	_launch_golden(sim)
+	_tip_step(sim)
+	await _frames(3)
+	var btn: Button = game.hud.golden.button
+	check(btn.visible, "a flying golden bread shows on screen")
+	check(btn.size.x >= 48.0 and btn.size.y >= 48.0, "as a big touch target")
+	var vp: Rect2 = btn.get_viewport_rect()
+	check(vp.grow(btn.size.x).encloses(Rect2(btn.position, btn.size)), "inside the frame")
+	var guide: TutorialGuide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide != null and guide.key == "onb_golden", "the first one comes with a tip")
+	if guide != null:
+		eq(guide.target_control(), btn, "pointing at the golden bread")
+	game.modals.open(&"pause")
+	await _frames(2)
+	check(not btn.visible, "it hides under the Pause menu")
+	game.modals.close_id(&"pause")
+	await _frames(2)
+	check(btn.visible, "and comes back")
+	var toasts: Array = []
+	var catch_toast: Callable = func(_p: int, key: String, _params: Dictionary, _i: StringName) -> void:
+		if key.begins_with("golden_"):
+			toasts.append(key)
+	EventBus.notify.connect(catch_toast)
+	var want: String = str(sim.golden.reward_now()["id"])
+	btn.pressed.emit()
+	EventBus.notify.disconnect(catch_toast)
+	await _frames(2)
+	eq(toasts, [want], "catching it toasts the reward")
+	check(not btn.visible and not sim.golden.is_flying(), "and it is gone")
+	_tip_step(sim)
+	await _frames(2)
+	check(not game.modals.is_open(&"tutorial_guide"), "the tip closes")
+	sim.boosts.add_frenzy(3.0, 30.0)
+	game.hud._refresh_all()
+	var chip: Control = game.hud.find_child("FrenzyBoost", true, false) as Control
+	check(chip != null and chip.visible, "Golden hour shows a chip with its time")
+	game.hud.set_decoration_active(true)
+	_launch_golden(sim)
+	await _frames(2)
+	check(not btn.visible, "no golden bread in Decoration Mode")
+	game.hud.set_decoration_active(false)
 	SettingsManager.set_value("tutorial_hints", hints_before)
 	await _end_share(game)
 
