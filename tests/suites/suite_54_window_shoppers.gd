@@ -10,7 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_20_WINDOW_SHOPPER_GIVE_WAY", "name": "20.12 a window shopper standing where a buyer must wait steps aside, and the buyers fare exactly as without it", "fn": _give_way},
 		{"id": "ACC_20_WINDOW_SHOPPER_COSMETIC", "name": "20.12/116 buyers and sales play out identically with or without window shoppers", "fn": _cosmetic},
 		{"id": "ACC_20_WINDOW_SHOPPER_SAVE", "name": "20.12/77.2 a window shopper saved mid-look returns to its spot and the shop plays on identically", "fn": _save},
-		{"id": "TEST_VIS_WINDOW_SHOPPER", "name": "20.12 window shoppers show no patience bar, sweep their head across the shelf, say a funny English line as they give up, and leave empty-handed", "fn": _visual},
+		{"id": "TEST_VIS_WINDOW_SHOPPER", "name": "20.12 window shoppers sweep their head across the shelf, say a funny English line as they give up, and leave empty-handed", "fn": _visual},
 	]
 
 
@@ -289,7 +289,6 @@ func _visual() -> void:
 		free_sim(s)
 		return
 	check(v.is_looking_around(), "looks around while browsing")
-	check(v._patience == null or not v._patience.visible, "no patience bar: a window shopper never waits")
 	var head: Node3D = CharacterFactory.part(v.model, "Head")
 	var lo: float = INF
 	var hi: float = -INF

@@ -53,7 +53,6 @@ func _render() -> void:
 			if OS.has_feature("mobile"):
 				_toggle("haptics", "ui_settings_haptics")
 			_toggle("high_contrast_markers", "ui_settings_high_contrast")
-			_toggle("patience_bar_large", "ui_settings_patience_large")
 			_choice("text_scale", "ui_settings_text_scale", [100, 125, 150], ["100%", "125%", "150%"])
 			_toggle("hold_to_confirm", "ui_settings_hold_confirm")
 			_toggle("sound_captions", "ui_settings_captions")

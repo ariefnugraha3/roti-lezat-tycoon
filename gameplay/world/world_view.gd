@@ -499,7 +499,6 @@ func _sync_actors(delta: float) -> void:
 		if sv != null:
 			_apply_carry(sv, a, sim.production.get_job(int(a.carried.get("job_id", -1))) if not a.carried.is_empty() else null)
 	var rainy: bool = sim.weather.is_rain()
-	var large: bool = SettingsManager.get_bool("patience_bar_large")
 	for c: Customer in sim.customers.sorted():
 		var a2: SimActor = c.actor
 		if c.regular_id != &"":
@@ -511,12 +510,9 @@ func _sync_actors(delta: float) -> void:
 			continue
 		_apply_customer_carry(v, c)
 		v.set_receive(_receive_amount(c))
-		# Bar kesabaran hanya selama pembeli mengantre di kasir, satu-satunya saat
-		# kesabarannya berkurang (keputusan maintainer 2026-10-01, GDD 20.8). Saat
-		# masuk dan memilih roti, bar penuh yang diam hanya membingungkan.
-		# Pengunjung lihat-lihat tidak pernah mengantre (GDD 20.12).
-		var show_bar: bool = not c.window_shopper and c.drains_patience()
-		v.set_patience(c.patience_ratio(), show_bar, large)
+		# Tanpa bar kesabaran (keputusan maintainer 2026-11-04, GDD idle 6.4): toko
+		# berjalan sendiri, jadi pemain tidak perlu mengawasinya. Kesabarannya tetap
+		# berkurang di simulasi; "..." tampil saat hampir habis.
 		# Pengunjung lihat-lihat dan pembeli yang memeriksa rak kosong menoleh
 		# ke sana kemari di depan rak (GDD 20.12, idle 6.2).
 		v.set_look_around((c.window_shopper or c.checking_shelf) and c.state == Customer.BROWSING and not a2.moving)
@@ -528,7 +524,6 @@ func _sync_actors(delta: float) -> void:
 		var dv: ActorView = views.get(o.driver.id)
 		if dv != null:
 			dv.set_carry("bag" if o.driver_phase == &"leaving" and o.state == DeliveryOrder.COMPLETED else "")
-			dv.set_patience(o.driver_patience / maxf(o.driver_patience_max, 0.01), o.driver_phase in [&"entering", &"queued", &"at_service"], large)
 	# Aktor yang hilang di pintu berjalan pulang di trotoar dulu (GDD 20.1), lalu
 	# body-nya kembali ke pool (GDD 83.2).
 	for k: Variant in views.keys():
@@ -563,7 +558,6 @@ func _start_leaver(v: ActorView) -> bool:
 	a.speed_mps = float(v.get_meta("speed", 1.2))
 	var side: int = 1 if posmod(hash(String(v.actor_id)), 2) == 0 else -1
 	a.walk_path(sim.world.store_floor(), StreetPaths.leave_from(sim.world.location, side, v.get_meta("pos")))
-	v.set_patience(1.0, false, false)
 	v.set_thought("")
 	v.set_look_around(false)
 	_leavers.append({"view": v, "actor": a})

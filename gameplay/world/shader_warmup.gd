@@ -117,7 +117,6 @@ func _fill(world: WorldView) -> void:
 		v.bind(StringName("warm_%d" % i), "warm_%d" % i, specs[i])
 		v.set_carry(carries[i % carries.size()], profile, 1.0, 2)
 		if i == 0:
-			v.set_patience(0.2, true, false)
 			v.set_thought("?")
 		if i == 1:
 			v._show_cloth(true)

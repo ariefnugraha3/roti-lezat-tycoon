@@ -30,7 +30,6 @@ const DEFAULTS: Dictionary = {
 	"screen_shake": 30,
 	"haptics": true,
 	"high_contrast_markers": false,
-	"patience_bar_large": false,
 	"text_scale": 100,
 	"hold_to_confirm": false,
 	"sound_captions": false,

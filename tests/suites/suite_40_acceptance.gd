@@ -8,7 +8,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_STARTING_CASH", "name": "idle 7.1: a new game opens with start_kr in one ledger entry", "fn": _starting_cash},
 		{"id": "ACC_IDLE_START_RATE", "name": "idle 7.1, 7.6: a new shop earns 1.00 KR/s without boosts, and a cost with cents is affordable exactly when the balance holds the amount charged", "fn": _start_rate},
 		{"id": "ACC_55_OJOL_QUEUE", "name": "55.3 dedicated RotiFood queue at Tier 3+", "fn": _ojol_queue},
-		{"id": "ACC_55_PATIENCE", "name": "55.4/58 patience bar and drain", "fn": _patience},
+		{"id": "ACC_55_PATIENCE", "name": "55.4/58 patience drain (the bar itself was removed, idle 6.4)", "fn": _patience},
 		{"id": "ACC_SPATIAL", "name": "Appendix spatial scale 1-10", "fn": _spatial},
 		{"id": "ACC_LAYOUT_SOLVER", "name": "opening stations fills every tier's slots with a valid layout", "fn": _layout_solver},
 		{"id": "ACC_81_PLACEMENT", "name": "81.1/81.4 placement keeps paths and access tiles", "fn": _placement},

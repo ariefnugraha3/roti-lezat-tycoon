@@ -79,8 +79,8 @@ func _run() -> void:
 	await _shot("world_packing_close")
 	rig.ortho_size = normal_size
 	rig.camera.size = normal_size
-	# Pengunjung lihat-lihat (GDD 20.12): berdiri di depan rak, menoleh, tanpa
-	# patience bar, dengan celetukannya, pada gambaran toko dan dari dekat.
+	# Pengunjung lihat-lihat (GDD 20.12): berdiri di depan rak, menoleh, dengan
+	# celetukannya, pada gambaran toko dan dari dekat.
 	var looking := func() -> bool:
 		for c: Customer in sim.customers.sorted():
 			if WorldView.shopper_speaking(c) and c.state == Customer.BROWSING and not c.actor.moving:

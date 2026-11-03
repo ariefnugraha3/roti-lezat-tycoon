@@ -1,7 +1,7 @@
 class_name ActorView
 extends Node3D
 ## Tampilan satu aktor logis (GDD 16, 20.8, 31). Node ini hanya MENGIKUTI
-## SimActor: posisi, arah, barang bawaan, patience bar, dan balon "!". Aktor
+## SimActor: posisi, arah, barang bawaan, dan balon pikiran. Aktor
 ## pelanggan/driver/kurir berasal dari pool dan wajib bersih lewat
 ## `reset_for_pool()` sebelum dipakai ulang (GDD 91.2, 115.2).
 ##
@@ -15,7 +15,6 @@ extends Node3D
 ## pernah tertidur. Timer tidak berjalan saat game di-pause dan tidak pernah
 ## memengaruhi simulasi.
 
-const PATIENCE_Y: float = 1.08
 const TURN_SPEED: float = 10.0
 
 const GESTURE_NONE: int = 0
@@ -50,7 +49,6 @@ var spec_key: String = ""
 var _t: float = 0.0
 var _carry: Node3D = null
 var _carry_key: String = ""
-var _patience: PatienceBar = null
 var _thought: Label3D = null
 var _sparkle_cd: float = 0.0
 ## Gerak menganggur hanya untuk pemain & staf (diaktifkan WorldView).
@@ -117,8 +115,6 @@ func reset_for_pool() -> void:
 	visible = false
 	set_look_around(false)
 	_set_carry("")
-	if _patience != null:
-		_patience.visible = false
 	if _thought != null:
 		_thought.visible = false
 	_t = 0.0
@@ -664,20 +660,6 @@ func _apply_carry_pose() -> void:
 	ProceduralAnimationSystem.set_carry_pose(model, kind in ["dough", "tray", "package", "bread"])
 
 
-## Patience bar di atas kepala (GDD 20.8, 58): tanpa angka, berkedip makin cepat.
-func set_patience(ratio: float, show: bool, large: bool) -> void:
-	if not show:
-		if _patience != null:
-			_patience.visible = false
-		return
-	if _patience == null:
-		_patience = PatienceBar.new()
-		add_child(_patience)
-		_patience.position = Vector3(0.0, PATIENCE_Y, 0.0)
-	_patience.visible = true
-	_patience.set_ratio(ratio, large)
-
-
 ## Balon pikiran (GDD 7): jam pasir saat antre lama, koin saat harga mahal.
 func set_thought(text: String) -> void:
 	if text == "":
@@ -718,85 +700,3 @@ func sparkle() -> void:
 	if SettingsManager.reduced_motion():
 		return
 	FX.sugar_sparkle(self, Vector3(0.0, 1.0, 0.0))
-
-
-## Widget bar patience berbasis mesh unshaded, diputar menghadap kamera.
-class PatienceBar extends Node3D:
-	const W: float = 0.40
-	const H: float = 0.055
-	var _fill: MeshInstance3D = null
-	var _mat: StandardMaterial3D = null
-	var _ratio: float = 1.0
-	var _t: float = 0.0
-	var _large: bool = false
-
-	func _ready() -> void:
-		var bg := _quad(Vector2(W + 0.03, H + 0.03), Palette.DARK_CHOCOLATE)
-		bg.name = "Back"
-		add_child(bg)
-		_fill = _quad(Vector2(W, H), Palette.SUCCESS)
-		_fill.name = "Fill"
-		_fill.position = Vector3(0.0, 0.0, 0.004)
-		_mat = _fill.material_override as StandardMaterial3D
-		# Kedua lapis tembus tanpa uji kedalaman, jadi urutan gambarnya ditentukan
-		# pengurutan objek tembus. Kamera ortografis mengurutkan menurut sudut
-		# kotak pembatas yang terdekat; latar yang sedikit lebih besar selalu
-		# terhitung "lebih dekat", digambar terakhir, dan menutupi isinya (bug
-		# 2026-10-01: bar tampak cokelat diam). Prioritas render memaksa isinya
-		# selalu di atas latar.
-		_mat.render_priority = 1
-		add_child(_fill)
-
-	func fill_ratio() -> float:
-		return _fill.scale.x if _fill != null else -1.0
-
-	func set_ratio(r: float, large: bool) -> void:
-		_ratio = clampf(r, 0.0, 1.0)
-		_large = large
-
-	func _process(delta: float) -> void:
-		if not visible or _fill == null:
-			return
-		_t += delta
-		var cam: Camera3D = get_viewport().get_camera_3d()
-		if cam != null:
-			var tr: Transform3D = global_transform
-			tr.basis = cam.global_transform.basis
-			global_transform = tr
-		var s: float = 1.45 if _large else 1.0
-		scale = Vector3(s, s, s)
-		_fill.scale = Vector3(maxf(_ratio, 0.001), 1.0, 1.0)
-		_fill.position.x = -W * 0.5 + W * _ratio * 0.5
-		# >60% tenang, 30-60% waspada, 10-30% kedip pelan, <10% kedip cepat (GDD 58).
-		var c: Color = Palette.SUCCESS
-		var blink_hz: float = 0.0
-		if _ratio <= 0.6:
-			c = Palette.WARNING
-		if _ratio <= 0.3:
-			c = Palette.WARMER_LAMP
-			blink_hz = 1.2
-		if _ratio <= 0.1:
-			c = Palette.DANGER
-			blink_hz = 4.0
-		var a: float = 1.0
-		if blink_hz > 0.0 and not SettingsManager.reduced_motion():
-			a = 0.45 + 0.55 * (0.5 + 0.5 * sin(_t * TAU * blink_hz))
-		_mat.albedo_color = Color(c, a)
-		_mat.emission = c
-
-	func _quad(size: Vector2, color: Color) -> MeshInstance3D:
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3(size.x, size.y, 0.006)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = color
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.emission_enabled = true
-		mat.emission = color
-		mat.emission_energy_multiplier = 0.4
-		mat.no_depth_test = true
-		var mi := MeshInstance3D.new()
-		mi.mesh = mesh
-		mi.material_override = mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		return mi
