@@ -470,6 +470,40 @@ static func spec_for_customer(customer_id: String, seed_i: int, rainy: bool = fa
 	return spec
 
 
+## Pelanggan langganan (GDD idle 21.10): sosok tetap dari `visual` katalognya
+## (warna "#rrggbb"), dasar pelanggan biasa yang tersenyum.
+static func spec_for_regular(regular_id: String) -> Dictionary:
+	var vis: Dictionary = RegularManager.def(regular_id).get("visual", {})
+	var hair_style: String = str(vis.get("hair_style", "pendek"))
+	var accessories: PackedStringArray = _as_names(vis.get("accessory"))
+	var hat: String = str(vis.get("hat", "none"))
+	var spec: Dictionary = {
+		"kind": "customer", "archetype": "warga", "role": "", "tier": 1,
+		"skin": _as_color(vis.get("skin"), SKIN_MID),
+		"hair": _as_color(vis.get("hair"), HAIR_BLACK),
+		"hair_style": hair_style,
+		"hat": hat,
+		"apron": null,
+		"accessory": accessories,
+		"chubby": clampf(float(vis.get("chubby", 0.1)), 0.0, 1.0),
+		"cloth": _as_color(vis.get("cloth"), Palette.PASTEL_MINT),
+		"pants": _as_color(vis.get("pants"), PANTS_COFFEE),
+		"shoes": SHOE_BROWN,
+		"sleeve": "short",
+		"lashes": _soft_features(hair_style, hat, accessories),
+		"prop": _as_names(vis.get("prop")),
+		"rainy": false,
+		"mood": "senang",
+		"height": clampf(float(vis.get("height", 1.0)), 0.8, 1.1),
+		"lean": 0.0,
+		"head_tilt": 0.0,
+	}
+	if vis.has("skirt"):
+		spec["skirt"] = _as_color(vis.get("skirt"), Palette.PASTEL_STRAWBERRY)
+		spec["legwear"] = "skin"
+	return spec
+
+
 ## Kurir RotiFood (GDD 3.6): seragam hijau, helm bundar, ransel termal kubus;
 ## saat hujan jas hujan kuning (GDD 10.2).
 static func spec_for_driver(rainy: bool) -> Dictionary:

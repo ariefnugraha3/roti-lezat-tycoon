@@ -10,7 +10,8 @@ extends Node
 ## Filter opsional: -- --res=720x1280,1920x1080 --scales=100,150
 ## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
-## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang).
+## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
+## langganan berkunjung; juga membuka minigame pesanannya).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -18,12 +19,13 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map", &"regular_order"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
 var _out: String = ""
 var _golden: bool = false
+var _regular: bool = false
 var _issues: int = 0
 var _res: Array[Vector2i] = RES.duplicate()
 var _scales: Array[int] = SCALES.duplicate()
@@ -48,6 +50,9 @@ func _ready() -> void:
 		elif a.begins_with("--screens="):
 			for t3: String in a.substr(10).split(","):
 				_screens.append(StringName(t3))
+		elif a == "--regular":
+			# Pelanggan langganan berkunjung, dan album berisi beberapa teman (GDD idle 21.10).
+			_regular = true
 		elif a == "--golden":
 			# Roti Emas di tengah terbang dan hadiah boost-nya di HUD (GDD idle 21.9).
 			_golden = true
@@ -95,6 +100,11 @@ func _ready() -> void:
 		for sc2: int in _scales:
 			SettingsManager.set_value("text_scale", sc2)
 			game.modals.close_all()
+			if _regular and sim.regulars.visit.is_empty():
+				sim.regulars.friends = {"regular_mila": {"orders": 4, "level": 2}, "regular_rosa": {"orders": 11, "level": 4}}
+				sim.regulars.next_in = 0.0
+				for i in int(20.0 / sim.tick_seconds):
+					sim.step(sim.tick_seconds)
 			if _golden:
 				sim.golden.next_in = 0.0
 				sim.golden.step(sim.tick_seconds)

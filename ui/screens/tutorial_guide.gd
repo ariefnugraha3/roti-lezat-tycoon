@@ -32,6 +32,7 @@ const DONE_SCREENS: Dictionary = {
 	"hud_goals": &"goals",
 	"hud_event": &"menu",
 	"hud_pause": &"pause",
+	"hud_regular": &"regular_order",
 }
 const DONE_KEYS: Dictionary = {
 	"onb_map": &"town_map",

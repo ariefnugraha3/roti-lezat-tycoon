@@ -57,6 +57,14 @@ var _promo_boost: PanelContainer = null
 var _frenzy_boost: PanelContainer = null
 var _rush_boost: PanelContainer = null
 var golden: GoldenBread = null
+## Kartu "Special order!" pelanggan langganan di atas bar tab (GDD idle 21.10) dan
+## hati yang melayang di atas kepalanya.
+var _regular: Button = null
+var _regular_face: ProceduralUIFactory.ChibiPortrait = null
+var _regular_name: Label = null
+var _regular_bar: GoalsScreen.GoalBar = null
+var _regular_shown: String = ""
+var _regular_marker: PanelContainer = null
 var _tab_bar: HBoxContainer = null
 ## screen id -> Button
 var _tabs: Dictionary = {}
@@ -105,6 +113,7 @@ func _ready() -> void:
 	_build_top_center(frame)
 	_build_tab_bar(frame)
 	_build_hint(frame)
+	_build_regular(frame)
 	_build_toasts(frame)
 	_caption = ProceduralUIFactory.label("", 16, Palette.TEXT)
 	_caption.name = "Caption"
@@ -511,6 +520,74 @@ func _sync_tabs() -> void:
 		(_tabs[id] as Button).visible = game.modals.has_screen(screen_for_tab(StringName(str(id))))
 
 
+func _build_regular(frame: Control) -> void:
+	_regular = Button.new()
+	_regular.name = "RegularCard"
+	_regular.focus_mode = Control.FOCUS_NONE
+	_regular.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ProceduralUIFactory.apply_kind(_regular, "soft")
+	_regular.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_regular.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_regular.offset_bottom = -TAB_BAR_H - 14.0
+	_regular.offset_top = _regular.offset_bottom - 84.0
+	_regular.offset_right = 300.0
+	var h := HBoxContainer.new()
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 8.0
+	h.offset_right = -12.0
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 8)
+	_regular.add_child(h)
+	_regular_face = ProceduralUIFactory.ChibiPortrait.new()
+	_regular_face.custom_minimum_size = Vector2(64, 64)
+	_regular_face.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_regular_face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(_regular_face)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	h.add_child(v)
+	_regular_name = ProceduralUIFactory.label("", 15, Palette.UI_WOOD_DEEP)
+	_regular_name.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	_regular_name.clip_text = true
+	v.add_child(_regular_name)
+	var sub: Label = ProceduralUIFactory.label(Tx.t("ui_regular_card"), 13, Palette.STRAWBERRY_DEEP)
+	v.add_child(sub)
+	_regular_bar = GoalsScreen.GoalBar.new()
+	_regular_bar.custom_minimum_size = Vector2(0, 8)
+	_regular_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(_regular_bar)
+	_regular.pressed.connect(func() -> void: game.open_regular_order())
+	_regular.visible = false
+	frame.add_child(_regular)
+	_regular_marker = ProceduralUIFactory.badge("heart", Palette.STRAWBERRY, Palette.FLOUR_WHITE, 40)
+	_regular_marker.name = "RegularMarker"
+	_regular_marker.visible = false
+	_root.add_child(_regular_marker)
+
+
+func _refresh_regular() -> void:
+	var v: Dictionary = sim.regulars.visit
+	_regular.visible = not v.is_empty() and not decoration_active
+	if v.is_empty():
+		return
+	var id: String = str(v["id"])
+	if id != _regular_shown:
+		_regular_shown = id
+		var vis: Dictionary = (RegularManager.def(id).get("visual", {}) as Dictionary).duplicate()
+		vis["no_apron"] = true
+		_regular_face.configure(vis, "customer", 1)
+		_regular_name.text = Tx.t(id)
+	_regular_bar.set_progress(float(v["wait_left"]) / maxf(DataRegistry.idlef("regulars.wait_seconds"), 0.001), true)
+
+
+## Kartu pesanan khusus (tes).
+func regular_card() -> Button:
+	return _regular
+
+
 func _build_hint(frame: Control) -> void:
 	_hint = PanelContainer.new()
 	_hint.name = "TutorialHint"
@@ -556,6 +633,11 @@ func _build_toasts(frame: Control) -> void:
 func _process(delta: float) -> void:
 	if sim == null:
 		return
+	# Hati di atas kepala regular mengikuti sosoknya setiap frame.
+	var head: Vector2 = game.world.regular_head_screen() if game != null and game.world != null and not sim.regulars.visit.is_empty() else Vector2(-1.0, -1.0)
+	_regular_marker.visible = head.x >= 0.0 and not decoration_active
+	if _regular_marker.visible:
+		_regular_marker.position = head - _regular_marker.size * 0.5 + Vector2(0.0, -4.0 * sin(float(Time.get_ticks_msec()) * 0.004))
 	_refresh -= delta
 	if _refresh <= 0.0:
 		_refresh = 1.0 / REFRESH_HZ
@@ -572,6 +654,7 @@ func _refresh_all() -> void:
 	_refresh_boosts()
 	_refresh_craving()
 	_refresh_event()
+	_refresh_regular()
 	_refresh_goals()
 	_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
 	_weather_icon.configure("rain" if sim.weather.is_rain() else ("moon" if sim.time.is_night() else "sun"), 22,
@@ -627,6 +710,8 @@ func tutorial_target(target_name: String) -> Control:
 			return _root.find_child("Pause", true, false) as Control
 		"golden":
 			return golden.button if golden != null and golden.button.visible else null
+		"regular":
+			return _regular if _regular.visible else null
 	return null
 
 

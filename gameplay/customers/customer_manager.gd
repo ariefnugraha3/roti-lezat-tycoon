@@ -191,6 +191,61 @@ func try_admit_window_shopper(archetype: StringName) -> bool:
 	return true
 
 
+## Pelanggan langganan (GDD idle 21.10): masuk seperti pengunjung lihat-lihat ke
+## tempat berdiri di dekat rak, lalu menunggu di sana selama kunjungannya
+## (hold_regular), dengan sosok tetap dari katalog. &"" bila belum ada tempat.
+func admit_regular(regular_id: StringName) -> StringName:
+	var def: CustomerArchetypeDefinition = DataRegistry.archetype(&"customer_generic")
+	if def == null or active_actor_count() >= sim.world.location.active_actor_budget:
+		return &""
+	if customers.size() + sim.rotifood.driver_count() >= DataRegistry.bali("queue.max_visible_customer_actors"):
+		return &""
+	var spot: Dictionary = _pick_look_spot(-1)
+	if spot.is_empty():
+		return &""
+	var c := Customer.new()
+	c.id = StringName("r%d" % next_window_num)
+	next_window_num += 1
+	c.archetype = def.id
+	c.window_shopper = true
+	c.regular_id = regular_id
+	c.looks_left = 99
+	c.actor = _window_shopper_actor(c)
+	c.actor.visual_seed = 0
+	c.look_cell = spot["cell"]
+	c.look_display = int(spot["display"])
+	sim.world.reserve_point(sim.world.store_floor(), c.look_cell, c.id)
+	customers[c.id] = c
+	_start_approach(c)
+	return c.id
+
+
+## Regular tetap berdiri menunggu pesanannya.
+func hold_regular(id: StringName) -> void:
+	var c: Customer = customer(id)
+	if c != null and c.state == Customer.BROWSING:
+		c.browse_left = maxf(c.browse_left, 5.0)
+
+
+## Kunjungan selesai: regular pulang (senang bila pesanannya jadi).
+func release_regular(id: StringName, happy: bool) -> void:
+	var c: Customer = customer(id)
+	if c == null:
+		return
+	c.looks_left = 0
+	if happy:
+		EventBus.sfx.emit(&"customer_happy", c.actor.floor_id)
+	_window_leave(c)
+
+
+## Pengunjung bersosok regular yang sedang di toko, atau null.
+func regular_customer() -> Customer:
+	for c: Variant in customers.values():
+		if (c as Customer).regular_id != &"":
+			return c
+	return null
+
+
 func _window_shopper_actor(c: Customer) -> SimActor:
 	var a := SimActor.new()
 	a.id = c.id
@@ -986,6 +1041,7 @@ func restore(d: Dictionary) -> void:
 		c.stall_time = float(cd.get("stall_time", 0.0))
 		c.spawned_at = float(cd.get("spawned_at", 0.0))
 		c.window_shopper = bool(cd.get("window_shopper", false))
+		c.regular_id = StringName(str(cd.get("regular_id", "")))
 		c.look_cell = arr_to_cell(cd.get("look_cell", [-1, -1]))
 		c.look_display = int(cd.get("look_display", -1))
 		c.looks_left = int(cd.get("looks_left", 0))

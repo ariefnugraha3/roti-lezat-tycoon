@@ -202,11 +202,13 @@ func _cosmetic() -> void:
 		a.step(a.tick_seconds)
 		bot_b.think()
 		b.step(b.tick_seconds)
+		# Pelanggan langganan (GDD idle 21.10) juga pengunjung kosmetik, tetapi
+		# datang di kedua kembaran.
 		for c: Customer in a.customers.sorted():
-			if c.window_shopper:
+			if c.window_shopper and c.regular_id == &"":
 				seen[c.id] = true
 		for c2: Customer in b.customers.sorted():
-			if c2.window_shopper:
+			if c2.window_shopper and c2.regular_id == &"":
 				seen_b += 1
 	check(seen.size() > 0, "the day brought window shoppers (%d)" % seen.size())
 	eq(seen_b, 0, "the twin had none")
@@ -228,6 +230,9 @@ static func _gameplay_state(s: SimulationRoot) -> Dictionary:
 	cu["customers"] = buyers
 	var dm: Dictionary = d["demand"]
 	dm.erase("next_window_shopper_at")
+	# Nomor pengunjung kosmetik pelanggan langganan ikut berbeda.
+	if d.has("regulars") and (d["regulars"]["visit"] as Dictionary).has("customer"):
+		d["regulars"]["visit"].erase("customer")
 	d.erase("tutorial")
 	return d
 

@@ -1,7 +1,8 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
 ## misi ringan harian, kalender cap, Share my bakery, photo mode, event
-## musiman, Peta Crumbtown, tip untuk semuanya, dan Roti Emas.
+## musiman, Peta Crumbtown, tip untuk semuanya, Roti Emas, dan pelanggan
+## langganan.
 
 
 func tests() -> Array:
@@ -21,6 +22,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_TIPS_UI", "name": "idle 21.8 a tip for a HUD button opens as a tap guide on that button and finishes when its screen opens; the next tip follows", "fn": _tips_ui},
 		{"id": "ACC_IDLE_GOLDEN", "name": "idle 21.9 golden bread flies during play only (real seconds), can be missed, and gives a seeded reward: KR (not income), Golden hour on top of other boosts (live KR/s only) or Rush hour; saved mid-flight, reset by a franchise", "fn": _golden},
 		{"id": "ACC_IDLE_GOLDEN_UI", "name": "idle 21.9 the golden bread flies across the frame as a big touch target with a first-time tip, hides under blocking popups and in Decoration Mode, and one tap catches it with a toast and a boost chip", "fn": _golden_ui},
+		{"id": "ACC_IDLE_REGULARS", "name": "idle 21.10 named regulars visit during play only with a seeded order of makeable breads, wait in the shop as their own figure, pay by stars (not income), fill friendship hearts with gifts, order more as friends, leave when ignored or failed; saved mid-visit", "fn": _regulars},
+		{"id": "ACC_IDLE_REGULARS_UI", "name": "idle 21.10 a visit shows a Special order card with a tip; the pack-the-order minigame pauses the shop, penalises wrong breads, pays by stars and unlocks a memory; the Goals sheet keeps the friend album; running out of time fails", "fn": _regulars_ui},
 	]
 
 
@@ -793,7 +796,7 @@ func _town_map_ui() -> void:
 ## Langkah onboarding dasar (sebelum tip fitur retensi) dianggap sudah tampil.
 static func _base_steps_done(s: SimulationRoot) -> void:
 	for k: String in TutorialManager.STEPS:
-		if k in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map", "onb_golden"]:
+		if k in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map", "onb_golden", "onb_regular"]:
 			continue
 		s.tutorial.done[k] = true
 	s.tutorial.prompt = {}
@@ -1029,6 +1032,212 @@ func _golden_ui() -> void:
 	await _frames(2)
 	check(not btn.visible, "no golden bread in Decoration Mode")
 	game.hud.set_decoration_active(false)
+	SettingsManager.set_value("tutorial_hints", hints_before)
+	await _end_share(game)
+
+
+## Mulai kunjungan pelanggan langganan berikutnya sekarang.
+static func _start_regular(s: SimulationRoot) -> void:
+	s.regulars.next_in = 0.0
+	s.step(s.tick_seconds)
+
+
+func _regulars() -> void:
+	var s: SimulationRoot = new_sim(6001)
+	s.tutorial.skip()
+	var rm: RegularManager = s.regulars
+	check(rm.visit.is_empty(), "no regular at the start")
+	near(rm.next_in, DataRegistry.idlef("regulars.first_after_minutes") * 60.0, 0.001, "the first one comes after some minutes of play")
+	_start_regular(s)
+	check(not rm.visit.is_empty(), "then a regular visits")
+	var v: Dictionary = rm.visit
+	var id: String = str(v["id"])
+	check(not RegularManager.def(id).is_empty(), "a regular from the catalog")
+	eq((v["order"] as Array).size(), DataRegistry.idlei("regulars.order_items_base"), "a new friend orders the base number of breads")
+	for rid: Variant in v["order"]:
+		check(s.can_make(StringName(str(rid))), "%s is something the shop can make" % rid)
+	check(float(v["reward"]) > 0.0, "with a reward")
+	near(float(v["wait_left"]), DataRegistry.idlef("regulars.wait_seconds"), 0.01, "who waits a while")
+	var walked: bool = false
+	for i in 400:
+		s.step(s.tick_seconds)
+		var c: Customer = s.customers.regular_customer()
+		if c != null and c.state == Customer.BROWSING:
+			walked = true
+			break
+	check(walked, "the regular walks in and waits in the shop")
+	check(s.customers.regular_customer() != null and s.customers.regular_customer().regular_id == StringName(id), "as their own figure")
+	var t: SimulationRoot = new_sim(6001, &"profile_twin")
+	_start_regular(t)
+	eq(t.regulars.visit["id"], v["id"], "the same seed brings the same regular")
+	eq(t.regulars.visit["order"], v["order"], "with the same order")
+	free_sim(t)
+	# Hadiah per bintang.
+	var base: float = float(v["reward"])
+	near(rm.reward_for(1), base, 0.01, "1 star pays the base reward")
+	near(rm.reward_for(2), base * 1.25, 0.01, "2 stars pay 1.25x")
+	near(rm.reward_for(3), base * 1.5, 0.01, "3 stars pay 1.5x")
+	eq(RegularOrderScreen.stars_for(0.6), 3, "half the time left is 3 stars")
+	eq(RegularOrderScreen.stars_for(0.3), 2, "a quarter is 2")
+	eq(RegularOrderScreen.stars_for(0.1), 1, "less is 1")
+	# Baki minigame.
+	var order: Array[StringName] = []
+	for rid2: Variant in v["order"]:
+		order.append(StringName(str(rid2)))
+	var tray: Array[StringName] = RegularOrderScreen.tray(s, order, rm.visits)
+	eq(tray.size(), RegularOrderScreen.TILES, "the tray has eight breads")
+	for rid3: StringName in order:
+		check(tray.count(rid3) >= order.count(rid3), "the tray holds every ordered %s" % rid3)
+	eq(RegularOrderScreen.tray(s, order, rm.visits), tray, "the same visit shuffles the same way")
+	# Selesai: bayar, pertemanan, kenangan.
+	var before: float = s.economy.balance
+	var earned: float = s.statistics.get_stat("run_earned_kr")
+	var r: Dictionary = rm.complete(3)
+	near(float(r["kr"]), base * 1.5, 0.01, "3 stars")
+	check(bool(r["level_up"]) and int(r["level"]) == 1, "the first order fills the first heart")
+	near(s.economy.balance - before, float(r["kr"]) + float(r["gift"]), 0.01, "the order and the friendship gift are paid")
+	eq(s.statistics.get_stat("run_earned_kr"), earned, "rewards are not income")
+	check(rm.visit.is_empty(), "the regular goes home happy")
+	eq(int(rm.friend(id)["orders"]), 1, "one order together")
+	eq(s.statistics.get_stat("regular_orders"), 1.0, "special orders are counted")
+	var span: Array = DataRegistry.idle("regulars.interval_minutes")
+	check(rm.next_in >= float(span[0]) * 60.0 - 1.0 and rm.next_in <= float(span[1]) * 60.0, "the next visit is within the interval")
+	# Berikutnya bukan orang yang sama, dan waktu tunggu habis = pulang tanpa apa-apa.
+	_start_regular(s)
+	check(str(rm.visit["id"]) != id, "nobody visits twice in a row")
+	var id2: String = str(rm.visit["id"])
+	var before2: float = s.economy.balance
+	s.run_for((DataRegistry.idlef("regulars.wait_seconds") + 1.0) * DataRegistry.sim_seconds_per_real_second())
+	check(rm.visit.is_empty(), "a regular who waits too long leaves")
+	check(s.economy.balance >= before2, "without costing anything")
+	eq(int(rm.friend(id2).get("orders", 0)), 0, "and without friendship")
+	# Gagal di minigame.
+	_start_regular(s)
+	var id3: String = str(rm.visit["id"])
+	var b3: float = s.economy.balance
+	rm.fail()
+	check(rm.visit.is_empty() and is_equal_approx(s.economy.balance, b3) and int(rm.friend(id3).get("orders", 0)) == int(rm.friend(id3).get("orders", 0)), "a failed order pays nothing")
+	# Pesanan makin besar dengan hati.
+	var lv: Array = DataRegistry.idle("regulars.levels")
+	rm.friends[id] = {"orders": int(lv[4]) - 1, "level": 4}
+	rm.last_id = ""
+	var big: int = 0
+	for i2 in 30:
+		_start_regular(s)
+		if str(rm.visit["id"]) == id:
+			big = (rm.visit["order"] as Array).size()
+			break
+		rm.fail()
+	eq(big, DataRegistry.idlei("regulars.order_items_max"), "a close friend orders more")
+	var r2: Dictionary = rm.complete(2)
+	check(bool(r2["level_up"]) and int(r2["level"]) == 5, "the last order before the top threshold fills the fifth heart")
+	eq(rm.next_level_orders(id), -1, "and the hearts are full")
+	# Save / load di tengah kunjungan.
+	_start_regular(s)
+	var u: SimulationRoot = load_sim(json_copy(s.capture_save()))
+	eq(u.regulars.visit["id"], rm.visit["id"], "a visit survives save and load")
+	eq(u.regulars.visit["order"], rm.visit["order"], "with its order")
+	same_state({"f": u.regulars.friends}, {"f": rm.friends}, "friendships survive save and load")
+	free_sim(u)
+	# Mati: tidak ada kunjungan.
+	RegularManager.enabled = false
+	var w: SimulationRoot = new_sim(6003)
+	_start_regular(w)
+	check(w.regulars.visit.is_empty(), "switched off, nobody visits")
+	RegularManager.enabled = true
+	free_sim(w)
+	free_sim(s)
+
+
+func _regulars_ui() -> void:
+	var hints_before: bool = SettingsManager.get_bool("tutorial_hints")
+	SettingsManager.set_value("tutorial_hints", true)
+	var game: GameRoot = await _boot_share("Regular Bakery")
+	var sim: SimulationRoot = game.sim
+	game.modals.close_all()
+	sim.tutorial.skipped = false
+	_base_steps_done(sim)
+	for k: String in ["onb_craving", "onb_goals", "onb_event", "onb_share", "onb_map", "onb_golden"]:
+		sim.tutorial.done[k] = true
+	game.playing = false
+	_start_regular(sim)
+	_tip_step(sim)
+	game.hud._refresh_all()
+	await _frames(3)
+	var id: String = str(sim.regulars.visit["id"])
+	var card: Button = game.hud.regular_card()
+	check(card.visible, "a visiting regular shows a Special order card")
+	check(card.get_global_rect().size.y >= 48.0, "as a big touch target")
+	var guide: TutorialGuide = game.modals.screen(&"tutorial_guide") as TutorialGuide
+	check(guide != null and guide.key == "onb_regular", "the first visit comes with a tip")
+	if guide != null:
+		eq(guide.target_control(), card, "pointing at the card")
+	card.pressed.emit()
+	await _frames(3)
+	var scr: RegularOrderScreen = game.modals.screen(&"regular_order") as RegularOrderScreen
+	check(scr != null, "the card opens the order minigame")
+	check(not game.modals.is_open(&"tutorial_guide"), "which finishes the tip")
+	if scr == null:
+		await _end_share(game)
+		return
+	check(PauseManager.is_paused(), "the shop waits while the order is packed")
+	eq(scr.find_child("Ticket", true, false).get_child(0).get_child_count(), scr.order.size(), "the ticket shows every ordered bread")
+	var tiles: Array = scr.find_child("Tray", true, false).get_children()
+	eq(tiles.size(), RegularOrderScreen.TILES, "the tray has eight breads")
+	var wrong: Button = null
+	for t: Node in tiles:
+		if not scr.order.has(StringName((t as Button).get_meta("recipe"))):
+			wrong = t
+			break
+	if wrong != null:
+		var before_t: float = scr.time_left
+		scr.tap_tile(wrong)
+		check(scr.time_left <= before_t - DataRegistry.idlef("regulars.wrong_tap_seconds") + 0.05, "a wrong bread costs time")
+	var before: float = sim.economy.balance
+	var base: float = float(sim.regulars.visit["reward"])
+	for want: StringName in scr.order.duplicate():
+		for t2: Node in tiles:
+			var b: Button = t2
+			if not b.disabled and StringName(b.get_meta("recipe")) == want:
+				scr.tap_tile(b)
+				break
+	await _frames(2)
+	check(scr.finished and not bool(scr.result.get("failed", false)), "packing every bread finishes the order")
+	eq(int(scr.result.get("stars", 0)), 3, "quickly, for three stars")
+	near(sim.economy.balance - before, base * 1.5 + float(scr.result.get("gift", 0.0)), 0.01, "the reward and the first-heart gift arrive")
+	check(scr.find_child("Pay", true, false) != null and scr.find_child("Memory", true, false) != null, "the result shows the pay and the new memory")
+	(scr.find_child("Done", true, false) as Button).pressed.emit()
+	await _frames(2)
+	check(not game.modals.is_open(&"regular_order") and sim.regulars.visit.is_empty(), "Done closes it and the regular goes home")
+	game.hud._refresh_all()
+	check(not card.visible, "the card goes away")
+	# Album di lembar Goals.
+	game.hud.open_tab(&"goals")
+	await _frames(2)
+	var goals: GoalsScreen = game.modals.screen(&"goals") as GoalsScreen
+	var row: Node = goals.content().find_child("Regular_" + id, true, false) if goals != null else null
+	check(row != null and row.find_child("Story", true, false) != null, "the Goals sheet lists the new friend")
+	if row != null:
+		(row.find_child("Story", true, false) as Button).pressed.emit()
+		await _frames(3)
+		var mem: Node = goals.content().find_child("Memory1", true, false)
+		var found: bool = false
+		if mem != null:
+			for l: Node in mem.find_children("*", "Label", true, false):
+				if (l as Label).text == Tx.t(id + "_story_1"):
+					found = true
+		check(found, "and their first memory")
+	game.modals.close_all()
+	# Waktu habis di minigame.
+	_start_regular(sim)
+	game.open_regular_order()
+	await _frames(2)
+	var scr2: RegularOrderScreen = game.modals.screen(&"regular_order") as RegularOrderScreen
+	scr2.time_left = 0.01
+	await _frames(3)
+	check(scr2.finished and bool(scr2.result.get("failed", false)), "running out of time fails the order")
+	check(sim.regulars.visit.is_empty(), "and the regular leaves")
+	game.modals.close_all()
 	SettingsManager.set_value("tutorial_hints", hints_before)
 	await _end_share(game)
 

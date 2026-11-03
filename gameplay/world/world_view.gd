@@ -502,7 +502,10 @@ func _sync_actors(delta: float) -> void:
 	var large: bool = SettingsManager.get_bool("patience_bar_large")
 	for c: Customer in sim.customers.sorted():
 		var a2: SimActor = c.actor
-		_sync_one(a2, "cust|%s|%d" % [c.archetype, a2.visual_seed], _npc_spec.bind(String(c.archetype), a2.visual_seed, false), delta, live, true)
+		if c.regular_id != &"":
+			_sync_one(a2, "reg|" + String(c.regular_id), CharacterFactory.spec_for_regular.bind(String(c.regular_id)), delta, live, true)
+		else:
+			_sync_one(a2, "cust|%s|%d" % [c.archetype, a2.visual_seed], _npc_spec.bind(String(c.archetype), a2.visual_seed, false), delta, live, true)
 		var v: ActorView = views.get(a2.id)
 		if v == null:
 			continue
@@ -1233,6 +1236,14 @@ func _apply_holiday() -> void:
 		_holiday_nodes.append(outside)
 
 
+## Posisi layar kepala regular yang berkunjung, atau (-1, -1) bila tidak terlihat.
+func regular_head_screen() -> Vector2:
+	var reg: Customer = sim.customers.regular_customer()
+	if reg == null or reg.actor == null or reg.actor.floor_id != camera_rig.active_floor:
+		return Vector2(-1.0, -1.0)
+	return camera_rig.world_to_screen(_v3(reg.actor.pos) + Vector3(0.0, 1.25, 0.0))
+
+
 ## Pasang ulang hiasan (tanggal perangkat berganti, event mulai atau selesai).
 func refresh_holiday() -> void:
 	_apply_holiday()
@@ -1279,6 +1290,12 @@ func _apply_brightness() -> void:
 ## customer/portal/cell/none.
 func pick(screen_pos: Vector2) -> Dictionary:
 	var floor_id: StringName = camera_rig.active_floor
+	# 0. Pelanggan langganan yang menunggu pesanan khusus (GDD idle 21.10).
+	var reg: Customer = sim.customers.regular_customer()
+	if reg != null and reg.actor != null and reg.actor.floor_id == floor_id:
+		var rh: Vector2 = camera_rig.world_to_screen(_v3(reg.actor.pos) + Vector3(0.0, 1.1, 0.0))
+		if rh.distance_to(screen_pos) <= PICK_CUSTOMER_PX:
+			return {"kind": &"regular", "customer": reg.id, "floor": floor_id}
 	# 1. Pembeli yang mengantre di kasir: ketukannya sama dengan ketukan pada
 	# kasir jalurnya (GDD idle 5.1, PlayerTaskManager.tap_customer).
 	for c: Customer in sim.customers.sorted():

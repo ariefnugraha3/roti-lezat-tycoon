@@ -385,6 +385,8 @@ func _on_world_tap(pos: Vector2) -> void:
 			sim.player.tap_cashier(StringName(str(p["lane"])))
 		&"customer":
 			sim.player.tap_customer(StringName(str(p["customer"])))
+		&"regular":
+			open_regular_order()
 		&"portal":
 			world.toggle_view_floor()
 		_:
@@ -525,6 +527,13 @@ func _check_date_change(delta: float) -> void:
 	_date_check = 5.0
 	if BoostManager.today() != _date_seen:
 		check_daily_gift()
+
+
+## Minigame pesanan pelanggan langganan (GDD idle 21.10), dari kartu HUD atau
+## ketukan pada sosoknya.
+func open_regular_order() -> void:
+	if sim != null and not sim.regulars.visit.is_empty() and not modals.is_open(&"regular_order"):
+		modals.open(&"regular_order")
 
 
 func _open_calendar_after(_s: UIScreen) -> void:

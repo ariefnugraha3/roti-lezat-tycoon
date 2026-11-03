@@ -63,6 +63,7 @@ func build_page(body: VBoxContainer) -> void:
 		_goal_row(list, i)
 	var foot: Label = lbl(list, Tx.t("ui_goals_footer"), 14, Palette.TEXT_MUTED, true)
 	foot.name = "Footer"
+	_regulars_section(list)
 	_shown_key = _key()
 	tick_page()
 
@@ -99,6 +100,49 @@ func _goal_row(parent: Control, i: int) -> void:
 	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	right.add_child(done)
 	_rows.append({"index": i, "bar": bar, "count": count, "claim": claim, "done": done})
+
+
+## Album pelanggan langganan (GDD idle 21.10): potret, hati, dan jumlah pesanan;
+## mengetuknya membuka kenangan yang sudah terbuka.
+func _regulars_section(list: VBoxContainer) -> void:
+	section(list, Tx.t("ui_regulars_section"))
+	for x: Variant in RegularManager.list():
+		var id: String = str((x as Dictionary)["id"])
+		var f: Dictionary = sim.regulars.friend(id)
+		var met: bool = int(f.get("orders", 0)) > 0
+		var face: Control = RegularOrderScreen.portrait(id, 64.0)
+		if not met:
+			face.modulate = Color(1.0, 1.0, 1.0, 0.45)
+		var row: HBoxContainer = UISheet.row(list, Tx.t(id) if met else Tx.t("ui_regulars_unknown"),
+			Tx.t("ui_regulars_orders", {"count": int(f.get("orders", 0))}) if met else "", face)
+		var card: Control = row.get_parent() as Control
+		card.name = "Regular_" + id
+		row.add_child(RegularOrderScreen.hearts(sim.regulars.level_of(id), 18))
+		if met:
+			var open_b: Button = ProceduralUIFactory.icon_button("note", Tx.t("ui_regulars_story_title"), "soft", 20, Palette.UI_WOOD_DEEP)
+			open_b.name = "Story"
+			open_b.custom_minimum_size = Vector2(48, 48)
+			open_b.pressed.connect(func() -> void: push_page(Tx.t(id), _story_page.bind(id)))
+			row.add_child(open_b)
+
+
+func _story_page(body: VBoxContainer, id: String) -> void:
+	var list: VBoxContainer = scroll_box(body)
+	list.name = "Stories"
+	var c := CenterContainer.new()
+	list.add_child(c)
+	c.add_child(RegularOrderScreen.portrait(id, 150.0))
+	var hc := CenterContainer.new()
+	list.add_child(hc)
+	hc.add_child(RegularOrderScreen.hearts(sim.regulars.level_of(id), 26))
+	section(list, Tx.t("ui_regulars_story_title"))
+	var lv: int = sim.regulars.level_of(id)
+	for k in (DataRegistry.idle("regulars.levels") as Array).size():
+		var open: bool = k < lv
+		var row: HBoxContainer = UISheet.row(list, Tx.t("%s_story_%d" % [id, k + 1]) if open else Tx.t("ui_regulars_locked_memory"), "",
+			ProceduralUIFactory.badge("heart" if open else "lock", Palette.STRAWBERRY if open else Palette.UI_CREAM_DEEP,
+			Palette.FLOUR_WHITE if open else Palette.TEXT_MUTED, 40))
+		row.get_parent().name = "Memory%d" % (k + 1)
 
 
 ## Teks tujuan dengan targetnya ("Sell 120 bread", "Earn 2,400 KR").

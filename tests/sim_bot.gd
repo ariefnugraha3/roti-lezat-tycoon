@@ -35,6 +35,9 @@ var craving_unlock_minutes: float = 3.0
 ## Pemain biasa menangkap sebagian Roti Emas (GDD idle 21.9): penerbangan yang
 ## nomornya habis dibagi 2 (separuhnya), setelah terlihat beberapa detik.
 var catch_golden: bool = false
+## ...dan mengerjakan separuh pesanan pelanggan langganan (GDD idle 21.10):
+## kunjungan bernomor genap, dua bintang, sekitar 20 detik setelah mereka datang.
+var serve_regulars: bool = false
 
 
 func _init(s: SimulationRoot) -> void:
@@ -44,6 +47,9 @@ func _init(s: SimulationRoot) -> void:
 func think() -> void:
 	if dismiss_tips and not sim.tutorial.prompt.is_empty():
 		sim.tutorial.dismiss()
+	if serve_regulars and not sim.regulars.visit.is_empty() and sim.regulars.visits % 2 == 0 \
+			and float(sim.regulars.visit["wait_left"]) < DataRegistry.idlef("regulars.wait_seconds") - 20.0:
+		sim.regulars.complete(2)
 	if catch_golden and sim.golden.is_flying() and sim.golden.flight % 2 == 0 and sim.golden.progress() > 0.3:
 		sim.golden.catch()
 	_cooldown -= 1

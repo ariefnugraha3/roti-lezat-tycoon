@@ -1135,6 +1135,36 @@ func _validate_idle() -> void:
 					_err("idle goal %s needs minutes > 0" % tid)
 			else:
 				_err("idle goal %s unknown kind %s" % [tid, kind])
+	# Pelanggan langganan (GDD idle 21.10).
+	for rk: String in ["regulars.first_after_minutes", "regulars.wait_seconds", "regulars.order_items_base", "regulars.order_items_max",
+			"regulars.minigame_seconds", "regulars.reward_income_minutes", "regulars.min_kr", "regulars.level_gift_income_minutes"]:
+		if not (_idle_num(rk) > 0.0):
+			_err("idle %s must be > 0" % rk)
+	var sb2: Variant = (_idle.get("regulars", {}) as Dictionary).get("star_bonus")
+	if not (sb2 is Array) or (sb2 as Array).size() != 3:
+		_err("idle regulars.star_bonus needs three values")
+	var rl: Variant = (_idle.get("regulars", {}) as Dictionary).get("levels")
+	if not (rl is Array) or (rl as Array).is_empty():
+		_err("idle regulars.levels needs thresholds")
+	else:
+		for li in range(1, (rl as Array).size()):
+			if int(rl[li]) <= int(rl[li - 1]):
+				_err("idle regulars.levels must rise")
+	var reg_ids: Dictionary = {}
+	for rx: Variant in (_idle.get("regulars", {}) as Dictionary).get("list", []):
+		var rd: Dictionary = rx if rx is Dictionary else {}
+		var rid2: String = str(rd.get("id", ""))
+		if rid2 == "" or reg_ids.has(rid2):
+			_err("idle regular id %s is empty or repeated" % rid2)
+		reg_ids[rid2] = true
+		_check_text(StringName(rid2), "regular")
+		_check_text(StringName(rid2 + "_hello"), "regular")
+		for si in (rl as Array).size() if rl is Array else 0:
+			_check_text(StringName("%s_story_%d" % [rid2, si + 1]), "regular")
+		if recipe(StringName(str(rd.get("favorite", "")))) == null:
+			_err("idle regular %s favorite is not a recipe" % rid2)
+	if reg_ids.size() < 2:
+		_err("idle regulars.list needs at least two regulars")
 	# Roti Emas (GDD idle 21.9).
 	var gi: Variant = (_idle.get("golden", {}) as Dictionary).get("interval_minutes")
 	if not (_idle_num("golden.first_after_minutes") > 0.0) or not (_idle_num("golden.visible_seconds") > 0.0) or not (_idle_num("golden.min_kr") > 0.0) \

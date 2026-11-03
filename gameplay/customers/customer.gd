@@ -54,6 +54,9 @@ var looks_left: int = 0
 ## dan melihat isinya dulu sebelum memutuskan (keputusan maintainer 2026-11-01,
 ## GDD idle 6.2). Selama itu `target_recipe` kosong.
 var checking_shelf: bool = false
+## Pelanggan langganan yang sedang berkunjung (GDD idle 21.10): pengunjung
+## kosmetik bersosok tetap (ikut tersimpan seperti pengunjung lain).
+var regular_id: StringName = &""
 
 
 func def() -> CustomerArchetypeDefinition:
@@ -93,6 +96,7 @@ func to_dict() -> Dictionary:
 		"spawned_at": spawned_at,
 		"window_shopper": window_shopper, "look_cell": [look_cell.x, look_cell.y], "look_display": look_display,
 		"looks_left": looks_left, "checking_shelf": checking_shelf, "actor": actor.to_dict(),
+		"regular_id": String(regular_id),
 	}
 
 

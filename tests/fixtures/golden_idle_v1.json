@@ -40,7 +40,7 @@
 		"previous": "",
 		"recipe": ""
 	},
-	"created_at": "2026-11-03T12:50:36Z",
+	"created_at": "2026-11-03T15:48:33Z",
 	"customers": {
 		"customers": [
 			{
@@ -96,6 +96,7 @@
 				"patience": 60.0,
 				"patience_max": 60.0,
 				"queue_wait": 0.0,
+				"regular_id": "",
 				"spawned_at": 476.00000000007395,
 				"stall_time": 0.0,
 				"state": "CARRYING_TO_QUEUE",
@@ -145,6 +146,7 @@
 				"patience": 45.0,
 				"patience_max": 45.0,
 				"queue_wait": 0.0,
+				"regular_id": "",
 				"spawned_at": 0.0,
 				"stall_time": 0.0,
 				"state": "APPROACHING",
@@ -194,6 +196,7 @@
 				"patience": 60.0,
 				"patience_max": 60.0,
 				"queue_wait": 0.0,
+				"regular_id": "",
 				"spawned_at": 0.0,
 				"stall_time": 0.0,
 				"state": "APPROACHING",
@@ -243,6 +246,7 @@
 				"patience": 55.0,
 				"patience_max": 55.0,
 				"queue_wait": 0.0,
+				"regular_id": "",
 				"spawned_at": 0.0,
 				"stall_time": 0.0,
 				"state": "APPROACHING",
@@ -292,6 +296,7 @@
 				"patience": 30.0,
 				"patience_max": 30.0,
 				"queue_wait": 0.0,
+				"regular_id": "",
 				"spawned_at": 477.30000000007425,
 				"stall_time": 0.0,
 				"state": "BROWSING",
@@ -1929,6 +1934,13 @@
 			}
 		}
 	},
+	"regulars": {
+		"friends": {},
+		"last_id": "",
+		"next_in": 360.0000000002183,
+		"visit": {},
+		"visits": 0
+	},
 	"rng_states": {
 		"day_seed": "0",
 		"master_seed": "2024",
@@ -2245,6 +2257,7 @@
 			"location_upgrades_count": 0.0,
 			"offline_earned_kr": 0.0,
 			"offline_seconds_total": 0.0,
+			"regular_orders": 0.0,
 			"run_earned_kr": 2316.1100000000006,
 			"semangat_taps": 0.0,
 			"staff_hired_count": 1.0,

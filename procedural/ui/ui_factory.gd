@@ -2248,6 +2248,8 @@ class ChibiPortrait extends Control:
 	var chubby: float = 0.0
 	## Bulu mata (rambut lembut, sama dengan model 3D: CharacterFactory.LASH_STYLES).
 	var lashes: bool = false
+	## Tanpa celemek (pelanggan langganan, GDD idle 21.10): hanya baju warna `shirt`.
+	var no_apron: bool = false
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(168.0, 156.0)
@@ -2274,6 +2276,11 @@ class ChibiPortrait extends Control:
 		backdrop = _col(visual.get("backdrop"), apron.lerp(Palette.VANILLA_CREAM, 0.72))
 		# Celemek terang di atas kemeja krem hangat; celemek berwarna di atas kemeja putih.
 		shirt = Color(0.93, 0.86, 0.76) if apron.get_luminance() > 0.85 else Palette.FLOUR_WHITE
+		no_apron = bool(visual.get("no_apron", false))
+		if visual.has("cloth"):
+			shirt = _col(visual.get("cloth"), shirt)
+			if not visual.has("backdrop"):
+				backdrop = shirt.lerp(Palette.VANILLA_CREAM, 0.6)
 		queue_redraw()
 
 	static func _col(v: Variant, fallback: Color) -> Color:
@@ -2360,6 +2367,8 @@ class ChibiPortrait extends Control:
 			draw_colored_polygon(PackedVector2Array([Vector2(c.x + sx2 * hr * 0.04, body_top + hr * 0.26),
 				Vector2(c.x + sx2 * hr * 0.30, body_top - hr * 0.03), Vector2(c.x + sx2 * hr * 0.52, body_top + hr * 0.04),
 				Vector2(c.x + sx2 * hr * 0.30, body_top + hr * 0.30)]), collar)
+		if no_apron:
+			return
 		# Celemek dengan tali leher, saku depan, dan hiasan roti kecil.
 		var bib: Rect2 = Rect2(c.x - bw * 0.28, body_top + hr * 0.30, bw * 0.56, deep)
 		draw_line(Vector2(c.x - bw * 0.24, bib.position.y + hr * 0.04), Vector2(c.x - hr * 0.32, body_top + hr * 0.02), apron, hr * 0.11, true)

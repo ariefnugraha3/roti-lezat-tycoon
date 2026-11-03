@@ -169,6 +169,12 @@ are pruned. A new game starts at `clock.start_seconds`.
   breads go into `SimulationRoot.plain_price`, goals issued during an event pay more, and
   `WorldView.refresh_holiday` swaps in the event's `HolidayFactory` theme. The runner
   switches events off (`EventManager.enabled`) so other tests never depend on the date.
+- **Regulars** (idle §21.10): `RegularManager` (real seconds of play, seeded by visit
+  number) owns the visit, its order and the friendships; its figure is a cosmetic visitor
+  from `CustomerManager.admit_regular` (a window shopper with `regular_id`, held while the
+  visit lasts, drawn from `CharacterFactory.spec_for_regular`). The HUD card, the heart
+  marker (`WorldView.regular_head_screen`) and a tap on the figure (`WorldView.pick` kind
+  `regular`) open `RegularOrderScreen`, which calls `complete(stars)` or `fail()`.
 - **Golden bread** (idle §21.9): `GoldenManager` counts real seconds of play in
   `SimulationRoot.step`, so it never runs offline; its flight number and the master seed
   draw the next gap and the reward. `GoldenBread` (a CanvasLayer above the sheets, below
