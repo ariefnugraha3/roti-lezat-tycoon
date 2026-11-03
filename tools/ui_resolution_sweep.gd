@@ -17,7 +17,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -116,6 +116,19 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 	await _frames(1)
 	var s: UIScreen = game.modals.open(id, params)
 	await _frames(4)
+	# Kartu Share dirakit beberapa frame; simpan juga kartunya utuh.
+	if s is ShareScreen:
+		var wait: int = 0
+		while (s as ShareScreen).card == null and wait < 300:
+			await _frames(1)
+			wait += 1
+		if (s as ShareScreen).card != null:
+			(s as ShareScreen).card.save_png(_out.path_join("%dx%d_%d_share_card.png" % [r.x, r.y, sc]))
+		await _frames(2)
+	if s is PhotoModeScreen:
+		(s as PhotoModeScreen)._set_filter(1)
+		(s as PhotoModeScreen)._toggle_frame()
+		await _frames(2)
 	var label: String = String(id) + (("_tab%d" % int(params["tab"])) if params.has("tab") else "")
 	if s != null:
 		_check(s, label, r, sc)

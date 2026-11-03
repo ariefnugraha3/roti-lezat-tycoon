@@ -972,3 +972,18 @@ Tujuan: alasan untuk kembali besok, tanpa menghukum yang absen.
 - **Tidak ada hukuman**: melewatkan hari tidak mereset kartu; cap berikutnya hanya menunggu. Kalender bertahan lintas Waralaba, dan dekorasinya kosmetik (tanpa bonus) seperti hadiah pencapaian.
 - **UI.** Popup "Daily Stamps" (lapisan sistem) terbuka sendiri saat profil dimuat atau aplikasi kembali ke depan pada tanggal baru, sesudah popup Selamat Datang bila keduanya ada. Kartu tujuh petak (4 + 3, di tengah): petak yang sudah dicap hijau mint bercentang, cap hari ini madu, sisanya krem dengan ikon dan hadiahnya. Tombol "Stamp it!" mengambil cap, lalu kartu tampil lagi dengan cap barunya dan tombol Close. Lembar Goals menampilkan kartu yang sama dalam satu baris dengan tombol "Stamp it!" bila cap tersedia.
 - Simulasi tidak membaca jam perangkat: GameRoot memberikan tanggalnya (`BoostManager.today()`, dipalsukan tes lewat `date_override`), jadi save tes tetap tanpa nilai jam dinding.
+
+## **21.4 Share My Bakery**
+
+Tujuan: pemain bisa memamerkan tokonya dan mengajak teman, tanpa server, akun, atau tautan undangan.
+
+- **Dari menu Pause**: "Share my bakery" membuka popup yang memotret toko saat itu **tanpa HUD dan popup** (dua frame tanpa keduanya), lalu merakit **kartu 1080 × 1350** (4:5, ukuran unggahan media sosial) dari kit UI flat: pita gingham di atas dan bawah, logo Crumbtown, potret toko dalam bingkai kartu (potongan 2:1 di sekitar lantai toko), nama toko, nama lokasi (ditambah "Branch #n" setelah Waralaba), empat angka (KR/s, roti terjual, Bintang Waralaba atau pembeli yang dilayani bila belum punya bintang, dan hari buka), dan pita "Can you beat my bakery?". Ukuran hurufnya tetap, tidak ikut pengaturan ukuran teks.
+- **Pratinjau** kartu tampil di popup. Tombolnya **Share** di Web: lembar bagi browser dengan berkas PNG (Web Share API, umumnya di HP), atau unduhan bila browser tidak mendukungnya. Di platform lain tombolnya **Save image**: PNG disimpan ke `Pictures/Crumbtown` (folder data game bila tidak ada folder Pictures), dan popup menyebut lokasinya.
+- Nama berkas `crumbtown-bakery-<nama toko>-<YYYYmmdd-HHMMSS>.png`, hanya huruf kecil, angka, dan tanda hubung.
+- `core/web_platform.gd` tetap satu-satunya kode yang memanggil JavaScript (`share_or_download_png`).
+
+## **21.5 Photo Mode**
+
+- **Dari menu Pause**: "Photo mode" menyembunyikan HUD, sementara toko **tetap berjalan** (bukan lapisan yang mem-pause). Kamera bebas digeser (seret) dan di-zoom (roda / cubit) seperti Decoration Mode; ketukan dunia tidak berbuat apa-apa.
+- **Filter**: Natural, Warm, Golden hour, Cool, Vintage, Night, berupa lapisan warna polos di atas dunia (tanpa shader, jadi tidak menambah kombinasi material, v3.1 §89.5). **Frame** menambahkan bingkai polaroid krem dengan nama toko di tepi bawah.
+- **Capture** memotret layar dengan filter dan bingkainya tetapi tanpa tombol photo mode, disertai kilat putih singkat (tanpa kilat bila Reduced Motion), lalu menyimpan atau membagikan PNG seperti kartu Share (`crumbtown-photo-…`). Karena HUD tersembunyi, hasilnya ditulis di bar photo mode, bukan toast. Tombol X keluar dan mengembalikan HUD, kamera, dan ketukan dunia.

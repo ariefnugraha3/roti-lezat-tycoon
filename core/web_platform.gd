@@ -82,3 +82,37 @@ static func enter_fullscreen_portrait() -> void:
 	if not is_web():
 		return
 	JavaScriptBridge.eval(JS_FULLSCREEN_PORTRAIT, true)
+
+
+## Bagikan gambar PNG lewat lembar bagi browser (Web Share API dengan berkas,
+## umumnya di HP), atau unduh bila browser tidak bisa (GDD idle 21.4). Panggil
+## dari tombol yang baru dilepas: browser hanya membuka lembar bagi beberapa
+## detik setelah gestur. Hasil: "share", "download", atau "error".
+const JS_SHARE_PNG: String = """(function (b64, name, text) {
+	try {
+		var bin = atob(b64);
+		var u = new Uint8Array(bin.length);
+		for (var i = 0; i < bin.length; i++) { u[i] = bin.charCodeAt(i); }
+		var blob = new Blob([u], { type: 'image/png' });
+		var file = (typeof File === 'function') ? new File([blob], name, { type: 'image/png' }) : null;
+		if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+			navigator.share({ files: [file], text: text }).catch(function () {});
+			return 'share';
+		}
+		var a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = name;
+		document.body.appendChild(a);
+		a.click();
+		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+		return 'download';
+	} catch (e) { return 'error'; }
+})(%s, %s, %s);"""
+
+
+static func share_or_download_png(png: PackedByteArray, file_name: String, text: String) -> String:
+	if not is_web():
+		return "error"
+	var js: String = JS_SHARE_PNG % [JSON.stringify(Marshalls.raw_to_base64(png)), JSON.stringify(file_name), JSON.stringify(text)]
+	var r: Variant = JavaScriptBridge.eval(js, true)
+	return str(r) if r != null else "error"

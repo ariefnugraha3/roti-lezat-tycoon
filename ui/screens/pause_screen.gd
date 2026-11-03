@@ -1,6 +1,7 @@
 class_name PauseScreen
 extends UIScreen
-## Menu Pause (GDD 28.1): Resume, Settings, Statistics, Help, Main Menu.
+## Menu Pause (GDD 28.1): Resume, Share my bakery dan Photo mode (GDD idle 21.4,
+## 21.5), Statistics, Help, Settings, Main Menu.
 
 
 ## Muncul di atas modal yang sedang terbuka (mis. Daily Summary) tanpa menutupnya.
@@ -10,11 +11,13 @@ func _init() -> void:
 
 
 func build() -> void:
-	# Kartu setinggi isinya: lima tombol 58 px (+ Debug 48 px di build debug).
-	var h: float = 5.0 * 68.0 + (58.0 if OS.is_debug_build() else 0.0) + 80.0
-	var body: VBoxContainer = make_popup(Tx.t("ui_pause_title"), Vector2(460, h * maxf(1.0, SettingsManager.text_scale())))
+	# Kartu setinggi isinya: tujuh tombol 58 px (+ Debug 48 px di build debug).
+	var h: float = 7.0 * 68.0 + (58.0 if OS.is_debug_build() else 0.0) + 80.0
+	var body: VBoxContainer = make_popup(Tx.t("ui_pause_title"), Vector2(460, h * (1.0 + 0.3 * maxf(0.0, SettingsManager.text_scale() - 1.0))))
 	for item: Array in [
 		["play", "ui_resume", "primary", close],
+		["share", "ui_share_menu", "secondary", func() -> void: _open(&"share")],
+		["camera", "ui_photo_menu", "secondary", func() -> void: _open(&"photo_mode")],
 		["trophy", "ui_statistics", "secondary", func() -> void: _open(&"stats")],
 		["bubble", "ui_help", "secondary", func() -> void: _open(&"help")],
 		["gear", "ui_main_settings", "secondary", func() -> void: _open(&"settings")],

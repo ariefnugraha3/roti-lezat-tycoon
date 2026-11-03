@@ -28,7 +28,7 @@ const NAMES: Array[String] = [
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock", "whisk", "flag", "calendar",
+	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -53,7 +53,7 @@ const PASS_SHADOW: int = 2
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock", "whisk", "flag", "calendar"
+	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -226,6 +226,8 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"lock": _i_lock(c, s, col)
 		"flag": _i_flag(c, s, col)
 		"calendar": _i_calendar(c, s, col)
+		"camera": _i_camera(c, s, col)
+		"share": _i_share(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -762,6 +764,26 @@ func _i_calendar(c: Vector2, s: float, col: Color) -> void:
 	for r in 2:
 		for k in 3:
 			_dot(c, s, -0.22 + 0.22 * float(k), 0.02 + 0.2 * float(r), 0.06, ink)
+
+
+## Kamera — photo mode (GDD idle 21.5): badan bersudut bulat, tonjolan atas,
+## lensa bercincin.
+func _i_camera(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.44, -0.22, 0.88, 0.60, 0.12, col)
+	_round_rect(c, s, -0.18, -0.36, 0.36, 0.20, 0.06, col)
+	_dot(c, s, 0.0, 0.08, 0.22, ink)
+	_dot(c, s, 0.0, 0.08, 0.13, _lit(col))
+	_dot(c, s, 0.30, -0.12, 0.05, ink)
+
+
+## Bagikan — tiga simpul bersambung (GDD idle 21.4).
+func _i_share(c: Vector2, s: float, col: Color) -> void:
+	_bar(c, s, 0.26, -0.28, -0.26, 0.0, 0.08, col)
+	_bar(c, s, -0.26, 0.0, 0.26, 0.28, 0.08, col)
+	_dot(c, s, 0.26, -0.28, 0.15, col)
+	_dot(c, s, -0.26, 0.0, 0.15, col)
+	_dot(c, s, 0.26, 0.28, 0.15, col)
 
 
 ## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).

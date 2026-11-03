@@ -1,6 +1,6 @@
 extends TestSuite
 ## Fitur retensi dan berbagi (GDD idle 21): craving harian dan selera lingkungan,
-## misi ringan harian, dan kalender cap.
+## misi ringan harian, kalender cap, Share my bakery, dan photo mode.
 
 
 func tests() -> Array:
@@ -10,6 +10,8 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_GOALS", "name": "idle 21.2 three seeded goals a day sized from the shop, progress counted from the stat at issue, Claim pays the fixed reward once (not as income), finished goals survive midnight, a franchise issues a new set, save/load and old saves", "fn": _goals},
 		{"id": "ACC_IDLE_CALENDAR", "name": "idle 21.3 one stamp per device date from the day after the first visit, missed days never reset, seven rewards (KR, x2 boosts, a calendar decoration on day 7, then KR only), kept across saves", "fn": _calendar},
 		{"id": "ACC_IDLE_GOALS_UI", "name": "idle 21.2-21.3 the HUD Goals button lights up and toasts for a finished goal, the Goals sheet claims it, and a new device date opens the Daily Stamps popup that stamps the card", "fn": _goals_ui},
+		{"id": "ACC_IDLE_SHARE", "name": "idle 21.4 Share my bakery from the Pause menu photographs the shop without the HUD, bakes a 1080x1350 card with the name, place and four numbers, previews it, and saves a PNG with a safe file name", "fn": _share},
+		{"id": "ACC_IDLE_PHOTO_MODE", "name": "idle 21.5 Photo mode from the Pause menu hides the HUD while the shop runs, pans freely without world taps, tints with filters, adds a polaroid frame, captures the screen without its buttons, and restores everything on Close", "fn": _photo},
 	]
 
 
@@ -443,6 +445,144 @@ func _goals_ui() -> void:
 	SaveManager.dir = "user://saves"
 	PauseManager.clear_all()
 	PauseManager.lifecycle_enabled = false
+
+
+## Boot GameRoot untuk tes Share / Photo mode; berkas gambar ke folder tes.
+func _boot_share(name_text: String) -> GameRoot:
+	SaveManager.dir = "user://test_saves_retention"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	ShareCard.out_dir_override = ProjectSettings.globalize_path("user://test_share")
+	_clear_share_dir()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
+	runner.add_child(game)
+	await runner.get_tree().process_frame
+	game.skip_splash_for_tests()
+	await game.start_new_game(&"profile_1", "female", name_text)
+	await runner.get_tree().process_frame
+	game.modals.close_all()
+	game.sim.tutorial.skip()
+	PauseManager.clear_all()
+	return game
+
+
+func _end_share(game: GameRoot) -> void:
+	game.modals.close_all()
+	game.playing = true
+	game.return_to_menu()
+	game.queue_free()
+	await runner.get_tree().process_frame
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
+	_clear_share_dir()
+	ShareCard.out_dir_override = ""
+
+
+func _clear_share_dir() -> void:
+	var d: DirAccess = DirAccess.open(ShareCard.out_dir_override) if ShareCard.out_dir_override != "" else null
+	if d == null:
+		return
+	for f: String in d.get_files():
+		d.remove(f)
+
+
+func _share_files(prefix: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var d: DirAccess = DirAccess.open(ShareCard.out_dir_override)
+	if d == null:
+		return out
+	for f: String in d.get_files():
+		if f.begins_with(prefix) and f.ends_with(".png"):
+			out.append(f)
+	return out
+
+
+func _pause_has(game: GameRoot, key: String) -> bool:
+	var p: UIScreen = game.modals.open(&"pause")
+	var found: bool = false
+	for b: Node in p.find_children("*", "Button", true, false):
+		for l: Node in b.find_children("*", "Label", true, false):
+			if (l as Label).text == Tx.t(key):
+				found = true
+	game.modals.close_id(&"pause")
+	return found
+
+
+func _share() -> void:
+	var game: GameRoot = await _boot_share("Shiny Buns!")
+	var sim: SimulationRoot = game.sim
+	check(_pause_has(game, "ui_share_menu"), "the Pause menu has Share my bakery")
+	var base: String = ShareCard.file_base(sim, "bakery")
+	check(base.begins_with("crumbtown-bakery-shiny-buns-"), "file names are safe (%s)" % base)
+	var st: Array = ShareCard.stats(sim)
+	eq(st.size(), 4, "the card shows four numbers")
+	eq(str(st[0][1]), Tx.t("ui_kr_per_second", {"amount": Tx.rate(sim.income_rate())}), "the first is KR/s")
+	var s: ShareScreen = game.modals.open(&"share") as ShareScreen
+	check(s != null and game.modals.has_blocking(), "Share opens as a popup that pauses the shop")
+	var go: Button = s.find_child("Share", true, false) as Button
+	check(go != null and go.disabled, "Save waits until the card is ready")
+	var waited: int = 0
+	while s.card == null and waited < 240:
+		await runner.get_tree().process_frame
+		waited += 1
+	check(s.card != null, "the card is baked")
+	if s.card != null:
+		eq(Vector2i(s.card.get_width(), s.card.get_height()), ShareCard.SIZE, "the card is 1080x1350")
+	check(game.hud.visible and game.modals.visible, "the HUD and popups come back after the photo")
+	check(not go.disabled, "Save is ready")
+	check((s.find_child("Preview", true, false) as TextureRect).texture != null, "the popup previews the card")
+	go.pressed.emit()
+	await runner.get_tree().process_frame
+	var files: PackedStringArray = _share_files("crumbtown-bakery-shiny-buns-")
+	eq(files.size(), 1, "Save image writes one PNG")
+	if files.size() == 1:
+		var img: Image = Image.load_from_file(ShareCard.out_dir_override.path_join(files[0]))
+		check(img != null and img.get_width() == ShareCard.SIZE.x and img.get_height() == ShareCard.SIZE.y, "the saved PNG is the card")
+	var status: Label = s.find_child("Status", true, false) as Label
+	check(status.text.begins_with(Tx.t("ui_share_saved", {"path": ""})), "the popup says where it went")
+	# Kartu tanpa bintang menyebut pembeli; dengan bintang menyebut bintang.
+	sim.prestige.stars = 7
+	eq(str(ShareCard.stats(sim)[2][2]), Tx.t("ui_share_stat_stars"), "franchise stars show once earned")
+	sim.prestige.stars = 0
+	await _end_share(game)
+
+
+func _photo() -> void:
+	var game: GameRoot = await _boot_share("Photo Bakery")
+	var sim: SimulationRoot = game.sim
+	check(_pause_has(game, "ui_photo_menu"), "the Pause menu has Photo mode")
+	var p: PhotoModeScreen = game.modals.open(&"photo_mode") as PhotoModeScreen
+	await _frames(2)
+	check(p != null, "Photo mode opens")
+	check(game.hud.decoration_active, "the HUD hides")
+	check(not game.modals.has_blocking(), "the shop keeps running")
+	check(game.world.camera_rig.free_pan, "the camera pans freely")
+	check(game.commands.tap_override.is_valid(), "world taps do nothing")
+	var tint: ColorRect = p.find_child("Tint", true, false) as ColorRect
+	check(tint != null and not tint.visible, "no filter at first")
+	(p.find_child("Filter2", true, false) as Button).pressed.emit()
+	check(tint.visible and tint.color == PhotoModeScreen.FILTERS[2][1], "a filter chip tints the picture")
+	var frame: Control = p.find_child("PolaroidFrame", true, false) as Control
+	check(not frame.visible, "no frame at first")
+	(p.find_child("FrameToggle", true, false) as Button).pressed.emit()
+	check(frame.visible, "Frame adds the polaroid border")
+	var img: Image = await p.capture()
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	check(img != null and img.get_width() == int(vs.x) and img.get_height() == int(vs.y), "Capture takes the whole screen")
+	check((p.find_child("Controls", true, false) as Control).visible, "the buttons come back after the shot")
+	eq(_share_files("crumbtown-photo-photo-bakery-").size(), 1, "the photo is saved")
+	var status: Label = p.find_child("Status", true, false) as Label
+	check(status.visible and status.text.begins_with(Tx.t("ui_photo_saved", {"path": ""})), "and the bar says where")
+	(p.find_child("Close", true, false) as Button).pressed.emit()
+	await _frames(1)
+	check(not game.modals.is_open(&"photo_mode"), "Close leaves Photo mode")
+	check(not game.hud.decoration_active, "the HUD is back")
+	check(not game.world.camera_rig.free_pan, "the camera follows the shop again")
+	check(not game.commands.tap_override.is_valid(), "world taps work again")
+	await _end_share(game)
 
 
 static func _has_pill(row: Node, text: String) -> bool:

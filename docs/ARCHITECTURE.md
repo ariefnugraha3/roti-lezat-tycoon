@@ -163,6 +163,14 @@ are pruned. A new game starts at `clock.start_seconds`.
   `real_seconds_per_hour`). `CalendarManager` never reads the device clock:
   `GameRoot.check_daily_gift` passes `BoostManager.today()` and opens the `calendar`
   popup (after Welcome Back). Rewards post to the ledger as `REWARD`, which is not income.
+- **Share and photo mode** (idle §21.4–21.5): `ShareCard` captures the game viewport with
+  the HUD and modal layers hidden for two frames, builds the 1080×1350 card in a temporary
+  `SubViewport` and exports PNGs (`WebPlatform.share_or_download_png` on Web, otherwise
+  `Pictures/Crumbtown`; tests set `ShareCard.out_dir_override`). Headless runs have no
+  renderer, so `ShareCard.after_draw` waits a process frame instead of `frame_post_draw`
+  and `ShareCard.grab` returns a plain cream image of the right size.
+  `PhotoModeScreen` is non-blocking, hides the HUD through `set_decoration_active`, turns
+  on the camera's free pan and swallows world taps through `CommandLayer.tap_override`.
 - **Street arrivals** (GDD 20.1, 22.6): buyers, window shoppers and RotiFood drivers walk
   in from the pavement (`core/street_paths.gd`); drivers set off early by the length of
   the walk. Whoever leaves through the door is released by the simulation;
