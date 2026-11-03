@@ -1,6 +1,6 @@
 # Credits
 
-**Roti Lezat Tycoon**, a bakery management tycoon.
+**Crumbtown: Idle Bakery Tycoon**, a cozy idle bakery tycoon.
 
 ## Engine
 

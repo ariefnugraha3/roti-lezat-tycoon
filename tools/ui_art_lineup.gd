@@ -76,6 +76,18 @@ func _ready() -> void:
 		"location_id": "location_t3_independent_bakery", "balance_kr": 12345.0, "badges": [], "last_played_at": "2026-11-03T10:00:00Z"}))
 	r5.add_child(ps._card(2, {"profile_id": &"profile_2", "exists": false}))
 	ps.free()
+	# Logo splash (84 px) pada skala teks 100% dan 150%, di kotak selebar bingkai 720.
+	var r6 := VBoxContainer.new()
+	r6.add_theme_constant_override("separation", 0)
+	v.add_child(r6)
+	for ts: float in [1.0, 1.5]:
+		ProceduralUIFactory.text_scale = ts
+		var holder := CenterContainer.new()
+		holder.custom_minimum_size = Vector2(720.0 - 32.0, 0.0)
+		holder.add_child(ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 124))
+		r6.add_child(holder)
+	ProceduralUIFactory.text_scale = 1.0
+	v.move_child(r6, 0)
 	for i in 6:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

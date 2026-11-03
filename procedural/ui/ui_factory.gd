@@ -1,6 +1,6 @@
 class_name ProceduralUIFactory
 extends RefCounted
-## Pembangkit seluruh komponen UI 2D Roti Lezat Tycoon — 100% prosedural.
+## Pembangkit seluruh komponen UI 2D Crumbtown: Idle Bakery Tycoon — 100% prosedural.
 ##
 ## GDD 4.3, 7, dan 12.3: tidak ada satu pun tekstur, font, atau gambar eksternal.
 ## Panel dan tombol dibangun dari [StyleBoxFlat] bersudut membulat tebal
@@ -1321,10 +1321,14 @@ static func lace_points(rect: Rect2, lace_side: int) -> PackedVector2Array:
 	return out
 
 
-## Logo judul bertumpuk: ikon roti besar yang memantul, kata pertama judul
-## sebagai huruf timbul, dan kata terakhirnya di pita madu (mis. "Roti Lezat" +
-## "Tycoon"). Judul satu kata tampil utuh tanpa pita.
-static func logo_lockup(title_text: String, size := 76, icon_size := 104) -> VBoxContainer:
+## Logo judul bertumpuk: ikon roti besar yang memantul dengan remah-remah
+## kecil di sekitarnya, nama game sebagai huruf tebal, dan keterangannya di pita
+## madu. Judul bertitik dua dipotong di titik dua ("Crumbtown" + "IDLE BAKERY
+## TYCOON", keputusan maintainer 2026-11-03); tanpa titik dua, kata terakhirnya
+## yang masuk pita. Judul satu kata tampil utuh tanpa pita.
+## [param max_w] = lebar maksimal nama game (px GUI); huruf mengecil sendiri
+## supaya muat, juga pada skala teks 150% di bingkai 720 px.
+static func logo_lockup(title_text: String, size := 76, icon_size := 104, max_w := 640.0) -> VBoxContainer:
 	var v: VBoxContainer = VBoxContainer.new()
 	v.name = "LogoLockup"
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1337,18 +1341,32 @@ static func logo_lockup(title_text: String, size := 76, icon_size := 104) -> VBo
 	var bread: IconCanvas = icon("bread", icon_size, Palette.GOLDEN_CRUST)
 	bread.name = "LogoBread"
 	art.add_child(bread)
-	var words: PackedStringArray = title_text.split(" ", false)
 	var main_text: String = title_text
 	var tail: String = ""
-	if words.size() >= 2:
-		tail = words[words.size() - 1]
-		main_text = " ".join(words.slice(0, words.size() - 1))
-	v.add_child(logo(main_text, size))
+	var colon: int = title_text.find(":")
+	if colon > 0:
+		main_text = title_text.substr(0, colon).strip_edges()
+		tail = title_text.substr(colon + 1).strip_edges()
+	else:
+		var words: PackedStringArray = title_text.split(" ", false)
+		if words.size() >= 2:
+			tail = words[words.size() - 1]
+			main_text = " ".join(words.slice(0, words.size() - 1))
+	# Remah roti kecil di sekitar roti (nama "Crumbtown" = kota remah roti).
+	var crumbs: Control = CrumbScatter.new()
+	crumbs.name = "Crumbs"
+	crumbs.custom_minimum_size = Vector2(float(icon_size) * 1.9, float(icon_size))
+	art.add_child(crumbs)
+	art.move_child(crumbs, 0)
+	var fit: int = size
+	while fit > 28 and _text_width(main_text, fit, true) > max_w:
+		fit -= 2
+	v.add_child(logo(main_text, fit))
 	if tail != "":
 		var strip: CenterContainer = CenterContainer.new()
 		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(strip)
-		var rb: PanelContainer = ribbon_plate(tail.to_upper(), int(round(float(size) * 0.40)), 420.0)
+		var rb: PanelContainer = ribbon_plate(tail.to_upper(), int(round(float(fit) * 0.40)), max_w)
 		(rb.get_meta("label") as Label).add_theme_constant_override("outline_size", 6)
 		strip.add_child(rb)
 	v.set_meta("bread", bread)
@@ -1848,6 +1866,28 @@ static func _gui_scale(window_size: Vector2) -> float:
 # ---------------------------------------------------------------------------
 # Kelas gambar internal (Control dengan _draw sendiri, tanpa class_name global)
 # ---------------------------------------------------------------------------
+
+## Remah-remah roti kecil (bidang warna kerak polos) di kiri dan kanan bawah
+## logo roti. Tidak menangkap ketukan.
+class CrumbScatter extends Control:
+
+	const CRUMBS: Array = [
+		[0.10, 0.80, 0.045, 0], [0.18, 0.93, 0.030, 1], [0.04, 0.62, 0.025, 1],
+		[0.86, 0.84, 0.042, 1], [0.95, 0.68, 0.028, 0], [0.80, 0.96, 0.024, 0],
+	]
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var w: float = custom_minimum_size.x
+		var h: float = custom_minimum_size.y
+		for c: Array in CRUMBS:
+			var p := Vector2(float(c[0]) * w, float(c[1]) * h)
+			var r: float = float(c[2]) * w
+			var col: Color = Palette.GOLDEN_CRUST if int(c[3]) == 0 else Palette.CUSTARD.darkened(0.08)
+			draw_colored_polygon(ProceduralUIFactory.rounded_points(Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2.0, r * 1.6)), r * 0.6, 3), col)
+
 
 ## Kilap lembut di bagian atas muka tombol/pita berwarna: sorot putih yang
 ## memudar ke bawah, ikut turun saat tombolnya ditekan. Tidak menangkap ketukan.

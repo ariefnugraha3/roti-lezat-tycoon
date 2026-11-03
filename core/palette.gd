@@ -1,6 +1,6 @@
 class_name Palette
 extends RefCounted
-## Palette -- seluruh warna "Warm, Cozy & Cute" milik Roti Lezat Tycoon.
+## Palette -- seluruh warna "Warm, Cozy & Cute" milik Crumbtown.
 ##
 ## Satu-satunya sumber warna material dan UI (GDD 32.4). Bukan autoload: GDD 35.2
 ## menetapkan daftar autoload secara pasti, dan konstanta cukup diakses lewat

@@ -1,7 +1,7 @@
 class_name AudioGenerator
 extends RefCounted
 
-## AudioGenerator — pembangkit audio 100% prosedural untuk Roti Lezat Tycoon.
+## AudioGenerator — pembangkit audio 100% prosedural untuk Crumbtown.
 ##
 ## Proyek ini TIDAK memuat satu pun berkas audio (.ogg/.wav/.mp3). Seluruh bunyi
 ## dihitung sebagai sampel PCM di dalam GDScript lalu dibungkus menjadi

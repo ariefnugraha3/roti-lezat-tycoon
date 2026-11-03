@@ -43,7 +43,7 @@ var offline: OfflineManager
 var boosts: BoostManager
 
 var profile_id: StringName = &""
-var bakery_name: String = "Roti Lezat"
+var bakery_name: String = "Crumbtown Bakery"
 var created_at: String = ""
 var tick_seconds: float = 0.05
 ## Detik jam nyata yang ditunggu karena pause atau belum cukup untuk satu tick.
@@ -577,7 +577,7 @@ func note_active() -> void:
 ## Rekonstruksi otoritas dari save yang sudah divalidasi (v3.1 89.5, 114.10).
 func load_from_save(d: Dictionary) -> void:
 	profile_id = StringName(str(d.get("profile_id", "")))
-	bakery_name = str(d.get("bakery_name", "Roti Lezat"))
+	bakery_name = str(d.get("bakery_name", "Crumbtown Bakery"))
 	created_at = str(d.get("created_at", ""))
 	rng.restore(d.get("rng_states", {}))
 	time.restore(d.get("clock", {"day": d.get("day", 1), "time_seconds": d.get("time_seconds", 28800.0)}))

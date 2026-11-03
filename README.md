@@ -1,12 +1,15 @@
-# Roti Lezat Tycoon
+# Crumbtown: Idle Bakery Tycoon
 
-A cozy bakery management tycoon for Web (itch.io, HTML5) and Android, built with
-Godot 4.7-stable (GDScript only, Compatibility renderer). You run a bakery: bake in
-the morning, sell from 08:00 to 18:00, fulfil RotiFood delivery orders, hire staff,
-and grow from a garage to a landmark bakery. Every visual and sound is generated in
-code, and the game runs fully offline.
+A cozy idle bakery tycoon for Web (itch.io, HTML5) and Android, built with
+Godot 4.7-stable (GDScript only, Compatibility renderer). Your bakery runs by itself,
+day and night: ovens bake, customers queue, RotiFood riders pick up orders, and you
+upgrade stations, recipes and staff to grow from a tiny garage into a landmark, then
+franchise for star bonuses. It even earns while you are away. Every visual and sound
+is generated in code, and the game runs fully offline. (The game was called Roti
+Lezat Tycoon until 2026-11-03.)
 
-- Design spec (the only authority): `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1).
+- Design spec on this branch: `docs/gdd-roti-lezat-idle-v1.md` (the idle GDD), with
+  `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1) for the systems it keeps.
 - Architecture: `docs/ARCHITECTURE.md` · Save format: `docs/SAVE_SCHEMA.md`.
 - GDD compliance checklist: `docs/GDD_COMPLIANCE.md`.
 - Credits and licenses: `CREDITS.md`, `LICENSES.md`. Platform limitations: `KNOWN_LIMITATIONS.md`.
@@ -74,8 +77,8 @@ Presets live in `export_presets.cfg` and contain no signing secrets:
 ```bash
 mkdir -p build/web build/android
 "$G" --headless --path . --export-release "Web" build/web/index.html
-"$G" --headless --path . --export-debug "Android Debug APK" build/android/roti-lezat-tycoon-debug.apk
-"$G" --headless --path . --export-release "Android Release AAB" build/android/roti-lezat-tycoon.aab
+"$G" --headless --path . --export-debug "Android Debug APK" build/android/crumbtown-debug.apk
+"$G" --headless --path . --export-release "Android Release AAB" build/android/crumbtown.aab
 ```
 
 - **Web:** single-threaded, so itch.io needs no cross-origin isolation. Upload the
@@ -90,7 +93,8 @@ mkdir -p build/web build/android
   the `GODOT_ANDROID_KEYSTORE_RELEASE_PATH`, `GODOT_ANDROID_KEYSTORE_RELEASE_USER` and
   `GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD` environment variables. Never commit it
   (GDD 128.4).
-- Package ID: `com.rotilezattycoon.game`; landscape only; no INTERNET permission.
+- Package ID: `com.crumbtown.idlebakery`; launcher name "Crumbtown"; portrait only; no
+  INTERNET permission.
 
 ## Project rules
 

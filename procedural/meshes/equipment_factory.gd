@@ -1,7 +1,7 @@
 class_name EquipmentFactory
 extends RefCounted
 
-## Pabrik peralatan dapur & interior toko Roti Lezat Tycoon -- 100% mesh primitif.
+## Pabrik peralatan dapur & interior toko Crumbtown -- 100% mesh primitif.
 ##
 ## Seluruh bentuk dirakit dari ProceduralMeshFactory (BoxMesh / CylinderMesh /
 ## SphereMesh / TorusMesh / SurfaceTool). TIDAK ADA aset eksternal sama sekali

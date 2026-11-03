@@ -13,7 +13,7 @@ const FORBIDDEN_EXTENSIONS: Array[String] = [
 const HYGIENE_PATTERNS: Array[String] = ["TODO", "FIXME", "NotImplemented", "placeholder_only", "mock_production"]
 const NETWORK_CLASSES: Array[String] = ["HTTPRequest", "HTTPClient", "WebSocketPeer", "StreamPeerTCP", "PacketPeerUDP", "ENetMultiplayerPeer", "WebRTCPeerConnection"]
 const SOURCE_ROOTS: Array[String] = ["res://audio", "res://autoload", "res://core", "res://data", "res://gameplay", "res://procedural", "res://scenes", "res://ui"]
-const PACKAGE_ID: String = "com.rotilezattycoon.game"
+const PACKAGE_ID: String = "com.crumbtown.idlebakery"
 
 var _results: Array[Dictionary] = []
 var _quick: bool = false
@@ -346,7 +346,7 @@ func _check_exports() -> void:
 	DirAccess.make_dir_recursive_absolute(dir.path_join("web"))
 	DirAccess.make_dir_recursive_absolute(dir.path_join("android"))
 	for spec: Array in [["Web", "web/index.html", "Web export completes"],
-			["Android Debug APK", "android/roti-lezat-tycoon-debug.apk", "Android export preset validates"]]:
+			["Android Debug APK", "android/crumbtown-debug.apk", "Android export preset validates"]]:
 		var out: Array = []
 		var code: int = OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"),
 			"--export-debug", spec[0], dir.path_join(spec[1])], out, true)

@@ -1,7 +1,7 @@
 class_name ProceduralMeshFactory
 extends RefCounted
 
-## Pabrik mesh primitif -- fondasi seluruh visual 3D Roti Lezat Tycoon (GDD 4.2 & 12.2).
+## Pabrik mesh primitif -- fondasi seluruh visual 3D Crumbtown (GDD 4.2 & 12.2).
 ##
 ## Semua objek 3D di game ini dirakit dari mesh primitif bawaan Godot (BoxMesh,
 ## CylinderMesh, SphereMesh, TorusMesh, CapsuleMesh) atau dibentuk secara matematis

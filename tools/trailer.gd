@@ -205,7 +205,7 @@ func _boot_game() -> void:
 	_phone_vp.add_child(game)
 	await _frames(2)
 	game.skip_splash_for_tests()
-	await game.start_new_game(&"profile_1", "female", "Roti Lezat")
+	await game.start_new_game(&"profile_1", "female", Tx.t("ui_bakery_name_default"))
 	sim = game.sim
 	PauseManager.lifecycle_enabled = false
 	PauseManager.clear_all()
@@ -662,7 +662,7 @@ func _side_text(kicker: String, title: String, sub: String) -> void:
 
 ## Logo besar di tengah (judul dan kartu akhir).
 func _logo(y_center: float, scale_to: float = 1.0) -> Control:
-	var lock: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 132, 176)
+	var lock: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 132, 176, 1600.0)
 	_layer.add_child(lock)
 	_shot_nodes.append(lock)
 	lock.reset_size()
@@ -801,7 +801,7 @@ func _s_title() -> void:
 	var c: Vector3 = _floor_center()
 	_move(_pose(c + Vector3(0.0, 0.3, 0.0), 36.0, 27.0, 17.0), _pose(c + Vector3(0.0, 0.3, 0.0), 50.0, 26.0, 15.5))
 	_logo(OUT.y * 0.42)
-	_center_label("A cozy idle bakery tycoon", 52, OUT.y * 0.42 + 268.0, Palette.UI_WOOD, 0.8)
+	_center_label("From a single crumb to a whole town", 52, OUT.y * 0.42 + 268.0, Palette.UI_WOOD, 0.8)
 
 
 ## 3. Memanggang: oven dan mixer bekerja sendiri; dua kali Semangat.

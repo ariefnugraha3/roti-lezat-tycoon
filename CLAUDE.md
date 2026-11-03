@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Spec of record
 
-Godot 4.7 project for **Roti Lezat Tycoon**, a bakery game targeting Web (itch.io, HTML5) and Android from one codebase.
+Godot 4.7 project for **Crumbtown: Idle Bakery Tycoon** (called Roti Lezat Tycoon until 2026-11-03; the repository, the GDD file names and the GitHub Pages URL still use the old name), a bakery game targeting Web (itch.io, HTML5) and Android from one codebase. The launcher and Android app name is "Crumbtown", the package `com.crumbtown.idlebakery`, and desktop user data lives in a custom user dir `Crumbtown` (`%APPDATA%\Crumbtown`).
 
 **This is the `pivot-to-idle-game` branch. Here the game is an idle arcade bakery, and the authoritative specification is [docs/gdd-roti-lezat-idle-v1.md](docs/gdd-roti-lezat-idle-v1.md) (the idle GDD).** It replaces GDD v3.1 wherever they differ. Its §0 lists the v3.1 rules it keeps as they are, and for those systems [docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md](docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md) (GDD v3.1 FINAL) is still the reference: art direction (§4), rendering and controls (§12.2–12.4), grid and navigation (§17), the modal stack (§28.2), input (§29), the camera except the portrait framing (§30), characters (§31), furniture, interiors, neighbourhoods and street life (§32), audio policy (§33), atomic saves and three profiles (§34, §77, §106), architecture (§35), performance including MeshBake (§37, §109), English text (§43, §127), accessibility (§44), layout templates and furniture sizes (§57, §60), floor portals (§68), Decoration Mode (§72), the technical contract (§96–§101), asset origin (§111), caches, RNG and logging (§115–§117), and toolchain, runtime limits and visual spec (§128–§130). The older [docs/gdd-roti-lezaat-tycoon.md](docs/gdd-roti-lezaat-tycoon.md) is obsolete: never read it for requirements.
 
@@ -36,8 +36,8 @@ G='D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
 "$G" --path .                              # open in editor
 "$G" --path . res://scenes/main.tscn       # run the game (opens a 540x960 portrait window)
 "$G" --headless --path . --export-release "Web" build/web/index.html
-"$G" --headless --path . --export-debug "Android Debug APK" build/android/roti-lezat-tycoon-debug.apk
-"$G" --headless --path . --export-release "Android Release AAB" build/android/roti-lezat-tycoon.aab
+"$G" --headless --path . --export-debug "Android Debug APK" build/android/crumbtown-debug.apk
+"$G" --headless --path . --export-release "Android Release AAB" build/android/crumbtown.aab
 ```
 
 The official 4.7.2 export templates were installed on 2026-09-29 (`%APPDATA%\Godot\export_templates\4.7.2.stable`, SHA-512 checked against the release), so the Web export works here. It writes `build/web/` (about 40 MB, almost all engine `.wasm`; the game `.pck` is under 1 MB), and `/build/` is git-ignored (a local `build/.gdignore` stops the editor from importing the exported icons). Serve it with `python -m http.server 8000` from `build/web`, because `index.html` does not run from `file://`. There is no Android SDK, so Android exports still fail.

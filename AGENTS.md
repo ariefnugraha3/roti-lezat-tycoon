@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Godot 4.7 project for **Roti Lezat Tycoon**. The main scene is `scenes/main.tscn` (`GameRoot`), configured in `project.godot`. The only authoritative design spec is `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1 FINAL). `docs/gdd-roti-lezaat-tycoon.md` is obsolete and must not be used.
+This is a Godot 4.7 project for **Crumbtown: Idle Bakery Tycoon** (formerly Roti Lezat Tycoon). The main scene is `scenes/main.tscn` (`GameRoot`), configured in `project.godot`. The only authoritative design spec is `docs/gdd-roti-lezaat-tycoon-ai-ready-v3.1-final.md` (GDD v3.1 FINAL). `docs/gdd-roti-lezaat-tycoon.md` is obsolete and must not be used.
 
 - `autoload/`: the seven services of GDD 35.2 (`GameLogger`, `DataRegistry`, `EventBus`, `SettingsManager`, `PauseManager`, `SaveManager`, `AudioManager`). They hold no gameplay state.
 - `core/`: helpers and base classes (`SimManager`, `TimeManager`, `RNGManager`, `Money`, `GridMath`, `Tx`, `Palette`).

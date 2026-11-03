@@ -1,6 +1,6 @@
 # Architecture
 
-Roti Lezat Tycoon is a Godot 4.7 (GDScript, Compatibility renderer) bakery game. On the
+Crumbtown: Idle Bakery Tycoon (formerly Roti Lezat Tycoon) is a Godot 4.7 (GDScript, Compatibility renderer) bakery game. On the
 branch `pivot-to-idle-game` it is an idle arcade bakery, and the design authority is
 `docs/gdd-roti-lezat-idle-v1.md` (the idle GDD). It keeps the GDD v3.1 rules it lists in
 its §0 (art, grid and navigation, characters, interiors, audio policy, save mechanics,

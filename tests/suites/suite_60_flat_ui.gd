@@ -7,6 +7,7 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "ACC_130_FLAT_UI", "name": "130.6 the UI kit draws flat: no drop shadows, lips, gloss or text outlines on panels, buttons, badges, chips and titles, and button content sits centred on the face", "fn": _flat},
+		{"id": "ACC_IDLE_BRANDING", "name": "idle 19 no. 1, 20 no. 49 the game is Crumbtown: Idle Bakery Tycoon: title, logo (Crumbtown + IDLE BAKERY TYCOON ribbon and crumbs), project name, user dir Crumbtown, Android name and package, default bakery name, and no player-facing text says Roti Lezat", "fn": _branding},
 		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and each save card shows a bakery for its location tier (an empty slot shows the '+' silhouette)", "fn": _art},
 		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, and the KR/s rate sits inside the KR chip", "fn": _polish},
 	]
@@ -22,6 +23,37 @@ static func _contrast(a: Color, b: Color) -> float:
 static func _lum(c: Color) -> float:
 	var l: Color = c.srgb_to_linear()
 	return 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b
+
+
+## Nama dan merek Crumbtown (GDD idle 19 no. 1, 20 no. 49).
+func _branding() -> void:
+	var title: String = "Crumbtown: Idle Bakery Tycoon"
+	eq(Tx.t("game_title"), title, "the game title")
+	eq(str(ProjectSettings.get_setting("application/config/name")), title, "the window and browser tab title")
+	check(bool(ProjectSettings.get_setting("application/config/use_custom_user_dir", false)), "desktop data uses a custom user dir")
+	eq(str(ProjectSettings.get_setting("application/config/custom_user_dir_name", "")), "Crumbtown", "the user dir has no colon in its name")
+	var lock: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"))
+	var logo: Label = lock.find_child("Logo", true, false) as Label
+	eq(logo.text if logo != null else "", "Crumbtown", "the logo reads Crumbtown")
+	var ribbon: PanelContainer = lock.find_child("Ribbon", true, false) as PanelContainer
+	eq((ribbon.get_meta("label") as Label).text if ribbon != null else "", "IDLE BAKERY TYCOON", "the ribbon carries the subtitle")
+	check(lock.find_child("Crumbs", true, false) is ProceduralUIFactory.CrumbScatter, "crumbs are scattered around the logo bread")
+	lock.free()
+	eq(Tx.t("ui_bakery_name_default"), "Crumbtown Bakery", "the default bakery name")
+	var presets := ConfigFile.new()
+	eq(presets.load("res://export_presets.cfg"), OK, "export presets load")
+	for sec: String in presets.get_sections():
+		if sec.ends_with(".options") and str(presets.get_value(sec, "package/unique_name", "")) != "":
+			eq(str(presets.get_value(sec, "package/unique_name")), "com.crumbtown.idlebakery", "%s package" % sec)
+			eq(str(presets.get_value(sec, "package/name")), "Crumbtown", "%s launcher name" % sec)
+	var strings: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/catalog/strings_en.json"))
+	var table: Dictionary = (strings as Dictionary).get("strings", {})
+	check(table.size() > 100, "the string table loads")
+	var old: Array = []
+	for k: Variant in table.keys():
+		if str(table[k]).to_lower().contains("roti lezat"):
+			old.append(k)
+	eq(old, [], "no player-facing text still says Roti Lezat")
 
 
 ## Gambar UI 2D (GDD idle 20 no. 48): Pak Lurah, potret New Game, toko profil.

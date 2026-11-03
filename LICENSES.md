@@ -2,7 +2,7 @@
 
 ## This project
 
-The source code, data catalogs and generated assets of Roti Lezat Tycoon belong to
+The source code, data catalogs and generated assets of Crumbtown: Idle Bakery Tycoon belong to
 the project maintainer. **The maintainer has not yet chosen a license** for
 distribution. Until one is added here, all rights are reserved.
 

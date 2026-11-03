@@ -30,7 +30,8 @@ func _init() -> void:
 
 
 ## Roti tawar chibi: latar krem membulat, kubah kerak dengan tiga guratan,
-## irisan remah, wajah kecil (selaras karakter chibi GDD 12.3.3).
+## irisan remah, wajah kecil (selaras karakter chibi GDD 12.3.3), dan remah-remah
+## kecil di sekitarnya (nama Crumbtown, keputusan maintainer 2026-11-03).
 static func build() -> String:
 	var s: PackedStringArray = PackedStringArray()
 	s.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 256 256">' % [SIZE, SIZE])
@@ -53,5 +54,9 @@ static func build() -> String:
 	s.append('<circle cx="94" cy="158" r="7" fill="%s" opacity="0.55"/>' % ROSY)
 	s.append('<circle cx="162" cy="158" r="7" fill="%s" opacity="0.55"/>' % ROSY)
 	s.append('<path d="M118 156 q10 10 20 0" stroke="%s" stroke-width="5" stroke-linecap="round" fill="none"/>' % CHOCOLATE)
+	# Remah roti di kiri dan kanan bawah.
+	for c: Array in [[30, 204, 7, CRUST], [46, 222, 5, CRUST_LIGHT], [24, 182, 4, CRUST_LIGHT],
+			[226, 206, 7, CRUST_LIGHT], [212, 224, 5, CRUST], [234, 184, 4, CRUST]]:
+		s.append('<rect x="%d" y="%d" width="%d" height="%d" rx="%d" fill="%s"/>' % [int(c[0]) - int(c[2]), int(c[1]) - int(c[2]), int(c[2]) * 2, int(c[2]) * 2, floori(float(c[2]) / 2.0) + 1, c[3]])
 	s.append('</svg>')
 	return "\n".join(s) + "\n"
