@@ -7,6 +7,7 @@ extends TestSuite
 func tests() -> Array:
 	return [
 		{"id": "ACC_130_FLAT_UI", "name": "130.6 the UI kit draws flat: no drop shadows, lips, gloss or text outlines on panels, buttons, badges, chips and titles, and button content sits centred on the face", "fn": _flat},
+		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and each save card shows a bakery for its location tier (an empty slot shows the '+' silhouette)", "fn": _art},
 		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, and the KR/s rate sits inside the KR chip", "fn": _polish},
 	]
 
@@ -21,6 +22,40 @@ static func _contrast(a: Color, b: Color) -> float:
 static func _lum(c: Color) -> float:
 	var l: Color = c.srgb_to_linear()
 	return 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b
+
+
+## Gambar UI 2D (GDD idle 20 no. 48): Pak Lurah, potret New Game, toko profil.
+func _art() -> void:
+	var lurah: Dictionary = CharacterFactory.spec_for_lurah()
+	check(LurahPortrait.SAFARI.is_equal_approx(lurah["cloth"]), "Pak Lurah's portrait wears his 3D safari colour")
+	for g: String in ["male", "female"]:
+		var v: Dictionary = NewGameScreen.portrait_visual(g)
+		var sp: Dictionary = CharacterFactory.spec_for_player("wanita" if g == "female" else "pria")
+		eq(str(v["hat"]), str(sp["hat"]), "the %s portrait wears the owner's hat" % g)
+		eq(str(v["hair_style"]), str(sp["hair_style"]), "the %s portrait has the owner's hair" % g)
+		check(Color.html(str(v["apron"])).is_equal_approx(sp["apron"]), "the %s portrait has the owner's apron" % g)
+		eq(bool(v["lashes"]), bool(sp["lashes"]), "the %s portrait has lashes like the model" % g)
+		var p := ProceduralUIFactory.ChibiPortrait.new()
+		p.configure(v, "baker", 1)
+		check(p.backdrop.is_equal_approx(Color.html(str(v["backdrop"]))), "the %s portrait sits on its own pastel" % g)
+		p.free()
+	check(str(NewGameScreen.portrait_visual("male")["backdrop"]) != str(NewGameScreen.portrait_visual("female")["backdrop"]), "the two portraits have different backdrops")
+	var staff := ProceduralUIFactory.ChibiPortrait.new()
+	staff.configure({"hair_style": "kuncir_ganda", "apron": "#fffbf5"}, "cashier", 1)
+	check(staff.lashes, "soft hair styles get lashes, as on the 3D staff")
+	staff.free()
+	var ps := ProfileScreen.new()
+	ps.params = {"mode": "load"}
+	var full: Control = ps._card(1, {"profile_id": &"profile_1", "exists": true, "bakery_name": "Art", "day": 3,
+		"location_id": "location_t3_independent_bakery", "balance_kr": 10.0, "badges": [], "last_played_at": ""})
+	var art: ShopFrontArt = full.find_child("ShopArt", true, false) as ShopFrontArt
+	check(art != null and art.tier == 3, "a Tier 3 save shows the Tier 3 bakery")
+	var empty: Control = ps._card(2, {"profile_id": &"profile_2", "exists": false})
+	var art2: ShopFrontArt = empty.find_child("ShopArt", true, false) as ShopFrontArt
+	check(art2 != null and art2.tier == 0, "an empty slot shows the '+' silhouette")
+	full.free()
+	empty.free()
+	ps.free()
 
 
 ## Pemolesan UI flat 2026-11-03 (GDD idle 20 no. 47).

@@ -2178,10 +2178,13 @@ class DashedSeparator extends Control:
 
 
 ## Potret chibi 2D untuk kartu polaroid staf dan layar pilih karakter (GDD 3.4,
-## 3.5, 7, 12.3). Gaya flat sederhana: bidang warna polos tanpa garis tepi,
-## gradasi, atau kilau, dari elips dan poligon membulat di `_draw()` (tanpa
-## gambar dan tanpa SubViewport 3D). Semua ukuran diturunkan dari `hr`
-## (jari-jari kepala), jadi tetap rapi di ukuran berapa pun.
+## 3.5, 7, 12.3). Gaya flat: bidang warna polos tanpa garis tepi, gradasi, atau
+## bayangan, dari elips dan poligon membulat di `_draw()` (tanpa gambar dan tanpa
+## SubViewport 3D). Detailnya bidang warna kedua (pemolesan UI 2026-11-03): mata
+## beriris dengan dua titik cahaya dan bulu mata untuk rambut lembut, alis,
+## hidung, senyum terbuka, kilau rambut, kerah, saku celemek berhias roti,
+## lipatan topi koki, totol bandana, dan kilau kecil di latar. Semua ukuran
+## diturunkan dari `hr` (jari-jari kepala), jadi tetap rapi di ukuran berapa pun.
 class ChibiPortrait extends Control:
 
 	const EYE: Color = Color(0.24, 0.13, 0.07)
@@ -2195,6 +2198,8 @@ class ChibiPortrait extends Control:
 	var hat: String = "none"
 	var accessory: Array = []
 	var chubby: float = 0.0
+	## Bulu mata (rambut lembut, sama dengan model 3D: CharacterFactory.LASH_STYLES).
+	var lashes: bool = false
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(168.0, 156.0)
@@ -2215,8 +2220,10 @@ class ChibiPortrait extends Control:
 		hair_style = String(visual.get("hair_style", "pendek"))
 		hat = String(visual.get("hat", "none"))
 		chubby = clampf(float(visual.get("chubby", 0.0)), 0.0, 1.0)
-		# Latar mengikuti warna celemek orangnya sendiri (staf tidak punya tier).
-		backdrop = apron.lerp(Palette.VANILLA_CREAM, 0.72)
+		lashes = bool(visual.get("lashes", CharacterFactory.LASH_STYLES.has(hair_style)))
+		# Latar mengikuti warna celemek orangnya sendiri (staf tidak punya tier),
+		# kecuali pemanggil memberi warnanya (layar pilih karakter).
+		backdrop = _col(visual.get("backdrop"), apron.lerp(Palette.VANILLA_CREAM, 0.72))
 		# Celemek terang di atas kemeja krem hangat; celemek berwarna di atas kemeja putih.
 		shirt = Color(0.93, 0.86, 0.76) if apron.get_luminance() > 0.85 else Palette.FLOUR_WHITE
 		queue_redraw()
@@ -2237,6 +2244,12 @@ class ChibiPortrait extends Control:
 		var c: Vector2 = Vector2(r.size.x * 0.5, r.size.y * 0.52)
 		draw_colored_polygon(ProceduralUIFactory.rounded_points(r, 10.0), backdrop)
 		_disc(c + Vector2(0.0, -hr * 0.05), hr * 1.50, backdrop.lightened(0.18))
+		# Kilau kecil di latar (bintang empat sudut dan titik), suasana ceria.
+		var glint: Color = backdrop.lightened(0.45)
+		_sparkle(c + Vector2(-hr * 1.62, -hr * 0.95), hr * 0.20, glint)
+		_sparkle(c + Vector2(hr * 1.58, -hr * 0.40), hr * 0.15, glint)
+		_disc(c + Vector2(hr * 1.30, -hr * 1.15), hr * 0.07, glint)
+		_disc(c + Vector2(-hr * 1.40, hr * 0.10), hr * 0.06, glint)
 		var body_top: float = c.y + hr * 0.78
 		_hair_back(c, hr)
 		_body(c, hr, body_top, r.size.y)
@@ -2267,6 +2280,15 @@ class ChibiPortrait extends Control:
 	func _box(rect: Rect2, radius: float, col: Color) -> void:
 		draw_colored_polygon(ProceduralUIFactory.rounded_points(rect, radius), col)
 
+	## Bintang kilau empat sudut.
+	func _sparkle(p: Vector2, rad: float, col: Color) -> void:
+		var pts: PackedVector2Array = PackedVector2Array()
+		for i in 8:
+			var a: float = -PI * 0.5 + PI * float(i) / 4.0
+			var rr: float = rad if i % 2 == 0 else rad * 0.30
+			pts.append(p + Vector2(cos(a) * rr, sin(a) * rr))
+		draw_colored_polygon(pts, col)
+
 	func _head_rx(hr: float) -> float:
 		return hr * (1.0 + chubby * 0.08)
 
@@ -2278,30 +2300,59 @@ class ChibiPortrait extends Control:
 		var shade: Color = skin.darkened(0.08)
 		_box(Rect2(c.x - hr * 0.21, c.y + hr * 0.55, hr * 0.42, body_top - c.y - hr * 0.40), hr * 0.06, shade)
 		_box(Rect2(c.x - bw * 0.5, body_top, bw, deep), bw * 0.36, shirt)
-		# Leher baju berbentuk V.
+		# Lengan baju di kedua bahu (bidang kedua yang sedikit lebih gelap).
+		var sleeve: Color = shirt.darkened(0.05)
+		for sx: float in [-1.0, 1.0]:
+			_oval(Vector2(c.x + sx * bw * 0.38, body_top + hr * 0.70), bw * 0.10, hr * 0.55, sleeve)
+		# Leher baju berbentuk V dengan kerah lancip.
 		draw_colored_polygon(PackedVector2Array([Vector2(c.x - hr * 0.30, body_top - hr * 0.01),
 			Vector2(c.x + hr * 0.30, body_top - hr * 0.01), Vector2(c.x, body_top + hr * 0.30)]), shade)
-		# Celemek polos dengan tali leher.
+		var collar: Color = shirt.lightened(0.35) if shirt.get_luminance() < 0.9 else shirt.darkened(0.05)
+		for sx2: float in [-1.0, 1.0]:
+			draw_colored_polygon(PackedVector2Array([Vector2(c.x + sx2 * hr * 0.04, body_top + hr * 0.26),
+				Vector2(c.x + sx2 * hr * 0.30, body_top - hr * 0.03), Vector2(c.x + sx2 * hr * 0.52, body_top + hr * 0.04),
+				Vector2(c.x + sx2 * hr * 0.30, body_top + hr * 0.30)]), collar)
+		# Celemek dengan tali leher, saku depan, dan hiasan roti kecil.
 		var bib: Rect2 = Rect2(c.x - bw * 0.28, body_top + hr * 0.30, bw * 0.56, deep)
 		draw_line(Vector2(c.x - bw * 0.24, bib.position.y + hr * 0.04), Vector2(c.x - hr * 0.32, body_top + hr * 0.02), apron, hr * 0.11, true)
 		draw_line(Vector2(c.x + bw * 0.24, bib.position.y + hr * 0.04), Vector2(c.x + hr * 0.32, body_top + hr * 0.02), apron, hr * 0.11, true)
 		_box(bib, hr * 0.16, apron)
+		var trim: Color = apron.darkened(0.10) if apron.get_luminance() > 0.35 else apron.lightened(0.18)
+		_box(Rect2(c.x - bw * 0.20, body_top + hr * 0.92, bw * 0.40, hr * 0.42), hr * 0.10, trim)
+		var bun: Vector2 = Vector2(c.x, body_top + hr * 0.62)
+		var bread: Color = Palette.CUSTARD if apron.get_luminance() < 0.7 else Palette.GOLDEN_CRUST
+		_oval(bun, hr * 0.17, hr * 0.12, bread)
+		_box(Rect2(bun.x - hr * 0.17, bun.y, hr * 0.34, hr * 0.10), hr * 0.04, bread)
+		draw_line(bun + Vector2(-hr * 0.07, -hr * 0.06), bun + Vector2(-hr * 0.03, hr * 0.02), bread.darkened(0.25), hr * 0.035, true)
+		draw_line(bun + Vector2(hr * 0.03, -hr * 0.06), bun + Vector2(hr * 0.07, hr * 0.02), bread.darkened(0.25), hr * 0.035, true)
 
 	# --- kepala & wajah -------------------------------------------------------
 
 	func _head(c: Vector2, hr: float) -> void:
 		var rx: float = _head_rx(hr)
-		_disc(Vector2(c.x - rx * 0.97, c.y + hr * 0.10), hr * 0.20, skin)
-		_disc(Vector2(c.x + rx * 0.97, c.y + hr * 0.10), hr * 0.20, skin)
+		for sx: float in [-1.0, 1.0]:
+			_disc(Vector2(c.x + sx * rx * 0.97, c.y + hr * 0.10), hr * 0.20, skin)
+			_oval(Vector2(c.x + sx * rx * 1.0, c.y + hr * 0.12), hr * 0.09, hr * 0.11, skin.darkened(0.10))
 		_oval(c, rx, hr * 0.95, skin)
 
 	func _face(c: Vector2, hr: float) -> void:
 		var blush: Color = Color(Palette.ROSY_CHEEK, 0.5)
+		var brow: Color = hair.darkened(0.12) if hair.get_luminance() > 0.25 else hair.lightened(0.05)
 		for sx: float in [-1.0, 1.0]:
 			_oval(c + Vector2(sx * hr * 0.60, hr * 0.33), hr * 0.17, hr * 0.10, blush)
+			# Mata: bidang gelap, iris cokelat di bawah, dua titik cahaya.
 			var e: Vector2 = c + Vector2(sx * hr * 0.36, hr * 0.06)
-			_oval(e, hr * 0.11, hr * 0.15, EYE)
-			_disc(e + Vector2(-hr * 0.035, -hr * 0.05), hr * 0.045, Palette.FLOUR_WHITE)
+			_oval(e, hr * 0.12, hr * 0.16, EYE)
+			_oval(e + Vector2(0.0, hr * 0.06), hr * 0.08, hr * 0.07, CharacterFactory.EYE_IRIS)
+			_disc(e + Vector2(-hr * 0.04, -hr * 0.06), hr * 0.05, Palette.FLOUR_WHITE)
+			_disc(e + Vector2(hr * 0.04, hr * 0.07), hr * 0.022, Palette.FLOUR_WHITE)
+			if lashes:
+				draw_line(e + Vector2(sx * hr * 0.09, -hr * 0.11), e + Vector2(sx * hr * 0.18, -hr * 0.17), EYE, hr * 0.045, true)
+				draw_line(e + Vector2(sx * hr * 0.11, -hr * 0.05), e + Vector2(sx * hr * 0.20, -hr * 0.08), EYE, hr * 0.040, true)
+			# Alis pendek melengkung.
+			draw_arc(e + Vector2(0.0, -hr * 0.08), hr * 0.15, PI * 1.25, PI * 1.75, 10, brow, hr * 0.055, true)
+		# Hidung kecil.
+		_oval(c + Vector2(0.0, hr * 0.19), hr * 0.055, hr * 0.04, skin.darkened(0.12))
 		if hair_style == "jenggot":
 			var rx: float = _head_rx(hr)
 			var band: PackedVector2Array = _ell(c + Vector2(0.0, hr * 0.02), rx * 0.99, hr * 0.97, PI * 0.12, PI * 0.88, 18)
@@ -2309,7 +2360,9 @@ class ChibiPortrait extends Control:
 			inner.reverse()
 			band.append_array(inner)
 			draw_colored_polygon(band, hair)
-		draw_arc(c + Vector2(0.0, hr * 0.24), hr * 0.16, PI * 0.2, PI * 0.8, 12, EYE, hr * 0.055, true)
+		# Senyum terbuka dengan lidah merah muda.
+		draw_colored_polygon(_ell(c + Vector2(0.0, hr * 0.29), hr * 0.13, hr * 0.12, 0.0, PI, 14), CharacterFactory.MOUTH_COLOR)
+		_oval(c + Vector2(0.0, hr * 0.36), hr * 0.07, hr * 0.04, Palette.STRAWBERRY.lightened(0.15))
 
 	# --- rambut ---------------------------------------------------------------
 
@@ -2367,6 +2420,13 @@ class ChibiPortrait extends Control:
 			"jenggot":
 				locks = 0.28
 		draw_colored_polygon(_cap(c, hr, rx, base, bumps, amp, tilt), hair)
+		# Kilau rambut: bulan sabit terang di sisi kiri atas (bidang kedua, flat).
+		if hat in ["none", "bando", "bando_kelinci", "bandana", "hachimaki"]:
+			var shine: PackedVector2Array = _ell(c + Vector2(-rx * 0.05, -hr * 0.05), rx * 0.86, hr * 0.84, PI * 1.12, PI * 1.42, 10)
+			var inner: PackedVector2Array = _ell(c + Vector2(-rx * 0.02, -hr * 0.02), rx * 0.74, hr * 0.72, PI * 1.12, PI * 1.42, 10)
+			inner.reverse()
+			shine.append_array(inner)
+			draw_colored_polygon(shine, hair.lightened(0.22))
 		if locks > 0.0:
 			for sx: float in [-1.0, 1.0]:
 				var top: Vector2 = c + Vector2(sx * rx * 0.90, 0.0)
@@ -2484,10 +2544,19 @@ class ChibiPortrait extends Control:
 		var white: Color = Palette.FLOUR_WHITE
 		match hat:
 			"topi_koki":
-				_disc(Vector2(c.x - rx * 0.50, c.y - hr * 1.10), hr * 0.38, white)
-				_disc(Vector2(c.x, c.y - hr * 1.30), hr * 0.46, white)
-				_disc(Vector2(c.x + rx * 0.50, c.y - hr * 1.10), hr * 0.38, white)
+				# Tiga gumpal empuk dengan bidang teduh di bawahnya, lalu pita
+				# berlipat.
+				var puff: Color = Color(0.93, 0.90, 0.85)
+				_disc(Vector2(c.x - rx * 0.48, c.y - hr * 1.06), hr * 0.38, puff)
+				_disc(Vector2(c.x + rx * 0.52, c.y - hr * 1.06), hr * 0.38, puff)
+				_disc(Vector2(c.x - rx * 0.52, c.y - hr * 1.12), hr * 0.36, white)
+				_disc(Vector2(c.x + rx * 0.48, c.y - hr * 1.12), hr * 0.36, white)
+				_disc(Vector2(c.x + rx * 0.04, c.y - hr * 1.26), hr * 0.46, puff)
+				_disc(Vector2(c.x, c.y - hr * 1.32), hr * 0.44, white)
 				_box(Rect2(c.x - rx * 0.80, c.y - hr * 1.16, rx * 1.60, hr * 0.44), hr * 0.12, white)
+				for k in 4:
+					var px: float = c.x - rx * 0.48 + rx * 0.32 * float(k)
+					draw_line(Vector2(px, c.y - hr * 1.10), Vector2(px, c.y - hr * 0.78), puff, hr * 0.05, true)
 			"toque":
 				_box(Rect2(c.x - rx * 0.70, c.y - hr * 1.80, rx * 1.40, hr * 0.94), hr * 0.28, white)
 				_box(Rect2(c.x - rx * 0.82, c.y - hr * 1.16, rx * 1.64, hr * 0.44), hr * 0.12, white)
@@ -2503,6 +2572,11 @@ class ChibiPortrait extends Control:
 				_oval(knot + Vector2(hr * 0.16, hr * 0.32), hr * 0.10, hr * 0.20, col)
 				_band(c, rx, hr, col, 0.28)
 				_disc(knot, hr * 0.11, col.darkened(0.12))
+				if hat == "bandana":
+					# Totol putih di sepanjang bandana.
+					for k2 in 5:
+						var a: float = PI * (1.18 + 0.16 * float(k2))
+						_disc(c + Vector2(0.0, -hr * 0.02) + Vector2(cos(a) * rx * 0.95, sin(a) * hr * 0.91), hr * 0.05, Color(white, 0.85))
 				if hat == "hachimaki":
 					_disc(Vector2(c.x, c.y - hr * 0.92), hr * 0.10, Palette.DANGER)
 			"bando", "bando_kelinci":

@@ -67,16 +67,23 @@ func _char_card(g: String) -> Control:
 	var body: VBoxContainer = ProceduralUIFactory.content_of(card)
 	var portrait := ProceduralUIFactory.ChibiPortrait.new()
 	portrait.custom_minimum_size = Vector2(220, 200)
-	var visual: Dictionary = {"skin": "#f2c9a0", "hair": "#2b2118", "hair_style": "pendek", "hat": "topi_koki", "chubby": 0.18, "apron": "#4a3226"}
-	if g == "female":
-		visual = {"skin": "#fad9bc", "hair": "#4a3121", "hair_style": "panjang_kepang", "hat": "bandana", "chubby": 0.1, "apron": "#ffcba4"}
-	portrait.configure(visual, "baker", 1)
+	portrait.configure(portrait_visual(g), "baker", 1)
 	body.add_child(portrait)
 	var b: Button = btn(body, Tx.t("ui_character_male") if g == "male" else Tx.t("ui_character_female"), "primary" if selected else "secondary", func() -> void:
 		_gender = g
 		_render())
 	b.custom_minimum_size = Vector2(200, 56)
 	return card
+
+
+## Tampilan potret pemilik (sama dengan model 3D-nya,
+## CharacterFactory.spec_for_player), di atas latar pastel masing-masing.
+static func portrait_visual(g: String) -> Dictionary:
+	if g == "female":
+		return {"skin": "#fad9bc", "hair": "#4a3121", "hair_style": "panjang_kepang", "hat": "bandana", "chubby": 0.1,
+			"apron": "#ffcba4", "lashes": true, "backdrop": "#ffd9d3"}
+	return {"skin": "#f2c9a0", "hair": "#2b2118", "hair_style": "pendek", "hat": "topi_koki", "chubby": 0.18,
+		"apron": "#4a3226", "lashes": false, "backdrop": "#cfe9dc"}
 
 
 func _render_name() -> void:

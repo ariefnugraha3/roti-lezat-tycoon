@@ -33,10 +33,19 @@ func _card(n: int, h: Dictionary) -> Control:
 	var exists: bool = bool(h.get("exists", false))
 	var corrupt: bool = bool(h.get("corrupt", false))
 	var classic: bool = bool(h.get("classic", false))
-	var ic := CenterContainer.new()
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ic.add_child(ProceduralUIFactory.icon("shop", 48, Palette.GOLDEN_CRUST if exists else Palette.TEXT_MUTED))
-	row.add_child(ic)
+	# Gambar toko roti sesuai tier lokasi save; profil kosong = siluet dengan "+".
+	var art := ShopFrontArt.new()
+	art.name = "ShopArt"
+	art.custom_minimum_size = Vector2(96, 96)
+	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	art.tier = 0
+	if exists and not corrupt and not classic:
+		var ldef: LocationDefinition = DataRegistry.location(StringName(str(h.get("location_id", ""))))
+		art.tier = ldef.tier if ldef != null else 1
+	elif exists:
+		art.tier = 1
+		art.modulate = Color(1.0, 1.0, 1.0, 0.45)
+	row.add_child(art)
 	var body := VBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 4)
