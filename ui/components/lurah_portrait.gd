@@ -2,11 +2,11 @@ class_name LurahPortrait
 extends Control
 ## Potret Pak Lurah (v3.1 3.0.A, 12.3.3 potret 2D) digambar dengan _draw():
 ## chibi tambun ramah berpeci beludru hitam, rambut dan kumis tebal beruban,
-## baju safari krem berkerah dengan saku dada, pena, dan lencana emas, sambil
-## melambai. Avatar bundar mint di belakangnya; badan dipotong lingkaran itu,
-## tangan yang melambai boleh keluar sedikit. Flat (v3.1 130.6): bidang warna
-## polos tanpa garis tepi, bayangan, atau gradasi. Dipakai popup tutorial,
-## Selamat Datang, dan cutscene Waralaba (GDD idle 9.5, 10.6, 13).
+## baju safari krem berkerah dengan saku dada, pena, dan lencana emas. Avatar
+## bundar mint di belakangnya; badan dipotong lingkaran itu. Tanpa tangan
+## (keputusan maintainer 2026-11-03). Flat (v3.1 130.6): bidang warna polos
+## tanpa garis tepi, bayangan, atau gradasi. Dipakai popup tutorial, Selamat
+## Datang, dan cutscene Waralaba (GDD idle 9.5, 10.6, 13).
 
 ## Warna safari krem (sama dengan model 3D-nya, CharacterFactory.spec_for_lurah).
 const SAFARI: Color = Color(0.827, 0.780, 0.596)  # #D3C798
@@ -35,7 +35,6 @@ func _draw() -> void:
 	draw_circle(o + Vector2(-0.74, -0.42) * u, u * 0.03, Color(Palette.FLOUR_WHITE, 0.8), true, -1.0, true)
 	_body(o, u)
 	_head(o, u)
-	_wave(o, u)
 
 
 # --- alat gambar -------------------------------------------------------------
@@ -156,26 +155,3 @@ func _peci(hc: Vector2, u: float) -> void:
 		pts.append(hc + Vector2(x, bottom + 0.05 * (1.0 - pow(x / 0.45, 2.0))) * u)
 	draw_colored_polygon(pts, PECI)
 	draw_colored_polygon(_box(Rect2(hc + Vector2(-0.36, top) * u, Vector2(0.72, 0.07) * u), u * 0.03), PECI.lightened(0.14))
-
-
-# --- tangan melambai ---------------------------------------------------------
-
-func _wave(o: Vector2, u: float) -> void:
-	var skin: Color = CharacterFactory.SKIN_TAN
-	var from: Vector2 = o + Vector2(0.62, 0.52) * u
-	var to: Vector2 = o + Vector2(0.80, 0.06) * u
-	draw_line(from, to, SAFARI.darkened(0.05), u * 0.24, true)
-	draw_circle(from, u * 0.12, SAFARI.darkened(0.05), true, -1.0, true)
-	draw_circle(to, u * 0.12, SAFARI.darkened(0.05), true, -1.0, true)
-	# Telapak terbuka: empat jari terpisah di atas telapak, ibu jari ke samping.
-	var h: Vector2 = o + Vector2(0.84, -0.10) * u
-	_oval(h + Vector2(-0.13, -0.01) * u, u * 0.07, u * 0.045, skin)
-	_oval(h, u * 0.12, u * 0.11, skin)
-	for k in 4:
-		var fx: float = -0.09 + 0.06 * float(k)
-		var fy: float = -0.13 - (0.02 if k == 1 or k == 2 else 0.0)
-		draw_colored_polygon(_box(Rect2(h + Vector2(fx - 0.024, fy - 0.06) * u, Vector2(0.048, 0.16) * u), u * 0.021), skin)
-	# Garis gerak kecil di samping tangan.
-	for k2 in 2:
-		draw_arc(h, u * (0.21 + 0.07 * float(k2)), -PI * 0.70, -PI * 0.38, 8,
-			Color(Palette.UI_WOOD, 0.45), maxf(1.5, u * 0.03), true)
