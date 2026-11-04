@@ -510,13 +510,11 @@ func _sync_actors(delta: float) -> void:
 			continue
 		_apply_customer_carry(v, c)
 		v.set_receive(_receive_amount(c))
-		# Tanpa bar kesabaran (keputusan maintainer 2026-11-04, GDD idle 6.4): toko
-		# berjalan sendiri, jadi pemain tidak perlu mengawasinya. Kesabarannya tetap
-		# berkurang di simulasi; "..." tampil saat hampir habis.
+		# Tanpa kesabaran dan tanpa bar-nya (keputusan maintainer 2026-11-04, GDD
+		# idle 6.4): pembeli menunggu sampai dilayani.
 		# Pengunjung lihat-lihat dan pembeli yang memeriksa rak kosong menoleh
 		# ke sana kemari di depan rak (GDD 20.12, idle 6.2).
 		v.set_look_around((c.window_shopper or c.checking_shelf) and c.state == Customer.BROWSING and not a2.moving)
-		v.set_thought("..." if c.drains_patience() and c.patience_ratio() < 0.3 else "")
 	for o: DeliveryOrder in sim.rotifood.orders.values():
 		if o.driver == null:
 			continue

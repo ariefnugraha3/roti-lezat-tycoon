@@ -66,7 +66,7 @@ const CATALOG_FILES: Array[String] = [
 ]
 ## Upgrade global yang dikenal (GDD idle 8.9).
 const GLOBAL_UPGRADES: Array[String] = ["global_offline_hours", "global_offline_efficiency", "global_tap_power",
-	"global_walk_speed", "global_queue_patience"]
+	"global_walk_speed", "global_fast_checkout"]
 ## Perk waralaba yang dikenal (GDD idle 10.4).
 const PERKS: Array[String] = ["perk_offline_plus", "perk_head_start", "perk_free_baker", "perk_tap_double",
 	"perk_offline_efficiency", "perk_ruko_start", "perk_recipe_memory", "perk_milestone_triple"]
@@ -705,8 +705,6 @@ func _validate_customers() -> void:
 	for c: CustomerArchetypeDefinition in _archetypes:
 		_check_id(c.id, seen, "customer")
 		_check_text(c.localization_key, String(c.id))
-		if c.base_patience_seconds <= 0.0 or is_inf(c.base_patience_seconds):
-			_err("customer %s patience must be finite and > 0" % c.id)
 		if c.movement_speed_mps <= 0.0:
 			_err("customer %s speed must be > 0" % c.id)
 		if c.quantity_min < 1 or c.quantity_max < c.quantity_min or c.quantity_preferred < c.quantity_min or c.quantity_preferred > c.quantity_max:

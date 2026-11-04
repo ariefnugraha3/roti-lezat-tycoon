@@ -7,7 +7,7 @@ extends RefCounted
 const ICONS: Dictionary = {
 	&"mixer": "whisk", &"oven": "fire", &"display": "bread", &"counter": "bag",
 	&"global_offline_hours": "moon", &"global_offline_efficiency": "hourglass", &"global_tap_power": "bolt",
-	&"global_walk_speed": "scooter", &"global_queue_patience": "heart",
+	&"global_walk_speed": "scooter", &"global_fast_checkout": "cart",
 }
 
 
@@ -84,8 +84,8 @@ static func effect_at(sim: SimulationRoot, o: Dictionary, level: int) -> String:
 					return Tx.t("ui_effect_tap_power", {"value": _x(1.0 + v)})
 				&"global_walk_speed":
 					return Tx.t("ui_effect_walk_speed", {"value": _x(1.0 + v)})
-				&"global_queue_patience":
-					return Tx.t("ui_effect_patience", {"value": _x(1.0 + v)})
+				&"global_fast_checkout":
+					return Tx.t("ui_effect_checkout_speed", {"value": _x(1.0 + v)})
 	return ""
 
 

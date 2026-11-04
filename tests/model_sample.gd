@@ -97,7 +97,6 @@ static func measure(sim: SimulationRoot, warm: float, hours: float) -> Dictionar
 		"entered": (sim.statistics.get_stat("total_customers_entered") - float(st0["total_customers_entered"])) / hours,
 		"served": (sim.statistics.get_stat("total_customers_served") - float(st0["total_customers_served"])) / hours,
 		"missed": (sim.statistics.get_stat("total_customers_missed") - float(st0["total_customers_missed"])) / hours,
-		"lost": (sim.statistics.get_stat("total_customers_lost_patience") - float(st0["total_customers_lost_patience"])) / hours,
 		"nostock": (sim.statistics.get_stat("total_customers_left_no_purchase") - float(st0["total_customers_left_no_purchase"])) / hours,
 		"rf_done": (sim.statistics.get_stat("total_rotifood_orders_completed") - float(st0["total_rotifood_orders_completed"])) / hours,
 		"rf_exp": (sim.statistics.get_stat("total_rotifood_orders_expired") - float(st0["total_rotifood_orders_expired"])) / hours,

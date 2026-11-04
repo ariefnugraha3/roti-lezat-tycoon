@@ -5,7 +5,6 @@ extends RefCounted
 
 var id: StringName
 var localization_key: StringName
-var base_patience_seconds: float = 0.0
 var movement_speed_mps: float = 0.0
 var quantity_preferred: int = 1
 var quantity_min: int = 1
@@ -27,7 +26,6 @@ static func from_dict(d: Dictionary) -> CustomerArchetypeDefinition:
 	var c := CustomerArchetypeDefinition.new()
 	c.id = StringName(str(d.get("id", "")))
 	c.localization_key = StringName(str(d.get("localization_key", "")))
-	c.base_patience_seconds = float(d.get("base_patience_seconds", 0.0))
 	c.movement_speed_mps = float(d.get("movement_speed_mps", 0.0))
 	var q: Dictionary = d.get("quantity", {})
 	c.quantity_preferred = int(q.get("preferred", 1))

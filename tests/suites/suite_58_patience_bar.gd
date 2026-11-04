@@ -1,13 +1,12 @@
 extends TestSuite
-## Tanpa bar kesabaran (keputusan maintainer 2026-11-04, GDD idle 6.4): toko
-## idle berjalan sendiri, jadi pembeli yang mengantre dan driver RotiFood tidak
-## lagi memamerkan bar di atas kepala. Kesabarannya tetap berkurang di simulasi,
-## dan pembeli yang kesabarannya habis tetap pulang.
+## Tanpa kesabaran pembeli (keputusan maintainer 2026-11-04, GDD idle 6.4): toko
+## idle berjalan sendiri, jadi pembeli yang mengantre menunggu sampai dilayani
+## dan tidak ada bar di atas kepala pembeli maupun driver RotiFood.
 
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_20_NO_PATIENCE_BAR", "name": "idle 6.4 a queuing buyer shows no patience bar above the head, yet their patience still runs down and they leave when it runs out", "fn": _no_bar},
+		{"id": "ACC_20_NO_PATIENCE_BAR", "name": "idle 6.4 a queuing buyer shows no patience bar above the head and keeps waiting until served", "fn": _no_bar},
 	]
 
 
@@ -42,26 +41,19 @@ func _no_bar() -> void:
 	s.customers.try_admit({"archetype": &"customer_generic"})
 	var c: Customer = s.customers.sorted()[0]
 	var t: float = 0.0
-	while not c.drains_patience() and t < 120.0:
+	while not c.is_waiting() and t < 120.0:
 		s.step(s.tick_seconds)
 		world._process(s.tick_seconds)
 		t += s.tick_seconds
-	check(c.drains_patience(), "the buyer reaches the cashier queue")
+	check(c.is_waiting(), "the buyer reaches the cashier queue")
 	var v: ActorView = world.views.get(c.id)
 	world._process(0.016)
 	check(v != null and not _has_bar(v), "no patience bar above a queuing buyer")
-	var first: float = c.patience_ratio()
-	for i in 200:
+	for i in 1200:
 		s.step(s.tick_seconds)
 		world._process(s.tick_seconds)
-	check(c.patience_ratio() < first - 0.1, "patience still runs down while waiting (%.2f -> %.2f)" % [first, c.patience_ratio()])
-	check(v != null and not _has_bar(v), "and still no bar")
-	var lost: float = s.statistics.get_stat("total_customers_lost_patience")
-	while c.drains_patience() and t < 600.0:
-		s.step(s.tick_seconds)
-		world._process(s.tick_seconds)
-		t += s.tick_seconds
-	eq(s.statistics.get_stat("total_customers_lost_patience"), lost + 1.0, "a buyer whose patience runs out still leaves")
+	check(c.is_waiting() and s.customers.customer(c.id) != null, "a minute later the buyer is still in line")
+	check(v != null and not _has_bar(v), "still without a bar")
 	world.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(s)

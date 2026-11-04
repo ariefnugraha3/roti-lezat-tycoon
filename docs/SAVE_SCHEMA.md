@@ -77,11 +77,11 @@ which keeps fixtures deterministic.
 | `clock` | object | `TimeManager.capture()`: `day`, `time_seconds` (seconds since 00:00), `sim_seconds`. The clock runs 24 hours a day (idle GDD §3.1). |
 | `location_id` | string | Canonical location ID. Unknown IDs fail validation. |
 | `economy` | object | `balance_kr` (a number, or `"INF"` after the overflow guard), `ledger_recent` (last 200 entries), `historical_totals` (per-category sums of older entries), `ledger_sequence`, `overflowed`. |
-| `upgrades` | object | `UpgradeManager.capture()`: `stations` (iid → level), `counter` (level), `recipes` (recipe ID → level; **the keys are the unlocked recipes**, idle GDD §15.3 `recipes_unlocked`), `staff` (staff ID → level), `global` (upgrade ID → level). |
+| `upgrades` | object | `UpgradeManager.capture()`: `stations` (iid → level), `counter` (level), `recipes` (recipe ID → level; **the keys are the unlocked recipes**, idle GDD §15.3 `recipes_unlocked`), `staff` (staff ID → level), `global` (upgrade ID → level). Saves from before 2026-11-04 move `global_queue_patience` levels to `global_fast_checkout`. |
 | `display_inventory` | object | Display iid → `{tier, slots: [{assign, recipe, stacks}]}`. `assign` is the recipe the player set for that slot, or `""` for Auto (idle GDD §15.3 `slot_recipes`). `BreadStack`: `recipe_id`, `quantity`, `slot_id`, `source_job_id`, `produced_at_game_time`. There is no freshness, age or quality any more. |
 | `production_jobs` | object | `jobs` (stage, `stage_duration`/`stage_elapsed`, batch, mixer/oven iid, target slot, `claimed_by`, `carrier_id`, `table_seq`, …), `next_job_id`, `next_table_seq`. No burn stage exists. |
 | `equipment_states` | object | `items: [{iid, def_id, floor_id, grid_x, grid_y, rotation_quarters, placed, job_id}]`, `next_iid`. `def_id` carries the evolved model tier. |
-| `customers` | object | Active customers (state, patience, held lots, targets, `checking_shelf` for a buyer looking at an empty shelf, `actor`) and `next_num`/`next_window_num`. A save without `checking_shelf` loads it as false. |
+| `customers` | object | Active customers (state, held lots, targets, `checking_shelf` for a buyer looking at an empty shelf, `actor`) and `next_num`/`next_window_num`. A save without `checking_shelf` loads it as false. |
 | `queues` | object | Per lane: reservations, line and service occupant; `highest_occupancy`. |
 | `cashier` | object | In-progress transactions per lane. |
 | `demand` | object | Next walk-in, RotiFood and window-shopper times and the pending pool. |

@@ -8,7 +8,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_STARTING_CASH", "name": "idle 7.1: a new game opens with start_kr in one ledger entry", "fn": _starting_cash},
 		{"id": "ACC_IDLE_START_RATE", "name": "idle 7.1, 7.6: a new shop earns 1.00 KR/s without boosts, and a cost with cents is affordable exactly when the balance holds the amount charged", "fn": _start_rate},
 		{"id": "ACC_55_OJOL_QUEUE", "name": "55.3 dedicated RotiFood queue at Tier 3+", "fn": _ojol_queue},
-		{"id": "ACC_55_PATIENCE", "name": "55.4/58 patience drain (the bar itself was removed, idle 6.4)", "fn": _patience},
+		{"id": "ACC_IDLE_NO_PATIENCE", "name": "idle 6.4 buyers have no patience: one alone in an unserved queue still waits five minutes later; only RotiFood drivers keep theirs", "fn": _patience},
 		{"id": "ACC_SPATIAL", "name": "Appendix spatial scale 1-10", "fn": _spatial},
 		{"id": "ACC_LAYOUT_SOLVER", "name": "opening stations fills every tier's slots with a valid layout", "fn": _layout_solver},
 		{"id": "ACC_81_PLACEMENT", "name": "81.1/81.4 placement keeps paths and access tiles", "fn": _placement},
@@ -76,19 +76,15 @@ func _ojol_queue() -> void:
 
 func _patience() -> void:
 	var c := Customer.new()
-	c.patience_max = 30.0
-	c.patience = 15.0
-	near(c.patience_ratio(), 0.5, 0.0001, "bar ratio 0.5 (v3.1 55.4)")
 	for st: StringName in [Customer.APPROACHING, Customer.ENTERING, Customer.BROWSING, Customer.SELECTING, Customer.CARRYING_TO_QUEUE]:
 		c.state = st
-		check(not c.drains_patience(), "%s does not drain patience" % st)
-	var table: Dictionary = {&"customer_school_child": 55.0, &"customer_office_worker": 18.0, &"customer_bulk_buyer": 45.0,
-		&"customer_snob": 28.0, &"customer_indecisive": 60.0, &"customer_critic": 25.0, &"customer_generic": 35.0}
-	for id: StringName in table.keys():
-		near(DataRegistry.archetype(id).base_patience_seconds, float(table[id]), 0.001, "%s patience (v3.1 58)" % id)
-	near(float(DataRegistry.driver_def()["base_patience_seconds"]), 30.0, 0.001, "driver patience 30 s")
+		check(not c.is_waiting(), "%s is not waiting at the cashier" % st)
+	for st2: StringName in [Customer.QUEUING, Customer.FRONT_OF_QUEUE, Customer.BEING_SERVED]:
+		c.state = st2
+		check(c.is_waiting(), "%s waits at the cashier" % st2)
+	near(float(DataRegistry.driver_def()["base_patience_seconds"]), 30.0, 0.001, "RotiFood drivers keep their 30 s patience")
 	# Office Worker sendirian di antrean yang tidak dilayani (pemilik diparkir):
-	# 1,0/s selama 10 s, lalu ×1,15 karena tanpa progres (v3.1 58).
+	# dulu pergi setelah ~17 detik; kini menunggu sampai dilayani (idle 6.4).
 	var s: SimulationRoot = new_sim(44)
 	freeze_production(s)
 	park_owner(s)
@@ -99,18 +95,14 @@ func _patience() -> void:
 	s.customers.try_admit({"archetype": &"customer_office_worker"})
 	var cu: Customer = s.customers.sorted()[0]
 	var guard: int = 0
-	while not cu.drains_patience() and guard < 4000:
+	while not cu.is_waiting() and guard < 4000:
 		s.step(s.tick_seconds)
 		guard += 1
-	var t0: float = s.time.sim_seconds
-	s.run_for(5.0)
-	near(cu.patience, 18.0 - 5.0, 0.06, "baseline drain 1.0 per simulation-second")
-	while cu.state != Customer.ABANDONING and cu.state != Customer.LEAVING and guard < 20000:
-		s.step(s.tick_seconds)
-		guard += 1
-	var took: float = s.time.sim_seconds - t0
-	near(took, 10.0 + 8.0 / 1.15, 0.15, "office worker gives up after 10 s + 8 s at x1.15")
-	eq(s.display.total_units(), 6, "abandoning customer returned the bread")
+	check(cu.is_waiting(), "the buyer reaches the queue")
+	s.run_for(300.0)
+	check(cu.is_waiting() and s.customers.customer(cu.id) != null, "five minutes later the buyer is still waiting in line")
+	check(cu.queue_wait > 250.0, "and the wait is counted (%.0f s)" % cu.queue_wait)
+	eq(s.display.total_units(), 6 - cu.held_units(), "holding their bread")
 	free_sim(s)
 
 

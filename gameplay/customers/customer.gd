@@ -26,8 +26,6 @@ var id: StringName
 var archetype: StringName
 var actor: SimActor
 var state: StringName = SPAWNING
-var patience_max: float = 30.0
-var patience: float = 30.0
 var lane_id: StringName = &""
 ## Lot yang dipegang (lihat DisplayInventoryManager).
 var held: Array = []
@@ -43,7 +41,7 @@ var stall_time: float = 0.0
 var last_slot: int = -1
 var spawned_at: float = 0.0
 ## Pengunjung lihat-lihat (v3.1 20.12): ENTERING -> BROWSING di satu atau dua
-## tempat dekat rak -> LEAVING, tanpa antrean, patience, maupun stok.
+## tempat dekat rak -> LEAVING, tanpa antrean maupun stok.
 var window_shopper: bool = false
 ## Sel tempat ia berdiri melihat-lihat; bukan titik eksklusif (v3.1 83.3).
 var look_cell: Vector2i = Vector2i(-1, -1)
@@ -63,12 +61,6 @@ func def() -> CustomerArchetypeDefinition:
 	return DataRegistry.archetype(archetype)
 
 
-func patience_ratio() -> float:
-	if patience_max <= 0.0:
-		return 0.0
-	return clampf(patience / patience_max, 0.0, 1.0)
-
-
 func held_units() -> int:
 	var n: int = 0
 	for l: Variant in held:
@@ -76,8 +68,10 @@ func held_units() -> int:
 	return n
 
 
-## Patience berkurang hanya saat menunggu di antrean/layanan (v3.1 20.8, 58).
-func drains_patience() -> bool:
+## Sedang menunggu di antrean atau dilayani di kasir. Pembeli menunggu sampai
+## dilayani: tidak ada kesabaran yang habis (keputusan maintainer 2026-11-04,
+## GDD idle 6.4).
+func is_waiting() -> bool:
 	return state == QUEUING or state == FRONT_OF_QUEUE or state == BEING_SERVED
 
 
@@ -89,7 +83,7 @@ func to_dict() -> Dictionary:
 			"slot_index": ld["slot_index"], "unit_price": ld["unit_price"]})
 	return {
 		"id": String(id), "archetype": String(archetype), "state": String(state),
-		"patience_max": patience_max, "patience": patience, "lane_id": String(lane_id),
+		"lane_id": String(lane_id),
 		"held": lots, "target_recipe": String(target_recipe), "target_display": target_display,
 		"target_qty": target_qty, "substitution_used": substitution_used, "browse_left": browse_left,
 		"celebrate_left": celebrate_left, "queue_wait": queue_wait, "stall_time": stall_time,

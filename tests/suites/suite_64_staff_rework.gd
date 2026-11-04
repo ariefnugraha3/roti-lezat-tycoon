@@ -53,8 +53,6 @@ func _cust(s: SimulationRoot) -> Customer:
 	s.customers.try_admit({"archetype": &"customer_generic"})
 	for c2: Customer in s.customers.sorted():
 		if not before.has(c2.id):
-			c2.patience_max = 999.0
-			c2.patience = 999.0
 			return c2
 	return null
 
@@ -100,18 +98,16 @@ func _staff_equal() -> void:
 	run_day(s)
 	run_day(s)
 	near(s.economy.balance, bal, 0.001, "two days pass without a single wage")
-	# Kasir tidak mengubah kesabaran antrean (tanpa kemampuan khusus).
+	# Antrean kasir menghitung lama menunggu seperti jalur pemilik.
 	var b: QueueLane = _lane(s, &"lane_b")
 	stock(s, &"recipe_plain_loaf", 6)
 	var c: Customer = _cust(s)
 	check(c != null, "a customer arrives")
 	if c != null:
 		c.lane_id = b.id
-		c.patience = c.patience_max
-		c.stall_time = 0.0
-		var before: float = c.patience
-		s.customers._drain(c, 1.0)
-		near(before - c.patience, DataRegistry.balf("patience.drain_base"), 0.0001, "a cashier's lane drains patience at the base rate")
+		var before: float = c.queue_wait
+		s.customers._wait(c, 1.0)
+		near(c.queue_wait - before, 1.0, 0.0001, "a cashier's lane counts the wait")
 	free_sim(s)
 
 
@@ -210,7 +206,6 @@ func _cashier_lanes_serve() -> void:
 			if spawned >= want and _served(s) - served0 >= want:
 				break
 		eq(_served(s) - served0, want, "tier %d: every customer is served without the owner" % t)
-		eq(int(s.statistics.get_stat("total_customers_lost_patience")), 0, "tier %d: nobody walks out" % t)
 		for l3: QueueLane in lanes:
 			check(served_by.has(l3.id), "tier %d: %s serves its own queue" % [t, l3.id])
 		eq(s.check_invariants(), "", "tier %d invariants" % t)

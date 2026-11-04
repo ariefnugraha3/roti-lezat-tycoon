@@ -95,8 +95,6 @@ func try_admit(arrival: Dictionary) -> bool:
 	if not sim.queue.reserve(lane, c.id):
 		return false
 	c.archetype = archetype
-	c.patience_max = def.base_patience_seconds * sim.upgrades.patience_mult()
-	c.patience = c.patience_max
 	c.lane_id = lane.id
 	c.actor = SimActor.new()
 	c.actor.id = c.id
@@ -729,7 +727,7 @@ func step(dt: float) -> void:
 			Customer.QUEUING:
 				_step_queuing(c, dt)
 			Customer.FRONT_OF_QUEUE, Customer.BEING_SERVED:
-				_drain(c, dt)
+				_wait(c, dt)
 			Customer.CELEBRATING:
 				c.celebrate_left -= dt
 				if c.celebrate_left <= 0.0:
@@ -847,27 +845,17 @@ func _step_queuing(c: Customer, dt: float) -> void:
 			c.state = Customer.FRONT_OF_QUEUE
 			c.actor.go_to(sim.world, lane.floor_id, lane.service_point)
 			return
-	_drain(c, dt)
+	_wait(c, dt)
 
 
-## Drain patience (v3.1 58): dasar 1.0/detik, modifier multiplikatif.
-func _drain(c: Customer, dt: float) -> void:
-	var lane: QueueLane = sim.queue.lane(c.lane_id)
-	# Transaksi yang sedang berjalan tidak mengurangi patience (v3.1 20.8).
+## Lama menunggu di antrean (statistik dan tampilan). Pembeli tidak pernah
+## kehabisan kesabaran: ia menunggu sampai dilayani (keputusan maintainer
+## 2026-11-04, GDD idle 6.4); batas antrean sudah menahan kedatangan baru.
+func _wait(c: Customer, dt: float) -> void:
 	if c.state == Customer.BEING_SERVED and sim.cashier.is_progressing(c.id):
 		return
 	c.queue_wait += dt
 	c.stall_time += dt
-	var pt: PackedFloat64Array = DataRegistry.patience_tuning()
-	var m: float = pt[0]
-	if lane != null and lane.occupancy_ratio() >= pt[1]:
-		m *= pt[2]
-	if c.stall_time > pt[3]:
-		m *= pt[4]
-	m = clampf(m, pt[5], pt[6])
-	c.patience = maxf(0.0, c.patience - m * dt)
-	if c.patience <= 0.0:
-		abandon(c)
 
 
 # ===========================================================================
@@ -958,7 +946,8 @@ func _move_customer(c: Customer, from: QueueLane, to: QueueLane) -> void:
 		_go_to_tail(c)
 
 
-## Patience habis: roti kembali ke rak persis seperti semula (GDD idle 6.4).
+## Pembeli pulang tanpa membeli dan rotinya kembali ke rak persis seperti
+## semula. Hanya dipakai pemeriksaan pasca-load bila tempatnya di antrean hilang.
 func abandon(c: Customer) -> void:
 	if c.state == Customer.ABANDONING:
 		return
@@ -967,7 +956,6 @@ func abandon(c: Customer) -> void:
 	c.held.clear()
 	sim.queue.release(c.id)
 	sim.world.release_all_for(c.id)
-	sim.statistics.add(&"total_customers_lost_patience", 1)
 	c.state = Customer.ABANDONING
 	EventBus.customer_abandoned.emit(0)
 	EventBus.sfx.emit(&"customer_leave_angry", c.actor.floor_id)
@@ -1027,8 +1015,6 @@ func restore(d: Dictionary) -> void:
 		if c.def() == null:
 			continue
 		c.state = StringName(str(cd.get("state", Customer.ENTERING)))
-		c.patience_max = float(cd.get("patience_max", 30.0))
-		c.patience = float(cd.get("patience", c.patience_max))
 		c.lane_id = StringName(str(cd.get("lane_id", "")))
 		c.held = Customer.held_from(cd.get("held", []))
 		c.target_recipe = StringName(str(cd.get("target_recipe", "")))

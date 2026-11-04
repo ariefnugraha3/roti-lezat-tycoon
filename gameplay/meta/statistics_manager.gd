@@ -10,7 +10,7 @@ extends SimManager
 const STAT_KEYS: Array[String] = [
 	"run_earned_kr", "alltime_earned_kr", "alltime_spent_kr", "highest_balance",
 	"total_bread_produced", "total_bread_sold", "total_customers_entered", "total_customers_served",
-	"total_customers_left_no_purchase", "total_customers_lost_patience", "total_customers_missed",
+	"total_customers_left_no_purchase", "total_customers_missed",
 	"total_rotifood_orders_received", "total_rotifood_orders_completed", "total_rotifood_orders_expired",
 	"staff_hired_count", "location_upgrades_count", "total_play_time_real_seconds",
 	"offline_seconds_total", "offline_earned_kr", "days_passed", "franchise_count",

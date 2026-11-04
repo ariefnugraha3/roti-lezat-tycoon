@@ -114,8 +114,10 @@ func display_price_bonus(iid: int) -> float:
 
 
 ## Lama satu transaksi kasir (detik-simulasi, GDD idle 8.2).
+## Lama satu transaksi di kasir (dan satu pengemasan RotiFood) sekarang: level
+## meja kasir, dipercepat Faster Checkout (GDD idle 8.9).
 func checkout_seconds() -> float:
-	return checkout_seconds_for(counter_level)
+	return checkout_seconds_for(counter_level) / checkout_speed_mult()
 
 
 static func checkout_seconds_for(level: int) -> float:
@@ -192,9 +194,10 @@ func walk_mult() -> float:
 	return 1.0 + global_bonus(&"global_walk_speed")
 
 
-## Pengali kesabaran pembeli (GDD idle 8.9 `global_queue_patience`).
-func patience_mult() -> float:
-	return 1.0 + global_bonus(&"global_queue_patience")
+## Pengali kecepatan kasir dan pengemasan (GDD idle 8.9 `global_fast_checkout`,
+## pengganti Queue Patience sejak 2026-11-04).
+func checkout_speed_mult() -> float:
+	return 1.0 + global_bonus(&"global_fast_checkout")
 
 
 # ===========================================================================
@@ -565,6 +568,11 @@ func restore(d: Dictionary) -> void:
 			staff_levels[k3] = maxi(1, int(sl[k3]))
 	global_levels.clear()
 	var gl: Dictionary = json_to_sn_dict(d.get("global", {}))
+	# Save sebelum 2026-11-04: Queue Patience diganti Faster Checkout dengan level
+	# yang sama (GDD idle 8.9).
+	if gl.has(&"global_queue_patience"):
+		gl[&"global_fast_checkout"] = maxi(int(gl.get(&"global_fast_checkout", 0)), int(gl[&"global_queue_patience"]))
+		gl.erase(&"global_queue_patience")
 	for k4: Variant in gl.keys():
 		var g: Dictionary = DataRegistry.global_upgrade(k4)
 		if not g.is_empty():

@@ -135,7 +135,7 @@ func _create(items: Dictionary, prep_window: float) -> DeliveryOrder:
 	o.created_at = sim.time.sim_seconds
 	o.prep_window = prep_window
 	o.driver_arrival_time = o.created_at + o.prep_window
-	o.driver_patience_max = float(DataRegistry.driver_def().get("base_patience_seconds", 30.0)) * sim.upgrades.patience_mult()
+	o.driver_patience_max = float(DataRegistry.driver_def().get("base_patience_seconds", 30.0))
 	o.driver_patience = o.driver_patience_max
 	o.state = DeliveryOrder.WAITING_FOR_STOCK
 	orders[o.order_id] = o

@@ -55,7 +55,7 @@
  },
  "location": {
   "_gdd": "6.1, 6.5, 8.7",
-  "upgrade_cost": [0, 32500, 360000, 1120000, 1850000],
+  "upgrade_cost": [0, 32500, 360000, 1120000, 1900000],
   "base_arrivals_per_hour": [23, 51, 67, 86, 112],
   "rotifood_orders_per_hour": [3, 4, 6, 8, 10]
  },
@@ -381,6 +381,6 @@
   {"id": "global_offline_efficiency", "cost_base": 323, "cost_growth": 6, "max_level": 10, "per_level": 0.05},
   {"id": "global_tap_power", "cost_base": 32.32, "cost_growth": 3, "max_level": 20, "per_level": 0.25},
   {"id": "global_walk_speed", "cost_base": 64.64, "cost_growth": 4, "max_level": 10, "per_level": 0.05},
-  {"id": "global_queue_patience", "cost_base": 129, "cost_growth": 4, "max_level": 10, "per_level": 0.05}
+  {"id": "global_fast_checkout", "cost_base": 129, "cost_growth": 4, "max_level": 10, "per_level": 0.05}
  ]
 }

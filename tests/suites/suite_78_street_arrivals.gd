@@ -6,7 +6,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_20_STREET_ARRIVAL", "name": "20.1 buyers come from either end of the pavement, walk along it and turn in at the door; only then they ring the bell, count as entered and choose their bread; their queue slot is kept and their patience does not drain on the way", "fn": _arrival},
+		{"id": "ACC_20_STREET_ARRIVAL", "name": "20.1 buyers come from either end of the pavement, walk along it and turn in at the door; only then they ring the bell, count as entered and choose their bread; their queue slot is kept on the way", "fn": _arrival},
 		{"id": "ACC_20_STREET_PATHS", "name": "20.1 at every tier the walk from both ends of the pavement to the door is clear of everything in the neighbourhood and the holiday decorations, and starts off the shop's sides", "fn": _paths_clear},
 		{"id": "ACC_22_DRIVER_ARRIVAL", "name": "22.6 a RotiFood driver sets off from the end of the pavement early by the length of the walk, so he reaches the door at the scheduled time; his patience starts at the door", "fn": _driver},
 		{"id": "ACC_20_STREET_LEAVERS", "name": "20.1 a buyer who walks out of the door keeps walking along the pavement to its end, as a view only: the simulation has already let them go", "fn": _leavers},
@@ -76,19 +76,15 @@ func _arrival() -> void:
 		check(s.queue.lane_of(c.id) != null, "holds its queue slot from the start")
 		eq(_entered(s), entered, "not counted as entered on the pavement")
 		var t0: float = s.time.sim_seconds
-		var drained: bool = false
 		var off_line: bool = false
 		while c.state == Customer.APPROACHING and s.time.sim_seconds - t0 < 120.0:
 			s.step(s.tick_seconds)
 			if c.state != Customer.APPROACHING:
 				break
-			if c.patience < c.patience_max - 0.0001:
-				drained = true
 			var p: Vector2 = c.actor.pos
 			if absf(p.y - walk_z) > 0.01 and absf(p.x - door.x) > 0.01:
 				off_line = true
 		var took: float = s.time.sim_seconds - t0
-		check(not drained, "patience does not drain on the pavement")
 		check(not off_line, "walks the pavement line, then straight in to the door")
 		eq(c.actor.cell(), s.world.entrance_cell(), "steps in through the front door")
 		eq(_entered(s), entered + 1, "counted when stepping in")

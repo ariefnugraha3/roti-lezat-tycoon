@@ -94,7 +94,6 @@ func _lifecycle() -> void:
 	eq(s.customers.customer(w.id), null, "walked out and was cleaned up at the door")
 	eq(s.display.total_units(), 6, "took no bread")
 	eq(_stat(s, "total_customers_left_no_purchase"), 0, "not a 'left without buying' failure")
-	eq(_stat(s, "total_customers_lost_patience"), 0, "not an abandonment")
 	eq(_stat(s, "total_customers_missed"), 0, "not missed demand")
 	eq(s.world.point_holder(floor_id, w.look_cell), &"", "spot released")
 	# Tanpa roti sama sekali ia tetap melihat-lihat dan pulang tanpa penalti.
@@ -159,10 +158,6 @@ func _give_way() -> void:
 			eq(w.look_cell, wait_cell, "right in front of the display, where a second buyer would wait")
 		for i in 2:
 			s.customers.try_admit({"archetype": &"customer_generic"})
-		for b0: Customer in s.customers.sorted():
-			if not b0.window_shopper:
-				b0.patience_max = 999.0
-				b0.patience = 999.0
 		var contended: bool = false
 		var overlap: bool = false
 		var t: float = 0.0

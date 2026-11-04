@@ -7,7 +7,42 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_COSTS", "name": "idle 8.1-8.9 cost formulas, x1/x10/Max (also at the level cap), extra-instance, open-station, unlock, hire, location and global costs", "fn": _costs},
 		{"id": "ACC_IDLE_MILESTONES", "name": "idle 8.2, 8.5 milestone multipliers and model evolution (more shelf slots, bread kept, nearest legal spot when the new footprint does not fit, waits when there is none)", "fn": _milestones},
+		{"id": "ACC_IDLE_FAST_CHECKOUT", "name": "idle 8.9 Faster Checkout (replacing Queue Patience) speeds every checkout and RotiFood packing by 5% a level, shows its effect, never lowers the KR/s model of a busy shop, and takes over Queue Patience levels from old saves", "fn": _fast_checkout},
 	]
+
+
+func _fast_checkout() -> void:
+	var s: SimulationRoot = new_sim(7101)
+	s.tutorial.skip()
+	check(DataRegistry.global_upgrade(&"global_queue_patience").is_empty(), "Queue Patience is gone")
+	check(not DataRegistry.global_upgrade(&"global_fast_checkout").is_empty(), "Faster Checkout takes its place")
+	var base: float = s.upgrades.checkout_seconds()
+	near(base, UpgradeManager.checkout_seconds_for(s.upgrades.counter_level), 1e-9, "Lv 0 changes nothing")
+	var per: float = float(DataRegistry.global_upgrade(&"global_fast_checkout")["per_level"])
+	s.upgrades.global_levels[&"global_fast_checkout"] = 10
+	near(s.upgrades.checkout_seconds(), base / (1.0 + per * 10.0), 1e-9, "Lv 10 checks out %d%% faster" % int(round(per * 1000.0)))
+	near(s.cashier.transaction_seconds(), s.upgrades.checkout_seconds(), 1e-9, "every cashier transaction")
+	near(s.rotifood.pack_seconds(), s.upgrades.checkout_seconds(), 1e-9, "and every RotiFood packing")
+	var o: Dictionary = s.upgrades.offer(&"global", &"global_fast_checkout")
+	eq(UpgradeInfo.effect_at(s, o, 10), Tx.t("ui_effect_checkout_speed", {"value": "1.50"}), "the card shows the speed")
+	s.upgrades.global_levels[&"global_fast_checkout"] = 0
+	# Toko Tier 3 yang ramai: model KR/s naik bila kasir lebih cepat.
+	jump_to_tier(s, 3)
+	equip_shop(s, 40)
+	s.idle_economy.invalidate()
+	var r0: float = s.idle_economy.rate(false)
+	s.upgrades.global_levels[&"global_fast_checkout"] = 10
+	s.idle_economy.invalidate()
+	check(s.idle_economy.rate(false) >= r0, "a faster checkout never lowers the KR/s model (%.1f -> %.1f)" % [r0, s.idle_economy.rate(false)])
+	# Save lama: level Queue Patience pindah ke Faster Checkout.
+	var save: Dictionary = json_copy(s.capture_save())
+	save["upgrades"]["global"] = {"global_queue_patience": 4, "global_tap_power": 2}
+	var u: SimulationRoot = load_sim(save)
+	eq(u.upgrades.global_level(&"global_fast_checkout"), 4, "an old save keeps its Queue Patience levels as Faster Checkout")
+	check(not u.upgrades.global_levels.has(&"global_queue_patience"), "the old upgrade is not kept")
+	eq(u.upgrades.global_level(&"global_tap_power"), 2, "other upgrades stay")
+	free_sim(u)
+	free_sim(s)
 
 
 func _quiet(seed_value: int) -> SimulationRoot:
