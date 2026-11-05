@@ -137,11 +137,6 @@ func _show_splash() -> void:
 		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		pulse.tween_property(tap, "scale", Vector2(1.07, 1.07), 0.8)
 		pulse.tween_property(tap, "scale", Vector2.ONE, 0.8)
-	var tag: Label = ProceduralUIFactory.label(Tx.t("ui_splash_tagline"), 18, Palette.UI_WOOD)
-	tag.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(tag)
 	box.add_child(MainMenuScreen._spacer(1.4))
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
 	# Musik menu dirakit di latar selagi pemain membaca layar ini, lalu bunyi

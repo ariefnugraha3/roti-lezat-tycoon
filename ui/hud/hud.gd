@@ -50,7 +50,7 @@ var _craving_lock: IconCanvas = null
 var _event: Button = null
 var _event_label: Label = null
 var _weather_icon: IconCanvas = null
-var _boosts: HBoxContainer = null
+var _boosts: VBoxContainer = null
 var _income_boost: PanelContainer = null
 var _promo_boost: PanelContainer = null
 ## Hadiah Roti Emas yang berjalan (GDD idle 21.9): Golden hour dan Rush hour.
@@ -161,7 +161,9 @@ func _build_top_left(frame: Control) -> void:
 	ksb.content_margin_bottom = 4.0
 	_cash_chip.add_theme_stylebox_override("panel", ksb)
 	_cash_chip.mouse_filter = Control.MOUSE_FILTER_PASS
-	_cash_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# Kolom kiri atas selebar isinya yang paling lebar; pil KR dan pil boost di
+	# bawahnya mengisi lebar itu, jadi tepi kanannya selalu sejajar.
+	_cash_chip.size_flags_horizontal = Control.SIZE_FILL
 	v.add_child(_cash_chip)
 	var kh := HBoxContainer.new()
 	kh.add_theme_constant_override("separation", 8)
@@ -181,13 +183,15 @@ func _build_top_left(frame: Control) -> void:
 	_rate.name = "Rate"
 	_rate.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	kv.add_child(_rate)
-	_boosts = HBoxContainer.new()
+	# Boost aktif dengan sisa waktu (GDD idle 12.1): dibuat sekali, hanya teksnya
+	# yang diperbarui. Satu pil per baris, selebar pil KR (keputusan maintainer
+	# 2026-11-06): pil berdampingan membuat kolom lebih lebar dari pil KR dan
+	# menabrak jam di tengah.
+	_boosts = VBoxContainer.new()
 	_boosts.name = "Boosts"
-	_boosts.add_theme_constant_override("separation", 6)
+	_boosts.add_theme_constant_override("separation", 2)
 	_boosts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(_boosts)
-	# Boost aktif dengan sisa waktu (GDD idle 12.1): dibuat sekali, hanya teksnya
-	# yang diperbarui.
 	_income_boost = _boost_chip("bolt", Palette.HONEY_DEEP, Palette.BUTTER_SOFT)
 	_income_boost.name = "IncomeBoost"
 	_income_boost.tooltip_text = Tx.t("ui_boost_income")
@@ -197,30 +201,28 @@ func _build_top_left(frame: Control) -> void:
 	_promo_boost.name = "PromoBoost"
 	_promo_boost.visible = false
 	_boosts.add_child(_promo_boost)
-	# Baris kedua: hadiah Roti Emas, supaya empat pil tidak menabrak jam di tengah.
-	var row2 := HBoxContainer.new()
-	row2.name = "GoldenBoosts"
-	row2.add_theme_constant_override("separation", 6)
-	row2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(row2)
+	# Hadiah Roti Emas (GDD idle 21.9) di bawahnya.
 	_frenzy_boost = _boost_chip("bread", Palette.HONEY_DEEP, Palette.GOLD_STAR.lightened(0.55))
 	_frenzy_boost.name = "FrenzyBoost"
 	_frenzy_boost.visible = false
-	row2.add_child(_frenzy_boost)
+	_boosts.add_child(_frenzy_boost)
 	_rush_boost = _boost_chip("people", Palette.UI_WOOD_DEEP, Palette.MATCHA_SOFT)
 	_rush_boost.name = "RushBoost"
 	_rush_boost.visible = false
-	row2.add_child(_rush_boost)
+	_boosts.add_child(_rush_boost)
 
 
-## Pil boost aktif: muka berwarna lembut, ikon dan sisa waktu tebal.
+## Pil boost aktif: muka berwarna lembut, ikon dan sisa waktu tebal. Pil
+## mengisi lebar kolom (sama dengan pil KR) dan isinya di tengah.
 func _boost_chip(icon_name: String, tint: Color, face: Color) -> PanelContainer:
 	var c: PanelContainer = ProceduralUIFactory.chip(icon_name, tint, "", 15, 20)
 	var sb: StyleBoxFlat = (c.get_theme_stylebox("panel") as StyleBoxFlat).duplicate()
 	sb.bg_color = face
-	sb.content_margin_left = 8.0
-	sb.content_margin_right = 12.0
+	sb.content_margin_left = 10.0
+	sb.content_margin_right = 10.0
 	c.add_theme_stylebox_override("panel", sb)
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	(c.get_child(0) as HBoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 	return c
 
 
