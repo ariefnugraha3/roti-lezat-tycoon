@@ -87,7 +87,10 @@
   "stars_divisor_kr": 16200,
   "stars_exponent": 0.5,
   "income_per_star": 0.07,
-  "keep_global_levels_above": 5
+  "keep_global_levels_above": 5,
+  "_branch": "GDD idle 23.1: every KR cost in branch n >= branch_cost_start x branch_cost_growth^(n - branch_cost_start + 1)",
+  "branch_cost_growth": 1.5,
+  "branch_cost_start": 3
  },
  "perks": [
   {"id": "perk_offline_plus", "stars": 1, "offline_hours": 1},
@@ -97,8 +100,29 @@
   {"id": "perk_offline_efficiency", "stars": 50, "offline_efficiency": 0.25},
   {"id": "perk_ruko_start", "stars": 100, "start_tier": 2},
   {"id": "perk_recipe_memory", "stars": 250},
-  {"id": "perk_milestone_triple", "stars": 500, "recipe_milestone_mult": 3}
+  {"id": "perk_milestone_triple", "stars": 500, "recipe_milestone_mult": 3},
+  {"id": "perk_offline_long", "stars": 750, "offline_hours": 3},
+  {"id": "perk_mandiri_start", "stars": 1000, "start_tier": 3},
+  {"id": "perk_coffee_long", "stars": 1500, "coffee_mult": 2},
+  {"id": "perk_milestone_quad", "stars": 2500, "recipe_milestone_mult": 4},
+  {"id": "perk_golden_rain", "stars": 5000, "golden_interval_mult": 0.5}
  ],
+ "monetization": {
+  "_gdd": "22",
+  "placements": {
+   "offline_double": {"per_day": 10, "mult": 2},
+   "coffee_refill": {"per_day": 2},
+   "promo_skip": {"per_day": 5},
+   "golden_double": {"per_day": 10, "offer_seconds": 8}
+  },
+  "supporter_product": "supporter_pack",
+  "supporter_badge": "badge_supporter"
+ },
+ "mastery": {
+  "_gdd": "23.3",
+  "thresholds": [10000, 50000, 150000, 400000, 1000000],
+  "price_bonus_per_level": 0.05
+ },
  "boosts": {
   "_gdd": "11",
   "daily_gift": {"mult": 2, "minutes": 15},

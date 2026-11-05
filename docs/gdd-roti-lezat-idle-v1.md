@@ -53,7 +53,7 @@ Toko roti mungil di garasi yang **tidak pernah berhenti bekerja**. Pemiliknya me
 
 ## **1.3 Genre & Referensi**
 
-Genre *idle arcade / hybrid-casual tycoon*. Stasiun di-upgrade per level, manager atau asisten mengotomatiskan stasiun, penghasilan offline, lalu pindah lokasi atau prestige untuk pengali yang lebih besar. Referensi genre (bukan untuk ditiru asetnya): Eatventure, My Perfect Hotel, Idle Miner Tycoon. Game ini tetap **offline penuh**, tanpa iklan, IAP, login, server, atau notifikasi push (v3.1 §112 kecuali larangan progres offline).
+Genre *idle arcade / hybrid-casual tycoon*. Stasiun di-upgrade per level, manager atau asisten mengotomatiskan stasiun, penghasilan offline, lalu pindah lokasi atau prestige untuk pengali yang lebih besar. Referensi genre (bukan untuk ditiru asetnya): Eatventure, My Perfect Hotel, Idle Miner Tycoon. Gameplay tetap **offline penuh**: tanpa login, server, atau notifikasi push, dan semua fitur berjalan tanpa internet (v3.1 §112 kecuali larangan progres offline). Sejak 2026-11-05 game **boleh dimonetisasi** (keputusan maintainer, Seksi 19 no. 19): iklan berhadiah yang dipilih sendiri oleh pemain dan satu pembelian Supporter Pack (Seksi 22). Keduanya hanya tampil bila platform dan jaringannya tersedia; tanpa itu game berjalan sama persis.
 
 ## **1.4 Target Sesi & Pacing (TUNABLE)**
 
@@ -71,6 +71,8 @@ Sesi singkat 3–10 menit, beberapa kali sehari. Sesi pertama 20–30 menit. Wak
 | Lokasi Tier 5 (Landmark) | 100–140 menit |
 | Waralaba pertama (rata-rata pemain) | 60–120 menit |
 | Putaran ke-2 sampai titik yang sama | ≤ 70% waktu putaran ke-1 |
+
+Target jangka panjang (Seksi 23, TUNABLE): cabang ke-3 juga lebih cepat dari putaran ke-1, cabang ke-4 kira-kira sama, lalu setiap cabang berikutnya makin panjang karena biayanya tumbuh lebih cepat dari bintang. Perk terakhir (5.000 bintang) butuh puluhan jam bermain aktif, tersebar di minggu-minggu bermain dengan penghasilan offline. Semua target di atas diukur **tanpa iklan** (Seksi 22.1).
 
 ---
 
@@ -271,7 +273,7 @@ Pengunjung lihat-lihat (v3.1 §20.12), kejutan (§31.9), kehidupan jalan, cuaca 
 | **KR** | Penjualan, RotiFood, penghasilan offline, hadiah | Upgrade, staf, lokasi, dekorasi, promosi | Ya, kembali ke `start_kr` |
 | **Bintang Waralaba** | Waralaba (Seksi 10) | Pengali pasif & perk (tidak dibelanjakan) | Tidak |
 
-`start_kr` = **65** (TUNABLE, Seksi 20 no. 45). Tidak ada mata uang premium.
+`start_kr` = **65** (TUNABLE, Seksi 20 no. 45). Tidak ada mata uang premium, juga setelah monetisasi (Seksi 22.1).
 
 Toko baru menghasilkan **1 KR/s** tanpa boost (keputusan maintainer 2026-11-02). Semua harga dan biaya KR di katalog diskalakan sama supaya tempo permainan tidak berubah (Seksi 20 no. 45).
 
@@ -431,7 +433,7 @@ Saat game dimuat dari profil, dan saat aplikasi atau tab kembali ke depan. Ketid
 
 ## **9.5 Popup Selamat Datang**
 
-"Welcome back! You were away for {time}. Your bakery earned {amount}." disertai tombol **Collect**, animasi hujan koin, dan sapaan Pak Lurah. Pengganda penghasilan tidak dijual, karena tidak ada iklan maupun IAP.
+"Welcome back! You were away for {time}. Your bakery earned {amount}." disertai tombol **Collect**, animasi hujan koin, dan sapaan Pak Lurah. Bila iklan berhadiah tersedia (Seksi 22.3, `offline_double`), tombol kedua **Collect ×2** menggandakan jumlahnya setelah iklan selesai ditonton; Collect biasa tetap ada, dan Back tetap sama dengan Collect.
 
 ---
 
@@ -448,7 +450,7 @@ stars_total(E) = floor( (alltime_earned_kr / prestige.stars_divisor_kr) ^ presti
 stars_gained   = stars_total − franchise_stars
 ```
 
-Nilai default `stars_divisor_kr` = 1e6 dan `stars_exponent` = 0,5 (TUNABLE). Layar Waralaba menampilkan jumlah bintang yang akan didapat bila menjual sekarang, dan KR yang dibutuhkan untuk bintang berikutnya.
+Nilai default `stars_divisor_kr` = 1e6 dan `stars_exponent` = 0,5 (TUNABLE). Layar Waralaba menampilkan jumlah bintang yang akan didapat bila menjual sekarang, dan KR yang dibutuhkan untuk bintang berikutnya. Setiap cabang baru lebih mahal dari sebelumnya (Seksi 23.1).
 
 ## **10.3 Efek Pasif**
 
@@ -467,11 +469,13 @@ Nilai default `stars_divisor_kr` = 1e6 dan `stars_exponent` = 0,5 (TUNABLE). Lay
 | `perk_recipe_memory` | 250 | Putaran baru mulai dengan semua resep yang pernah dibuka |
 | `perk_milestone_triple` | 500 | Milestone resep ×3, bukan ×2 |
 
+Perk lanjutan untuk tangga jangka panjang ada di Seksi 23.2.
+
 ## **10.5 Reset**
 
 | Direset | Disimpan |
 |---|---|
-| KR (ke `start_kr` + perk), lokasi (ke Tier 1 atau 2), stasiun tambahan & semua level stasiun, level dan buka resep (kecuali perk), staf, dekorasi berbonus (kembali ke inventaris, bonusnya tidak aktif sampai dibeli lagi di putaran baru), upgrade global level 1–5, boost aktif | Bintang Waralaba, perk, `alltime_earned_kr`, statistik, pencapaian dan badge, skin storefront dan pakaian, nama toko, karakter, pengaturan, nomor putaran (`run_index`) |
+| KR (ke `start_kr` + perk), lokasi (ke Tier 1 atau 2), stasiun tambahan & semua level stasiun, level dan buka resep (kecuali perk), staf, dekorasi berbonus (kembali ke inventaris, bonusnya tidak aktif sampai dibeli lagi di putaran baru), upgrade global level 1–5, boost aktif | Bintang Waralaba, perk, `alltime_earned_kr`, statistik, pencapaian dan badge, skin storefront dan pakaian, nama toko, karakter, pengaturan, nomor putaran (`run_index`), mastery resep (Seksi 23.3) |
 
 Upgrade global di atas level 5 tetap disimpan, sebagai rasa "lebih kuat" lintas putaran.
 
@@ -485,7 +489,7 @@ Layar Waralaba → tombol **Sell & Franchise** → konfirmasi → cutscene Pak L
 
 ## **11.1 Kopi Pak Lurah (Hadiah Harian)**
 
-Sekali per **hari kalender perangkat**: ×2 penghasilan selama 15 menit nyata (TUNABLE). Boost hanya berjalan selama bermain aktif; sisanya disimpan dan tidak berlaku saat offline.
+Sekali per **hari kalender perangkat**: ×2 penghasilan selama 15 menit nyata (TUNABLE). Boost hanya berjalan selama bermain aktif; sisanya disimpan dan tidak berlaku saat offline. Bila iklan berhadiah tersedia, pemain boleh menuang kopi lagi dengan menonton iklan (`coffee_refill`, Seksi 22.3).
 
 ## **11.2 Promosi (dulu Kampanye Pemasaran)**
 
@@ -495,7 +499,7 @@ Sekali per **hari kalender perangkat**: ×2 penghasilan selama 15 menit nyata (T
 | `promo_radio` | Kedatangan ×2 | 10 menit | 8 menit penghasilan | 30 menit |
 | `promo_food_vlogger` | Kedatangan ×2, RotiFood ×2 | 10 menit | 15 menit penghasilan | 60 menit |
 
-Biaya diskalakan dengan KR/s saat itu supaya promosi selalu relevan. Food Vlogger dari v3.1 menjadi promosi ini. Semua angka TUNABLE.
+Biaya diskalakan dengan KR/s saat itu supaya promosi selalu relevan. Food Vlogger dari v3.1 menjadi promosi ini. Semua angka TUNABLE. Jeda promosi bisa diselesaikan dengan menonton iklan (`promo_skip`, Seksi 22.3).
 
 ## **11.3 Cuaca & Libur**
 
@@ -779,6 +783,12 @@ Web dan Android seperti v3.1, tetapi **potret** (Seksi 12.0): Android dikunci po
 | `ACC_IDLE_TABLECLOTH_SIDES` | Area di luar bingkai digambar taplak gingham dengan renda di tepi bingkai; tidak ada kontrol game di sana; layar HP 9:16–9:21 tidak menampilkan taplak |
 | `ACC_IDLE_PORTRAIT_CAMERA` | `KEEP_WIDTH`; lantai Tier 1–3 terlihat utuh selebar layar di antara bar HUD; lingkungan tidak menutupi lantai dari kamera potret |
 | `ACC_IDLE_PORTRAIT_UI` | Matriks Seksi 12.0.7: setiap layar terbuka tanpa kontrol keluar bingkai dan tanpa gulir menyamping di 100/125/150% |
+| `ACC_IDLE_ADS` | Seksi 22.1, 22.3: hadiah hanya setelah iklan selesai, toko di-pause dan senyap selama iklan, batas harian, tombol tersembunyi tanpa iklan |
+| `ACC_IDLE_SUPPORTER` | Seksi 22.4: Supporter Pack memberi hadiah tanpa iklan dan badge, tersimpan di perangkat, dipulihkan dari toko |
+| `ACC_IDLE_PORTALS` | Seksi 22.2: preset CrazyGames dan Poki memuat SDK-nya, PWA mati, dan build biasa tanpa SDK |
+| `ACC_IDLE_BRANCH_COSTS` | Seksi 23.1: semua biaya KR cabang ke-n dikali `branch_cost_growth^(n−1)`, harga jual dan promosi tidak |
+| `ACC_IDLE_PERKS_LATE` | Seksi 23.2: perk lanjutan memberi efeknya |
+| `ACC_IDLE_MASTERY` | Seksi 23.3: roti terjual menaikkan mastery, harga naik, bertahan setelah Waralaba, ikut model KR/s |
 
 Tes v3.1 yang menyangkut sistem yang dihapus ikut dihapus. Tes visual, performa, dan web (§89, §109, §130) dipertahankan. Tes layout dan UI yang mengandaikan 1280 × 720 landscape diubah ke bingkai potret.
 
@@ -873,6 +883,8 @@ Keputusan di bawah diambil untuk melengkapi rancangan dan **perlu dikonfirmasi m
 | 15 | Langkah onboarding yang meminta ketukan meredupkan layar kecuali yang harus diketuk, dan sasaran itu berkedip (Seksi 13, Seksi 20 no. 46). Keputusan maintainer 2026-11-02 | Petunjuk di atas bar tab dengan cincin berdenyut di tab atau chip |
 | 16 | UI dipoles supaya lebih rapi dan menarik, **tetap flat** (v3.1 §130.6) dan tetap berpalet krem–madu–cokelat: baris lembar menjadi kartu, tab aktif bermuka madu, dan tombol nonaktif krem yang terbaca (Seksi 20 no. 47). Permintaan maintainer 2026-11-03 | Baris tanpa kartu di lembar krem polos, tab aktif tidak ditandai, KR/s melayang di atas dunia |
 | 17 | Gambar 2D yang terlalu sederhana digambar ulang, tetap flat: potret Pak Lurah, gambar di kartu profil save, dan potret karakter New Game (Seksi 20 no. 48). Permintaan maintainer 2026-11-03 | Pak Lurah dari lingkaran dan kotak polos; ikon toko cokelat kecil yang terbaca sebagai roti; potret chibi bermata titik |
+| 19 | **Monetisasi diizinkan** (keputusan maintainer 2026-11-05): iklan berhadiah yang dipilih pemain di empat tempat dan satu Supporter Pack (Seksi 22); gameplay tetap offline, tanpa mata uang premium, gacha, energi, atau iklan paksa | Tetap tanpa iklan dan IAP; atau game berbayar sekali beli |
+| 20 | **Umur permainan lebih panjang** (permintaan maintainer 2026-11-05): cabang Waralaba yang makin mahal, perk lanjutan sampai 5.000 bintang, dan mastery resep yang permanen (Seksi 23); putaran pertama tidak berubah | Lokasi Tier 6 ke atas (konten 3D baru per tier); putaran pertama diperlambat |
 | 18 | Fitur retensi dan berbagi (Seksi 21), dikerjakan berurutan: craving harian dan selera lingkungan, misi dan kalender login, share dan photo mode, event musiman, lalu peta Crumbtown. Semuanya tetap offline penuh (Seksi 1.3). Permintaan maintainer 2026-11-03 | Tanpa fitur retensi tambahan |
 
 Pertanyaan terbuka lain: lisensi proyek (masih terbuka sejak v3.1).
@@ -942,6 +954,9 @@ Keputusan kecil yang diambil saat implementasi karena dokumen ini tidak merincin
 | 55 | Settings yang hidup dan getar HP (2026-11-05) | Permintaan maintainer: Settings memuat empat pengaturan yang tidak berpengaruh apa pun. **Dihapus:** Edge scroll (v3.1 §75.3 "if camera uses it": kamera potret tidak digeser dari tepi), Screen Shake (§44.1 "jika ada", §75.4: tidak ada yang mengguncang layar), dan Confirm expensive purchase beserta ambangnya (§75.3: beli ×1/×10/Max adalah inti game idle, dan konfirmasi di setiap beli besar mengganggu); nilai lama di `settings.json` diabaikan saat dimuat. **Vibration** (§75.4) kini bekerja: `Haptics` menggetarkan HP lewat `Input.vibrate_handheld` mengikuti suara umpan balik di `EventBus.sfx` (ketukan Semangat dan roti emas 12 ms, naik level 20 ms, hadiah koin 40 ms, milestone dan pencapaian 45 ms, pindah lokasi 70 ms, Waralaba 80 ms), dengan jeda minimum 90 ms supaya beli Max tidak berdengung. Hanya aplikasi Android dan Chrome Android (`navigator.vibrate`); Safari iPhone tidak punya API getar, jadi pengaturannya hanya tampil di perangkat yang bisa bergetar. Preset Android meminta izin VIBRATE. Tes: `ACC_75_SETTINGS_USED` (juga memeriksa bahwa setiap pengaturan dibaca kode game). |
 | 56 | Build Web sebagai PWA (2026-11-05) | Permintaan maintainer. Preset Web mengaktifkan Progressive Web App: "Add to Home Screen" memasang game layar penuh, potret, dengan layar pembuka krem seperti boot splash; service worker menyimpan berkas game di perangkat sehingga kunjungan berikutnya dimuat dari cache dan bisa dibuka tanpa internet. Build single-threaded tidak butuh header cross-origin isolation, jadi opsi itu mati. Ikon PWA dibuat Godot dari `icon.svg` saat ekspor (tidak ada PNG di repositori). Service worker menyajikan versi lama dulu lalu mengunduh yang baru di latar; begitu siap, `GameRoot` memasangnya (halaman dimuat ulang) hanya di layar pembuka atau Main Menu tanpa layar lain di atasnya, tidak pernah di tengah permainan. Tes: `ACC_IDLE_PWA`; `tools/release_validator.tscn` memeriksa presetnya. |
 | 57 | Kode save: Export dan Import (2026-11-05) | Permintaan maintainer: save Web hanya ada di penyimpanan browser, jadi hilang bila data situs dihapus dan tidak bisa dipindah ke perangkat lain. Tetap tanpa server (Seksi 1, v3.1 §112). Kode save = `CRUMB1-` + base64 dari JSON save yang dikompres gzip (sekitar 3 KB untuk toko Tier 3); `SaveManager.export_code`/`decode_code`/`import_code`. Kode dibaca dengan aturan yang sama seperti berkas save (migrasi dan validasi skema); spasi dan ganti baris dari aplikasi chat diabaikan. Kode yang salah atau terpotong, save klasik v3.1, dan save dari versi game yang lebih baru ditolak dengan alasannya. **UI** (di Load Game, karena kode milik satu profil): kartu save yang bisa dimainkan punya tombol Export Save (ikon papan klip) yang membuka Save Code: ringkasan toko, potongan kode dan ukurannya, Copy Code, dan di Web juga Download File (`crumbtown-<nama>-day<N>.txt`). Import Save di bawah daftar profil: tempel lewat tombol Paste (di Web membaca `navigator.clipboard`, karena clipboard Godot di Web baru terisi pada tekanan kedua) atau langsung ke kolomnya, atau di Web Open File; kode yang sah menampilkan ringkasan tokonya dan satu tombol per profil. Profil yang berisi minta konfirmasi, dan save lamanya menjadi backup profil itu. Save yang diimpor ditulis dengan id profil tujuan dan menjadi save terbaru (Continue). Daftar profil dan kartu toko Main Menu dibangun ulang sesudah import atau hapus (sebelumnya Continue masih menunjuk profil yang baru dihapus). Tes: `ACC_IDLE_SAVE_CODE`, `ACC_IDLE_SAVE_CODE_UI`; `ACC_IDLE_PORTRAIT_UI` dan `--menus` juga memeriksa kedua popup. |
+| 58 | Monetisasi: penyedia per platform (2026-11-05) | Seksi 22. Autoload `Monetization` (layanan tanpa state gameplay) memilih satu `MonetizationProvider`: tanpa monetisasi di desktop dan preset `Web`, `PortalMonetizationProvider` untuk preset `Web CrazyGames`/`Web Poki` (fitur ekspor `crazygames`/`poki`, SDK lewat `html/head_include`, PWA mati), dan `TestMonetizationProvider` di tes dan `tools/ui_resolution_sweep.tscn -- --ads`. Semua JavaScript portal ada di `WebPlatform`. Tombol hadiah hanya lewat `AdButton` (ikon putar + "· Ad", atau hati + "· Free" untuk Supporter) dan hanya tampil bila `Monetization.can_offer`. Selama iklan: `PauseManager` alasan `ad`, `AudioManager.ad_muted`, dan sinyal `gameplay_stop` ke portal. Jatah harian dan hak Supporter di `user://monetization.json`. Workflow GitHub ikut membuat build CrazyGames dan Poki sebagai artifact. Diuji di Edge dengan SDK CrazyGames v3 asli di localhost (`environment` = `local`): `init` siap, iklan berhadiah contoh tayang dan `adFinished` datang sekitar 5 detik kemudian, sinyal loading dan gameplay diterima. Poki belum diuji di browser (perlu Poki Inspector). Android belum punya penyedia (Seksi 22.2). |
+| 59 | Tangga cabang (2026-11-05) | Seksi 23.1. Percobaan pertama `branch_cost_growth` 2 sejak cabang 2: hitungan kasar menunjukkan cabang ke-10 butuh belasan jam hanya untuk mencapai Tier 3, padahal Tier 3 syarat Waralaba, jadi pemain bisa terjebak. Dengan 1,5 sejak cabang 2, cabang ke-2 butuh 70–97% waktu putaran 1 (target Seksi 1.4: ≤ 70%). Karena itu tangga mulai di cabang `branch_cost_start` = 3. Probe `--runs` (seed 101/202/303, bot biasa tanpa iklan): putaran 1 Tier 5 di menit 108,6 / 104,3 / 104,7 (median 104,7), cabang 2 selesai dalam 54 / 50 / 46 menit (48% putaran 1), cabang 3 (×1,5) dalam 40 / 45 / 51 menit. Bintang per cabang tumbuh kira-kira 22% per cabang (pendapatan ikut biaya, bintang = akar pendapatan), sedangkan biaya ×1,5 per cabang, jadi cabang mulai lebih panjang dari putaran 1 sekitar cabang 6–7 dan terus memanjang. |
+| 60 | Ambang mastery (2026-11-05) | Seksi 23.3. Dengan bintang pertama di 2.500 roti, resep utama mencapainya di tengah putaran 1 dan median Tier 5 turun ke menit 95,9 (target 100–140). Ambang dinaikkan ke 10K / 50K / 150K / 400K / 1M: bintang pertama kira-kira di akhir putaran 1, dan median kembali ke 104,7. Hanya roti yang terjual selama bermain yang dihitung. |
 
 ---
 
@@ -1060,3 +1075,85 @@ Permintaan maintainer 2026-11-03: karakter yang membuat pemain terikat, **hanya 
 ## **21.11 Pacing dengan Roti Emas dan Pelanggan Langganan**
 
 Hadiah KR sekaligus mempercepat tabungan tetapi tidak menaikkan KR/s model, sedangkan pemain biasa menjual toko bila 20 menit di satu tier lokasi berikutnya masih lebih dari 30 menit penghasilan (`PacingTracker.franchise_now`). Karena itu biaya lokasi tidak bisa dinaikkan jauh: T4 1,2M membuat bot mandek di Tier 3 (Waralaba di menit ~50) dan T5 1,95M di Tier 4. Dengan hadiah awal (Roti Emas 1,5 menit, pesanan 2 menit, hadiah hati 5 menit) Tier 5 tercapai di menit 82. Nilai akhir: Roti Emas 0,75 menit, pesanan 1 menit, hadiah hati 1,5 menit, `location.upgrade_cost` [0, 32,5K, 360K, 1,12M, 1,85M] (sejak no. 52: Tier 5 1,9M). Median seed 101/202/303 (`idle_probe --minutes=220 --manage --franchise=5`, bot menangkap separuh roti emas dan mengerjakan separuh pesanan dengan dua bintang): Tier 2 13,3, Tier 3 31,6, Tier 4 67,3, Tier 5 101,9, Waralaba 102 menit, putaran 2 ke Tier 5 dalam 38% waktu putaran 1.
+
+---
+
+# **22. Monetisasi**
+
+Keputusan maintainer 2026-11-05 (Seksi 19 no. 19): game boleh menghasilkan uang. Larangan iklan dan IAP (Seksi 1.3 lama, v3.1 §12.7, §112) dicabut untuk bagian ini saja; gameplay tetap offline penuh.
+
+## **22.1 Prinsip**
+
+- **Hanya iklan berhadiah yang dipilih pemain**, lewat tombol yang jelas bertanda iklan ("Watch ad"), dan selalu ada pilihan tanpa iklan di sebelahnya. Tidak ada iklan paksa (interstitial) atau banner.
+- **Hadiah iklan hanya percepatan** yang juga bisa didapat tanpa iklan (kopi, promosi, roti emas, offline). Tidak ada konten yang hanya terbuka dengan iklan atau uang, kecuali badge kosmetik Supporter.
+- **Tidak ada** mata uang premium, gacha atau loot box, energi, timer yang memblokir, maupun penjualan Bintang Waralaba atau pengganda permanen.
+- **Batas harian** per penempatan (hari kalender perangkat, seperti kopi). Tanpa penyedia iklan atau tanpa internet, tombolnya tidak tampil dan game berjalan sama.
+- **Selama iklan** toko di-pause dan semua suara dibisukan; sesudahnya kembali seperti semula.
+- **Hadiah hanya bila iklan selesai ditonton.** Iklan yang gagal atau tidak terisi memberi pesan singkat, tanpa hadiah dan tanpa hukuman; jatah harian tidak berkurang.
+- **Pacing Seksi 1.4 dan 23 diukur tanpa iklan**; iklan hanya mempercepat.
+
+## **22.2 Platform**
+
+| Build | Iklan berhadiah | Supporter Pack |
+|---|---|---|
+| Desktop, GitHub Pages, itch.io (preset `Web`) | Tidak ada | Tidak ada |
+| CrazyGames (preset `Web CrazyGames`, fitur `crazygames`) | SDK HTML5 v3: `SDK.ad.requestAd("rewarded", {adStarted, adFinished, adError})` | Tidak ada |
+| Poki (preset `Web Poki`, fitur `poki`) | Poki SDK v2: `PokiSDK.rewardedBreak()` → `success` | Tidak ada |
+| Android (Play Store) | AdMob rewarded lewat plugin Android | Google Play Billing lewat plugin Android |
+
+- **Portal web.** SDK portal dimuat dari `html/head_include` preset portal dan hanya dipanggil lewat `WebPlatform` (satu-satunya kode yang memanggil JavaScript). PWA mati di preset portal karena portal menyajikan berkasnya sendiri. Game memberi sinyal yang diminta portal: CrazyGames `game.loadingStart/loadingStop` dan `game.gameplayStart/gameplayStop`, Poki `gameLoadingFinished` dan `gameplayStart/gameplayStop`, saat loading, saat masuk dan keluar gameplay, dan saat pause. Di luar domain portal (SDK `disabled`) iklan tidak tampil.
+- **Android.** Butuh Android SDK, akun Play Console dan AdMob, ID unit iklan, persetujuan pengguna (UMP/GDPR), kebijakan privasi, formulir Data Safety, dan kebijakan Families bila anak-anak termasuk target (gaya visual game ini menarik untuk anak). Plugin Android AdMob dan Google Play Billing adalah **satu-satunya pengecualian** larangan addon pihak ketiga (v3.1 §96), dipasang saat Android SDK siap. Sampai itu penyedia Android melapor "tidak tersedia".
+
+## **22.3 Penempatan Iklan Berhadiah (TUNABLE: `monetization.placements`)**
+
+| ID | Di mana | Hadiah | Batas per hari |
+|---|---|---|---|
+| `offline_double` | Popup Welcome Back: tombol **Collect ×2** di samping Collect | Penghasilan offline ×2 | 10 |
+| `coffee_refill` | Lembar Upgrades, bagian Boosts: **Another coffee** | Kopi Pak Lurah sekali lagi (×2 penghasilan selama 15 menit nyata, Seksi 11.1) | 2 |
+| `promo_skip` | Baris promosi yang sedang jeda: **Skip wait** | Jeda promosi itu selesai | 5 |
+| `golden_double` | Tombol kecil **×2** selama beberapa detik setelah menangkap Roti Emas berhadiah KR | KR roti emas itu sekali lagi | 10 |
+
+Jatah harian dihitung per perangkat dan disimpan di `user://monetization.json`, bukan di profil.
+
+## **22.4 Supporter Pack (pembelian sekali)**
+
+- Produk `supporter_pack` di toko platform (harga diatur di Play Console).
+- **Hadiah iklan langsung tanpa menonton**: tombolnya bertanda "Free"; batas harian tetap berlaku.
+- **Badge dinding "Supporter"** (hati emas) di koleksi dekorasi setiap profil.
+- Tidak ada keunggulan lain.
+- Hak beli disimpan di perangkat (`user://monetization.json`) dan dipulihkan dari toko (**Restore purchases**).
+- Kartu Supporter Pack tampil di lembar Shop hanya bila toko platform tersedia.
+
+## **22.5 Privasi**
+
+Game tetap tanpa telemetri sendiri. Iklan dan pembelian ditangani SDK platform, yang mengumpulkan datanya sendiri; karena itu build portal dan Android memerlukan kebijakan privasi (bisa di GitHub Pages) dan persetujuan pengguna sesuai aturan platform. Build `Web` biasa dan desktop tidak memuat SDK apa pun.
+
+---
+
+# **23. Umur Permainan Panjang**
+
+Permintaan maintainer 2026-11-05 (Seksi 19 no. 20): pemain harus punya alasan kembali selama berminggu-minggu. Putaran pertama dan target Seksi 1.4 tidak berubah; yang ditambah adalah tangga jangka panjang sesudah Waralaba pertama.
+
+## **23.1 Cabang yang Makin Mahal (TUNABLE: `prestige.branch_cost_growth`)**
+
+Cabang ke-2 masih memakai harga katalog, supaya Waralaba pertama terasa sebagai lompatan (Seksi 1.4: putaran ke-2 ≤ 70%). Mulai cabang ke-`branch_cost_start` (3), semua biaya KR di cabang ke-n (`run_index`) dikalikan `branch_cost_growth^(n − branch_cost_start + 1)` (1,5; cabang 3 ×1,5, cabang 4 ×2,25, dan seterusnya): level stasiun, kasir, resep, staf, dan upgrade global, buka stasiun, buka resep, rekrut staf, pindah lokasi, dan dekorasi berbonus. Harga jual, bahan, dan promosi (sudah ikut KR/s) tidak dikalikan. Bintang menambah penghasilan secara linear, sedangkan biaya tumbuh eksponensial, jadi beberapa cabang pertama terasa cepat dan cabang sesudahnya makin panjang; tangganya tanpa ujung. Layar Waralaba menyebut pengali biaya cabang berikutnya.
+
+## **23.2 Perk Lanjutan**
+
+| ID | Bintang | Efek |
+|---|---:|---|
+| `perk_offline_long` | 750 | Batas offline +3 jam |
+| `perk_mandiri_start` | 1.000 | Putaran baru mulai di Tier 3 (Toko Mandiri) |
+| `perk_coffee_long` | 1.500 | Kopi Pak Lurah (juga isi ulangnya) berlangsung 2× lebih lama |
+| `perk_milestone_quad` | 2.500 | Milestone resep ×4 |
+| `perk_golden_rain` | 5.000 | Roti emas muncul 2× lebih sering |
+
+## **23.3 Mastery Resep (TUNABLE: `mastery.*`)**
+
+- Setiap resep mengumpulkan **roti terjual sepanjang masa** (semua cabang, toko dan RotiFood). Hanya roti yang benar-benar terjual selama bermain yang dihitung; penghasilan offline berupa KR saja dan tidak menambah mastery, jadi mastery adalah hadiah untuk bermain aktif.
+- **Bintang mastery 1–5** pada `mastery.thresholds` (10K, 50K, 150K, 400K, 1M roti: bintang pertama resep utama kira-kira di akhir putaran pertama, sehingga pacing Seksi 1.4 tidak berubah); setiap bintang menambah harga jual resep itu sebesar `mastery.price_bonus_per_level`, permanen (tidak direset Waralaba).
+- Harga mastery bagian dari harga biasa (Seksi 7.2), jadi ikut model KR/s, penghasilan offline, dan pilihan Auto.
+- Tampil di layar Menu (bintang dan progres ke bintang berikutnya); naik bintang memberi toast.
+- Memberi alasan jangka panjang untuk menjual resep lain (craving, roti favorit lokasi).
+- Save: field `mastery` (`sold` per resep), dimiliki `MasteryManager`.
+

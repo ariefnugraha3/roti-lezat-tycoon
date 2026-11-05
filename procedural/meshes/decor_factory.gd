@@ -36,7 +36,8 @@ const LCD: Color = Color(0.62, 0.72, 0.56)
 ## Bintang di plakat kenaikan tier (GDD 72.1: ach_tier2..4).
 const PLAQUE_STARS: Dictionary = {&"decor_plaque_tier2": 2, &"decor_plaque_tier3": 3, &"decor_plaque_tier4": 4}
 ## Badge achievement (GDD 72.1): warna pita rosette, juga warna medali di kartu profil.
-const BADGE_RIBBONS: Dictionary = {&"badge_crumb": Palette.STRAWBERRY, &"badge_savings": Palette.PASTEL_PERIWINKLE}
+const BADGE_RIBBONS: Dictionary = {&"badge_crumb": Palette.STRAWBERRY, &"badge_savings": Palette.PASTEL_PERIWINKLE,
+	&"badge_supporter": Palette.HONEY}
 
 static var _proto: Dictionary = {}
 static var _glass_mat: StandardMaterial3D = null
@@ -66,7 +67,7 @@ static func has_model(profile: StringName) -> bool:
 		&"hanging_lamp", &"plaque_bronze", &"plaque_silver", &"plaque_gold", &"photo_frame", &"plaque_infinity",
 		&"cassette_radio", &"coin_jar", &"trophy_small", &"calculator", &"brass_bell",
 		&"potted_plant", &"basket_stack", &"trophy_large", &"umbrella_stand", &"terracotta_rug", &"floor_mat",
-		&"badge_crumb", &"badge_savings", &"stamp_card", &"golden_croissant", &"bunting"]
+		&"badge_crumb", &"badge_savings", &"badge_supporter", &"stamp_card", &"golden_croissant", &"bunting"]
 
 
 ## Model utuh satu dekorasi. Dekorasi tak dikenal menghasilkan node kosong.
@@ -124,6 +125,8 @@ static func build(deco_id: StringName) -> Node3D:
 			_badge_rosette(k, &"crumb", badge_ribbon(def.visual_profile_id), BRONZE)
 		&"badge_savings":
 			_badge_rosette(k, &"savings", badge_ribbon(def.visual_profile_id), GOLD)
+		&"badge_supporter":
+			_badge_rosette(k, &"heart", badge_ribbon(def.visual_profile_id), GOLD)
 		&"stamp_card":
 			_stamp_card(k)
 		&"golden_croissant":
@@ -468,6 +471,13 @@ static func _badge_rosette(k: Kit, emblem: StringName, ribbon: Color, metal: Col
 				k.m.box(_xf(Vector3(-0.014 + 0.014 * float(j), 0.008, -0.0445), Vector3(0.0, 0.0, 25.0)), Vector3(0.004, 0.014, 0.002), Palette.FLOUR_WHITE)
 			for p: Vector3 in [Vector3(0.026, -0.026, -0.033), Vector3(-0.03, -0.022, -0.033)]:
 				k.m.ellipsoid(_xf(p), Vector3(0.006, 0.005, 0.004), Palette.GOLDEN_CRUST.darkened(0.1), 6, 3)
+		&"heart":
+			# Hati stroberi timbul di medali emas (Supporter Pack, GDD idle 22.4).
+			var heart := PackedVector2Array()
+			for i in 24:
+				var t: float = TAU * float(i) / 24.0
+				heart.append(Vector2(16.0 * pow(sin(t), 3.0), 13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t)) * 0.0021)
+			k.m.polygon(_xf(Vector3(0.0, 0.002, -0.0375)), heart, Palette.STRAWBERRY, Vector3.FORWARD)
 		_:
 			# Koin dengan bintang timbul.
 			k.s.cylinder(_xf(Vector3(0.0, 0.0, -0.034), Vector3(90.0, 0.0, 0.0)), 0.006, 0.036, 0.036, GOLD.lightened(0.12), 20)

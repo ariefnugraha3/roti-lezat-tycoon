@@ -202,8 +202,15 @@ func _check_export_presets() -> void:
 				and not bool(cfg.get_value(opt, "permissions/internet", true)) and bool(cfg.get_value(opt, "permissions/vibrate", false))
 		if platform == "Web":
 			_add("Web preset single-threaded for itch.io (GDD 128.3)", not bool(cfg.get_value(opt, "variant/thread_support", true)))
-			_add("Web preset installs as a portrait PWA (GDD idle 20 no. 56)", bool(cfg.get_value(opt, "progressive_web_app/enabled", false))
-				and int(cfg.get_value(opt, "progressive_web_app/orientation", 0)) == 2)
+			if n == "Web":
+				_add("Web preset installs as a portrait PWA (GDD idle 20 no. 56)", bool(cfg.get_value(opt, "progressive_web_app/enabled", false))
+					and int(cfg.get_value(opt, "progressive_web_app/orientation", 0)) == 2)
+				_add("the plain Web build loads no ad SDK (GDD idle 22.2)", str(cfg.get_value(opt, "html/head_include", "")) == ""
+					and str(cfg.get_value(sec, "custom_features", "")) == "")
+			else:
+				# Portal (GDD idle 22.2): SDK-nya sendiri, tanpa service worker.
+				_add("%s preset loads its portal SDK without a PWA (GDD idle 22.2)" % n, str(cfg.get_value(opt, "html/head_include", "")).contains("<script")
+					and not bool(cfg.get_value(opt, "progressive_web_app/enabled", true)) and str(cfg.get_value(sec, "custom_features", "")) != "")
 	_add("Web, Android APK and Android AAB presets exist (GDD 108)",
 		names.get("Web") == "Web" and names.get("Android Debug APK") == "Android" and names.get("Android Release AAB") == "Android",
 		str(names.keys()))

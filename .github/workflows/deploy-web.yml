@@ -1,5 +1,7 @@
 # Bangun build Web dengan Godot 4.7.2 resmi, lalu pasang ke GitHub Pages
-# (https://ariefnugraha3.github.io/roti-lezat-tycoon/).
+# (https://ariefnugraha3.github.io/roti-lezat-tycoon/). Build portal CrazyGames
+# dan Poki (dengan SDK iklannya, GDD idle 22.2) ikut dibuat sebagai artifact
+# yang bisa diunduh dari halaman run, untuk diunggah ke portal masing-masing.
 #
 # Berjalan otomatis setiap push ke cabang game idle (pivot-to-idle-game), kecuali
 # push yang hanya mengubah dokumen. Bisa juga dijalankan manual dari tab Actions:
@@ -65,6 +67,26 @@ jobs:
           ./godot --headless --path . --export-release "Web" build/web/index.html
           test -f build/web/index.pck
           test -f build/web/index.wasm
+
+      # Build portal (GDD idle 22.2): SDK iklan CrazyGames / Poki, tanpa PWA.
+      # Diunduh dari halaman run ini (Artifacts) lalu diunggah ke portalnya.
+      - name: Ekspor build portal CrazyGames dan Poki
+        run: |
+          mkdir -p build/web_crazygames build/web_poki
+          ./godot --headless --path . --export-release "Web CrazyGames" build/web_crazygames/index.html
+          ./godot --headless --path . --export-release "Web Poki" build/web_poki/index.html
+          test -f build/web_crazygames/index.pck
+          test -f build/web_poki/index.pck
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crumbtown-crazygames
+          path: build/web_crazygames
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crumbtown-poki
+          path: build/web_poki
 
       - uses: actions/configure-pages@v6
 

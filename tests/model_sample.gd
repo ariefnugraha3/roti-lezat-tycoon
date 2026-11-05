@@ -14,7 +14,7 @@ const RECIPE_LEVELS: Array[int] = [3, 10, 25, 50, 80]
 static func build(sim: SimulationRoot, tier: int) -> void:
 	sim.tutorial.skip()
 	while sim.world.location.tier < tier:
-		sim.debug_add_kr(SimulationRoot.location_cost(sim.world.location.tier + 1))
+		sim.debug_add_kr(sim.location_price(sim.world.location.tier + 1))
 		if sim.upgrade_location() != "":
 			break
 	sim.debug_add_kr(1.0e15)

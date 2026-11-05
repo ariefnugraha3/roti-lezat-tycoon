@@ -10,7 +10,7 @@ Godot 4.7 project for **Crumbtown: Idle Bakery Tycoon** (called Roti Lezat Tycoo
 
 The maintainer's v3.1 decision log (2026-09-24 to 2026-10-25) stays in this file on `main` and in git history. The decisions that still matter here are the ones for the kept systems: the 1 in-game minute = 1 real second pace (1 sim-second = 0.5 real seconds), the flat "bantal empuk" UI kit, Sims-style Decoration Mode with wall badges, window shoppers and surprise skits (cosmetic, their own RNG), staff lines and idle gestures, the tier interiors, neighbourhoods, daylight, street life and street arrivals, the bright tutorial blink, the 10 px scrollbar gap, and the MeshBake and simulation optimizations.
 
-The idle decisions so far: one idle mode only (no classic mode); burnt ovens and stale bread removed; the GDD v3.1 ban on offline progress (§90, §112, §113, §119) lifted; the portrait frame (idle §12.0); and the 13 decisions of idle §19, all confirmed by the maintainer on 2026-10-26. Smaller implementation choices the idle GDD left open are recorded in its **§20 (Catatan Implementasi)**; every one of them can be changed by the maintainer, and new ones go there too. If a question arises that neither GDD answers and that is more than an implementation detail, do not invent the answer silently: quote the relevant passages and get a decision from the user.
+The idle decisions so far: monetization allowed since 2026-11-05 (idle §22, §19 no. 19: opt-in rewarded ads and one Supporter Pack, gameplay still fully offline) and a longer game (idle §23, §19 no. 20); one idle mode only (no classic mode); burnt ovens and stale bread removed; the GDD v3.1 ban on offline progress (§90, §112, §113, §119) lifted; the portrait frame (idle §12.0); and the 13 decisions of idle §19, all confirmed by the maintainer on 2026-10-26. Smaller implementation choices the idle GDD left open are recorded in its **§20 (Catatan Implementasi)**; every one of them can be changed by the maintainer, and new ones go there too. If a question arises that neither GDD answers and that is more than an implementation detail, do not invent the answer silently: quote the relevant passages and get a decision from the user.
 
 The idle GDD (narrative in Indonesian) has the product design (§1–§11: loop, economy, levels, the analytic model, offline, franchise, boosts), the UI and onboarding (§12–§14), the technical notes, save and tests (§15–§17), the English strings (§18), the confirmed decisions (§19) and the implementation notes (§20). Read the relevant section before implementing any system. Balance numbers live in `data/catalog/idle.json` (and `balance.json` for kept v3.1 tunables); per v3.1 §126.1, reference catalog paths instead of copying numbers into code comments or other docs.
 
@@ -36,6 +36,8 @@ G='D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
 "$G" --path .                              # open in editor
 "$G" --path . res://scenes/main.tscn       # run the game (opens a 540x960 portrait window)
 "$G" --headless --path . --export-release "Web" build/web/index.html
+"$G" --headless --path . --export-release "Web CrazyGames" build/web_crazygames/index.html   # zip the folder for the CrazyGames upload (idle §22.2)
+"$G" --headless --path . --export-release "Web Poki" build/web_poki/index.html             # zip the folder for the Poki Inspector
 "$G" --headless --path . --export-debug "Android Debug APK" build/android/crumbtown-debug.apk
 "$G" --headless --path . --export-release "Android Release AAB" build/android/crumbtown.aab
 ```
@@ -98,7 +100,7 @@ No linter is configured. `.github/workflows/tests.yml` runs the compile check, t
 
 ## Engine lock (v3.1 §96, §128)
 
-Godot 4.7-stable Standard, GDScript only, Compatibility renderer; no C#, GDExtension or third-party addons, and no APIs newer than 4.7. The installed binary is 4.7.2-stable. `project.godot` uses `gl_compatibility` (desktop and mobile), a 720×1280 `canvas_items`/`expand` stretch setup with a 540×960 desktop window, and portrait orientation (idle §12.0.1). `export_presets.cfg` holds the Web (single-threaded), Android debug APK and Android release AAB presets, with no signing secrets.
+Godot 4.7-stable Standard, GDScript only, Compatibility renderer; no C#, GDExtension or third-party addons, and no APIs newer than 4.7. The one exception (idle §22.2) is the Android AdMob and Google Play Billing plugins, added only once the Android SDK and the Play Console/AdMob accounts exist; until then the Android build has no ad provider. The installed binary is 4.7.2-stable. `project.godot` uses `gl_compatibility` (desktop and mobile), a 720×1280 `canvas_items`/`expand` stretch setup with a 540×960 desktop window, and portrait orientation (idle §12.0.1). `export_presets.cfg` holds the Web (single-threaded), Android debug APK and Android release AAB presets, with no signing secrets.
 
 ## Non-negotiable architectural constraint: 100% procedural assets
 
@@ -124,6 +126,9 @@ The shop runs **by itself, 24 hours a day** (idle §3): 1 in-game minute = 1 rea
 - **Franchise** (idle §10, `PrestigeManager`, `SimulationRoot.franchise`): from Tier 3, selling the bakery for Franchise Stars resets the run but keeps stars, perks, statistics, achievements and decorations; every star raises all income.
 - **Boosts** (idle §11, `BoostManager`): Pak Lurah's coffee once per device day, paid promotions with cooldowns, and a ×2 boost from every achievement, all running only during active play.
 
+- **Long game** (idle §23): from branch `prestige.branch_cost_start` every KR cost is multiplied by `branch_cost_growth` per branch (`PrestigeManager.branch_cost_mult`; charge through `sim.location_price`, `upgrades.unlock_price`, `upgrades.offer`, never the static catalog costs), late perks up to 5,000 stars, and permanent recipe mastery (`MasteryManager`, part of `plain_price`). `tools/idle_probe.tscn -- --runs=K` plays K franchises in a row.
+- **Monetization** (idle §22, `Monetization` autoload): rewarded ads at four placements (Collect ×2, another coffee, skip a promotion wait, golden bread ×2) through `AdButton`, daily limits per device in `user://monetization.json`, and the Supporter Pack (ad rewards free, Supporter Heart badge). One `MonetizationProvider` per platform: none on desktop and the plain Web build, `PortalMonetizationProvider` for the `Web CrazyGames`/`Web Poki` presets, `TestMonetizationProvider` in tests. A reward is given only after a finished ad; during an ad the shop pauses (`ad` reason) and audio mutes. Pacing targets are measured without ads.
+
 **There is no Game Over** and no running cost besides ingredients (idle §7.3). The balance never goes below zero.
 
 ## Tier is the central progression variable
@@ -139,4 +144,4 @@ Location tier (1–5, idle §8.7, v3.1 §57) gates mixer/oven/display slot count
 - Phone browsers: `core/web_platform.gd` is the only code that talks to JavaScript (`JavaScriptBridge`); the Tap to Start tap calls `WebPlatform.enter_fullscreen_portrait()`, and a sideways phone browser gets a one-time hint (`OrientationHint`, idle §12.0.6). Tests fake a phone with `WebPlatform.force_mobile_web` and `forced_portrait`.
 - Modal stack (v3.1 §28.2): opening a main blocking modal closes the other main modals and any bottom sheet. System layers set `overlay = true` (confirm, Pause menu, tutorial tips, Welcome Back, the franchise cutscene, the overflow notice): they stack on top and never close or get closed by other modals. `keep_open = true` screens close only through their own buttons. Any new popup that can appear over another modal or sheet must be an `overlay`, or it will close what is underneath.
 - Entering gameplay runs in stages behind `LoadingScreen` (`GameRoot._begin_loading`/`_loading_stage`, v3.1 §89.5): each heavy step gets a frame so the bar is drawn, and `playing` only turns true once the overlay fades. A franchise rebuilds the world and HUD the same way around the same `SimulationRoot` (`GameRoot.do_franchise`).
-- v1.0 is fully offline: no ads, IAP, login, backend, notifications or telemetry (idle §1; v3.1 §12.7, §112).
+- Gameplay is fully offline: no login, backend, notifications or telemetry (idle §1.3; v3.1 §112). Ads and the Supporter Pack (idle §22) are optional extras: their buttons only show when a provider and network are available, and every build plays the same without them. The plain `Web` preset and desktop load no SDK; only the portal presets load one (`html/head_include`), and the release validator checks this.

@@ -35,6 +35,7 @@ var rotifood: RotiFoodManager
 var staff: StaffManager
 var weather: WeatherManager
 var prestige: PrestigeManager
+var mastery: MasteryManager
 var statistics: StatisticsManager
 var achievements: AchievementManager
 var tutorial: TutorialManager
@@ -70,6 +71,7 @@ func _init() -> void:
 	statistics = _add(StatisticsManager.new(), "StatisticsManager")
 	achievements = _add(AchievementManager.new(), "AchievementManager")
 	prestige = _add(PrestigeManager.new(), "PrestigeManager")
+	mastery = _add(MasteryManager.new(), "MasteryManager")
 	economy = _add(EconomyManager.new(), "EconomyManager")
 	world = _add(WorldManager.new(), "WorldManager")
 	upgrades = _add(UpgradeManager.new(), "UpgradeManager")
@@ -280,13 +282,14 @@ func recipe_price(recipe_id: StringName, live: bool = true) -> float:
 
 
 ## Harga biasa per roti: harga dasar × level resep × selera lingkungan × roti
-## unggulan event × dekorasi × waralaba, tanpa boost dan craving.
+## unggulan event × dekorasi × waralaba × mastery (GDD idle 23.3), tanpa boost
+## dan craving.
 func plain_price(recipe_id: StringName) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
 	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * events.featured_mult(recipe_id) \
-		* decoration.bonus_mult(&"price") * prestige.income_mult()
+		* decoration.bonus_mult(&"price") * prestige.income_mult() * mastery.price_mult(recipe_id)
 
 
 ## Harga biasa roti termahal yang bisa dijual sekarang (terbuka, alatnya ada).
@@ -341,8 +344,8 @@ func net_per_unit(recipe_id: StringName, live: bool = true) -> float:
 ## mengabaikan craving (GDD idle 9.1), supaya KR/s offline tidak menilai petak
 ## Auto dengan resep craving berharga biasa.
 func auto_recipe(live: bool = true) -> StringName:
-	var key: String = "%s|%s|%s|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars,
-		cravings.active() if live else &"", world.location.tier]
+	var key: String = "%s|%s|%s|%s|%s|%s|%d" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars,
+		cravings.active() if live else &"", world.location.tier, mastery.version]
 	if live and key == _auto_cache_key:
 		return _auto_cache
 	if not live and key == _auto_plain_key:
@@ -431,10 +434,17 @@ func next_location() -> LocationDefinition:
 	return DataRegistry.location_by_tier(world.location.tier + 1)
 
 
-## Biaya pindah ke lokasi tier `tier` (GDD idle 8.7).
+## Biaya katalog pindah ke lokasi tier `tier` (GDD idle 8.7), tanpa pengali
+## cabang; yang ditagih adalah location_price.
 static func location_cost(tier: int) -> float:
 	var arr: Array = DataRegistry.idle("location.upgrade_cost")
 	return float(arr[clampi(tier - 1, 0, arr.size() - 1)])
+
+
+## Biaya pindah ke lokasi tier `tier` di cabang ini (× pengali biaya cabang,
+## GDD idle 23.1).
+func location_price(tier: int) -> float:
+	return location_cost(tier) * prestige.branch_cost_mult()
 
 
 ## "" bila boleh; selain itu kunci alasan UI.
@@ -442,7 +452,7 @@ func upgrade_block_reason() -> String:
 	var nxt: LocationDefinition = next_location()
 	if nxt == null:
 		return "ui_upgrade_max"
-	if not economy.can_afford(location_cost(nxt.tier)):
+	if not economy.can_afford(location_price(nxt.tier)):
 		return "ui_feedback_not_enough_kr"
 	return ""
 
@@ -457,7 +467,7 @@ func upgrade_location() -> String:
 		return reason
 	var nxt: LocationDefinition = next_location()
 	var snapshot: Dictionary = capture_save()
-	economy.spend(location_cost(nxt.tier), &"LOCATION_UPGRADE", nxt.id, {})
+	economy.spend(location_price(nxt.tier), &"LOCATION_UPGRADE", nxt.id, {})
 	_clear_actors()
 	var ok: bool = _migrate_to(nxt)
 	if not ok:
@@ -620,6 +630,7 @@ func capture_save() -> Dictionary:
 		"staff": staff.capture(),
 		"weather": weather.capture(),
 		"franchise": prestige.capture(),
+		"mastery": mastery.capture(),
 		"tutorial": tutorial.capture(),
 		"decorations": decoration.capture(),
 		"flags": {"economy_overflowed": economy.overflowed},
@@ -653,6 +664,7 @@ func load_from_save(d: Dictionary) -> void:
 	statistics.restore(d.get("stats", {}))
 	achievements.restore(d.get("achievements", {}))
 	prestige.restore(d.get("franchise", {}))
+	mastery.restore(d.get("mastery", {}))
 	world.restore({"location_id": d.get("location_id")})
 	economy.restore(d.get("economy", {}))
 	upgrades.restore(d.get("upgrades", {}))

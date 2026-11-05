@@ -45,6 +45,13 @@ Every read goes through `migrate()` and `validate_save()`. The result reports
 `"idle"` (a v3.1 tycoon save) is reported as `classic` (`SaveManager.is_classic`): the Main Menu shows it as "Classic save (not
 supported)" with a Delete button, and it is never loaded or migrated (idle GDD §15.3).
 
+### Device files outside the profiles
+
+`user://monetization.json` (`Monetization`, idle §22) holds the device's Supporter
+Pack flag and the day's rewarded-ad turns per placement (`{"version", "supporter",
+"day", "used"}`), written with the same temp-file pattern. It is not part of any
+profile, so deleting or importing a profile never touches it.
+
 ### Save codes (`SaveManager.export_code` / `decode_code` / `import_code`)
 
 A profile can leave the device as text (idle GDD §20 no. 57): `CRUMB1-` followed by
@@ -100,7 +107,8 @@ which keeps fixtures deterministic.
 | `rotifood_orders` | object | Orders (items, prices, packed lots, driver state) and `next_order_id`. Orders are accepted and packed automatically. |
 | `staff` | object | `contracts` (`employed`, `hired_day`) and actors. No wages, duty or tiers. |
 | `weather` | object | `today`, `tomorrow`, `physical_mult`, `delivery_mult`. |
-| `franchise` | object | `PrestigeManager.capture()`: `stars`, `run_index`, `perks` (unlocked perk IDs, derived from stars), `recipes_ever`, and since idle GDD §21.7 `run_started_day` (in-game day the open branch opened) and `branches` (sold branches for the Crumbtown map: `{number, tier, stars, earned, rate, opened_day, sold_day}`). Both optional: older saves show earlier branches as placeholders. |
+| `franchise` | object | `PrestigeManager.capture()`: `stars`, `run_index` (also sets the branch cost multiplier, idle GDD §23.1), `perks` (unlocked perk IDs, derived from stars), `recipes_ever`, and since idle GDD §21.7 `run_started_day` (in-game day the open branch opened) and `branches` (sold branches for the Crumbtown map: `{number, tier, stars, earned, rate, opened_day, sold_day}`). Both optional: older saves show earlier branches as placeholders. |
+| `mastery` | object | `MasteryManager.capture()` (idle GDD §23.3): `sold`, recipe ID → bread of that recipe sold in the shop and through RotiFood across every branch. Kept across franchises; a missing field (saves before 2026-11-05) loads as no mastery. |
 | `offline` | object | `OfflineManager.capture()`: `last_active_unix` (0 = unknown), `rate_kr_per_s` (model KR/s without boosts), `pending` (`{amount, seconds, away}` waiting for Collect, or `{}`). |
 | `boosts` | object | `BoostManager.capture()`: `income_mult`, `income_left` (real seconds), `promo_id`, `promo_left`, `cooldowns` (promotion → real seconds), `last_gift_date` (device date of the last coffee). |
 | `tutorial` | object | Onboarding steps already shown (`done`), `skipped`, and the current `prompt` (`key`, `target`, `style`). |

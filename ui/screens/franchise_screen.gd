@@ -48,6 +48,11 @@ func build_page(body: VBoxContainer) -> void:
 	map_b.custom_minimum_size = Vector2(0, 52)
 	map_b.pressed.connect(func() -> void: game.modals.open(&"town_map"))
 	cb.add_child(map_b)
+	# Cabang berikutnya lebih mahal (GDD idle 23.1).
+	var next_mult: float = PrestigeManager.branch_cost_mult_for(p.run_index + 1)
+	if next_mult > 1.0:
+		var bc: Label = lbl(cb, Tx.t("ui_franchise_branch_costs", {"number": p.run_index + 1, "mult": _num(next_mult)}), 14, Palette.TEXT_MUTED, true)
+		bc.name = "BranchCosts"
 	var rs: Label = lbl(cb, Tx.t("ui_franchise_resets"), 14, Palette.TEXT_MUTED, true)
 	rs.name = "Resets"
 	lbl(cb, Tx.t("ui_franchise_keeps"), 14, Palette.TEXT_MUTED, true)

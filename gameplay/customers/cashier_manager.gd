@@ -118,6 +118,7 @@ func _complete(c: Customer, lane: QueueLane) -> void:
 		var st: BreadStack = (lot as Dictionary)["stack"]
 		subtotal += Money.round_cents(float((lot as Dictionary)["unit_price"])) * st.quantity
 		units += st.quantity
+		sim.mastery.note_sold(st.recipe_id, st.quantity)
 	c.held.clear()
 	if units <= 0:
 		sim.customers.on_paid(c)

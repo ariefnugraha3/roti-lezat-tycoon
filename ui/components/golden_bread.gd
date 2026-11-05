@@ -5,6 +5,8 @@ extends CanvasLayer
 ## saat toko di-pause. Lapisannya di atas lembar bawah (bisa ditangkap selagi
 ## lembar terbuka), tetapi disembunyikan selama modal pemblokir, Decoration Mode,
 ## dan Photo mode. Satu ketukan menangkapnya; hadiahnya ditulis di toast.
+## Sesudah roti berhadiah KR, tombol kecil ×2 muncul beberapa detik di tempat
+## tangkapan bila iklan berhadiah tersedia (GDD idle 22.3 `golden_double`).
 
 const SIZE: float = 112.0
 
@@ -14,6 +16,10 @@ var button: Button = null
 var _art: GoldenArt = null
 ## Lapisan efek koin saat tertangkap.
 var _fx: Control = null
+## Tombol ×2 lewat iklan, KR yang digandakan, dan sisa detik tawarannya.
+var double_button: Button = null
+var _double_kr: float = 0.0
+var _double_left: float = 0.0
 
 
 func _ready() -> void:
@@ -41,11 +47,16 @@ func _ready() -> void:
 	_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fx)
+	double_button = AdButton.make(&"golden_double", Tx.t("ui_golden_double"), "success", 18, 15)
+	double_button.pressed.connect(_double)
+	add_child(double_button)
+	double_button.visible = false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if sim == null or game == null:
 		return
+	_tick_double(delta)
 	var show: bool = sim.golden.is_flying() and game.modals != null and not game.modals.has_blocking() \
 		and game.hud != null and not game.hud.decoration_active
 	button.visible = show
@@ -73,6 +84,43 @@ func _catch() -> void:
 		FX.coin_pop(_fx, at, float(r["kr"]))
 		if game.hud != null:
 			game.hud.coin_shower()
+	if id == "golden_kr" and Monetization.can_offer(&"golden_double"):
+		_double_kr = float(r["kr"])
+		_double_left = float(Monetization.placement(&"golden_double").get("offer_seconds", 8.0))
+		var vp: Vector2 = button.get_viewport_rect().size
+		var sz: Vector2 = double_button.get_combined_minimum_size()
+		double_button.position = Vector2(clampf(at.x - sz.x * 0.5, 16.0, vp.x - sz.x - 16.0), clampf(at.y + SIZE * 0.4, 16.0, vp.y - sz.y - 16.0))
+
+
+## Tawaran ×2 berjalan dalam detik nyata dan hilang sendiri; disembunyikan juga
+## selama modal pemblokir dan Decoration Mode, seperti rotinya.
+func _tick_double(delta: float) -> void:
+	if _double_left <= 0.0:
+		double_button.visible = false
+		return
+	if not Monetization.busy:
+		_double_left -= delta
+	AdButton.refresh(double_button)
+	var hidden: bool = game.modals != null and game.modals.has_blocking() and not Monetization.busy
+	double_button.visible = double_button.visible and not hidden and _double_left > 0.0
+
+
+## Tonton iklan, lalu KR roti emas itu sekali lagi (REWARD).
+func _double() -> void:
+	double_button.disabled = true
+	var kr: float = _double_kr
+	Monetization.show_rewarded(&"golden_double", func(ok: bool) -> void:
+		if not is_instance_valid(double_button):
+			return
+		double_button.disabled = false
+		_double_left = 0.0
+		double_button.visible = false
+		if ok and sim != null and kr > 0.0:
+			sim.economy.credit(kr, &"REWARD", &"golden_double", {})
+			EventBus.notify.emit(1, "ui_golden_doubled", {"amount": Tx.kr(kr)}, &"bread")
+			EventBus.sfx.emit(&"coin_shower", &"")
+			if game.hud != null and not SettingsManager.reduced_motion():
+				game.hud.coin_shower())
 
 
 ## Gambar roti emas: lingkar cahaya yang berdenyut, roti emas bergaris, dan dua

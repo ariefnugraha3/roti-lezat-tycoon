@@ -30,6 +30,7 @@ SettingsManager="*res://autoload/settings_manager.gd"
 PauseManager="*res://autoload/pause_manager.gd"
 SaveManager="*res://autoload/save_manager.gd"
 AudioManager="*res://autoload/audio_manager.gd"
+Monetization="*res://autoload/monetization.gd"
 
 [display]
 

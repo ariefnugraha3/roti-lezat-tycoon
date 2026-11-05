@@ -2,7 +2,8 @@ class_name ShopScreen
 extends UISheet
 ## Layar Shop (GDD idle 8.4, 8.7, 8.9, 12.3): pindah ke lokasi berikutnya
 ## (perbandingan Current -> Next seperti Store Upgrade v3.1), buka stasiun baru,
-## dan upgrade global. Semua daftar vertikal di lembar bawah.
+## dan upgrade global. Semua daftar vertikal di lembar bawah. Kartu Supporter
+## Pack (GDD idle 22.4) di atas, hanya bila toko platform tersedia.
 
 var _rows: Array[BuyButtons] = []
 var _move: Button = null
@@ -22,6 +23,8 @@ func build_page(body: VBoxContainer) -> void:
 	_open_buttons.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "ShopList"
+	if Monetization.store_available() or Monetization.supporter:
+		_supporter(list)
 	_location(list)
 	section(list, Tx.t("ui_shop_open_stations"))
 	for cat: StringName in [&"mixer", &"oven", &"display"]:
@@ -58,13 +61,56 @@ func _location(parent: Control) -> void:
 		var l: Label = lbl(h, Tx.t(str(r[0])), 16)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lbl(h, Tx.t("ui_shop_row_change", {"from": int(r[1]), "to": int(r[2])}), 16, Palette.UI_WOOD_DEEP)
-	var cost: float = SimulationRoot.location_cost(nxt.tier)
+	var cost: float = sim.location_price(nxt.tier)
 	_move = ProceduralUIFactory.icon_text_button("shop", Tx.t("ui_shop_move", {"price": Tx.kr(cost)}), "primary", 22, 17)
 	_move.name = "Move"
 	_move.custom_minimum_size = Vector2(0, 58)
 	_move.disabled = sim.upgrade_block_reason() != ""
 	_move.pressed.connect(_confirm_move)
 	body.add_child(_move)
+
+
+## Supporter Pack (GDD idle 22.4): manfaatnya, Beli dengan harga toko, dan
+## Restore purchases; sesudah dibeli, ucapan terima kasih.
+func _supporter(parent: Control) -> void:
+	section(parent, Tx.t("ui_supporter_title"))
+	var pc: PanelContainer = card(parent)
+	pc.name = "Supporter"
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	pc.add_child(v)
+	var top: HBoxContainer = hbox(v, 12)
+	var b: PanelContainer = ProceduralUIFactory.badge("heart", Palette.HONEY, Palette.FLOUR_WHITE, 52)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(b)
+	var text: Label = lbl(top, Tx.t("ui_supporter_owned" if Monetization.supporter else "ui_supporter_body"), 16, Palette.TEXT, true)
+	text.name = "Body"
+	if Monetization.supporter:
+		return
+	var row: HBoxContainer = hbox(v, 10)
+	var price: String = Monetization.supporter_price()
+	var buy: Button = ProceduralUIFactory.icon_text_button("heart", Tx.t("ui_supporter_buy", {"price": price}) if price != "" else Tx.t("ui_supporter_buy_noprice"), "primary", 20, 17)
+	buy.name = "Buy"
+	buy.custom_minimum_size.y = 56
+	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buy.pressed.connect(func() -> void:
+		buy.disabled = true
+		Monetization.buy_supporter(func(ok: bool) -> void:
+			if not is_inside_tree():
+				return
+			buy.disabled = false
+			if not ok:
+				EventBus.notify.emit(1, "ui_supporter_failed", {}, &"warning")
+			refresh()))
+	row.add_child(buy)
+	var restore: Button = ProceduralUIFactory.button(Tx.t("ui_supporter_restore"), "plain")
+	restore.name = "Restore"
+	restore.custom_minimum_size.y = 56
+	restore.pressed.connect(func() -> void:
+		Monetization.restore_purchases(func(_owned: bool) -> void:
+			if is_inside_tree():
+				refresh()))
+	row.add_child(restore)
 
 
 ## Tombol pindah lokasi bila bisa diketuk sekarang (panduan onboarding), atau null.
@@ -78,7 +124,7 @@ func _confirm_move() -> void:
 	var nxt: LocationDefinition = sim.next_location()
 	if nxt == null:
 		return
-	host.confirm(Tx.t("ui_shop_move_confirm", {"to": Tx.t(String(nxt.localization_key)), "price": Tx.kr(SimulationRoot.location_cost(nxt.tier))}), func() -> void:
+	host.confirm(Tx.t("ui_shop_move_confirm", {"to": Tx.t(String(nxt.localization_key)), "price": Tx.kr(sim.location_price(nxt.tier))}), func() -> void:
 		var r: String = sim.upgrade_location()
 		if r != "":
 			EventBus.notify.emit(1, r, {}, &"warning")

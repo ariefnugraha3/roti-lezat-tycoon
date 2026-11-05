@@ -64,7 +64,8 @@ func _rng(salt: String) -> RandomNumberGenerator:
 func _schedule() -> void:
 	visible_left = 0.0
 	var span: Array = DataRegistry.idle("golden.interval_minutes")
-	next_in = _rng("next").randf_range(float(span[0]), float(span[1])) * 60.0
+	# perk_golden_rain (GDD idle 23.2) memendekkan jedanya.
+	next_in = _rng("next").randf_range(float(span[0]), float(span[1])) * 60.0 * sim.prestige.golden_interval_mult()
 
 
 ## Hadiah penerbangan ini bila ditangkap: {id, kr, mult, seconds}.

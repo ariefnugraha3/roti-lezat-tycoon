@@ -4,7 +4,11 @@ extends UIScreen
 ## Lurah, dan Collect. KR-nya baru masuk saat Collect (OfflineManager.collect),
 ## disusul hujan koin. Back sama dengan Collect, jadi penghasilannya tidak
 ## pernah hilang; bila game ditinggal sebelum Collect, `pending` ikut tersimpan
-## dan popup tampil lagi saat profil dimuat.
+## dan popup tampil lagi saat profil dimuat. Bila iklan berhadiah tersedia,
+## Collect ×2 menggandakannya setelah iklan selesai (GDD idle 22.3).
+
+var _double: Button = null
+var _note: Label = null
 
 
 ## Lapisan sistem: tampil di atas lembar atau modal yang sedang terbuka tanpa
@@ -62,12 +66,47 @@ func build() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(spacer)
-	var nav := CenterContainer.new()
+	_note = lbl(body, "", 15, Palette.TEXT_MUTED, true)
+	_note.name = "AdNote"
+	_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_note.visible = false
+	var nav := HBoxContainer.new()
+	nav.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav.add_theme_constant_override("separation", 12)
 	body.add_child(nav)
 	var b: Button = btn(nav, Tx.t("ui_collect"), "primary", _collect)
 	b.name = "Collect"
-	b.custom_minimum_size = Vector2(260, 64)
+	b.custom_minimum_size = Vector2(220, 64)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_double = AdButton.make(&"offline_double", Tx.t("ui_collect_double", {"mult": Tx.mult(_mult())}), "success", 22, 18)
+	_double.custom_minimum_size.y = 64
+	_double.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_double.pressed.connect(_collect_double)
+	nav.add_child(_double)
 	EventBus.sfx.emit(&"welcome_back_chime", &"")
+
+
+func _process(_delta: float) -> void:
+	AdButton.refresh(_double)
+
+
+static func _mult() -> float:
+	return float(Monetization.placement(&"offline_double").get("mult", 2.0))
+
+
+## Tonton iklan, lalu Collect dengan pengali; iklan yang tidak selesai tidak
+## memberi apa pun dan popup tetap terbuka (GDD idle 22.1).
+func _collect_double() -> void:
+	_double.disabled = true
+	Monetization.show_rewarded(&"offline_double", func(ok: bool) -> void:
+		if not is_inside_tree():
+			return
+		_double.disabled = false
+		if ok:
+			_collect(_mult())
+		else:
+			_note.text = Tx.t("ui_ad_failed")
+			_note.visible = true)
 
 
 static func _hours_text(seconds: float) -> String:
@@ -75,8 +114,8 @@ static func _hours_text(seconds: float) -> String:
 	return str(int(hours)) if is_equal_approx(hours, roundf(hours)) else "%.1f" % hours
 
 
-func _collect() -> void:
-	var amount: float = sim.offline.collect() if sim != null else 0.0
+func _collect(mult: float = 1.0) -> void:
+	var amount: float = sim.offline.collect(mult) if sim != null else 0.0
 	close()
 	if amount <= 0.0:
 		return
@@ -86,5 +125,7 @@ func _collect() -> void:
 
 
 func on_back() -> bool:
+	if Monetization.busy:
+		return true
 	_collect()
 	return true

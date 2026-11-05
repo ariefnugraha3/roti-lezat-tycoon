@@ -40,6 +40,8 @@ const JOB_URGENT_BUDGET_USEC: int = 10000
 var rng_source: RandomNumberGenerator = null
 
 var unlocked: bool = false
+## Senyap selama iklan berhadiah (Monetization).
+var ad_muted: bool = false
 var music_state: StringName = &""
 
 var _streams: Dictionary = {}
@@ -119,7 +121,15 @@ func apply_volumes() -> void:
 	_set_bus("SFX", SettingsManager.get_int("sfx_volume"))
 	_set_bus("UI", SettingsManager.get_int("ui_volume"))
 	_set_bus("Ambient", SettingsManager.get_int("ambient_volume"))
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), _focus_muted)
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), _focus_muted or ad_muted)
+
+
+## Iklan berhadiah sedang tayang (GDD idle 22.1): seluruh game senyap.
+func set_ad_muted(on: bool) -> void:
+	if ad_muted == on:
+		return
+	ad_muted = on
+	apply_volumes()
 
 
 func _set_bus(bus_name: String, percent: int) -> void:

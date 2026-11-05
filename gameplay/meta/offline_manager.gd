@@ -111,10 +111,12 @@ func settle() -> Dictionary:
 
 ## Collect di popup Selamat Datang: kreditkan penghasilan yang menunggu.
 ## Mengembalikan jumlahnya.
-func collect() -> float:
+## Masukkan penghasilan yang menunggu Collect. `mult` > 1 = hadiah iklan
+## Collect ×2 (GDD idle 9.5, 22.3).
+func collect(mult: float = 1.0) -> float:
 	if pending.is_empty():
 		return 0.0
-	var amount: float = float(pending.get("amount", 0.0))
+	var amount: float = Money.round_cents(float(pending.get("amount", 0.0)) * maxf(mult, 1.0))
 	_credit(amount, float(pending.get("seconds", 0.0)))
 	pending = {}
 	SaveManager.request_autosave("offline_collect")

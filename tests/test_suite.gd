@@ -83,7 +83,7 @@ func run_day(s: SimulationRoot, bot: SimBot = null) -> void:
 ## Lompat ke lokasi tier `tier` lewat alur upgrade sungguhan (KR cukup).
 func jump_to_tier(s: SimulationRoot, tier: int) -> void:
 	while s.world.location.tier < tier:
-		s.debug_add_kr(SimulationRoot.location_cost(s.world.location.tier + 1))
+		s.debug_add_kr(s.location_price(s.world.location.tier + 1))
 		var r: String = s.upgrade_location()
 		if r != "":
 			push_error("[TEST] upgrade to tier %d failed: %s" % [s.world.location.tier + 1, r])

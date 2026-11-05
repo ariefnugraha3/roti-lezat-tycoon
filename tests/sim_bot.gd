@@ -90,7 +90,7 @@ func _manage() -> void:
 			return
 	var crave: StringName = sim.cravings.today()
 	if crave != &"" and sim.upgrades.unlock_block(crave) == &"" \
-			and UpgradeManager.unlock_cost(DataRegistry.recipe(crave)) <= sim.idle_economy.rate(false) * 60.0 * craving_unlock_minutes:
+			and sim.upgrades.unlock_price(DataRegistry.recipe(crave)) <= sim.idle_economy.rate(false) * 60.0 * craving_unlock_minutes:
 		sim.upgrades.unlock_recipe(crave)
 		return
 	if sim.time.sim_seconds < _next_upgrade_at:
@@ -104,7 +104,7 @@ func _manage() -> void:
 	if may_move and nxt != null:
 		var arr: Array = DataRegistry.idle("location.base_arrivals_per_hour")
 		var gain: float = float(arr[nxt.tier - 1]) / float(arr[sim.world.location.tier - 1]) - 1.0
-		var lc: float = SimulationRoot.location_cost(nxt.tier)
+		var lc: float = sim.location_price(nxt.tier)
 		if lc <= per_minute * save_location_minutes:
 			cands.append({"value": sim.idle_economy.rate(false) * gain / maxf(lc, 0.000001), "cost": lc, "location": true})
 	for item: Dictionary in sim.idle_economy.ranked_offers():
@@ -114,7 +114,7 @@ func _manage() -> void:
 		var block: StringName = sim.upgrades.unlock_block(r.id)
 		if block != &"" and block != &"kr":
 			continue
-		var cost: float = UpgradeManager.unlock_cost(r)
+		var cost: float = sim.upgrades.unlock_price(r)
 		var d: float = sim.idle_economy.delta_unlock(r.id)
 		if d > 0.0:
 			cands.append({"value": d / maxf(cost, 0.000001), "cost": cost, "recipe": r.id})
@@ -161,7 +161,7 @@ func _recipe_goals() -> Array[Dictionary]:
 		var net_new: float = sim.net_per_unit(r.id, false)
 		if net_new <= cur_net or cur_net <= 0.0:
 			continue
-		var total: float = UpgradeManager.unlock_cost(r)
+		var total: float = sim.upgrades.unlock_price(r)
 		var step: Dictionary = {}
 		var step_cost: float = INF
 		for cat: StringName in [&"mixer", &"oven"]:

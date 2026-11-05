@@ -179,6 +179,10 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 		var m: Dictionary = UpgradeInfo.milestone(sim, o)
 		if not m.is_empty():
 			sub += " · " + str(m["text"])
+		# Mastery resep (GDD idle 23.3): bintang dan roti terjual menuju bintang berikutnya.
+		var nxt: int = sim.mastery.next_threshold(r.id)
+		var mp: Dictionary = {"level": sim.mastery.level(r.id), "sold": Tx.big(float(sim.mastery.units(r.id))), "next": Tx.big(float(nxt))}
+		sub += "\n" + Tx.t("ui_mastery_row_next" if nxt > 0 else "ui_mastery_row", mp)
 	var h: HBoxContainer = UISheet.row(parent, title, sub, art)
 	h.get_parent().name = "Recipe_" + String(r.id)
 	_tags(h, r.id)
@@ -198,7 +202,7 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	# Resep yang belum bisa dibuat alat mana pun hanya menyebut syaratnya.
 	if owned or not sim.production.owns_equipment_for(r):
 		return
-	var text: String = Tx.t("ui_recipe_unlock", {"price": Tx.kr(UpgradeManager.unlock_cost(r))})
+	var text: String = Tx.t("ui_recipe_unlock", {"price": Tx.kr(sim.upgrades.unlock_price(r))})
 	var b: Button = ProceduralUIFactory.icon_text_button("lock", text, "primary", 20, 16)
 	b.name = "Unlock"
 	b.custom_minimum_size = Vector2(maxf(150.0, ProceduralUIFactory._text_width(text, 16, true) + 20.0 + 8.0 + 36.0), 52)

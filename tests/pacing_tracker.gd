@@ -75,7 +75,7 @@ func franchise_now() -> bool:
 	var since: float = float(run_times.get("tier%d" % tier, 0.0)) if tier > 1 else 0.0
 	if now() - _run_start - since < STALL_MINUTES * 60.0:
 		return false
-	return SimulationRoot.location_cost(nxt.tier) > sim.idle_economy.rate(false) * 60.0 * 30.0
+	return sim.location_price(nxt.tier) > sim.idle_economy.rate(false) * 60.0 * 30.0
 
 
 func _any_upgrade() -> bool:

@@ -67,9 +67,10 @@ const CATALOG_FILES: Array[String] = [
 ## Upgrade global yang dikenal (GDD idle 8.9).
 const GLOBAL_UPGRADES: Array[String] = ["global_offline_hours", "global_offline_efficiency", "global_tap_power",
 	"global_walk_speed", "global_fast_checkout"]
-## Perk waralaba yang dikenal (GDD idle 10.4).
+## Perk waralaba yang dikenal (GDD idle 10.4, 23.2).
 const PERKS: Array[String] = ["perk_offline_plus", "perk_head_start", "perk_free_baker", "perk_tap_double",
-	"perk_offline_efficiency", "perk_ruko_start", "perk_recipe_memory", "perk_milestone_triple"]
+	"perk_offline_efficiency", "perk_ruko_start", "perk_recipe_memory", "perk_milestone_triple",
+	"perk_offline_long", "perk_mandiri_start", "perk_coffee_long", "perk_milestone_quad", "perk_golden_rain"]
 
 var loaded: bool = false
 var errors: Array[String] = []
@@ -871,8 +872,8 @@ func _validate_meta() -> void:
 		if dd.placement_type != &"floor_prop" and dd.footprint_tiles != Vector2i.ZERO:
 			_err("decoration %s footprint only allowed for floor_prop" % dd.id)
 		# Karpet menempati jejak overlay_size_tiles (GDD 72.3).
-		if dd.is_badge() and (dd.placement_type != &"wall" or dd.source != &"achievement" or not IconCanvas.NAMES.has(String(dd.badge_icon))):
-			_err("decoration %s badge must be an achievement wall decoration with a known icon" % dd.id)
+		if dd.is_badge() and (dd.placement_type != &"wall" or not [&"achievement", &"supporter"].has(dd.source) or not IconCanvas.NAMES.has(String(dd.badge_icon))):
+			_err("decoration %s badge must be an achievement or supporter wall decoration with a known icon" % dd.id)
 		if dd.placement_type == &"floor_overlay" and (dd.overlay_size_tiles.x <= 0 or dd.overlay_size_tiles.y <= 0):
 			_err("decoration %s floor_overlay needs overlay_size_tiles" % dd.id)
 		if dd.placement_type != &"floor_overlay" and dd.overlay_size_tiles != Vector2i.ZERO:
@@ -1068,6 +1069,32 @@ func _validate_idle() -> void:
 		_err("idle offline.min_away_seconds must not exceed popup_min_seconds")
 	if not (_idle_num("prestige.stars_divisor_kr") > 0.0) or not (_idle_num("prestige.stars_exponent") > 0.0):
 		_err("idle prestige needs a positive divisor and exponent")
+	# Monetisasi (GDD idle 22.3, 22.4).
+	var mp: Variant = (_idle.get("monetization", {}) as Dictionary).get("placements")
+	if not (mp is Dictionary):
+		_err("idle monetization.placements missing")
+	else:
+		for pid2: String in ["offline_double", "coffee_refill", "promo_skip", "golden_double"]:
+			var pd: Variant = (mp as Dictionary).get(pid2)
+			if not (pd is Dictionary) or int((pd as Dictionary).get("per_day", 0)) < 1:
+				_err("idle monetization placement %s needs per_day >= 1" % pid2)
+		if not (float(((mp as Dictionary).get("offline_double", {}) as Dictionary).get("mult", 0.0)) > 1.0):
+			_err("idle monetization offline_double.mult must be > 1")
+		if not (float(((mp as Dictionary).get("golden_double", {}) as Dictionary).get("offer_seconds", 0.0)) > 0.0):
+			_err("idle monetization golden_double.offer_seconds must be > 0")
+	var sb: MiscDefinitions.DecorationDefinition = decoration(StringName(str(DataRegistry.idle("monetization.supporter_badge"))))
+	if sb == null or sb.source != &"supporter":
+		_err("idle monetization.supporter_badge must be a supporter decoration")
+	if str(DataRegistry.idle("monetization.supporter_product")) == "":
+		_err("idle monetization.supporter_product missing")
+	if not (_idle_num("prestige.branch_cost_growth") >= 1.0) or not (_idle_num("prestige.branch_cost_start") >= 2.0):
+		_err("idle prestige.branch_cost_growth must be >= 1 and branch_cost_start >= 2")
+	# Mastery resep (GDD idle 23.3).
+	var mth: Variant = (_idle.get("mastery", {}) as Dictionary).get("thresholds")
+	if not _rising(mth) or (mth as Array).is_empty() or not (float((mth as Array)[0]) > 0.0):
+		_err("idle mastery.thresholds needs rising positive unit counts")
+	if not (_idle_num("mastery.price_bonus_per_level") >= 0.0):
+		_err("idle mastery.price_bonus_per_level must not be negative")
 	var prev_stars: float = 0.0
 	var seen_p: Dictionary = {}
 	for p: Variant in _idle.get("perks", []):

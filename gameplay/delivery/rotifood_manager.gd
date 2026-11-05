@@ -430,7 +430,9 @@ func _handover(o: DeliveryOrder) -> void:
 	var subtotal: float = o.subtotal()
 	var units: int = 0
 	for l: Variant in o.reserved_lots:
-		units += ((l as Dictionary)["stack"] as BreadStack).quantity
+		var st: BreadStack = (l as Dictionary)["stack"]
+		units += st.quantity
+		sim.mastery.note_sold(st.recipe_id, st.quantity)
 	o.economy_committed = true
 	sim.economy.credit(subtotal, &"SALE_ROTIFOOD", &"rotifood", {"order": o.order_id})
 	sim.statistics.note_rotifood_sale(units, subtotal)

@@ -171,6 +171,8 @@ func _on_splash_input(event: InputEvent, layer: CanvasLayer) -> void:
 
 func show_main_menu() -> void:
 	modals.close_all()
+	# Portal web: game selesai dimuat (GDD idle 22.2).
+	Monetization.loading_finished()
 	EventBus.music_state_changed.emit(&"MENU")
 	modals.open(&"main_menu")
 	# Bed pagi ikut dirakit di latar: saat pemain selesai mengisi nama toko,
@@ -268,6 +270,8 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	playing = true
 	_end_loading(false)
 	EventBus.profile_loaded.emit(profile_id)
+	_connect_bus(Monetization.changed, _grant_supporter_badge)
+	_grant_supporter_badge()
 	_update_music()
 	_prewarm_day_music()
 	_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
@@ -275,6 +279,16 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	check_offline()
 	check_daily_gift()
 	await get_tree().process_frame
+
+
+## Badge Supporter (GDD idle 22.4) masuk koleksi dekorasi profil ini sekali.
+func _grant_supporter_badge() -> void:
+	if sim == null or not Monetization.supporter:
+		return
+	var badge: StringName = StringName(str(DataRegistry.idle("monetization.supporter_badge")))
+	if not sim.decoration.owns(badge):
+		sim.decoration.grant(badge)
+		EventBus.notify.emit(1, "ui_supporter_badge", {}, &"heart")
 
 
 func _connect_sim_requests() -> void:
@@ -334,6 +348,8 @@ func return_to_menu() -> void:
 # ===========================================================================
 
 func _process(delta: float) -> void:
+	# Portal web: bermain = toko berjalan tanpa pause (GDD idle 22.2).
+	Monetization.set_gameplay(playing and sim != null and not PauseManager.is_paused())
 	if not playing or sim == null:
 		return
 	var was_paused: bool = PauseManager.is_paused()

@@ -82,7 +82,8 @@ func hired_count() -> int:
 func next_hire_cost() -> float:
 	var costs: Array = DataRegistry.idle("staff.hire_cost")
 	var n: int = hired_count()
-	return float(costs[n]) if n < costs.size() else -1.0
+	# × pengali biaya cabang (GDD idle 23.1).
+	return float(costs[n]) * sim.prestige.branch_cost_mult() if n < costs.size() else -1.0
 
 
 ## &"" bila boleh direkrut sekarang; selain itu alasan.

@@ -149,7 +149,24 @@ func claim_gift(date: String) -> bool:
 	if not gift_available(date):
 		return false
 	last_gift_date = date
-	add_income(DataRegistry.idlef("boosts.daily_gift.mult"), DataRegistry.idlef("boosts.daily_gift.minutes") * 60.0)
+	pour_coffee()
+	return true
+
+
+## Satu cangkir kopi Pak Lurah: ×mult penghasilan selama `daily_gift.minutes`
+## (× perk_coffee_long). Dipakai hadiah harian dan isi ulang lewat iklan
+## (GDD idle 11.1, 22.3, 23.2).
+func pour_coffee() -> void:
+	add_income(DataRegistry.idlef("boosts.daily_gift.mult"), DataRegistry.idlef("boosts.daily_gift.minutes") * 60.0 * sim.prestige.coffee_mult())
+
+
+## Selesaikan jeda promosi `id` (hadiah iklan `promo_skip`, GDD idle 22.3).
+## false bila promosi itu tidak sedang jeda.
+func skip_cooldown(id: StringName) -> bool:
+	if float(cooldowns.get(String(id), 0.0)) <= 0.0:
+		return false
+	cooldowns.erase(String(id))
+	SaveManager.request_autosave("promo_skip")
 	return true
 
 

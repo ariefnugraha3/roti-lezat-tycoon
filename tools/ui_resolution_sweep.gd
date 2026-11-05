@@ -12,7 +12,8 @@ extends Node
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
 ## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
 ## langganan berkunjung; juga membuka minigame pesanannya), --menus (hanya splash dan
-## layar menu: tanpa save lalu dengan save, termasuk ketiga langkah New Game).
+## layar menu: tanpa save lalu dengan save, termasuk ketiga langkah New Game), --ads
+## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -58,6 +59,11 @@ func _ready() -> void:
 		elif a == "--regular":
 			# Pelanggan langganan berkunjung, dan album berisi beberapa teman (GDD idle 21.10).
 			_regular = true
+		elif a == "--ads":
+			# Iklan berhadiah dan toko palsu (GDD idle 22): tombol Ad, kartu Supporter.
+			Monetization.path = "user://sweep_monetization.json"
+			Monetization.reset_for_tests()
+			Monetization.use_provider(TestMonetizationProvider.new())
 		elif a == "--golden":
 			# Roti Emas di tengah terbang dan hadiah boost-nya di HUD (GDD idle 21.9).
 			_golden = true

@@ -40,7 +40,7 @@
 		"previous": "",
 		"recipe": ""
 	},
-	"created_at": "2026-11-04T00:42:02Z",
+	"created_at": "2026-11-05T08:13:41Z",
 	"customers": {
 		"customers": [
 			{
@@ -1838,6 +1838,11 @@
 		"visible_left": 0.0
 	},
 	"location_id": "location_t1_garage",
+	"mastery": {
+		"sold": {
+			"recipe_plain_loaf": 124
+		}
+	},
 	"offline": {
 		"last_active_unix": 0.0,
 		"pending": {},

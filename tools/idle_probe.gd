@@ -10,6 +10,9 @@ extends Node
 ## lokasi berikutnya lebih dari 30 menit penghasilan) begitu Waralaba memberi
 ## >= N bintang, lalu mengukur putaran ke-2 sampai milestone yang sama. Menulis save ke folder
 ## probe sendiri, tidak pernah ke save pemain.
+## --runs=K: tangga jangka panjang (GDD idle 23): bot menjual toko K kali dengan
+## aturan yang sama dan mencetak satu baris RUN per cabang (tier, Waralaba,
+## bintang, pengali biaya).
 
 var _minutes: float = 120.0
 var _seed: int = 101
@@ -18,6 +21,7 @@ var _franchise_at: int = 0
 var _quiet: bool = false
 var _max_tier: int = 5
 var _every: int = 10
+var _runs: int = 0
 
 
 ## Timpa nilai katalog idle: "a.b=JSON;c.d=JSON".
@@ -51,6 +55,9 @@ func _ready() -> void:
 			_quiet = true
 		elif a.begins_with("--max-tier="):
 			_max_tier = int(a.substr(11))
+		elif a.begins_with("--runs="):
+			_runs = int(a.substr(7))
+			_manage = true
 		elif a.begins_with("--every="):
 			_every = int(a.substr(8))
 		elif a.begins_with("--set="):
@@ -73,18 +80,22 @@ func _ready() -> void:
 	var ticks_per_minute: int = int(round(60.0 * DataRegistry.sim_seconds_per_real_second() / sim.tick_seconds))
 	var run_start: float = 0.0
 	var run1: Dictionary = {}
+	var franchised: int = 0
 	for m in int(ceil(_minutes)):
 		for i in ticks_per_minute:
 			bot.think()
 			sim.step(sim.tick_seconds)
 			pace.note(run_start)
-		if _franchise_at > 0 and run1.is_empty() and sim.prestige.franchise_block() == &"" and sim.prestige.stars_gain() >= _franchise_at \
+		var want: bool = (_franchise_at > 0 and run1.is_empty()) or (_runs > 0 and franchised < _runs)
+		if want and sim.prestige.franchise_block() == &"" and sim.prestige.stars_gain() >= maxi(_franchise_at, 1) \
 				and pace.franchise_now():
 			var at: float = pace.now()
 			pace.mark("franchise", at)
 			if run1.is_empty():
 				run1 = pace.times.duplicate()
 			print("FRANCHISE at %.1f min for %d stars" % [at / 60.0, sim.prestige.stars_gain()])
+			_print_run(sim, pace, sim.prestige.stars_gain())
+			franchised += 1
 			sim.franchise()
 			run_start = pace.now()
 			pace.begin_run()
@@ -101,5 +112,19 @@ func _ready() -> void:
 		for k2: String in PacingTracker.KEYS:
 			if pace.run_times.has(k2) and run1.has(k2):
 				print("RUN2 %s %.2f min (%.0f%% of run 1)" % [k2, float(pace.run_times[k2]) / 60.0, 100.0 * float(pace.run_times[k2]) / maxf(float(run1[k2]), 0.001)])
+	if _runs > 0:
+		_print_run(sim, pace, 0)
 	print("RESULT wall_ms=%d decisions=%d" % [(Time.get_ticks_usec() - t0) / 1000, bot.decisions])
 	get_tree().quit(0)
+
+
+## Satu baris per cabang: menit sejak cabang dibuka sampai setiap tier dan
+## Waralaba, bintang yang didapat, total bintang, dan pengali biaya cabang.
+func _print_run(sim: SimulationRoot, pace: PacingTracker, gained: int) -> void:
+	var parts: Array[String] = []
+	for k: String in ["tier2", "tier3", "tier4", "tier5", "franchise"]:
+		parts.append("%s=%s" % [k, ("%.1f" % (float(pace.run_times[k]) / 60.0)) if pace.run_times.has(k) else "-"])
+	print("RUN branch=%d %s run_min=%.1f gained=%d stars=%d cost_mult=%.2f rate=%s tier=%d" % [sim.prestige.run_index, " ".join(parts),
+		(pace.now() - pace._run_start) / 60.0, gained, sim.prestige.stars, sim.prestige.branch_cost_mult(),
+		Tx.rate(sim.idle_economy.rate(false)), sim.world.location.tier])
+

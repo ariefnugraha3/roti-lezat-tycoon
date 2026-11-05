@@ -96,6 +96,36 @@ func franchise_block() -> StringName:
 	return &""
 
 
+## Pengali semua biaya KR cabang ini (GDD idle 23.1): 1 sampai sebelum cabang
+## `branch_cost_start`, lalu branch_cost_growth^(n − start + 1). Harga jual,
+## bahan, dan promosi tidak.
+func branch_cost_mult() -> float:
+	return branch_cost_mult_for(run_index)
+
+
+static func branch_cost_mult_for(branch: int) -> float:
+	var steps: int = maxi(0, branch - DataRegistry.idlei("prestige.branch_cost_start") + 1)
+	return pow(DataRegistry.idlef("prestige.branch_cost_growth"), float(steps))
+
+
+## Nilai perk terbesar (`largest`) atau jumlahnya untuk kunci efek `key` dari
+## semua perk yang terbuka (GDD idle 10.4, 23.2); `fallback` bila tidak ada.
+func _perk_value(key: String, fallback: float, largest: bool = true) -> float:
+	var out: float = fallback
+	var found: bool = false
+	for p: Variant in DataRegistry.idle("perks"):
+		var d: Dictionary = p
+		if not d.has(key) or not has_perk(StringName(str(d["id"]))):
+			continue
+		var v: float = float(d[key])
+		if not found:
+			out = v
+			found = true
+		else:
+			out = maxf(out, v) if largest else out + v
+	return out
+
+
 ## Saldo awal putaran baru: start_kr, atau perk_head_start bila lebih besar.
 func start_kr() -> float:
 	var base: float = DataRegistry.idlef("start_kr")
@@ -104,11 +134,10 @@ func start_kr() -> float:
 	return base
 
 
-## Tier lokasi awal putaran baru (perk_ruko_start: Tier 2).
+## Tier lokasi awal putaran baru (perk_ruko_start: Tier 2, perk_mandiri_start:
+## Tier 3).
 func start_tier() -> int:
-	if has_perk(&"perk_ruko_start"):
-		return clampi(int(DataRegistry.perk(&"perk_ruko_start").get("start_tier", 2)), 1, 5)
-	return 1
+	return clampi(int(_perk_value("start_tier", 1.0)), 1, 5)
 
 
 ## Pengali penghasilan dari bintang (GDD idle 10.3).
@@ -120,12 +149,24 @@ func tap_mult() -> float:
 	return float(DataRegistry.perk(&"perk_tap_double").get("tap_mult", 2)) if has_perk(&"perk_tap_double") else 1.0
 
 
+## Pengali milestone resep dari perk (×3, lalu ×4), 0 bila belum ada.
 func recipe_milestone_mult() -> float:
-	return float(DataRegistry.perk(&"perk_milestone_triple").get("recipe_milestone_mult", 3)) if has_perk(&"perk_milestone_triple") else 0.0
+	return _perk_value("recipe_milestone_mult", 0.0)
 
 
+## Jam offline tambahan dari semua perk (dijumlahkan).
 func offline_hours_bonus() -> float:
-	return float(DataRegistry.perk(&"perk_offline_plus").get("offline_hours", 1)) if has_perk(&"perk_offline_plus") else 0.0
+	return _perk_value("offline_hours", 0.0, false)
+
+
+## Pengali lama kopi Pak Lurah (perk_coffee_long, GDD idle 23.2).
+func coffee_mult() -> float:
+	return _perk_value("coffee_mult", 1.0)
+
+
+## Pengali jeda roti emas (perk_golden_rain: 0,5 = dua kali lebih sering).
+func golden_interval_mult() -> float:
+	return _perk_value("golden_interval_mult", 1.0)
 
 
 func offline_efficiency_bonus() -> float:

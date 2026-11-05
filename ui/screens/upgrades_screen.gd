@@ -10,8 +10,11 @@ extends UISheet
 const ICON_PX: float = 44.0
 
 var _rows: Array[BuyButtons] = []
-## Promosi: id -> {button, state}.
+## Promosi: id -> {button, state, skip}.
 var _promos: Dictionary = {}
+## Kopi Pak Lurah lewat iklan (GDD idle 22.3): baris dan tombolnya.
+var _coffee: Control = null
+var _coffee_button: Button = null
 
 
 func sheet_title() -> String:
@@ -28,6 +31,7 @@ func build_page(body: VBoxContainer) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "UpgradeList"
 	section(list, Tx.t("ui_promotions"))
+	_coffee_row(list)
 	for id: StringName in BoostManager.promo_ids():
 		_promo_row(list, id)
 	section(list, Tx.t("ui_best_value"))
@@ -85,7 +89,42 @@ func _promo_row(parent: Control, id: StringName) -> void:
 		if sim.boosts.start_promo(id):
 			_tick_promos())
 	h.add_child(b)
-	_promos[id] = {"button": b, "state": state}
+	# Jeda promosi bisa diselesaikan dengan iklan (GDD idle 22.3).
+	var skip: Button = AdButton.make(&"promo_skip", Tx.t("ui_promo_skip"), "soft", 18, 15)
+	skip.name = "Skip"
+	skip.pressed.connect(func() -> void:
+		skip.disabled = true
+		Monetization.show_rewarded(&"promo_skip", func(ok: bool) -> void:
+			if not is_instance_valid(skip):
+				return
+			skip.disabled = false
+			if ok:
+				sim.boosts.skip_cooldown(id)
+			_tick_promos()))
+	h.add_child(skip)
+	_promos[id] = {"button": b, "state": state, "skip": skip}
+
+
+## Secangkir kopi Pak Lurah lagi lewat iklan berhadiah (GDD idle 11.1, 22.3).
+## Barisnya hanya tampil selagi hadiah itu bisa ditawarkan.
+func _coffee_row(parent: Control) -> void:
+	var badge: PanelContainer = ProceduralUIFactory.badge("heart", Palette.BUTTER_SOFT, Palette.UI_WOOD_DEEP, int(ICON_PX))
+	var h: HBoxContainer = UISheet.row(parent, Tx.t("ui_coffee_title"), Tx.t("ui_coffee_effect", {"mult": Tx.mult(DataRegistry.idlef("boosts.daily_gift.mult")),
+		"minutes": int(DataRegistry.idlef("boosts.daily_gift.minutes") * sim.prestige.coffee_mult())}), badge)
+	_coffee = h.get_parent() as Control
+	_coffee.name = "Coffee"
+	_coffee_button = AdButton.make(&"coffee_refill", Tx.t("ui_coffee_refill"), "primary", 18, 15)
+	_coffee_button.pressed.connect(func() -> void:
+		_coffee_button.disabled = true
+		Monetization.show_rewarded(&"coffee_refill", func(ok: bool) -> void:
+			if not is_instance_valid(_coffee_button):
+				return
+			_coffee_button.disabled = false
+			if ok:
+				sim.boosts.pour_coffee()
+				EventBus.sfx.emit(&"welcome_back_chime", &"")
+			_tick_promos()))
+	h.add_child(_coffee_button)
 
 
 ## "Customers ×1.5 for 5 min" (+ RotiFood bila ada).
@@ -114,6 +153,12 @@ func _tick_promos() -> void:
 		b.visible = not st.visible
 		b.text = Tx.t("ui_promo_start", {"price": Tx.kr(sim.boosts.promo_cost(id))})
 		b.disabled = block != &""
+		var skip: Button = r["skip"]
+		AdButton.refresh(skip)
+		skip.visible = skip.visible and block == &"cooldown"
+	if is_instance_valid(_coffee_button):
+		AdButton.refresh(_coffee_button)
+		_coffee.visible = _coffee_button.visible
 
 
 ## KR terus berubah: tombol menyala dan jumlah Max ikut naik.

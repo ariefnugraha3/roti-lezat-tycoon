@@ -38,6 +38,7 @@ Autoloads are services. Gameplay state never lives in them, so tearing down a
 | `SettingsManager` | `user://settings.json`: volumes, quality, text scale, number format, tutorial hints and accessibility (GDD 75). |
 | `PauseManager` | A set of pause reasons (Pause menu, blocking modals, lifecycle). The simulation runs only when the set is empty. Losing focus pushes `lifecycle`; that time is counted as time away by `OfflineManager` (idle GDD §3.4, §9). |
 | `SaveManager` | Three profiles, atomic writes, backup, validation, classic-save detection, save codes for export and import (idle GDD §15.3, §20 no. 57, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
+| `Monetization` | Rewarded ads and the Supporter Pack (idle GDD §22): one `MonetizationProvider` per platform (none, the CrazyGames/Poki portal, a test provider), per-device daily ad turns and the Supporter flag in `user://monetization.json`, pause (`ad`) and mute while an ad plays, and the portal lifecycle signals (loading finished, gameplay start/stop) from `GameRoot`. UI offers rewards only through `AdButton`. |
 | `AudioManager` | Pooled voices, priorities, cooldowns, ducking, music states, captions, and the web audio unlock (GDD 33, 93). |
 
 ## 3. Simulation
@@ -57,7 +58,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
 | Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
 | Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
-| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3), `EventManager` (device-date seasonal events, idle §21.6) | Their respective systems. |
+| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number and branch cost multiplier, idle §23.1), `MasteryManager` (permanent recipe mastery, idle §23.3), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3), `EventManager` (device-date seasonal events, idle §21.6) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.

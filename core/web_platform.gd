@@ -234,3 +234,96 @@ static func pwa_update_waiting() -> bool:
 static func apply_pwa_update() -> void:
 	if pwa_update_waiting():
 		JavaScriptBridge.pwa_update()
+
+
+# ===========================================================================
+# PORTAL WEB (GDD idle 22.2): CrazyGames SDK HTML5 v3 dan Poki SDK v2. SDK
+# dimuat html/head_include preset portal; tanpa SDK semua fungsi di sini diam.
+# ===========================================================================
+
+## Siapkan SDK portal `kind` ("crazygames" / "poki"). Siap = init selesai dan,
+## untuk CrazyGames, berjalan di domainnya (environment "crazygames" atau "local").
+const JS_PORTAL_INIT: String = """(function (kind) {
+	var p = window.__crumbPortal = { kind: kind, ready: false, ad: 'none' };
+	try {
+		if (kind === 'crazygames') {
+			var sdk = window.CrazyGames && window.CrazyGames.SDK;
+			if (!sdk) { return 'missing'; }
+			sdk.init().then(function () {
+				p.ready = sdk.environment === 'crazygames' || sdk.environment === 'local';
+				if (p.ready) { try { sdk.game.loadingStart(); } catch (e) {} }
+			}).catch(function () {});
+			return 'pending';
+		}
+		if (kind === 'poki') {
+			if (!window.PokiSDK) { return 'missing'; }
+			PokiSDK.init().then(function () { p.ready = true; }).catch(function () {});
+			return 'pending';
+		}
+	} catch (e) {}
+	return 'missing';
+})(%s);"""
+## Minta satu iklan berhadiah; hasilnya di window.__crumbPortal.ad: pending,
+## done (ditonton sampai selesai), atau failed (gagal, tidak terisi, ditutup).
+const JS_PORTAL_REWARDED: String = """(function () {
+	var p = window.__crumbPortal;
+	if (!p || !p.ready) { return false; }
+	p.ad = 'pending';
+	try {
+		if (p.kind === 'crazygames') {
+			window.CrazyGames.SDK.ad.requestAd('rewarded', {
+				adStarted: function () {},
+				adFinished: function () { p.ad = 'done'; },
+				adError: function () { p.ad = 'failed'; }
+			});
+			return true;
+		}
+		if (p.kind === 'poki') {
+			PokiSDK.rewardedBreak().then(function (ok) { p.ad = ok ? 'done' : 'failed'; })
+				.catch(function () { p.ad = 'failed'; });
+			return true;
+		}
+	} catch (e) {}
+	p.ad = 'failed';
+	return true;
+})();"""
+## Sinyal siklus hidup portal: loading_finished, gameplay_start, gameplay_stop.
+const JS_PORTAL_EVENT: String = """(function (ev) {
+	var p = window.__crumbPortal;
+	if (!p || !p.ready) { return; }
+	try {
+		if (p.kind === 'crazygames') {
+			var g = window.CrazyGames.SDK.game;
+			var m = { loading_finished: 'loadingStop', gameplay_start: 'gameplayStart', gameplay_stop: 'gameplayStop' }[ev];
+			if (m && g[m]) { g[m](); }
+		} else if (p.kind === 'poki') {
+			var n = { loading_finished: 'gameLoadingFinished', gameplay_start: 'gameplayStart', gameplay_stop: 'gameplayStop' }[ev];
+			if (n && PokiSDK[n]) { PokiSDK[n](); }
+		}
+	} catch (e) {}
+})(%s);"""
+
+
+static func portal_init(kind: StringName) -> void:
+	if is_web():
+		JavaScriptBridge.eval(JS_PORTAL_INIT % JSON.stringify(String(kind)), true)
+
+
+static func portal_ready() -> bool:
+	return is_web() and bool(JavaScriptBridge.eval("!!(window.__crumbPortal && window.__crumbPortal.ready)", true))
+
+
+## Mulai iklan berhadiah portal. false bila SDK belum siap.
+static func portal_rewarded() -> bool:
+	return is_web() and bool(JavaScriptBridge.eval(JS_PORTAL_REWARDED, true))
+
+
+static func portal_ad_state() -> String:
+	if not is_web():
+		return "failed"
+	return str(JavaScriptBridge.eval("window.__crumbPortal ? String(window.__crumbPortal.ad) : 'failed'", true))
+
+
+static func portal_event(event: StringName) -> void:
+	if is_web():
+		JavaScriptBridge.eval(JS_PORTAL_EVENT % JSON.stringify(String(event)), true)

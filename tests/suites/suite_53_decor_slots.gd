@@ -411,7 +411,7 @@ func _models() -> void:
 				var fp: Vector2 = Vector2(def.overlay_size_tiles) * T
 				check(absf(b.size.x - fp.x) <= 0.07 and absf(b.size.z - fp.y) <= 0.07 and b.size.y <= 0.012, "%s covers its footprint flat (%s)" % [def.id, b.size])
 		n.free()
-	eq(seen, 28, "all 28 placeable decorations (including the two achievement badges and the three calendar gifts) were checked")
+	eq(seen, 29, "all 29 placeable decorations (including the two achievement badges, the Supporter badge and the three calendar gifts) were checked")
 	var clock: Node3D = DecorFactory.build(&"decor_wall_clock_pendulum")
 	check(clock.find_child(DecorFactory.SWING_NODE, true, false) != null, "the pendulum clock has a pendulum to swing")
 	clock.free()
@@ -663,7 +663,9 @@ func _badges() -> void:
 		if d.is_badge():
 			badges.append(d.id)
 			eq(d.placement_type, &"wall", "%s hangs on a wall spot" % d.id)
-			eq(d.source, &"achievement", "%s comes from an achievement" % d.id)
+			# Badge Supporter (GDD idle 22.4) datang dari Supporter Pack.
+			eq(d.source, &"supporter" if d.id == StringName(str(DataRegistry.idle("monetization.supporter_badge"))) else &"achievement",
+				"%s comes from an achievement or the Supporter Pack" % d.id)
 			check(IconCanvas.NAMES.has(String(d.badge_icon)), "%s has a profile medal icon" % d.id)
 			check(DecorFactory.has_model(d.visual_profile_id), "%s has its own model" % d.id)
 	check(badges.has(&"badge_first_crumb") and badges.has(&"badge_first_savings"), "both achievement badges are badges")
@@ -672,7 +674,7 @@ func _badges() -> void:
 		var ach: MiscDefinitions.AchievementDefinition = y
 		if badges.has(ach.reward_id):
 			rewards += 1
-	eq(rewards, badges.size(), "every badge is an achievement reward")
+	eq(rewards, badges.size() - 1, "every badge except the Supporter badge is an achievement reward")
 	# Didapat dari achievement: masuk inventaris, belum terpasang, tidak "dipakai".
 	var s: SimulationRoot = new_sim(7202)
 	var dm: DecorationManager = s.decoration

@@ -109,7 +109,9 @@ func _pwa() -> void:
 			continue
 		match str(cfg.get_value(sec, "platform", "")):
 			"Web":
-				web = sec + ".options"
+				# Preset portal (GDD idle 22.2) sengaja tanpa PWA.
+				if str(cfg.get_value(sec, "name", "")) == "Web":
+					web = sec + ".options"
 			"Android":
 				android.append(sec + ".options")
 	check(web != "", "a Web preset exists")
