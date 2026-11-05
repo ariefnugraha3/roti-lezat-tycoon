@@ -11,7 +11,8 @@ extends Node
 ## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
 ## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
-## langganan berkunjung; juga membuka minigame pesanannya).
+## langganan berkunjung; juga membuka minigame pesanannya), --menus (hanya splash dan
+## layar menu: tanpa save lalu dengan save, termasuk ketiga langkah New Game).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -32,6 +33,8 @@ var _scales: Array[int] = SCALES.duplicate()
 var _screens: Array[StringName] = []
 ## Potret ukuran penuh (--full); bawaannya diperkecil setengah.
 var _full: bool = false
+## Hanya splash dan layar menu (--menus).
+var _menus: bool = false
 
 
 func _ready() -> void:
@@ -47,6 +50,8 @@ func _ready() -> void:
 				_scales.append(int(t2))
 		elif a == "--full":
 			_full = true
+		elif a == "--menus":
+			_menus = true
 		elif a.begins_with("--screens="):
 			for t3: String in a.substr(10).split(","):
 				_screens.append(StringName(t3))
@@ -71,6 +76,9 @@ func _ready() -> void:
 	add_child(shell)
 	game = shell.game
 	await _frames(2)
+	if _menus:
+		await _menu_pass()
+		return
 	game.skip_splash_for_tests()
 	await _frames(4)
 	var was_scale: int = SettingsManager.get_int("text_scale")
@@ -127,6 +135,73 @@ func _ready() -> void:
 		SaveManager.delete_profile(pid)
 	SaveManager.dir = "user://saves"
 	get_tree().quit(0)
+
+
+## Splash dan layar menu saja (--menus): tanpa save, lalu dengan satu save Tier 3.
+func _menu_pass() -> void:
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	var was_scale: int = SettingsManager.get_int("text_scale")
+	for r: Vector2i in _res:
+		await _resize(r)
+		for sc: int in _scales:
+			SettingsManager.set_value("text_scale", sc)
+			await _frames(3)
+			if r == _res[0] and sc == _scales[0]:
+				await _shot("splash", r, sc)
+				game.skip_splash_for_tests()
+				await _frames(2)
+			await _menu_screens(r, sc, "")
+	SettingsManager.set_value("text_scale", was_scale)
+	await game.start_new_game(&"profile_2", "female", "Sweep Bakery")
+	await _frames(10)
+	var sim: SimulationRoot = game.sim
+	sim.tutorial.skip()
+	while sim.world.location.tier < 3:
+		sim.debug_add_kr(SimulationRoot.location_cost(sim.world.location.tier + 1))
+		if sim.upgrade_location() != "":
+			break
+	sim.debug_add_kr(123456.0)
+	game.playing = true
+	game.return_to_menu()
+	await _frames(4)
+	for r2: Vector2i in _res:
+		await _resize(r2)
+		for sc2: int in _scales:
+			SettingsManager.set_value("text_scale", sc2)
+			await _frames(3)
+			await _menu_screens(r2, sc2, "_saved")
+	SettingsManager.set_value("text_scale", was_scale)
+	print("SWEEP done, %d issues" % _issues)
+	game.modals.close_all()
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	get_tree().quit(0)
+
+
+func _menu_screens(r: Vector2i, sc: int, suffix: String) -> void:
+	game.modals.close_all()
+	game.show_main_menu()
+	await _frames(4)
+	_check(game.modals, "main_menu" + suffix, r, sc)
+	await _shot("main_menu" + suffix, r, sc)
+	for mode: String in ["new", "load"]:
+		var p: UIScreen = game.modals.open(&"profiles", {"mode": mode})
+		await _frames(4)
+		_check(p, "profiles_" + mode + suffix, r, sc)
+		await _shot("profiles_" + mode + suffix, r, sc)
+		game.modals.close_screen(p)
+	if suffix != "":
+		return
+	var ng: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_1"}) as NewGameScreen
+	for step in 3:
+		ng._step = step
+		ng._render()
+		await _frames(4)
+		_check(ng, "new_game_%d" % step, r, sc)
+		await _shot("new_game_%d" % step, r, sc)
+	game.modals.close_screen(ng)
 
 
 func _resize(r: Vector2i) -> void:

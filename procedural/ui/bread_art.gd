@@ -111,10 +111,8 @@ func _draw() -> void:
 				pts.resize(src.size())
 				for i in src.size():
 					pts[i] = c + src[i] * s
+				# Tepi halus: fill_aa menambah garis 1 px sewarna isiannya.
 				ProceduralUIFactory.fill_aa(self, pts, col)
-				# Tepi halus: garis 1 px sewarna isiannya, bukan garis tepi.
-				pts.append(pts[0])
-				draw_polyline(pts, col, 1.0, true)
 			CIRCLE:
 				draw_circle(c + (op["p"] as Vector2) * s, float(op["r"]) * s, col, true, -1.0, true)
 			LINE:

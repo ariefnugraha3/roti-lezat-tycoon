@@ -1365,7 +1365,8 @@ static func logo_lockup(title_text: String, size := 76, icon_size := 104, max_w 
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.custom_minimum_size = Vector2(0.0, float(icon_size) + 14.0)
 	v.add_child(art)
-	var bread: IconCanvas = icon("bread", icon_size, Palette.GOLDEN_CRUST)
+	var bread: LogoBread = LogoBread.new()
+	bread.icon_size = float(icon_size)
 	bread.name = "LogoBread"
 	art.add_child(bread)
 	var main_text: String = title_text
@@ -2009,21 +2010,39 @@ class CozyTabs extends PanelContainer:
 			ProceduralUIFactory.apply_kind(buttons[i], "primary" if i == active else "tab")
 
 
-## Latar hangat layar pembuka (lihat [method ProceduralUIFactory.backdrop]).
+## Latar hangat layar pembuka (lihat [method ProceduralUIFactory.backdrop]):
+## splash, menu utama, dan loading. Gaya flat (GDD 130.6): tenda toko bergaris
+## merah muda-krem berlengkung di atas, sinar matahari krem yang berputar sangat
+## pelan di belakang logo, ikon samar yang melayang, dan taplak gingham dengan
+## roti di atas piring renda di kedua sudut bawah, seperti etalase toko roti.
 class CozyBackdrop extends Control:
 
 	const TOP: Color = Color(0.992, 0.937, 0.839)
 	const BOTTOM: Color = Color(0.953, 0.824, 0.643)
 	## Ikon samar yang melayang: [nama, x (0..1), y (0..1), ukuran, sudut].
 	const FLOATERS: Array = [
-		["bread", 0.08, 0.16, 54.0, -0.3], ["star", 0.20, 0.72, 34.0, 0.2], ["coin", 0.88, 0.20, 44.0, 0.25],
-		["heart", 0.93, 0.62, 36.0, -0.2], ["bread", 0.78, 0.80, 48.0, 0.35], ["star", 0.66, 0.10, 28.0, -0.1],
-		["coin", 0.14, 0.44, 32.0, 0.0], ["heart", 0.30, 0.10, 26.0, 0.3], ["star", 0.50, 0.86, 24.0, 0.15],
-		["bread", 0.36, 0.60, 30.0, -0.25],
+		["star", 0.10, 0.36, 30.0, 0.2], ["coin", 0.90, 0.30, 38.0, 0.25], ["heart", 0.92, 0.58, 32.0, -0.2],
+		["bread", 0.08, 0.62, 44.0, -0.3], ["star", 0.86, 0.75, 26.0, -0.1], ["coin", 0.14, 0.80, 28.0, 0.0],
 	]
+	## Roti di taplak: [profil BreadArt, x (0..1), ukuran px].
+	const TABLE_BREADS: Array = [
+		["croissant.classic", 0.115, 104.0], ["donut.jam", 0.255, 66.0],
+		["roll.cinnamon", 0.745, 66.0], ["loaf.plain", 0.885, 108.0],
+	]
+	## Tinggi tenda (tanpa lengkungnya) dan lebar satu garisnya.
+	const AWNING_H: float = 54.0
+	const STRIPE_W: float = 60.0
+	## Pusat sinar matahari, sebagai bagian tinggi layar (di belakang logo).
+	const SUN_Y: float = 0.25
+	const RAYS: int = 28
+
+	## Tenda dan roti di taplak boleh dimatikan (mis. layar yang isinya mepet).
+	var show_awning: bool = true
+	var show_table: bool = true
 
 	var _t: float = 0.0
 	var _icons: Array[IconCanvas] = []
+	var _breads: Array[BreadArt] = []
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2031,10 +2050,17 @@ class CozyBackdrop extends Control:
 		for f: Array in FLOATERS:
 			var ic: IconCanvas = ProceduralUIFactory.icon(str(f[0]), int(f[3]), Palette.GOLDEN_CRUST if str(f[0]) != "heart" else Palette.PASTEL_STRAWBERRY)
 			ic.outlined = false
-			ic.modulate = Color(1.0, 1.0, 1.0, 0.20)
+			ic.modulate = Color(1.0, 1.0, 1.0, 0.18)
 			ic.rotation = float(f[4])
 			add_child(ic)
 			_icons.append(ic)
+		for tb: Array in TABLE_BREADS:
+			var art := BreadArt.new()
+			art.name = "TableBread"
+			art.profile = str(tb[0])
+			art.art_size = float(tb[2])
+			add_child(art)
+			_breads.append(art)
 		resized.connect(_place)
 
 	func _place() -> void:
@@ -2042,6 +2068,25 @@ class CozyBackdrop extends Control:
 			var f: Array = FLOATERS[i]
 			var ic: IconCanvas = _icons[i]
 			ic.position = Vector2(size.x * float(f[1]), size.y * float(f[2])) - ic.custom_minimum_size * 0.5
+		var surface: float = size.y - band_height() * 0.30
+		for i in _breads.size():
+			var art: BreadArt = _breads[i]
+			var px: float = float(TABLE_BREADS[i][2])
+			art.visible = show_table
+			art.size = Vector2(px, px)
+			# Alas renda gambar roti ada di bawah; tepi bawahnya menapak taplak.
+			art.position = Vector2(size.x * float(TABLE_BREADS[i][1]) - px * 0.5, surface - px * 0.86)
+
+	## Tinggi taplak gingham di tepi bawah.
+	func band_height() -> float:
+		return minf(96.0, size.y * 0.14)
+
+	## Tepi bawah tenda beserta lengkungnya (0 bila tenda dimatikan).
+	func awning_bottom() -> float:
+		return AWNING_H + _stripe_w() * 0.5 if show_awning else 0.0
+
+	func _stripe_w() -> float:
+		return size.x / maxf(1.0, round(size.x / STRIPE_W))
 
 	func _process(delta: float) -> void:
 		if SettingsManager.reduced_motion() or not is_visible_in_tree():
@@ -2057,27 +2102,52 @@ class CozyBackdrop extends Control:
 		var h: float = size.y
 		if w < 2.0 or h < 2.0:
 			return
+		var c: Vector2 = Vector2(w * 0.5, h * SUN_Y)
+		var reach: float = Vector2(w, h).length()
 		if ProceduralUIFactory.flat_style:
-			# Gaya flat: satu warna krem polos, tanpa gradasi dan sinar matahari.
+			# Gaya flat: krem polos, sinar berupa irisan krem muda tanpa gradasi.
 			draw_rect(Rect2(0.0, 0.0, w, h), TOP.lerp(BOTTOM, 0.35))
+			var ray: Color = Color(1.0, 0.984, 0.94, 0.42)
+			for i in RAYS:
+				if i % 2 == 1:
+					continue
+				var a0: float = _t * 0.03 + TAU * float(i) / float(RAYS)
+				var a1: float = a0 + TAU / float(RAYS)
+				draw_colored_polygon(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * reach, c + Vector2(cos(a1), sin(a1)) * reach]), ray)
+			draw_circle(c, minf(w, h) * 0.27, Color(1.0, 0.984, 0.94, 0.55), true, -1.0, true)
 		else:
 			draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0.0), Vector2(w, h), Vector2(0.0, h)]),
 				PackedColorArray([TOP, TOP, BOTTOM, BOTTOM]))
 			# Sinar matahari sore dari atas tengah, berputar sangat pelan.
-			var c: Vector2 = Vector2(w * 0.5, h * 0.30)
-			var reach: float = Vector2(w, h).length()
-			var rays: int = 18
-			for i in rays:
+			for i in RAYS:
 				if i % 2 == 1:
 					continue
-				var a0: float = _t * 0.05 + TAU * float(i) / float(rays)
-				var a1: float = a0 + TAU / float(rays)
+				var a0: float = _t * 0.05 + TAU * float(i) / float(RAYS)
+				var a1: float = a0 + TAU / float(RAYS)
 				draw_polygon(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * reach, c + Vector2(cos(a1), sin(a1)) * reach]),
 					PackedColorArray([Color(1.0, 1.0, 1.0, 0.22), Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.0)]))
 			draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35), true, -1.0, true)
+		if show_awning:
+			_draw_awning(w)
 		# Taplak gingham bergelombang di tepi bawah.
-		var band: float = minf(96.0, h * 0.14)
+		var band: float = band_height()
 		ProceduralUIFactory.draw_gingham(self, Rect2(0.0, h - band, w, band), SIDE_TOP)
+
+	## Tenda toko: garis tegak merah muda-krem dengan lengkung di ujung bawah
+	## tiap garis, digantung pada palang kayu tipis di tepi atas.
+	func _draw_awning(w: float) -> void:
+		var sw: float = _stripe_w()
+		var n: int = int(round(w / sw))
+		for i in n:
+			var col: Color = Palette.GINGHAM_A if i % 2 == 0 else Palette.GINGHAM_B
+			var x: float = float(i) * sw
+			draw_rect(Rect2(x, 0.0, sw + 0.5, AWNING_H), col)
+			var arc := PackedVector2Array()
+			for k in 13:
+				var a: float = PI * float(k) / 12.0
+				arc.append(Vector2(x + sw * 0.5 + cos(a) * sw * 0.5, AWNING_H + sin(a) * sw * 0.5 - 0.5))
+			ProceduralUIFactory.fill_aa(self, arc, col)
+		draw_rect(Rect2(0.0, 0.0, w, 10.0), Palette.UI_WOOD)
 
 
 ## Bar kapasitas gudang: jalur membulat + isian berwarna + teks "N / M".

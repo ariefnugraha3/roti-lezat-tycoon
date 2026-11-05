@@ -88,32 +88,56 @@ func _show_splash() -> void:
 	layer.add_child(_splash)
 	ProceduralUIFactory.apply_theme(_splash)
 	_splash.add_child(ProceduralUIFactory.backdrop())
-	# Potret (GDD idle 12.0.5): logo di sepertiga atas, "Tap to Start" di bawahnya.
+	# Potret (GDD idle 12.0.5): logo di bawah tenda, "Tap to Start" di tengah
+	# sisa layar, slogan kecil di bawahnya.
 	var box := VBoxContainer.new()
-	box.anchor_right = 1.0
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.anchor_top = MainMenuScreen.LOGO_TOP
-	box.anchor_bottom = 1.0
 	box.offset_bottom = -110.0
-	box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 72)
+	box.add_theme_constant_override("separation", 18)
 	_splash.add_child(box)
 	var logo_box := CenterContainer.new()
 	logo_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(logo_box)
-	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 124)
+	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 164)
 	logo_box.add_child(lockup)
 	ProceduralAnimationSystem.idle_wobble(lockup.get_meta("bread"))
-	# "Tap to Start" dalam pil krem berbibir yang berdenyut pelan.
+	box.add_child(MainMenuScreen._spacer(1.0))
+	# "Tap to Start": pil madu besar yang membesar-mengecil pelan.
 	var tap_row := CenterContainer.new()
 	tap_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(tap_row)
-	var tap: PanelContainer = ProceduralUIFactory.chip("play", Palette.HONEY, Tx.t("ui_tap_to_start"), 24, 30)
+	var tap := PanelContainer.new()
+	tap.name = "TapToStart"
 	tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tsb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.HONEY, 40, false)
+	tsb.content_margin_left = 40.0
+	tsb.content_margin_right = 44.0
+	tsb.content_margin_top = 14.0
+	tsb.content_margin_bottom = 14.0
+	tap.add_theme_stylebox_override("panel", tsb)
+	var tap_h := HBoxContainer.new()
+	tap_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tap_h.add_theme_constant_override("separation", 12)
+	tap.add_child(tap_h)
+	tap_h.add_child(ProceduralUIFactory.icon("play", 34, Palette.FLOUR_WHITE))
+	var tap_l: Label = ProceduralUIFactory.label(Tx.t("ui_tap_to_start"), 30, Palette.FLOUR_WHITE)
+	tap_l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	tap_h.add_child(tap_l)
 	tap_row.add_child(tap)
-	var pulse := tap.create_tween().set_loops()
-	pulse.tween_property(tap, "modulate:a", 0.55, 0.9)
-	pulse.tween_property(tap, "modulate:a", 1.0, 0.9)
+	if not SettingsManager.reduced_motion():
+		tap.resized.connect(func() -> void: tap.pivot_offset = tap.size * 0.5)
+		var pulse := tap.create_tween().set_loops()
+		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		pulse.tween_property(tap, "scale", Vector2(1.07, 1.07), 0.8)
+		pulse.tween_property(tap, "scale", Vector2.ONE, 0.8)
+	var tag: Label = ProceduralUIFactory.label(Tx.t("ui_splash_tagline"), 18, Palette.UI_WOOD)
+	tag.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(tag)
+	box.add_child(MainMenuScreen._spacer(1.4))
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
 	# Musik menu dirakit di latar selagi pemain membaca layar ini, lalu bunyi
 	# pendek (GDD 33.6), supaya tidak ada yang perlu dirakit saat bermain.

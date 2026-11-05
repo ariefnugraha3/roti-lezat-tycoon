@@ -14,7 +14,7 @@ const BAR_EASE: float = 9.0
 const BAR_WIDTH: float = 460.0
 
 var _root: Control = null
-var _icon: IconCanvas = null
+var _icon: LogoBread = null
 var _stage: Label = null
 var _bar: ProgressBar = null
 var _target: float = 0.0
@@ -43,9 +43,10 @@ func _init() -> void:
 	center.add_child(v)
 	var art := CenterContainer.new()
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art.custom_minimum_size = Vector2(0, 104)
+	art.custom_minimum_size = Vector2(0, 124)
 	v.add_child(art)
-	_icon = ProceduralUIFactory.icon("bread", 96, Palette.GOLDEN_CRUST)
+	_icon = LogoBread.new()
+	_icon.icon_size = 112.0
 	art.add_child(_icon)
 	_stage = ProceduralUIFactory.title("", 28)
 	v.add_child(_stage)

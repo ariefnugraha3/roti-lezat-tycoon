@@ -2,6 +2,15 @@ class_name ProfileScreen
 extends UIScreen
 ## Tiga profil save independen (v3.1 89.3; GDD idle 15.3). Mode "new" memilih profil kosong
 ## atau menimpa (dengan konfirmasi); mode "load" memuat profil.
+##
+## Menu utama tetap terlihat di balik kaca popup. Tiap profil satu kartu dengan
+## warna penanda sendiri (madu, matcha, stroberi): gambar toko sesuai tier save
+## dengan bulatan nomor profil di sudutnya, rincian toko di kanan, lalu satu
+## tombol aksi lebar dan tombol hapus bundar di bawahnya.
+
+## Warna penanda profil 1, 2, 3.
+const ACCENTS: Array[Color] = [Palette.HONEY, Palette.MATCHA, Palette.STRAWBERRY]
+const ART_SIZE: float = 112.0
 
 
 func _init() -> void:
@@ -10,11 +19,7 @@ func _init() -> void:
 
 
 func build() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(Palette.BG, 0.96)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(640, 760), true, Palette.SHEET)
+	var body: VBoxContainer = make_popup(Tx.t("ui_profile_title"), Vector2(640, 790), true, Palette.SHEET)
 	# Bingkai potret (GDD idle 12.0.5): tiga kartu bertumpuk, satu per baris.
 	var list: VBoxContainer = scroll_box(body)
 	list.add_theme_constant_override("separation", 14)
@@ -25,33 +30,50 @@ func build() -> void:
 
 func _card(n: int, h: Dictionary) -> Control:
 	var pid: StringName = h["profile_id"]
-	var card: PanelContainer = ProceduralUIFactory.card(Tx.t("ui_profile_slot", {"n": n}))
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var content: VBoxContainer = ProceduralUIFactory.content_of(card)
-	var row: HBoxContainer = hbox(content, 14)
+	var accent: Color = ACCENTS[(n - 1) % ACCENTS.size()]
 	var mode: String = str(params.get("mode", "load"))
 	var exists: bool = bool(h.get("exists", false))
 	var corrupt: bool = bool(h.get("corrupt", false))
 	var classic: bool = bool(h.get("classic", false))
+	var playable: bool = exists and not corrupt and not classic
+	var card := PanelContainer.new()
+	card.name = "Profile%d" % n
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 24, true)
+	sb.set_content_margin_all(16.0)
+	card.add_theme_stylebox_override("panel", sb)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 14)
+	card.add_child(content)
+	var row: HBoxContainer = hbox(content, 16)
 	# Gambar toko roti sesuai tier lokasi save; profil kosong = siluet dengan "+".
 	var art := ShopFrontArt.new()
 	art.name = "ShopArt"
-	art.custom_minimum_size = Vector2(96, 96)
+	art.custom_minimum_size = Vector2(ART_SIZE, ART_SIZE)
 	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	art.tier = 0
-	if exists and not corrupt and not classic:
+	if playable:
 		var ldef: LocationDefinition = DataRegistry.location(StringName(str(h.get("location_id", ""))))
 		art.tier = ldef.tier if ldef != null else 1
 	elif exists:
 		art.tier = 1
 		art.modulate = Color(1.0, 1.0, 1.0, 0.45)
 	row.add_child(art)
+	# Bulatan nomor profil di sudut kiri atas gambar toko.
+	var num: PanelContainer = _number_badge(n, accent)
+	art.add_child(num)
+	num.position = Vector2(-6.0, -6.0)
 	var body := VBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.add_theme_constant_override("separation", 4)
 	row.add_child(body)
+	var slot: Label = lbl(body, Tx.t("ui_profile_slot", {"n": n}).to_upper(), 14, accent.darkened(0.25))
+	slot.add_theme_font_override("font", ProceduralUIFactory.section_font())
 	if not exists:
-		lbl(body, Tx.t("ui_profile_empty"), 20, Palette.TEXT_MUTED)
+		var e: Label = lbl(body, Tx.t("ui_profile_empty"), 22, Palette.UI_WOOD_DEEP)
+		e.add_theme_font_override("font", ProceduralUIFactory.display_font())
+		lbl(body, Tx.t("ui_profile_empty_hint"), 16, Palette.TEXT_MUTED, true)
 	elif classic:
 		# Save tycoon v3.1 tidak didukung (GDD idle 15.3): hanya bisa dihapus.
 		var cl: Label = lbl(body, Tx.t("ui_classic_save"), 18, Palette.TEXT_MUTED, true)
@@ -59,28 +81,70 @@ func _card(n: int, h: Dictionary) -> Control:
 	elif corrupt:
 		lbl(body, Tx.t("ui_save_error"), 18, Palette.DANGER, true)
 	else:
-		lbl(body, str(h.get("bakery_name", "")), 22, Palette.UI_WOOD, true)
-		lbl(body, Tx.t("ui_profile_day", {"day": h.get("day", 1)}), 18)
+		var nm: Label = lbl(body, str(h.get("bakery_name", "")), 22, Palette.UI_WOOD_DEEP)
+		nm.add_theme_font_override("font", ProceduralUIFactory.display_font())
+		nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		nm.clip_text = true
+		nm.custom_minimum_size = Vector2(100.0, 0.0)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var loc: String = str(h.get("location_id", ""))
-		lbl(body, Tx.t(loc) if DataRegistry.has_text(loc) else loc, 16, Palette.TEXT_MUTED, true)
-		lbl(body, Tx.kr(float(h.get("balance_kr", 0.0))), 18, Palette.GOLDEN_CRUST)
+		var where: String = Tx.t("ui_profile_day", {"day": h.get("day", 1)})
+		if loc != "":
+			where += " · " + (Tx.t(loc) if DataRegistry.has_text(loc) else loc)
+		lbl(body, where, 16, Palette.TEXT_MUTED, true)
+		var money: HBoxContainer = ProceduralUIFactory.icon_value("coin", Tx.kr(float(h.get("balance_kr", 0.0))), 22, 18, Palette.GOLDEN_CRUST)
+		(money.get_meta("value") as Label).add_theme_color_override("font_color", Palette.GOLDEN_CRUST)
+		body.add_child(money)
 		var medals: Control = badge_row(h.get("badges", []))
 		if medals != null:
+			(medals as HBoxContainer).alignment = BoxContainer.ALIGNMENT_BEGIN
 			body.add_child(medals)
-		lbl(body, Tx.t("ui_profile_last_played", {"when": str(h.get("last_played_at", "")).replace("T", " ").replace("Z", "")}), 14, Palette.TEXT_MUTED, true)
-	var actions := VBoxContainer.new()
-	actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	actions.add_theme_constant_override("separation", 8)
-	row.add_child(actions)
+		var when: String = str(h.get("last_played_at", "")).replace("T", " ").replace("Z", "")
+		if when != "":
+			lbl(body, Tx.t("ui_profile_last_played", {"when": when}), 14, Palette.TEXT_MUTED, true)
+	# Aksi: satu tombol lebar (New Game / Continue) dan hapus bundar di kanan.
+	var actions: HBoxContainer = hbox(content, 12)
+	actions.name = "Actions"
 	if mode == "new":
-		btn(actions, Tx.t("ui_main_new_game"), "primary", _on_new.bind(pid, exists))
-	elif exists and not corrupt and not classic:
-		btn(actions, Tx.t("ui_main_continue"), "primary", _on_load.bind(pid))
+		var nb: Button = btn(actions, Tx.t("ui_main_new_game"), "success" if not exists else "primary", _on_new.bind(pid, exists))
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	elif playable:
+		var cb: Button = btn(actions, Tx.t("ui_main_continue"), "primary", _on_load.bind(pid))
+		cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if exists:
-		btn(actions, Tx.t("ui_profile_delete"), "danger", _on_delete.bind(pid))
+		if actions.get_child_count() == 0:
+			var gap := Control.new()
+			gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			actions.add_child(gap)
+		var del: Button = ProceduralUIFactory.icon_button("cross", Tx.t("ui_profile_delete"), "danger", 24, Palette.FLOUR_WHITE)
+		del.name = "Delete"
+		del.custom_minimum_size = Vector2(56, 56)
+		del.pressed.connect(_on_delete.bind(pid))
+		actions.add_child(del)
 	for b: Node in actions.get_children():
-		(b as Control).custom_minimum_size = Vector2(170, 52)
+		if b is Button:
+			(b as Control).custom_minimum_size.y = 56.0
+	if actions.get_child_count() == 0:
+		content.remove_child(actions)
+		actions.free()
 	return card
+
+
+## Bulatan nomor profil berwarna penanda.
+static func _number_badge(n: int, accent: Color) -> PanelContainer:
+	var pc := PanelContainer.new()
+	pc.name = "SlotNumber"
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.custom_minimum_size = Vector2(38, 38)
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(accent, 19, false)
+	sb.set_content_margin_all(0.0)
+	pc.add_theme_stylebox_override("panel", sb)
+	var l: Label = ProceduralUIFactory.label(str(n), 20, Palette.FLOUR_WHITE)
+	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pc.add_child(l)
+	return pc
 
 
 func _on_new(pid: StringName, exists: bool) -> void:

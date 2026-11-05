@@ -421,14 +421,17 @@ func _i_bolt(c: Vector2, s: float, col: Color) -> void:
 
 ## Roti tawar montok mengembang (GDD 4.1 "fluffy loaf").
 func _i_bread(c: Vector2, s: float, col: Color) -> void:
-	var ink: Color = _ink(col)
-	_dot(c, s, -0.22, -0.06, 0.20, col)
-	_dot(c, s, 0.00, -0.13, 0.22, col)
-	_dot(c, s, 0.22, -0.06, 0.20, col)
-	_round_rect(c, s, -0.42, -0.08, 0.84, 0.40, 0.15, col)
-	_arcline(c, s, -0.13, -0.12, 0.10, PI * 1.15, PI * 1.85, 0.05, ink)
-	_arcline(c, s, 0.13, -0.12, 0.10, PI * 1.15, PI * 1.85, 0.05, ink)
-	_glint(c, s, -0.26, -0.14, 0.06)
+	# Roti tawar: badan loyang + kubah kerak yang sedikit menggantung, dengan
+	# tiga guratan sayatan terang (bentuk yang sama dengan LogoBread).
+	_round_rect(c, s, -0.37, 0.0, 0.74, 0.34, 0.09, col)
+	var cap: Array = []
+	for p: Vector2 in LogoBread.cap_points():
+		cap.append(p + Vector2(0.0, 0.03))
+	_blob(c, s, cap, _shade(col, 0.16))
+	var lit: Color = _lit(col)
+	_bar(c, s, -0.25, -0.04, -0.15, -0.16, 0.06, lit)
+	_bar(c, s, -0.05, -0.07, 0.05, -0.21, 0.06, lit)
+	_bar(c, s, 0.15, -0.04, 0.25, -0.16, 0.06, lit)
 
 
 ## Kantong kertas roti — tombol belanja / bawa pulang.
