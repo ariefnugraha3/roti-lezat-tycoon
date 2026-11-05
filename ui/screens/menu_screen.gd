@@ -202,7 +202,7 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	# Resep yang belum bisa dibuat alat mana pun hanya menyebut syaratnya.
 	if owned or not sim.production.owns_equipment_for(r):
 		return
-	var text: String = Tx.t("ui_recipe_unlock", {"price": Tx.kr(sim.upgrades.unlock_price(r))})
+	var text: String = Tx.t("ui_recipe_unlock", {"price": Tx.kr(UpgradeManager.unlock_cost(r))})
 	var b: Button = ProceduralUIFactory.icon_text_button("lock", text, "primary", 20, 16)
 	b.name = "Unlock"
 	b.custom_minimum_size = Vector2(maxf(150.0, ProceduralUIFactory._text_width(text, 16, true) + 20.0 + 8.0 + 36.0), 52)

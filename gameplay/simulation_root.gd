@@ -442,7 +442,7 @@ static func location_cost(tier: int) -> float:
 
 
 ## Biaya pindah ke lokasi tier `tier` di cabang ini (× pengali biaya cabang,
-## GDD idle 23.1).
+## GDD idle 23.1). Hanya pindah lokasi yang ikut naik per cabang.
 func location_price(tier: int) -> float:
 	return location_cost(tier) * prestige.branch_cost_mult()
 

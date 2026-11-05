@@ -790,7 +790,7 @@
   "perk_milestone_quad_desc": "Recipe milestones multiply the price by {recipe_milestone_mult} instead of 2",
   "perk_golden_rain": "Golden Rain",
   "perk_golden_rain_desc": "Golden bread flies by twice as often",
-  "ui_franchise_branch_costs": "Branch #{number} costs ×{mult} more. Every star raises income for good.",
+  "ui_franchise_branch_costs": "In branch #{number}, moving to a bigger location costs ×{mult}. Every star raises income for good.",
   "ui_mastery_up": "{recipe} mastery {level}★: +{percent} price forever!",
   "ui_mastery_row": "Mastery {level}★ · {sold} sold",
   "ui_mastery_row_next": "Mastery {level}★ · {sold} / {next} sold",

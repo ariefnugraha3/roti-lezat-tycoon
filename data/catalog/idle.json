@@ -88,7 +88,7 @@
   "stars_exponent": 0.5,
   "income_per_star": 0.07,
   "keep_global_levels_above": 5,
-  "_branch": "GDD idle 23.1: every KR cost in branch n >= branch_cost_start x branch_cost_growth^(n - branch_cost_start + 1)",
+  "_branch": "GDD idle 23.1: moving to a bigger location in branch n >= branch_cost_start costs x branch_cost_growth^(n - branch_cost_start + 1)",
   "branch_cost_growth": 1.5,
   "branch_cost_start": 3
  },

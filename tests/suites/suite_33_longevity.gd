@@ -5,7 +5,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_IDLE_BRANCH_COSTS", "name": "idle 23.1 every KR cost in branch n is the catalog cost x branch_cost_growth^(n-1): station, counter, recipe, staff and global levels, opening stations, unlocking recipes, hiring, moving and bonus decorations; sale prices and promotions are not; the Franchise sheet names the next branch's multiplier", "fn": _branch_costs},
+		{"id": "ACC_IDLE_BRANCH_COSTS", "name": "idle 23.1 from branch_cost_start, moving to a bigger location costs x branch_cost_growth per branch; levels, opening stations, unlocking recipes, hiring, decorations, sale prices and promotions keep catalog prices; the Franchise sheet names the next branch's multiplier", "fn": _branch_costs},
 		{"id": "ACC_IDLE_PERKS_LATE", "name": "idle 23.2 late perks: 750 stars +3 h offline, 1,000 a Tier 3 start, 1,500 coffee x2 longer, 2,500 recipe milestones x4, 5,000 golden bread twice as often", "fn": _late_perks},
 		{"id": "ACC_IDLE_MASTERY", "name": "idle 23.3 recipe mastery: bread sold in the shop and through RotiFood counts per recipe, stars at the catalog thresholds raise that recipe's price for good (also in the KR/s model), a new star shows a toast, and mastery survives a franchise and a save", "fn": _mastery},
 	]
@@ -16,7 +16,6 @@ func _branch_costs() -> void:
 	var b: SimulationRoot = new_sim(2301)
 	a.tutorial.skip()
 	b.tutorial.skip()
-	b.prestige.run_index = 3
 	var start: int = DataRegistry.idlei("prestige.branch_cost_start")
 	b.prestige.run_index = start + 1
 	var m: float = pow(DataRegistry.idlef("prestige.branch_cost_growth"), 2.0)
@@ -26,15 +25,15 @@ func _branch_costs() -> void:
 	near(a.prestige.branch_cost_mult(), 1.0, 1e-9, "branch #1 costs the catalog price")
 	var e: EquipmentInstance = a.equipment.placed_list(&"oven")[0]
 	var e2: EquipmentInstance = b.equipment.placed_list(&"oven")[0]
-	near(UpgradeManager.offer_cost(b.upgrades.offer(&"station", e2.iid), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"station", e.iid), 1) * m, 1e-6, "an oven level")
-	near(UpgradeManager.offer_cost(b.upgrades.offer(&"counter", &"counter"), 10), UpgradeManager.offer_cost(a.upgrades.offer(&"counter", &"counter"), 10) * m, 1e-6, "ten counter levels")
-	near(UpgradeManager.offer_cost(b.upgrades.offer(&"recipe", &"recipe_plain_loaf"), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"recipe", &"recipe_plain_loaf"), 1) * m, 1e-6, "a recipe level")
-	near(UpgradeManager.offer_cost(b.upgrades.offer(&"global", &"global_tap_power"), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"global", &"global_tap_power"), 1) * m, 1e-6, "a global upgrade")
-	var donut: RecipeDefinition = DataRegistry.recipe(&"recipe_sugar_donut")
-	near(b.upgrades.unlock_price(donut), UpgradeManager.unlock_cost(donut) * m, 1e-6, "unlocking a recipe")
-	near(b.staff.next_hire_cost(), a.staff.next_hire_cost() * m, 1e-6, "hiring")
-	near(b.location_price(2), SimulationRoot.location_cost(2) * m, 1e-6, "moving to Tier 2")
-	near(b.decoration.price(&"decor_potted_plant"), a.decoration.price(&"decor_potted_plant") * m, 1e-6, "a bonus decoration")
+	# Hanya pindah lokasi yang naik; yang lain harga katalog (tanpa tebing penghasilan).
+	near(b.location_price(2), SimulationRoot.location_cost(2) * m, 1e-6, "moving to Tier 2 costs the branch multiplier")
+	near(b.location_price(5), SimulationRoot.location_cost(5) * m, 1e-6, "and so does every later move")
+	near(UpgradeManager.offer_cost(b.upgrades.offer(&"station", e2.iid), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"station", e.iid), 1), 1e-6, "an oven level keeps its price")
+	near(UpgradeManager.offer_cost(b.upgrades.offer(&"counter", &"counter"), 10), UpgradeManager.offer_cost(a.upgrades.offer(&"counter", &"counter"), 10), 1e-6, "ten counter levels too")
+	near(UpgradeManager.offer_cost(b.upgrades.offer(&"recipe", &"recipe_plain_loaf"), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"recipe", &"recipe_plain_loaf"), 1), 1e-6, "a recipe level too")
+	near(UpgradeManager.offer_cost(b.upgrades.offer(&"global", &"global_tap_power"), 1), UpgradeManager.offer_cost(a.upgrades.offer(&"global", &"global_tap_power"), 1), 1e-6, "a global upgrade too")
+	near(b.staff.next_hire_cost(), a.staff.next_hire_cost(), 1e-6, "hiring too")
+	near(b.decoration.price(&"decor_potted_plant"), a.decoration.price(&"decor_potted_plant"), 1e-6, "a bonus decoration too")
 	near(b.recipe_price(&"recipe_plain_loaf"), a.recipe_price(&"recipe_plain_loaf"), 1e-9, "sale prices stay the same")
 	near(b.boosts.promo_cost(&"promo_flyer"), a.boosts.promo_cost(&"promo_flyer"), 1e-6, "promotions follow KR/s, not the branch")
 	# Bayar sungguhan: pindah lokasi menagih harga cabang.
@@ -44,7 +43,7 @@ func _branch_costs() -> void:
 	near(before - b.economy.balance, b.location_price(2), 0.01, "and pays exactly that")
 	jump_to_tier(a, 2)
 	check(b.upgrades.open_station_cost(&"display") > 0.0, "Tier 2 has a shelf to open")
-	near(b.upgrades.open_station_cost(&"display"), a.upgrades.open_station_cost(&"display") * m, 1e-6, "opening a shelf")
+	near(b.upgrades.open_station_cost(&"display"), a.upgrades.open_station_cost(&"display"), 1e-6, "opening a shelf keeps its price")
 	# Waralaba: run_index naik, pengali ikut.
 	jump_to_tier(a, 3)
 	a.debug_add_kr(1.0e9)

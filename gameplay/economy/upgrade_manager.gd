@@ -259,15 +259,7 @@ const NO_CAP: int = 1 << 30
 ## Penawaran upgrade: {kind, id, level, cap, base, growth, steps}. `kind` =
 ## station, counter, recipe, staff, global. `id` = iid / recipe_id / staff_id /
 ## upgrade id. `cap` = level tertinggi yang boleh dicapai (NO_CAP bila tanpa batas).
-## `base` sudah dikali pengali biaya cabang (GDD idle 23.1).
 func offer(kind: StringName, id: Variant) -> Dictionary:
-	var o: Dictionary = _offer(kind, id)
-	if not o.is_empty():
-		o["base"] = float(o["base"]) * sim.prestige.branch_cost_mult()
-	return o
-
-
-func _offer(kind: StringName, id: Variant) -> Dictionary:
 	match kind:
 		&"station":
 			var e: EquipmentInstance = sim.equipment.get_inst(int(id))
@@ -454,7 +446,7 @@ func open_station_cost(category: StringName) -> float:
 	var have: int = sim.equipment.placed_count(category) + sim.equipment.unplaced_list(category).size()
 	if have >= sim.equipment.slot_limit(category):
 		return -1.0
-	return DataRegistry.idlef("station.open_cost.%s" % category) * pow(DataRegistry.idlef("station.open_growth"), float(opened_count(category))) 		* sim.prestige.branch_cost_mult()
+	return DataRegistry.idlef("station.open_cost.%s" % category) * pow(DataRegistry.idlef("station.open_growth"), float(opened_count(category)))
 
 
 ## &"" bila stasiun kategori itu boleh dibuka sekarang; selain itu alasan:
@@ -513,10 +505,6 @@ static func unlock_cost(r: RecipeDefinition) -> float:
 	return r.base_sell_price_kr * DataRegistry.idlef("recipe.unlock_mult")
 
 
-## Biaya membuka resep di cabang ini (× pengali biaya cabang, GDD idle 23.1).
-func unlock_price(r: RecipeDefinition) -> float:
-	return unlock_cost(r) * sim.prestige.branch_cost_mult()
-
 
 ## &"" bila resep boleh dibuka sekarang; selain itu alasan: owned, tier, kr.
 func unlock_block(recipe_id: StringName) -> StringName:
@@ -527,7 +515,7 @@ func unlock_block(recipe_id: StringName) -> StringName:
 		return &"owned"
 	if not sim.production.owns_equipment_for(r):
 		return &"tier"
-	if not sim.economy.can_afford(unlock_price(r)):
+	if not sim.economy.can_afford(unlock_cost(r)):
 		return &"kr"
 	return &""
 
@@ -536,7 +524,7 @@ func unlock_recipe(recipe_id: StringName) -> bool:
 	if unlock_block(recipe_id) != &"":
 		return false
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
-	if not sim.economy.spend(unlock_price(r), &"RECIPE_UNLOCK", recipe_id, {}):
+	if not sim.economy.spend(unlock_cost(r), &"RECIPE_UNLOCK", recipe_id, {}):
 		return false
 	recipe_levels[recipe_id] = 1
 	sim.prestige.note_recipe_unlocked(recipe_id)

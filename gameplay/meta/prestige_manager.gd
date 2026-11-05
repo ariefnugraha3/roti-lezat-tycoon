@@ -96,9 +96,10 @@ func franchise_block() -> StringName:
 	return &""
 
 
-## Pengali semua biaya KR cabang ini (GDD idle 23.1): 1 sampai sebelum cabang
-## `branch_cost_start`, lalu branch_cost_growth^(n − start + 1). Harga jual,
-## bahan, dan promosi tidak.
+## Pengali biaya pindah lokasi cabang ini (GDD idle 23.1): 1 sampai sebelum
+## cabang `branch_cost_start`, lalu branch_cost_growth^(n − start + 1). Level,
+## buka stasiun dan resep, rekrut, dan dekorasi tetap harga katalog, supaya
+## penghasilan tiap putaran tidak turun dan tangganya tanpa tebing.
 func branch_cost_mult() -> float:
 	return branch_cost_mult_for(run_index)
 

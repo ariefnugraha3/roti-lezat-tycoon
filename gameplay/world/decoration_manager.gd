@@ -70,7 +70,7 @@ func price(deco_id: StringName) -> float:
 	if def == null:
 		return -1.0
 	var mults: Array = DataRegistry.idle("decor.price_mult_by_tier")
-	return def.price_kr * float(mults[clampi(sim.world.location.tier - 1, 0, mults.size() - 1)]) * sim.prestige.branch_cost_mult()
+	return def.price_kr * float(mults[clampi(sim.world.location.tier - 1, 0, mults.size() - 1)])
 
 
 func is_bonus_active(deco_id: StringName) -> bool:
