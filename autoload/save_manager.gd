@@ -76,29 +76,35 @@ func read_header(profile_id: StringName) -> Dictionary:
 		header["classic"] = true
 		return header
 	if bool(r.get("ok", false)):
-		var d: Dictionary = r["data"]
-		header["exists"] = true
-		header["bakery_name"] = str(d.get("bakery_name", ""))
-		header["day"] = int(d.get("day", 1))
-		header["location_id"] = str(d.get("location_id", ""))
-		header["balance_kr"] = _decode_money((d.get("economy", {}) as Dictionary).get("balance_kr", 0.0))
-		header["run_index"] = int((d.get("franchise", {}) as Dictionary).get("run_index", 1))
-		header["stars"] = int((d.get("franchise", {}) as Dictionary).get("stars", 0))
-		header["last_played_at"] = str(d.get("last_played_at", ""))
-		header["last_played_unix"] = float(d.get("last_played_unix", 0.0))
+		header.merge(header_of(r["data"]), true)
 		header["used_backup"] = bool(r.get("used_backup", false))
-		# Badge achievement yang sudah didapat, untuk medali di kartu profil (GDD 72.1).
-		var badges: Array[String] = []
-		for o: Variant in ((d.get("decorations", {}) as Dictionary).get("owned", []) as Array):
-			if not (o is Dictionary):
-				continue
-			var dd: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str((o as Dictionary).get("deco_id", ""))))
-			if dd != null and dd.is_badge() and not badges.has(String(dd.id)):
-				badges.append(String(dd.id))
-		header["badges"] = badges
 	elif FileAccess.file_exists(main_path(profile_id)) or FileAccess.file_exists(backup_path(profile_id)):
 		header["exists"] = true
 		header["corrupt"] = true
+	return header
+
+
+## Rincian kartu profil dari save yang sah (juga pratinjau kode save yang
+## ditempel, GDD idle 20 no. 57).
+static func header_of(d: Dictionary) -> Dictionary:
+	var header: Dictionary = {"exists": true}
+	header["bakery_name"] = str(d.get("bakery_name", ""))
+	header["day"] = int(d.get("day", 1))
+	header["location_id"] = str(d.get("location_id", ""))
+	header["balance_kr"] = _decode_money((d.get("economy", {}) as Dictionary).get("balance_kr", 0.0))
+	header["run_index"] = int((d.get("franchise", {}) as Dictionary).get("run_index", 1))
+	header["stars"] = int((d.get("franchise", {}) as Dictionary).get("stars", 0))
+	header["last_played_at"] = str(d.get("last_played_at", ""))
+	header["last_played_unix"] = float(d.get("last_played_unix", 0.0))
+	# Badge achievement yang sudah didapat, untuk medali di kartu profil (GDD 72.1).
+	var badges: Array[String] = []
+	for o: Variant in ((d.get("decorations", {}) as Dictionary).get("owned", []) as Array):
+		if not (o is Dictionary):
+			continue
+		var dd: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str((o as Dictionary).get("deco_id", ""))))
+		if dd != null and dd.is_badge() and not badges.has(String(dd.id)):
+			badges.append(String(dd.id))
+	header["badges"] = badges
 	return header
 
 
@@ -267,6 +273,98 @@ func write_profile(profile_id: StringName, data: Dictionary) -> bool:
 	profile_saved.emit(profile_id)
 	GameLogger.info("SAVE", "saved %s (day %s)" % [profile_id, d.get("day")])
 	return true
+
+
+# ===========================================================================
+# KODE SAVE (GDD idle 15.3, 20 no. 57): profil sebagai teks untuk dipindah ke
+# perangkat lain atau dicadangkan di luar browser, tetap tanpa server.
+# ===========================================================================
+
+## Awalan kode: nama game + versi format kode (bukan versi skema save).
+const CODE_PREFIX: String = "CRUMB1-"
+## Batas ukuran save setelah dekompresi, supaya kode rusak tidak memakan memori.
+const CODE_MAX_BYTES: int = 16 * 1024 * 1024
+
+
+## Kode teks profil: save yang sah (main, atau backup bila main rusak) sebagai
+## JSON, dikompres gzip, lalu base64. "" bila profil tidak bisa dibaca.
+func export_code(profile_id: StringName) -> String:
+	var r: Dictionary = read_profile(profile_id)
+	if not bool(r.get("ok", false)):
+		return ""
+	var text: String = JSON.stringify(r["data"], "", true, true)
+	var packed: PackedByteArray = text.to_utf8_buffer().compress(FileAccess.COMPRESSION_GZIP)
+	return CODE_PREFIX + Marshalls.raw_to_base64(packed)
+
+
+## Baca kode save: {ok, data} dengan data yang sudah dimigrasi dan divalidasi
+## seperti file save, atau {ok: false, error} dengan error "format" (bukan kode
+## Crumbtown, terpotong, atau rusak), "classic" (save tycoon v3.1), "newer"
+## (dari versi game yang lebih baru), atau "invalid" (isi save tidak sah).
+## Spasi dan ganti baris dari aplikasi chat diabaikan.
+func decode_code(code: String) -> Dictionary:
+	var s: String = code
+	for ws: String in [" ", "\n", "\r", "\t"]:
+		s = s.replace(ws, "")
+	if not s.begins_with(CODE_PREFIX):
+		return {"ok": false, "error": "format"}
+	var b64: String = s.substr(CODE_PREFIX.length())
+	if not _is_base64(b64):
+		return {"ok": false, "error": "format"}
+	var raw: PackedByteArray = Marshalls.base64_to_raw(b64)
+	# Kepala gzip (1f 8b): selain itu bukan kode dari export_code.
+	if raw.size() < 18 or raw[0] != 0x1f or raw[1] != 0x8b:
+		return {"ok": false, "error": "format"}
+	var bytes: PackedByteArray = raw.decompress_dynamic(CODE_MAX_BYTES, FileAccess.COMPRESSION_GZIP)
+	if bytes.is_empty():
+		return {"ok": false, "error": "format"}
+	var json := JSON.new()
+	if json.parse(bytes.get_string_from_utf8()) != OK or not json.data is Dictionary:
+		return {"ok": false, "error": "format"}
+	var data: Dictionary = json.data
+	if is_classic(data):
+		return {"ok": false, "error": "classic"}
+	var migrated: Dictionary = migrate(data)
+	if not bool(migrated.get("ok", false)):
+		return {"ok": false, "error": "newer" if int(data.get("schema_version", 0)) > current_schema_version() else "invalid"}
+	var d: Dictionary = migrated["data"]
+	if validate_save(d, &"") != "":
+		return {"ok": false, "error": "invalid"}
+	return {"ok": true, "data": d}
+
+
+## Tulis save dari kode ke profil `profile_id`, menimpa isinya (save lama
+## menjadi backup profil itu). "" bila berhasil, selain itu error decode_code
+## atau "write".
+func import_code(code: String, profile_id: StringName) -> String:
+	var r: Dictionary = decode_code(code)
+	if not bool(r.get("ok", false)):
+		return str(r.get("error", "format"))
+	var d: Dictionary = r["data"]
+	d["profile_id"] = String(profile_id)
+	if not write_profile(profile_id, d):
+		return "write"
+	GameLogger.important("SAVE", "save code imported into %s" % profile_id)
+	return ""
+
+
+## Hanya karakter base64 dengan panjang kelipatan 4 dan "=" di ujung saja:
+## Marshalls.base64_to_raw mencatat error mesin untuk teks lain.
+static func _is_base64(s: String) -> bool:
+	if s.is_empty() or s.length() % 4 != 0:
+		return false
+	var pad: int = 0
+	for i in s.length():
+		var ch: int = s.unicode_at(i)
+		if ch == 61:
+			pad += 1
+			continue
+		if pad > 0:
+			return false
+		var ok: bool = (ch >= 65 and ch <= 90) or (ch >= 97 and ch <= 122) or (ch >= 48 and ch <= 57) or ch == 43 or ch == 47
+		if not ok:
+			return false
+	return pad <= 2
 
 
 func _contains_nan(v: Variant) -> bool:

@@ -45,6 +45,18 @@ Every read goes through `migrate()` and `validate_save()`. The result reports
 `"idle"` (a v3.1 tycoon save) is reported as `classic` (`SaveManager.is_classic`): the Main Menu shows it as "Classic save (not
 supported)" with a Delete button, and it is never loaded or migrated (idle GDD §15.3).
 
+### Save codes (`SaveManager.export_code` / `decode_code` / `import_code`)
+
+A profile can leave the device as text (idle GDD §20 no. 57): `CRUMB1-` followed by
+the base64 of the gzip-compressed save JSON (the same dictionary `read_profile`
+returns; about 3 KB for a Tier 3 shop). `CRUMB1` names the code format, not the save
+schema. `decode_code` ignores spaces and line breaks, checks the base64 alphabet and
+the gzip header before decompressing (at most 16 MB), then runs the same
+`migrate()` and `validate_save()` as a file read. It reports `format` (not a complete
+code), `classic`, `newer` or `invalid`. `import_code` rewrites `profile_id` to the
+target profile and goes through `write_profile`, so the profile's previous save
+becomes its backup and the imported one becomes the latest (Continue).
+
 ### Autosave and the offline reference
 
 `SaveManager.request_autosave(reason, critical)` debounces non-critical saves

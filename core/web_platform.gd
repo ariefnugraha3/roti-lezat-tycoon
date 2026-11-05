@@ -116,3 +116,121 @@ static func share_or_download_png(png: PackedByteArray, file_name: String, text:
 	var js: String = JS_SHARE_PNG % [JSON.stringify(Marshalls.raw_to_base64(png)), JSON.stringify(file_name), JSON.stringify(text)]
 	var r: Variant = JavaScriptBridge.eval(js, true)
 	return str(r) if r != null else "error"
+
+
+# ===========================================================================
+# KODE SAVE (GDD idle 20 no. 57): clipboard dan berkas teks
+# ===========================================================================
+
+## Teks terakhir yang disalin lewat copy_text (test, dan layar tanpa clipboard).
+static var last_copied: String = ""
+## Test: isi "clipboard" yang dibaca request_paste di luar Web.
+static var fake_clipboard: String = ""
+static var _paste_result: Variant = null
+
+## Baca clipboard browser ke window.__crumbPaste (async; "" bila ditolak).
+const JS_PASTE: String = """(function () {
+	window.__crumbPaste = null;
+	try {
+		if (!navigator.clipboard || !navigator.clipboard.readText) { window.__crumbPaste = ''; return; }
+		navigator.clipboard.readText().then(function (t) { window.__crumbPaste = String(t || ''); })
+			.catch(function () { window.__crumbPaste = ''; });
+	} catch (e) { window.__crumbPaste = ''; }
+})();"""
+## Pilih berkas teks lalu baca isinya ke window.__crumbFile (async). Batal =
+## tidak ada jawaban.
+const JS_OPEN_TEXT: String = """(function () {
+	window.__crumbFile = null;
+	try {
+		var i = document.createElement('input');
+		i.type = 'file';
+		i.accept = '.txt,text/plain';
+		i.onchange = function () {
+			var f = i.files && i.files[0];
+			if (!f) { return; }
+			var r = new FileReader();
+			r.onload = function () { window.__crumbFile = String(r.result || ''); };
+			r.onerror = function () { window.__crumbFile = ''; };
+			r.readAsText(f);
+		};
+		i.click();
+	} catch (e) { window.__crumbFile = ''; }
+})();"""
+
+
+## Salin teks ke clipboard (di Web lewat navigator.clipboard; panggil dari
+## tombol yang baru dilepas). false bila platform ini tidak punya clipboard.
+static func copy_text(text: String) -> bool:
+	last_copied = text
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		return false
+	DisplayServer.clipboard_set(text)
+	return true
+
+
+## Mulai membaca clipboard; hasilnya diambil dengan poll_paste. Godot di Web
+## hanya mengembalikan isi clipboard lama pada panggilan pertama, jadi browser
+## ditanya langsung.
+static func request_paste() -> void:
+	if is_web():
+		JavaScriptBridge.eval(JS_PASTE, true)
+		_paste_result = null
+	elif DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD) and fake_clipboard == "":
+		_paste_result = DisplayServer.clipboard_get()
+	else:
+		_paste_result = fake_clipboard
+
+
+## Teks hasil request_paste, atau null selama browser belum menjawab.
+static func poll_paste() -> Variant:
+	if is_web():
+		var v: Variant = JavaScriptBridge.eval("window.__crumbPaste", true)
+		if v == null:
+			return null
+		JavaScriptBridge.eval("window.__crumbPaste = null;", true)
+		return str(v)
+	var r: Variant = _paste_result
+	_paste_result = null
+	return r
+
+
+## Unduh teks sebagai berkas (hanya Web).
+static func download_text(text: String, file_name: String) -> bool:
+	if not is_web():
+		return false
+	JavaScriptBridge.download_buffer(text.to_utf8_buffer(), file_name, "text/plain")
+	return true
+
+
+## Buka pemilih berkas teks (hanya Web); isinya diambil dengan poll_file.
+static func request_file() -> void:
+	if is_web():
+		JavaScriptBridge.eval(JS_OPEN_TEXT, true)
+
+
+## Isi berkas dari request_file, atau null selama belum ada.
+static func poll_file() -> Variant:
+	if not is_web():
+		return null
+	var v: Variant = JavaScriptBridge.eval("window.__crumbFile", true)
+	if v == null:
+		return null
+	JavaScriptBridge.eval("window.__crumbFile = null;", true)
+	return str(v)
+
+
+# ===========================================================================
+# PWA (GDD idle 20 no. 56)
+# ===========================================================================
+
+## Build Web dipasang sebagai Progressive Web App: service worker menyimpan
+## berkas game di perangkat, jadi kunjungan berikutnya dimuat dari cache. Versi
+## baru yang sudah diunduh service worker dipasang (halaman dimuat ulang) begitu
+## tidak ada toko yang sedang dimainkan: di layar pembuka dan Main Menu.
+static func pwa_update_waiting() -> bool:
+	return is_web() and JavaScriptBridge.pwa_needs_update()
+
+
+static func apply_pwa_update() -> void:
+	if pwa_update_waiting():
+		JavaScriptBridge.pwa_update()

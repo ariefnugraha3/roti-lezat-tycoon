@@ -197,14 +197,17 @@ func _check_export_presets() -> void:
 		names[n] = platform
 		var opt: String = sec + ".options"
 		if platform == "Android":
+			# VIBRATE untuk getar Settings > Vibration (v3.1 75.4, Haptics).
 			android_ok = android_ok and str(cfg.get_value(opt, "package/unique_name", "")) == PACKAGE_ID \
-				and not bool(cfg.get_value(opt, "permissions/internet", true))
+				and not bool(cfg.get_value(opt, "permissions/internet", true)) and bool(cfg.get_value(opt, "permissions/vibrate", false))
 		if platform == "Web":
 			_add("Web preset single-threaded for itch.io (GDD 128.3)", not bool(cfg.get_value(opt, "variant/thread_support", true)))
+			_add("Web preset installs as a portrait PWA (GDD idle 20 no. 56)", bool(cfg.get_value(opt, "progressive_web_app/enabled", false))
+				and int(cfg.get_value(opt, "progressive_web_app/orientation", 0)) == 2)
 	_add("Web, Android APK and Android AAB presets exist (GDD 108)",
 		names.get("Web") == "Web" and names.get("Android Debug APK") == "Android" and names.get("Android Release AAB") == "Android",
 		str(names.keys()))
-	_add("Android presets use %s without INTERNET permission" % PACKAGE_ID, android_ok)
+	_add("Android presets use %s without INTERNET permission, with VIBRATE" % PACKAGE_ID, android_ok)
 	_add("no signing secrets in export_presets.cfg (GDD 128.4)", secrets.is_empty(), ", ".join(secrets))
 	var aab: bool = false
 	for sec2: String in cfg.get_sections():

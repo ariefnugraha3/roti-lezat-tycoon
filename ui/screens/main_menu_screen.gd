@@ -158,6 +158,15 @@ func _round(parent: Control, icon_name: String, text: String, cb: Callable) -> B
 	return b
 
 
+## Bangun ulang di tempat (profil dihapus atau diimpor di layar Profiles di
+## atasnya): kartu toko kembali menunjuk save terbaru.
+func refresh() -> void:
+	for c: Node in get_children():
+		remove_child(c)
+		c.queue_free()
+	build()
+
+
 static func _spacer(weight: float) -> Control:
 	var s := Control.new()
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE

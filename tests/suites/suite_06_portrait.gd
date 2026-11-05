@@ -224,7 +224,7 @@ const UI_SIZES: Array[Vector2] = [Vector2(720, 1280), Vector2(1080, 1920), Vecto
 	Vector2(1536, 2048), Vector2(2048, 1536), Vector2(1280, 720), Vector2(1366, 768), Vector2(1920, 1080),
 	Vector2(2560, 1440), Vector2(2560, 1080)]
 const UI_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"help", &"welcome_back", &"franchise_cutscene", &"tutorial"]
+	&"help", &"welcome_back", &"franchise_cutscene", &"tutorial", &"profiles", &"save_code", &"import_save"]
 
 
 ## Kontrol yang tampak tetapi keluar dari isi bingkai (di luar ScrollContainer
@@ -273,6 +273,9 @@ func _portrait_ui() -> void:
 	PauseManager.clear_all()
 	game.playing = false
 	jump_to_tier(game.sim, 3)
+	# Kartu profil berisi untuk Profiles, Save Code, dan pratinjau Import Save.
+	SaveManager.write_profile(&"profile_1", game.sim.capture_save())
+	var code: String = SaveManager.export_code(&"profile_1")
 	var bad: int = 0
 	var shown: int = 0
 	for sz: Vector2 in UI_SIZES:
@@ -295,7 +298,13 @@ func _portrait_ui() -> void:
 						params = {"stars": 12, "number": 3}
 					&"tutorial":
 						params = {"key": "onb_recipe"}
+					&"profiles":
+						params = {"mode": "load"}
+					&"save_code":
+						params = {"profile_id": &"profile_1"}
 				var scr: UIScreen = game.modals.open(id, params)
+				if scr is ImportSaveScreen:
+					(scr as ImportSaveScreen).show_code(code)
 				await runner.get_tree().process_frame
 				await runner.get_tree().process_frame
 				shown += 1

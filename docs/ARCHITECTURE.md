@@ -37,7 +37,7 @@ Autoloads are services. Gameplay state never lives in them, so tearing down a
 | `EventBus` | Cross-layer signals: simulation → UI/audio/world view, plus UI request signals. |
 | `SettingsManager` | `user://settings.json`: volumes, quality, text scale, number format, tutorial hints and accessibility (GDD 75). |
 | `PauseManager` | A set of pause reasons (Pause menu, blocking modals, lifecycle). The simulation runs only when the set is empty. Losing focus pushes `lifecycle`; that time is counted as time away by `OfflineManager` (idle GDD §3.4, §9). |
-| `SaveManager` | Three profiles, atomic writes, backup, validation, classic-save detection (idle GDD §15.3, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
+| `SaveManager` | Three profiles, atomic writes, backup, validation, classic-save detection, save codes for export and import (idle GDD §15.3, §20 no. 57, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
 | `AudioManager` | Pooled voices, priorities, cooldowns, ducking, music states, captions, and the web audio unlock (GDD 33, 93). |
 
 ## 3. Simulation
@@ -238,8 +238,10 @@ are pruned. A new game starts at `clock.start_seconds`.
   `SubViewport` with `size_2d_override` 720 × H at the screen's real pixels, and draws
   the gingham `TableclothSides` outside it; taps on the tablecloth never reach the game.
   `core/web_platform.gd` is the only code that calls JavaScript (phone detection,
-  fullscreen from a released tap); `ui/components/orientation_hint.gd` shows the
-  one-time "Turn your phone upright" hint on sideways phone browsers.
+  fullscreen from a released tap, the clipboard and text files for save codes, the
+  PWA update); `ui/components/orientation_hint.gd` shows the one-time "Turn your
+  phone upright" hint on sideways phone browsers. `core/haptics.gd` buzzes phones
+  for feedback sounds on `EventBus.sfx` (Settings > Vibration).
 - `WorldView` (`gameplay/world/world_view.gd`) mirrors the simulation. It builds
   rooms and equipment with the factories, pools actor views, shows station markers,
   bread and ghosts, and does picking. `CameraRig` frames floors that fit the viewport

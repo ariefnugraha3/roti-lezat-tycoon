@@ -42,15 +42,12 @@ func _render() -> void:
 		2:
 			_choice("number_format", "ui_number_format", ["short", "scientific"],
 				[Tx.t("ui_number_format_short"), Tx.t("ui_number_format_scientific")])
-			_toggle("edge_scroll", "ui_settings_edge_scroll")
-			_toggle("confirm_expensive", "ui_settings_confirm_expensive")
-			_slider("confirm_threshold", "ui_settings_confirm_threshold", 0, 100000, 500)
 			_toggle("tutorial_hints", "ui_settings_tutorial_hints")
 			btn(_body, Tx.t("ui_settings_replay_tutorial"), "secondary", func() -> void: host.open(&"help"))
 		3:
 			_toggle("reduced_motion", "ui_settings_reduced_motion")
-			_slider("screen_shake", "ui_settings_screen_shake", 0, 100, 5)
-			if OS.has_feature("mobile"):
+			# Hanya di perangkat yang bisa bergetar (Haptics, v3.1 75.4).
+			if Haptics.supported():
 				_toggle("haptics", "ui_settings_haptics")
 			_toggle("high_contrast_markers", "ui_settings_high_contrast")
 			_choice("text_scale", "ui_settings_text_scale", [100, 125, 150], ["100%", "125%", "150%"])

@@ -29,6 +29,7 @@ const NAMES: Array[String] = [
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
 	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share",
+	"clipboard",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -228,6 +229,7 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"calendar": _i_calendar(c, s, col)
 		"camera": _i_camera(c, s, col)
 		"share": _i_share(c, s, col)
+		"clipboard": _i_clipboard(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -787,6 +789,17 @@ func _i_share(c: Vector2, s: float, col: Color) -> void:
 	_dot(c, s, 0.26, -0.28, 0.15, col)
 	_dot(c, s, -0.26, 0.0, 0.15, col)
 	_dot(c, s, 0.26, 0.28, 0.15, col)
+
+
+## Papan klip — kode save (GDD idle 20 no. 57): papan, jepitan di atas, tiga
+## baris tulisan.
+func _i_clipboard(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.34, -0.36, 0.68, 0.82, 0.10, col)
+	_round_rect(c, s, -0.17, -0.46, 0.34, 0.18, 0.06, ink)
+	_bar(c, s, -0.18, -0.06, 0.18, -0.06, 0.055, ink)
+	_bar(c, s, -0.18, 0.12, 0.18, 0.12, 0.055, ink)
+	_bar(c, s, -0.18, 0.30, 0.04, 0.30, 0.055, ink)
 
 
 ## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).

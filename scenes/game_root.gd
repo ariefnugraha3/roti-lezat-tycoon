@@ -65,6 +65,11 @@ func _ready() -> void:
 	if WebPlatform.is_mobile_web():
 		_orientation = OrientationHint.new()
 		add_child(_orientation)
+	if WebPlatform.is_web():
+		# PWA (GDD idle 20 no. 56): versi baru dari service worker dipasang di
+		# luar permainan.
+		JavaScriptBridge.pwa_update_available.connect(_maybe_apply_pwa_update)
+		_maybe_apply_pwa_update.call_deferred()
 	if not DataRegistry.is_valid():
 		# Katalog rusak: berhenti dengan layar galat berbahasa Inggris (GDD 114, 117).
 		GameLogger.error("BOOT", "catalog validation failed: %s" % str(DataRegistry.errors.slice(0, 5)))
@@ -441,7 +446,19 @@ func _on_pause_key() -> void:
 
 
 func _on_modal_stack_changed() -> void:
-	pass
+	_maybe_apply_pwa_update()
+
+
+## Pasang versi PWA baru yang sudah diunduh (halaman dimuat ulang), tetapi hanya
+## di layar pembuka atau Main Menu tanpa layar lain di atasnya: tidak pernah di
+## tengah permainan, mengetik nama toko, atau memilih profil.
+func _maybe_apply_pwa_update() -> void:
+	if not WebPlatform.pwa_update_waiting() or sim != null:
+		return
+	var top: UIScreen = modals.top()
+	if _splash != null or (top != null and top.screen_id == &"main_menu"):
+		GameLogger.important("BOOT", "installing the new web version")
+		WebPlatform.apply_pwa_update()
 
 
 func _exit_tree() -> void:

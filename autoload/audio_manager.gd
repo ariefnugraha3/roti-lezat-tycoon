@@ -94,6 +94,8 @@ func _ready() -> void:
 	add_child(_busy_layer)
 	SettingsManager.settings_changed.connect(_on_settings_changed)
 	EventBus.sfx.connect(func(event_id: StringName, _floor: StringName) -> void: play(event_id))
+	# Getar HP ikut suara umpan balik yang sama (v3.1 75.4, GDD idle 20 no. 55).
+	EventBus.sfx.connect(Haptics.on_sfx)
 	EventBus.music_state_changed.connect(set_music_state)
 	apply_volumes()
 

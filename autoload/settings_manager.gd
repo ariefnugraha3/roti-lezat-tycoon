@@ -22,12 +22,8 @@ const DEFAULTS: Dictionary = {
 	"fps_cap": 60,
 	"quality": "auto",
 	"number_format": "short",
-	"edge_scroll": false,
-	"confirm_expensive": true,
-	"confirm_threshold": 5000,
 	"tutorial_hints": true,
 	"reduced_motion": false,
-	"screen_shake": 30,
 	"haptics": true,
 	"high_contrast_markers": false,
 	"text_scale": 100,
@@ -35,12 +31,15 @@ const DEFAULTS: Dictionary = {
 	"sound_captions": false,
 }
 
-## Batas nilai untuk validasi (GDD 75).
+## Batas nilai untuk validasi (GDD 75). Edge scroll, Screen shake, dan Confirm
+## expensive purchase dihapus (GDD idle 20 no. 55): kamera potret tidak digeser
+## dari tepi, tidak ada yang mengguncang layar, dan beli ×1/×10/Max tidak
+## meminta konfirmasi. Nilai lama di settings.json diabaikan saat dimuat.
 const RANGES: Dictionary = {
 	"master_volume": [0, 100], "music_volume": [0, 100], "sfx_volume": [0, 100],
 	"ui_volume": [0, 100], "ambient_volume": [0, 100],
 	"resolution_scale": [70, 100], "brightness": [80, 120],
-	"screen_shake": [0, 100], "text_scale": [100, 150], "confirm_threshold": [0, 1000000000],
+	"text_scale": [100, 150],
 }
 const CHOICES: Dictionary = {
 	"fps_cap": [30, 60, 0],

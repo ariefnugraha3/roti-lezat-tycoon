@@ -193,6 +193,25 @@ func _menu_screens(r: Vector2i, sc: int, suffix: String) -> void:
 		await _shot("profiles_" + mode + suffix, r, sc)
 		game.modals.close_screen(p)
 	if suffix != "":
+		# Kode save (GDD idle 20 no. 57): Export di atas Load Game, lalu Import
+		# dengan pratinjau kode profil itu.
+		var lp: UIScreen = game.modals.open(&"profiles", {"mode": "load"})
+		var latest: StringName = SaveManager.latest_profile()
+		var sc_code: UIScreen = game.modals.open(&"save_code", {"profile_id": latest})
+		await _frames(4)
+		_check(sc_code, "save_code" + suffix, r, sc)
+		await _shot("save_code" + suffix, r, sc)
+		game.modals.close_screen(sc_code)
+		var imp: ImportSaveScreen = game.modals.open(&"import_save") as ImportSaveScreen
+		await _frames(2)
+		_check(imp, "import_save_empty" + suffix, r, sc)
+		await _shot("import_save_empty" + suffix, r, sc)
+		imp.show_code(SaveManager.export_code(latest))
+		await _frames(4)
+		_check(imp, "import_save" + suffix, r, sc)
+		await _shot("import_save" + suffix, r, sc)
+		game.modals.close_screen(imp)
+		game.modals.close_screen(lp)
 		return
 	var ng: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_1"}) as NewGameScreen
 	for step in 3:
