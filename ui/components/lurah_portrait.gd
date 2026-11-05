@@ -29,7 +29,7 @@ func _draw() -> void:
 	var u: float = s * 0.5
 	var o: Vector2 = size * 0.5
 	_circle = _ell(o, u * 0.96, u * 0.96, 0.0, TAU, 48)
-	draw_colored_polygon(_circle, BACKDROP)
+	ProceduralUIFactory.fill_aa(self, _circle, BACKDROP)
 	# Kilau lingkaran latar: dua titik krem kecil (flat), suasana ramah.
 	draw_circle(o + Vector2(-0.62, -0.58) * u, u * 0.05, Color(Palette.FLOUR_WHITE, 0.8), true, -1.0, true)
 	draw_circle(o + Vector2(-0.74, -0.42) * u, u * 0.03, Color(Palette.FLOUR_WHITE, 0.8), true, -1.0, true)
@@ -54,11 +54,11 @@ static func _ell(p: Vector2, rx: float, ry: float, a0: float = 0.0, a1: float = 
 func _clip(poly: PackedVector2Array, col: Color) -> void:
 	for piece: PackedVector2Array in Geometry2D.intersect_polygons(poly, _circle):
 		if piece.size() >= 3:
-			draw_colored_polygon(piece, col)
+			ProceduralUIFactory.fill_aa(self, piece, col)
 
 
 func _oval(p: Vector2, rx: float, ry: float, col: Color) -> void:
-	draw_colored_polygon(_ell(p, rx, ry), col)
+	ProceduralUIFactory.fill_aa(self, _ell(p, rx, ry), col)
 
 
 func _box(r: Rect2, radius: float) -> PackedVector2Array:
@@ -116,7 +116,7 @@ func _head(o: Vector2, u: float) -> void:
 	_oval(hc + Vector2(0.0, 0.02) * u, u * 0.47, u * 0.43, skin)
 	# Cambang uban: rambut yang menyembul dari bawah peci, menipis ke telinga.
 	for sx2: float in [-1.0, 1.0]:
-		draw_colored_polygon(_pts(hc, u, [Vector2(sx2 * 0.30, -0.30), Vector2(sx2 * 0.46, -0.27),
+		ProceduralUIFactory.fill_aa(self, _pts(hc, u, [Vector2(sx2 * 0.30, -0.30), Vector2(sx2 * 0.46, -0.27),
 			Vector2(sx2 * 0.45, -0.06), Vector2(sx2 * 0.39, 0.00), Vector2(sx2 * 0.36, -0.16), Vector2(sx2 * 0.28, -0.24)]), grey)
 	# Pipi merona, mata berbinar, alis tebal.
 	for sx3: float in [-1.0, 1.0]:
@@ -124,16 +124,16 @@ func _head(o: Vector2, u: float) -> void:
 		var e: Vector2 = hc + Vector2(sx3 * 0.17, -0.02) * u
 		_oval(e, u * 0.055, u * 0.07, CharacterFactory.EYE_COLOR)
 		draw_circle(e + Vector2(-0.018, -0.025) * u, u * 0.022, Palette.FLOUR_WHITE, true, -1.0, true)
-		draw_colored_polygon(_pts(hc, u, [Vector2(sx3 * 0.08, -0.14), Vector2(sx3 * 0.27, -0.17),
+		ProceduralUIFactory.fill_aa(self, _pts(hc, u, [Vector2(sx3 * 0.08, -0.14), Vector2(sx3 * 0.27, -0.17),
 			Vector2(sx3 * 0.28, -0.12), Vector2(sx3 * 0.09, -0.10)]), grey_deep)
 	# Hidung bulat kecil.
 	_oval(hc + Vector2(0.0, 0.08) * u, u * 0.065, u * 0.05, skin.darkened(0.14))
 	# Senyum lebar terbuka dengan lidah, lalu kumis tebal di atasnya.
 	var mouth: PackedVector2Array = _ell(hc + Vector2(0.0, 0.19) * u, u * 0.13, u * 0.11, 0.0, PI, 16)
-	draw_colored_polygon(mouth, CharacterFactory.MOUTH_COLOR)
+	ProceduralUIFactory.fill_aa(self, mouth, CharacterFactory.MOUTH_COLOR)
 	_oval(hc + Vector2(0.0, 0.26) * u, u * 0.065, u * 0.035, Palette.STRAWBERRY.lightened(0.15))
 	for sx4: float in [-1.0, 1.0]:
-		draw_colored_polygon(_pts(hc, u, [Vector2(0.0, 0.12), Vector2(sx4 * 0.05, 0.10), Vector2(sx4 * 0.17, 0.11),
+		ProceduralUIFactory.fill_aa(self, _pts(hc, u, [Vector2(0.0, 0.12), Vector2(sx4 * 0.05, 0.10), Vector2(sx4 * 0.17, 0.11),
 			Vector2(sx4 * 0.24, 0.17), Vector2(sx4 * 0.20, 0.20), Vector2(sx4 * 0.08, 0.18), Vector2(0.0, 0.19)]), grey)
 	_peci(hc, u)
 
@@ -153,5 +153,5 @@ func _peci(hc: Vector2, u: float) -> void:
 		var t: float = float(i) / 12.0
 		var x: float = lerpf(0.45, -0.45, t)
 		pts.append(hc + Vector2(x, bottom + 0.05 * (1.0 - pow(x / 0.45, 2.0))) * u)
-	draw_colored_polygon(pts, PECI)
-	draw_colored_polygon(_box(Rect2(hc + Vector2(-0.36, top) * u, Vector2(0.72, 0.07) * u), u * 0.03), PECI.lightened(0.14))
+	ProceduralUIFactory.fill_aa(self, pts, PECI)
+	ProceduralUIFactory.fill_aa(self, _box(Rect2(hc + Vector2(-0.36, top) * u, Vector2(0.72, 0.07) * u), u * 0.03), PECI.lightened(0.14))

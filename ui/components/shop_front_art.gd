@@ -118,9 +118,9 @@ func _rbox(x: float, y: float, w: float, h: float, r: float, col: Color, bottom_
 		var pts: PackedVector2Array = ProceduralUIFactory.rounded_points(Rect2(_p(0.0, 0.0), Vector2(_s, _s)), 0.22 * _s, 6)
 		var clip := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)])
 		for piece: PackedVector2Array in Geometry2D.intersect_polygons(pts, clip):
-			draw_colored_polygon(piece, col)
+			ProceduralUIFactory.fill_aa(self, piece, col)
 		return
-	draw_colored_polygon(ProceduralUIFactory.rounded_points(rect, r * _s, 4), col)
+	ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(rect, r * _s, 4), col)
 
 
 func _oval(x: float, y: float, rx: float, ry: float, col: Color) -> void:
@@ -128,14 +128,14 @@ func _oval(x: float, y: float, rx: float, ry: float, col: Color) -> void:
 	for i in 24:
 		var a: float = TAU * float(i) / 24.0
 		pts.append(_p(x + cos(a) * rx, y + sin(a) * ry))
-	draw_colored_polygon(pts, col)
+	ProceduralUIFactory.fill_aa(self, pts, col)
 
 
 func _poly(unit: Array, col: Color) -> void:
 	var pts: PackedVector2Array = PackedVector2Array()
 	for v: Vector2 in unit:
 		pts.append(_p(v.x, v.y))
-	draw_colored_polygon(pts, col)
+	ProceduralUIFactory.fill_aa(self, pts, col)
 
 
 func _star(x: float, y: float, r: float, col: Color) -> void:
@@ -144,7 +144,7 @@ func _star(x: float, y: float, r: float, col: Color) -> void:
 		var a: float = -PI * 0.5 + PI * float(i) / 5.0
 		var rr: float = r if i % 2 == 0 else r * 0.45
 		pts.append(_p(x + cos(a) * rr, y + sin(a) * rr))
-	draw_colored_polygon(pts, col)
+	ProceduralUIFactory.fill_aa(self, pts, col)
 
 
 ## Roti tawar kecil: bagian atas membulat di atas alas, dua guratan.

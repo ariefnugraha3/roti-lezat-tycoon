@@ -44,7 +44,7 @@ func _draw() -> void:
 	_box(Palette.UI_WOOD, 16).draw(get_canvas_item(), board.grow(-10.0))
 	# Dua paku emas.
 	for px: float in [w * 0.06, w * 0.94]:
-		draw_circle(Vector2(px, h * 0.08), 7.0, Palette.GOLD_STAR)
+		draw_circle(Vector2(px, h * 0.08), 7.0, Palette.GOLD_STAR, true, -1.0, true)
 
 
 static func _box(c: Color, radius: int) -> StyleBoxFlat:

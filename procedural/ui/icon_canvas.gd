@@ -159,7 +159,7 @@ func _shade(col: Color, amount: float) -> Color:
 func _glint(c: Vector2, s: float, x: float, y: float, r: float) -> void:
 	if ProceduralUIFactory.flat_style or _pass != PASS_FILL or _base.get_luminance() > 0.85:
 		return
-	draw_circle(c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a))
+	draw_circle(c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a), true, -1.0, true)
 
 
 ## Setel nama + warna + ukuran sekaligus (satu kali `queue_redraw`).
@@ -248,9 +248,9 @@ func _lit(col: Color) -> Color:
 ## Lingkaran penuh berpusat di (x, y).
 func _dot(c: Vector2, s: float, x: float, y: float, r: float, col: Color) -> void:
 	if _pass == PASS_FILL:
-		draw_circle(c + Vector2(x, y) * s, r * s, col)
+		draw_circle(c + Vector2(x, y) * s, r * s, col, true, -1.0, true)
 	elif _silhouette(col):
-		draw_circle(c + Vector2(x, y) * s, r * s + _ow, _pass_col)
+		draw_circle(c + Vector2(x, y) * s, r * s + _ow, _pass_col, true, -1.0, true)
 
 
 ## Garis tebal berujung bulat (kesan empuk khas GDD 4.1).
@@ -267,8 +267,8 @@ func _bar(c: Vector2, s: float, ax: float, ay: float, bx: float, by: float,
 		tint = _pass_col
 	draw_line(pa, pb, tint, w * s + grow * 2.0, true)
 	var cap: float = w * s * 0.5 + grow
-	draw_circle(pa, cap, tint)
-	draw_circle(pb, cap, tint)
+	draw_circle(pa, cap, tint, true, -1.0, true)
+	draw_circle(pb, cap, tint, true, -1.0, true)
 
 
 ## Busur dengan jumlah ruas otomatis mengikuti panjang sudutnya.
@@ -287,8 +287,8 @@ func _arcline(c: Vector2, s: float, x: float, y: float, r: float,
 	# Ujung busur membulat (kesan empuk), kecuali lingkaran penuh.
 	if absf(a1 - a0) < TAU - 0.01:
 		var cap: float = w * s * 0.5 + grow
-		draw_circle(ctr + Vector2(cos(a0), sin(a0)) * r * s, cap, tint)
-		draw_circle(ctr + Vector2(cos(a1), sin(a1)) * r * s, cap, tint)
+		draw_circle(ctr + Vector2(cos(a0), sin(a0)) * r * s, cap, tint, true, -1.0, true)
+		draw_circle(ctr + Vector2(cos(a1), sin(a1)) * r * s, cap, tint, true, -1.0, true)
 
 
 ## Poligon terisi dari daftar Vector2 satuan.
@@ -301,13 +301,13 @@ func _blob(c: Vector2, s: float, pts: Array, col: Color) -> void:
 		var v: Vector2 = pts[i]
 		out[i] = c + v * s
 	if _pass == PASS_FILL:
-		draw_colored_polygon(out, col)
+		ProceduralUIFactory.fill_aa(self, out, col)
 		return
 	if not _silhouette(col):
 		return
 	for poly: PackedVector2Array in Geometry2D.offset_polygon(out, _ow, Geometry2D.JOIN_ROUND):
 		if poly.size() >= 3:
-			draw_colored_polygon(poly, _pass_col)
+			ProceduralUIFactory.fill_aa(self, poly, _pass_col)
 
 
 ## Titik-titik persegi panjang bersudut membulat (satuan), urut searah jarum jam.

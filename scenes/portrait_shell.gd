@@ -59,12 +59,36 @@ func _ready() -> void:
 	viewport.size_2d_override_stretch = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.handle_input_locally = false
-	viewport.msaa_3d = int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d", 0)) as Viewport.MSAA
+	viewport.msaa_3d = SettingsManager.msaa_3d()
 	container.add_child(viewport)
+	fit_desktop_window()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	game = (load(GAME_SCENE) as PackedScene).instantiate()
 	viewport.add_child(game)
+
+
+## Jendela desktop mengikuti layar: setinggi 90% area layar yang bisa dipakai,
+## rasio 9:16, di tengah layar. Bingkai dirender sesuai piksel layar, jadi di
+## monitor besar gambarnya ikut tajam (1080 x 1920 di layar 4K) dan tidak
+## tertahan di jendela bawaan 540 x 960. Tidak berlaku di Web, HP, headless,
+## layar penuh, atau bila ukuran jendela diberikan lewat --resolution (alat).
+static func fit_desktop_window() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web") or OS.has_feature("mobile"):
+		return
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED or OS.get_cmdline_args().has("--resolution"):
+		return
+	var screen: int = DisplayServer.window_get_current_screen()
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(screen)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return
+	var h: int = int(float(usable.size.y) * 0.9)
+	var w: int = int(round(float(h) * 9.0 / 16.0))
+	if w > int(float(usable.size.x) * 0.9):
+		w = int(float(usable.size.x) * 0.9)
+		h = int(round(float(w) * 16.0 / 9.0))
+	DisplayServer.window_set_size(Vector2i(w, h))
+	DisplayServer.window_set_position(usable.position + (usable.size - Vector2i(w, h)) / 2)
 
 
 func _exit_tree() -> void:

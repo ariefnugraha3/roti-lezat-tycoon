@@ -1188,6 +1188,25 @@ static func toast(parent: CanvasLayer, text: String, icon_name: String) -> void:
 ## Kartu toast (GDD 131): pil krem berbibir dengan lencana ikon bundar di kiri.
 ## Prioritas 0 (kritis) memakai lencana stroberi dan tepi merah; prioritas 1
 ## lencana madu; sisanya lencana krem.
+## Isi poligon dengan tepi halus. Renderer Compatibility tidak punya MSAA 2D,
+## jadi `draw_colored_polygon` bergerigi di layar resolusi tinggi; garis tepi
+## antialias tipis berwarna sama (cara `Polygon2D.antialiased`) menghaluskannya.
+## Bidang tembus tidak diberi tepi, supaya pinggirnya tidak menebal.
+static func fill_aa(ci: CanvasItem, pts: PackedVector2Array, col: Color) -> void:
+	if pts.size() < 3:
+		return
+	ci.draw_colored_polygon(pts, col)
+	if col.a < 0.99:
+		return
+	var ring: PackedVector2Array = pts.duplicate()
+	ring.append(pts[0])
+	ci.draw_polyline(ring, col, AA_EDGE, true)
+
+
+## Lebar garis tepi halus `fill_aa` (satuan kanvas).
+const AA_EDGE: float = 1.0
+
+
 ## Lebar teks toast paling besar sebelum dibungkus (px logis).
 const TOAST_TEXT_MAX_W: float = 540.0
 
@@ -1269,7 +1288,7 @@ static func draw_gingham(canvas: CanvasItem, rect: Rect2, lace_side: int = -1) -
 	for cell: Array in gingham_cells(rect):
 		canvas.draw_rect(cell[0], cell[1])
 	for c: Vector2 in lace_points(rect, lace_side):
-		canvas.draw_circle(c, LACE_SCALLOP * 0.62, Palette.GINGHAM_B)
+		canvas.draw_circle(c, LACE_SCALLOP * 0.62, Palette.GINGHAM_B, true, -1.0, true)
 	if not flat_style and lace_side == SIDE_TOP:
 		canvas.draw_rect(Rect2(rect.position.x, rect.position.y - 3.0, rect.size.x, 3.0), Color(Palette.UI_WOOD, 0.10))
 
@@ -1894,7 +1913,7 @@ class CrumbScatter extends Control:
 			var p := Vector2(float(c[0]) * w, float(c[1]) * h)
 			var r: float = float(c[2]) * w
 			var col: Color = Palette.GOLDEN_CRUST if int(c[3]) == 0 else Palette.CUSTARD.darkened(0.08)
-			draw_colored_polygon(ProceduralUIFactory.rounded_points(Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2.0, r * 1.6)), r * 0.6, 3), col)
+			ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(Rect2(p - Vector2(r, r * 0.8), Vector2(r * 2.0, r * 1.6)), r * 0.6, 3), col)
 
 
 ## Kilap lembut di bagian atas muka tombol/pita berwarna: sorot putih yang
@@ -2055,7 +2074,7 @@ class CozyBackdrop extends Control:
 				var a1: float = a0 + TAU / float(rays)
 				draw_polygon(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * reach, c + Vector2(cos(a1), sin(a1)) * reach]),
 					PackedColorArray([Color(1.0, 1.0, 1.0, 0.22), Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.0)]))
-			draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35))
+			draw_circle(c, minf(w, h) * 0.30, Color(1.0, 0.97, 0.88, 0.35), true, -1.0, true)
 		# Taplak gingham bergelombang di tepi bawah.
 		var band: float = minf(96.0, h * 0.14)
 		ProceduralUIFactory.draw_gingham(self, Rect2(0.0, h - band, w, band), SIDE_TOP)
@@ -2088,15 +2107,12 @@ class PantryBar extends Control:
 		if r.size.x < 8.0 or r.size.y < 6.0:
 			return
 		var rad: float = r.size.y * 0.5
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(r, rad),
-			Color(Palette.UI_WOOD, 0.14))
+		ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(r, rad), Color(Palette.UI_WOOD, 0.14))
 
 		var k: float = ratio()
 		if k > 0.001:
 			var w: float = maxf(r.size.y, r.size.x * k)
-			draw_colored_polygon(
-				ProceduralUIFactory.rounded_points(Rect2(r.position, Vector2(w, r.size.y)), rad),
-				_fill_color(k))
+			ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(Rect2(r.position, Vector2(w, r.size.y)), rad), _fill_color(k))
 
 		var edge: PackedVector2Array = ProceduralUIFactory.rounded_points(r, rad)
 		if edge.size() > 2:
@@ -2145,7 +2161,7 @@ class VineBorder extends Control:
 		_edge(br, bl, Vector2(0.0, -1.0))
 		_edge(bl, tl, Vector2(1.0, 0.0))
 		for p in [tl, tr, br, bl]:
-			draw_circle(p, 3.5, vine_color)
+			draw_circle(p, 3.5, vine_color, true, -1.0, true)
 
 	## Satu sisi sulur: garis bergelombang + daun bergantian sisi.
 	func _edge(a: Vector2, b: Vector2, inward: Vector2) -> void:
@@ -2170,7 +2186,7 @@ class VineBorder extends Control:
 
 	func _leaf(base: Vector2, dir: Vector2, length: float) -> void:
 		var perp: Vector2 = Vector2(-dir.y, dir.x)
-		draw_colored_polygon(PackedVector2Array([
+		ProceduralUIFactory.fill_aa(self, PackedVector2Array([
 			base,
 			base + dir * (length * 0.5) + perp * (length * 0.34),
 			base + dir * length,
@@ -2198,8 +2214,7 @@ class ChalkDust extends Control:
 		if frame.size.x > 10.0 and frame.size.y > 10.0:
 			draw_rect(frame, Color(Palette.CHALK_WHITE, 0.14), false, 2.0)
 		var ledge: Rect2 = Rect2(0.0, r.size.y - 9.0, r.size.x, 9.0)
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(ledge, 4.0),
-			Color(Palette.PINE_WOOD, 0.85))
+		ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(ledge, 4.0), Color(Palette.PINE_WOOD, 0.85))
 
 
 ## Garis pemisah putus-putus bergaya nota kasir (GDD 11.7).
@@ -2297,7 +2312,7 @@ class ChibiPortrait extends Control:
 		var s: float = minf(r.size.x, r.size.y)
 		var hr: float = s * 0.25
 		var c: Vector2 = Vector2(r.size.x * 0.5, r.size.y * 0.52)
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(r, 10.0), backdrop)
+		ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(r, 10.0), backdrop)
 		_disc(c + Vector2(0.0, -hr * 0.05), hr * 1.50, backdrop.lightened(0.18))
 		# Kilau kecil di latar (bintang empat sudut dan titik), suasana ceria.
 		var glint: Color = backdrop.lightened(0.45)
@@ -2320,7 +2335,7 @@ class ChibiPortrait extends Control:
 		draw_circle(p, rad, col, true, -1.0, true)
 
 	func _oval(p: Vector2, rx: float, ry: float, col: Color) -> void:
-		draw_colored_polygon(_ell(p, rx, ry), col)
+		ProceduralUIFactory.fill_aa(self, _ell(p, rx, ry), col)
 
 	## Titik-titik elips: penuh bila a1 - a0 = TAU, sebagian ditutup tali busur.
 	static func _ell(p: Vector2, rx: float, ry: float, a0: float = 0.0, a1: float = TAU, n: int = 28) -> PackedVector2Array:
@@ -2333,7 +2348,7 @@ class ChibiPortrait extends Control:
 		return pts
 
 	func _box(rect: Rect2, radius: float, col: Color) -> void:
-		draw_colored_polygon(ProceduralUIFactory.rounded_points(rect, radius), col)
+		ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(rect, radius), col)
 
 	## Bintang kilau empat sudut.
 	func _sparkle(p: Vector2, rad: float, col: Color) -> void:
@@ -2342,7 +2357,7 @@ class ChibiPortrait extends Control:
 			var a: float = -PI * 0.5 + PI * float(i) / 4.0
 			var rr: float = rad if i % 2 == 0 else rad * 0.30
 			pts.append(p + Vector2(cos(a) * rr, sin(a) * rr))
-		draw_colored_polygon(pts, col)
+		ProceduralUIFactory.fill_aa(self, pts, col)
 
 	func _head_rx(hr: float) -> float:
 		return hr * (1.0 + chubby * 0.08)
@@ -2360,11 +2375,11 @@ class ChibiPortrait extends Control:
 		for sx: float in [-1.0, 1.0]:
 			_oval(Vector2(c.x + sx * bw * 0.38, body_top + hr * 0.70), bw * 0.10, hr * 0.55, sleeve)
 		# Leher baju berbentuk V dengan kerah lancip.
-		draw_colored_polygon(PackedVector2Array([Vector2(c.x - hr * 0.30, body_top - hr * 0.01),
+		ProceduralUIFactory.fill_aa(self, PackedVector2Array([Vector2(c.x - hr * 0.30, body_top - hr * 0.01),
 			Vector2(c.x + hr * 0.30, body_top - hr * 0.01), Vector2(c.x, body_top + hr * 0.30)]), shade)
 		var collar: Color = shirt.lightened(0.35) if shirt.get_luminance() < 0.9 else shirt.darkened(0.05)
 		for sx2: float in [-1.0, 1.0]:
-			draw_colored_polygon(PackedVector2Array([Vector2(c.x + sx2 * hr * 0.04, body_top + hr * 0.26),
+			ProceduralUIFactory.fill_aa(self, PackedVector2Array([Vector2(c.x + sx2 * hr * 0.04, body_top + hr * 0.26),
 				Vector2(c.x + sx2 * hr * 0.30, body_top - hr * 0.03), Vector2(c.x + sx2 * hr * 0.52, body_top + hr * 0.04),
 				Vector2(c.x + sx2 * hr * 0.30, body_top + hr * 0.30)]), collar)
 		if no_apron:
@@ -2416,9 +2431,9 @@ class ChibiPortrait extends Control:
 			var inner: PackedVector2Array = _ell(c + Vector2(0.0, -hr * 0.02), rx * 0.88, hr * 0.80, PI * 0.12, PI * 0.88, 18)
 			inner.reverse()
 			band.append_array(inner)
-			draw_colored_polygon(band, hair)
+			ProceduralUIFactory.fill_aa(self, band, hair)
 		# Senyum terbuka dengan lidah merah muda.
-		draw_colored_polygon(_ell(c + Vector2(0.0, hr * 0.29), hr * 0.13, hr * 0.12, 0.0, PI, 14), CharacterFactory.MOUTH_COLOR)
+		ProceduralUIFactory.fill_aa(self, _ell(c + Vector2(0.0, hr * 0.29), hr * 0.13, hr * 0.12, 0.0, PI, 14), CharacterFactory.MOUTH_COLOR)
 		_oval(c + Vector2(0.0, hr * 0.36), hr * 0.07, hr * 0.04, Palette.STRAWBERRY.lightened(0.15))
 
 	# --- rambut ---------------------------------------------------------------
@@ -2476,18 +2491,18 @@ class ChibiPortrait extends Control:
 				amp = 0.08
 			"jenggot":
 				locks = 0.28
-		draw_colored_polygon(_cap(c, hr, rx, base, bumps, amp, tilt), hair)
+		ProceduralUIFactory.fill_aa(self, _cap(c, hr, rx, base, bumps, amp, tilt), hair)
 		# Kilau rambut: bulan sabit terang di sisi kiri atas (bidang kedua, flat).
 		if hat in ["none", "bando", "bando_kelinci", "bandana", "hachimaki"]:
 			var shine: PackedVector2Array = _ell(c + Vector2(-rx * 0.05, -hr * 0.05), rx * 0.86, hr * 0.84, PI * 1.12, PI * 1.42, 10)
 			var inner: PackedVector2Array = _ell(c + Vector2(-rx * 0.02, -hr * 0.02), rx * 0.74, hr * 0.72, PI * 1.12, PI * 1.42, 10)
 			inner.reverse()
 			shine.append_array(inner)
-			draw_colored_polygon(shine, hair.lightened(0.22))
+			ProceduralUIFactory.fill_aa(self, shine, hair.lightened(0.22))
 		if locks > 0.0:
 			for sx: float in [-1.0, 1.0]:
 				var top: Vector2 = c + Vector2(sx * rx * 0.90, 0.0)
-				draw_colored_polygon(PackedVector2Array([
+				ProceduralUIFactory.fill_aa(self, PackedVector2Array([
 					top + Vector2(-hr * 0.19, -hr * 0.30), top + Vector2(hr * 0.19, -hr * 0.30),
 					top + Vector2(hr * 0.17, hr * locks * 0.62), top + Vector2(0.0, hr * locks),
 					top + Vector2(-hr * 0.17, hr * locks * 0.62),
@@ -2495,7 +2510,7 @@ class ChibiPortrait extends Control:
 		if hair_style == "spike":
 			for i in 5:
 				var t: float = -0.60 + 0.30 * float(i)
-				draw_colored_polygon(PackedVector2Array([
+				ProceduralUIFactory.fill_aa(self, PackedVector2Array([
 					Vector2(c.x + rx * (t - 0.15), c.y - hr * 0.84), Vector2(c.x + rx * (t + 0.02), c.y - hr * 1.32),
 					Vector2(c.x + rx * (t + 0.15), c.y - hr * 0.84),
 				]), hair)
@@ -2576,8 +2591,8 @@ class ChibiPortrait extends Control:
 				_disc(Vector2(c.x - hr * 0.60, body_top + hr * 0.56), hr * 0.12, Palette.BUTTER_YELLOW)
 
 	func _bow(pos: Vector2, rad: float, col: Color) -> void:
-		draw_colored_polygon(PackedVector2Array([pos, pos + Vector2(-rad, -rad * 0.64), pos + Vector2(-rad, rad * 0.64)]), col)
-		draw_colored_polygon(PackedVector2Array([pos, pos + Vector2(rad, -rad * 0.64), pos + Vector2(rad, rad * 0.64)]), col)
+		ProceduralUIFactory.fill_aa(self, PackedVector2Array([pos, pos + Vector2(-rad, -rad * 0.64), pos + Vector2(-rad, rad * 0.64)]), col)
+		ProceduralUIFactory.fill_aa(self, PackedVector2Array([pos, pos + Vector2(rad, -rad * 0.64), pos + Vector2(rad, rad * 0.64)]), col)
 		_disc(pos, rad * 0.28, col.darkened(0.15))
 
 	func _star(p: Vector2, rad: float, col: Color) -> void:
@@ -2586,7 +2601,7 @@ class ChibiPortrait extends Control:
 			var a: float = -PI * 0.5 + PI * float(i) / 5.0
 			var rr: float = rad if i % 2 == 0 else rad * 0.45
 			pts.append(p + Vector2(cos(a) * rr, sin(a) * rr))
-		draw_colored_polygon(pts, col)
+		ProceduralUIFactory.fill_aa(self, pts, col)
 
 	## Pita melengkung di atas kepala (bando, bandana, ikat kepala).
 	func _band(c: Vector2, rx: float, hr: float, col: Color, width: float) -> void:
@@ -2594,7 +2609,7 @@ class ChibiPortrait extends Control:
 		var inner: PackedVector2Array = _ell(c + Vector2(0.0, -hr * 0.02), rx * (1.09 - width), hr * (1.05 - width), PI * 1.08, PI * 1.92, 20)
 		inner.reverse()
 		band.append_array(inner)
-		draw_colored_polygon(band, col)
+		ProceduralUIFactory.fill_aa(self, band, col)
 
 	func _hat(c: Vector2, hr: float) -> void:
 		var rx: float = _head_rx(hr)
@@ -2620,7 +2635,7 @@ class ChibiPortrait extends Control:
 			"topi_pet":
 				var cap: Color = Palette.PASTEL_PERIWINKLE
 				_oval(c + Vector2(-rx * 0.62, -hr * 0.66), rx * 0.60, hr * 0.14, cap.darkened(0.15))
-				draw_colored_polygon(_ell(c + Vector2(0.0, -hr * 0.52), rx * 1.03, hr * 0.60, PI, TAU, 20), cap)
+				ProceduralUIFactory.fill_aa(self, _ell(c + Vector2(0.0, -hr * 0.52), rx * 1.03, hr * 0.60, PI, TAU, 20), cap)
 				_disc(Vector2(c.x, c.y - hr * 1.12), hr * 0.07, cap.darkened(0.2))
 			"bandana", "hachimaki":
 				var col: Color = Palette.WARMER_LAMP if hat == "bandana" else white

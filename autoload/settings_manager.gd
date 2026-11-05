@@ -131,6 +131,20 @@ func reduced_motion() -> bool:
 	return get_bool("reduced_motion")
 
 
+## MSAA tepi 3D dari preset kualitas (Auto: 4x di desktop, 2x di HP dan browser
+## HP). Tepi 2D dihaluskan di kode gambarnya (ProceduralUIFactory.fill_aa),
+## karena renderer Compatibility tidak punya MSAA 2D.
+func msaa_3d() -> Viewport.MSAA:
+	var q: String = str(get_value("quality"))
+	if q == "auto":
+		return Viewport.MSAA_2X if OS.has_feature("mobile") or WebPlatform.is_mobile_web() else Viewport.MSAA_4X
+	for x: Variant in DataRegistry.quality_presets():
+		var p: MiscDefinitions.QualityPresetDefinition = x
+		if String(p.id) == q:
+			return [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][clampi(p.msaa, 0, 2)]
+	return Viewport.MSAA_2X
+
+
 func _sanitize(key: String, value: Variant) -> Variant:
 	var def: Variant = DEFAULTS[key]
 	if def is bool:
@@ -178,5 +192,8 @@ func _apply(key: String) -> void:
 			# Dunia 3D dirender di SubViewport bingkai potret (GDD idle 12.0.2).
 			var vp: Viewport = PortraitShell.current.viewport if PortraitShell.current != null else get_tree().root
 			vp.scaling_3d_scale = float(get_int(key)) / 100.0
+		"quality":
+			var vq: Viewport = PortraitShell.current.viewport if PortraitShell.current != null else get_tree().root
+			vq.msaa_3d = msaa_3d()
 		_:
 			pass

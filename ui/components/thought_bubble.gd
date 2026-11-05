@@ -148,8 +148,8 @@ func _draw() -> void:
 		var t: float = (float(i) + 0.8) / (float(TAIL_RADII.size()) + 0.3)
 		var c: Vector2 = base.lerp(_anchor, t)
 		if not ProceduralUIFactory.flat_style:
-			draw_circle(c, TAIL_RADII[i] + 1.5, Color(Palette.UI_WOOD, 0.35))
-		draw_circle(c, TAIL_RADII[i], Palette.PARCHMENT)
+			draw_circle(c, TAIL_RADII[i] + 1.5, Color(Palette.UI_WOOD, 0.35), true, -1.0, true)
+		draw_circle(c, TAIL_RADII[i], Palette.PARCHMENT, true, -1.0, true)
 
 
 func _fade_to(alpha: float) -> void:

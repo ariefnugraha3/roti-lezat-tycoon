@@ -111,7 +111,7 @@ func _draw() -> void:
 				pts.resize(src.size())
 				for i in src.size():
 					pts[i] = c + src[i] * s
-				draw_colored_polygon(pts, col)
+				ProceduralUIFactory.fill_aa(self, pts, col)
 				# Tepi halus: garis 1 px sewarna isiannya, bukan garis tepi.
 				pts.append(pts[0])
 				draw_polyline(pts, col, 1.0, true)

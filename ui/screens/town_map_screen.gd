@@ -176,7 +176,7 @@ class StreetRow:
 		# Pohon bulat di antara kavling.
 		for k in range(1, 3):
 			var x: float = w * float(k) / 3.0
-			draw_circle(Vector2(x, h - road_h - 26.0), 13.0, Palette.LEAF_DEEP if (k + index) % 2 == 0 else Palette.LEAF)
+			draw_circle(Vector2(x, h - road_h - 26.0), 13.0, Palette.LEAF_DEEP if (k + index) % 2 == 0 else Palette.LEAF, true, -1.0, true)
 			draw_rect(Rect2(x - 2.0, h - road_h - 14.0, 4.0, 12.0), Palette.TRUNK)
 		draw_rect(Rect2(0.0, h - road_h, w, road_h), Palette.ASPHALT)
 		var dash: float = 26.0

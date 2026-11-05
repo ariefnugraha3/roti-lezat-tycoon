@@ -88,15 +88,15 @@ class GoldenArt:
 		var c: Vector2 = size * 0.5
 		var s: float = minf(size.x, size.y)
 		var pulse: float = 0.5 + 0.5 * sin(phase * TAU * 6.0)
-		draw_circle(c, s * (0.40 + 0.05 * pulse), Color(Palette.GOLD_STAR, 0.22))
-		draw_circle(c, s * 0.31, Color(Palette.BUTTER_YELLOW, 0.35))
+		draw_circle(c, s * (0.40 + 0.05 * pulse), Color(Palette.GOLD_STAR, 0.22), true, -1.0, true)
+		draw_circle(c, s * 0.31, Color(Palette.BUTTER_YELLOW, 0.35), true, -1.0, true)
 		var loaf := PackedVector2Array()
 		for i in 24:
 			var a: float = TAU * float(i) / 24.0
 			var ry: float = s * (0.20 if sin(a) < 0.0 else 0.14)
 			loaf.append(c + Vector2(cos(a) * s * 0.27, sin(a) * ry + s * 0.02))
-		draw_colored_polygon(loaf, Palette.GOLD_STAR)
-		draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.27, s * 0.04), c + Vector2(s * 0.27, s * 0.04),
+		ProceduralUIFactory.fill_aa(self, loaf, Palette.GOLD_STAR)
+		ProceduralUIFactory.fill_aa(self, PackedVector2Array([c + Vector2(-s * 0.27, s * 0.04), c + Vector2(s * 0.27, s * 0.04),
 			c + Vector2(s * 0.25, s * 0.12), c + Vector2(-s * 0.25, s * 0.12)]), Palette.GOLDEN_CRUST)
 		for k in 3:
 			var x: float = -s * 0.12 + s * 0.12 * float(k)
@@ -104,6 +104,6 @@ class GoldenArt:
 		for sp: Vector2 in [Vector2(0.30, -0.26), Vector2(-0.33, 0.20)]:
 			var p: Vector2 = c + sp * s
 			var r: float = s * (0.07 + 0.03 * pulse)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(0, -r), p + Vector2(r * 0.3, -r * 0.3), p + Vector2(r, 0),
+			ProceduralUIFactory.fill_aa(self, PackedVector2Array([p + Vector2(0, -r), p + Vector2(r * 0.3, -r * 0.3), p + Vector2(r, 0),
 				p + Vector2(r * 0.3, r * 0.3), p + Vector2(0, r), p + Vector2(-r * 0.3, r * 0.3), p + Vector2(-r, 0),
 				p + Vector2(-r * 0.3, -r * 0.3)]), Palette.FLOUR_WHITE)

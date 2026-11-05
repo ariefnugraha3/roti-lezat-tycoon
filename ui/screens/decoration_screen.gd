@@ -1261,5 +1261,5 @@ class ActionBar extends Control:
 			return
 		var y: float = panel.size.y - 3.0
 		var pts := PackedVector2Array([Vector2(tail_x - TAIL_W * 0.5, y), Vector2(tail_x + TAIL_W * 0.5, y), Vector2(tail_x, y + TAIL_H)])
-		_tail.draw_colored_polygon(pts, Palette.PARCHMENT)
+		ProceduralUIFactory.fill_aa(_tail, pts, Palette.PARCHMENT)
 		_tail.draw_polyline(PackedVector2Array([pts[0] + Vector2(0.0, 1.0), pts[2], pts[1] + Vector2(0.0, 1.0)]), Color(Palette.UI_WOOD, 0.45), 2.0, true)
