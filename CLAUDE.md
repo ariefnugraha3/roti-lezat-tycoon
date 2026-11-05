@@ -42,7 +42,7 @@ G='D:\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
 
 The official 4.7.2 export templates were installed on 2026-09-29 (`%APPDATA%\Godot\export_templates\4.7.2.stable`, SHA-512 checked against the release), so the Web export works here. It writes `build/web/` (about 40 MB, almost all engine `.wasm`; the game `.pck` is under 1 MB), and `/build/` is git-ignored (a local `build/.gdignore` stops the editor from importing the exported icons). Serve it with `python -m http.server 8000` from `build/web`, because `index.html` does not run from `file://`. There is no Android SDK, so Android exports still fail.
 
-`.github/workflows/deploy-web.yml` publishes the Web build to GitHub Pages at https://ariefnugraha3.github.io/roti-lezat-tycoon/. It downloads the official Godot 4.7.2 editor and templates on Linux, verifies them against `SHA512-SUMS.txt`, imports, exports, and deploys. It runs only on a manual *Run workflow*, and the repository's Pages source must be set to *GitHub Actions*.
+`.github/workflows/deploy-web.yml` publishes the Web build to GitHub Pages at https://ariefnugraha3.github.io/roti-lezat-tycoon/. It downloads the official Godot 4.7.2 editor and templates on Linux, verifies them against `SHA512-SUMS.txt`, imports, exports, and deploys. On this branch it runs on every push to `pivot-to-idle-game` that touches more than docs, and on a manual *Run workflow* (pick the branch). The repository's Pages source must be *GitHub Actions*, and the `github-pages` environment's deployment branch rules must list `pivot-to-idle-game` (they started with `main` only, so the deploy job was rejected while the build passed).
 
 ### Tests (run after any change)
 

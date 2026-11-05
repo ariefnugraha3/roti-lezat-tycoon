@@ -1,9 +1,24 @@
-# Bangun build Web dengan Godot 4.7.2 resmi, lalu pasang ke GitHub Pages.
-# Jalankan dari tab Actions: pilih "Deploy Web ke GitHub Pages", lalu "Run workflow".
-# Syarat sekali saja: Settings > Pages > Build and deployment > Source = GitHub Actions.
+# Bangun build Web dengan Godot 4.7.2 resmi, lalu pasang ke GitHub Pages
+# (https://ariefnugraha3.github.io/roti-lezat-tycoon/).
+#
+# Berjalan otomatis setiap push ke cabang game idle (pivot-to-idle-game), kecuali
+# push yang hanya mengubah dokumen. Bisa juga dijalankan manual dari tab Actions:
+# pilih "Deploy Web ke GitHub Pages", "Run workflow", lalu pilih cabangnya.
+#
+# Syarat sekali saja di Settings repositori:
+#   1. Pages > Build and deployment > Source = GitHub Actions.
+#   2. Environments > github-pages > Deployment branches and tags: tambahkan
+#      cabang yang boleh deploy (pivot-to-idle-game). Tanpa ini job deploy
+#      ditolak: "Branch ... is not allowed to deploy to github-pages due to
+#      environment protection rules" (build-nya sendiri tetap berhasil).
 name: Deploy Web ke GitHub Pages
 
 on:
+  push:
+    branches: [pivot-to-idle-game]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:
