@@ -13,7 +13,8 @@ extends Node
 ## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
 ## langganan berkunjung; juga membuka minigame pesanannya), --menus (hanya splash dan
 ## layar menu: tanpa save lalu dengan save, termasuk ketiga langkah New Game), --ads
-## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22).
+## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22),
+## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -36,6 +37,8 @@ var _screens: Array[StringName] = []
 var _full: bool = false
 ## Hanya splash dan layar menu (--menus).
 var _menus: bool = false
+## Potret tip onboarding sesudah HUD (--tips).
+var _tips: bool = false
 
 
 func _ready() -> void:
@@ -64,6 +67,9 @@ func _ready() -> void:
 			Monetization.path = "user://sweep_monetization.json"
 			Monetization.reset_for_tests()
 			Monetization.use_provider(TestMonetizationProvider.new())
+		elif a == "--tips":
+			# Tip onboarding: kartu di atas bar tab, sorotan, dan panduan berkedip (GDD idle 13).
+			_tips = true
 		elif a == "--golden":
 			# Roti Emas di tengah terbang dan hadiah boost-nya di HUD (GDD idle 21.9).
 			_golden = true
@@ -128,6 +134,8 @@ func _ready() -> void:
 			await _frames(4)
 			_check(game.hud, "hud", r2, sc2)
 			await _shot("hud", r2, sc2)
+			if _tips:
+				await _tip_shots(r2, sc2)
 			for id2: StringName in OPEN_SCREENS:
 				if game.modals.has_screen(id2) and (_screens.is_empty() or _screens.has(id2)):
 					await _visit(id2, _params_for(id2), r2, sc2)
@@ -358,3 +366,25 @@ func _shot(label: String, r: Vector2i, sc: int) -> void:
 func _frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
+
+
+## Tip onboarding (GDD idle 13): kartu tanpa sasaran di atas bar tab, sorotan
+## yang mem-pause (KR), dan panduan berkedip ke tab dan ke stasiun di dunia.
+func _tip_shots(r: Vector2i, sc: int) -> void:
+	var sim: SimulationRoot = game.sim
+	# Rak di lantai toko (dapur Tier 3 ada di lantai atas, di luar pandangan).
+	var oven: int = sim.equipment.placed_list(&"display")[0].iid
+	for t: Array in [["tip_card", "onb_offline", &"", "hint"], ["tip_spotlight", "onb_first_sale", &"cash", "spotlight"],
+			["tip_guide_tab", "onb_hire", &"tab_staff", "hint"], ["tip_guide_station", "onb_tap_boost", StringName("station_%d" % oven), "hint"]]:
+		game.modals.close_all()
+		sim.tutorial.skipped = false
+		sim.tutorial.done.erase(str(t[1]))
+		sim.tutorial.prompt = {}
+		sim.tutorial.show_step(str(t[1]), t[2], str(t[3]))
+		await _frames(8)
+		await _shot(str(t[0]), r, sc)
+		sim.tutorial.dismiss()
+		game.modals.close_all()
+		await _frames(2)
+	sim.tutorial.skip()
+

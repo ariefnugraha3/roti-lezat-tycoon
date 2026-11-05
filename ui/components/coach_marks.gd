@@ -5,7 +5,9 @@ extends Control
 ## tombol Next. Langkah terakhir tidak punya Next bila pemain harus mengetuk
 ## sasarannya sendiri (mis. Make); tur yang hanya menjelaskan berakhir dengan
 ## Got it. Bagian yang disorot tetap bisa diketuk, bagian lain tertutup lapisan
-## redup. Sasaran dicari ulang tiap frame, jadi tur tetap benar walau isi
+## redup yang lubangnya mengikuti bentuk sasaran (persegi membulat atau kapsul)
+## dengan tepi yang memudar lembut (keputusan maintainer 2026-11-05: bukan
+## lubang kotak bersudut tajam). Sasaran dicari ulang tiap frame, jadi tur tetap benar walau isi
 ## layarnya dibangun ulang atau sasarannya bergerak. Sasaran boleh Control atau
 ## Rect2 di koordinat kanvas (mis. model di dunia, dari WorldView). Langkah
 ## yang meminta ketukan (`flash`, TutorialGuide) membuat sasarannya berkedip
@@ -14,6 +16,10 @@ extends Control
 signal finished
 
 const DIM: Color = Color(0.17, 0.11, 0.06, 0.55)
+## Lebar pudar tepi lubang (px) dan jari-jari sudut lubang terbesar: chip dan
+## tombol menjadi kapsul, panel besar persegi membulat.
+const FEATHER: float = 30.0
+const MAX_RADIUS: float = 32.0
 ## Jarak sorotan dari tepi sasaran, tebal cincin, dan jarak balon (px).
 const PAD: float = 8.0
 const RING_PX: int = 4
@@ -34,7 +40,7 @@ const FLASH_RADIUS: int = 16
 ##   tombol Skip)}]
 var _steps: Array[Dictionary] = []
 var _i: int = 0
-var _blockers: Array[ColorRect] = []
+var _dim: Dim = null
 var _ring: Control = null
 var _callout: PanelContainer = null
 var _text: Label = null
@@ -137,13 +143,9 @@ func _finish() -> void:
 
 
 func _build() -> void:
-	for i in 4:
-		var b := ColorRect.new()
-		b.name = "Dim%d" % i
-		b.color = DIM
-		b.mouse_filter = Control.MOUSE_FILTER_STOP
-		add_child(b)
-		_blockers.append(b)
+	_dim = Dim.new()
+	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_dim)
 	_ring = Control.new()
 	_ring.name = "Ring"
 	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -258,15 +260,7 @@ func _layout() -> void:
 		var p0: Vector2 = _hole.position.floor()
 		_hole = Rect2(p0, _hole.end.ceil() - p0)
 	var h: Rect2 = _hole if _hole.has_area() else Rect2(size * 0.5, Vector2.ZERO)
-	var parts: Array[Rect2] = [
-		Rect2(0.0, 0.0, size.x, h.position.y),
-		Rect2(0.0, h.end.y, size.x, size.y - h.end.y),
-		Rect2(0.0, h.position.y, h.position.x, h.size.y),
-		Rect2(h.end.x, h.position.y, size.x - h.end.x, h.size.y),
-	]
-	for i in 4:
-		_blockers[i].position = parts[i].position
-		_blockers[i].size = Vector2(maxf(parts[i].size.x, 0.0), maxf(parts[i].size.y, 0.0))
+	_dim.set_hole(_hole, hole_radius())
 	_ring.position = Vector2.ZERO
 	_ring.size = size
 	# Balon di bawah sorotan bila muat, selain itu di atasnya, lalu di samping.
@@ -287,15 +281,97 @@ func _layout() -> void:
 	_callout.size = cs
 
 
+## Jari-jari sudut lubang: setengah sisi pendeknya (kapsul), paling besar
+## MAX_RADIUS.
+func hole_radius() -> float:
+	return minf(minf(_hole.size.x, _hole.size.y) * 0.5, MAX_RADIUS) if _hole.has_area() else 0.0
+
+
+## Lapisan redup (tes).
+func dim() -> Dim:
+	return _dim
+
+
 func _draw_ring() -> void:
 	if not _hole.has_area():
 		return
+	var r: float = hole_radius()
 	var flash: float = flash_alpha()
 	if flash > 0.0:
 		_flash_box.bg_color = Color(Palette.FLOUR_WHITE, flash)
+		_flash_box.set_corner_radius_all(int(maxf(4.0, r - PAD)))
 		_ring.draw_style_box(_flash_box, _target)
 	var k: float = 0.5 if SettingsManager.reduced_motion() else 0.5 - 0.5 * cos(TAU * _t / PERIOD)
 	_ring_box.border_color = Color(Palette.HONEY, 1.0 - 0.45 * k)
-	_ring_box.set_corner_radius_all(16)
 	var grow: float = 2.0 * k
+	_ring_box.set_corner_radius_all(int(r + grow))
 	_ring.draw_style_box(_ring_box, _hole.grow(grow))
+
+
+## Lapisan redup satu bidang: gelap rata di luar, memudar ke bening sepanjang
+## FEATHER px menuju lubang yang berbentuk persegi membulat. Digambar sebagai
+## tiga keliling persegi membulat dengan pusat sudut yang sama (lubang, tepi
+## pudar, dan keliling jauh di luar layar) berwarna per titik, tanpa shader.
+## Ketukan di dalam lubang diteruskan ke sasarannya; di luar lubang ditahan.
+class Dim:
+	extends Control
+
+	## Titik per sudut membulat.
+	const CORNER_STEPS: int = 10
+	var hole: Rect2 = Rect2()
+	var radius: float = 0.0
+
+	func _init() -> void:
+		name = "Dim"
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func set_hole(h: Rect2, r: float) -> void:
+		if h == hole and is_equal_approx(r, radius):
+			return
+		hole = h
+		radius = r
+		queue_redraw()
+
+	## Ketukan di titik ini ditahan (di luar lubang).
+	func blocks(p: Vector2) -> bool:
+		return _has_point(p)
+
+	func _has_point(p: Vector2) -> bool:
+		return Rect2(Vector2.ZERO, size).has_point(p) and not (hole.has_area() and hole.has_point(p))
+
+	func _draw() -> void:
+		if not hole.has_area():
+			draw_rect(Rect2(Vector2.ZERO, size), DIM)
+			return
+		var far: float = (size.length() + FEATHER) * 2.0
+		var rings: Array[PackedVector2Array] = [_ring(0.0), _ring(FEATHER), _ring(FEATHER + far)]
+		var alphas: Array[float] = [0.0, DIM.a, DIM.a]
+		var n: int = rings[0].size()
+		var pts := PackedVector2Array()
+		var cols := PackedColorArray()
+		for k in 3:
+			pts.append_array(rings[k])
+			for i in n:
+				cols.append(Color(DIM, alphas[k]))
+		var idx := PackedInt32Array()
+		for k in 2:
+			var a: int = k * n
+			var b: int = (k + 1) * n
+			for i in n:
+				var j: int = (i + 1) % n
+				idx.append_array([a + i, b + i, b + j, a + i, b + j, a + j])
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols)
+
+	## Keliling lubang yang digeser `d` px keluar. Pusat sudutnya tetap, jadi
+	## setiap titik keliling luar sejajar titik yang sama di keliling dalam.
+	func _ring(d: float) -> PackedVector2Array:
+		var r: float = minf(radius, minf(hole.size.x, hole.size.y) * 0.5)
+		var c: Array[Vector2] = [hole.position + Vector2(r, r), Vector2(hole.end.x - r, hole.position.y + r),
+			hole.end - Vector2(r, r), Vector2(hole.position.x + r, hole.end.y - r)]
+		var out := PackedVector2Array()
+		for q in 4:
+			var a0: float = PI + float(q) * PI * 0.5
+			for s in CORNER_STEPS + 1:
+				var a: float = a0 + PI * 0.5 * float(s) / float(CORNER_STEPS)
+				out.append(c[q] + Vector2(cos(a), sin(a)) * (r + d))
+		return out

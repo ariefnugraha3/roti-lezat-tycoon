@@ -605,16 +605,24 @@ func _guide() -> void:
 	await _guide_done(game, hints_before, rm_before)
 
 
-## Semua layar di luar lubang tertutup lapisan redup yang menahan ketukan.
+## Semua layar di luar lubang tertutup lapisan redup yang menahan ketukan, dan
+## ketukan di dalam lubang diteruskan ke sasarannya.
 func _dimmed_outside(marks: CoachMarks) -> bool:
-	var area: float = 0.0
-	for i in 4:
-		var d: ColorRect = marks.get_node("Dim%d" % i) as ColorRect
-		if d == null or d.mouse_filter != Control.MOUSE_FILTER_STOP or d.color.a < 0.4:
+	var d: CoachMarks.Dim = marks.dim()
+	if d == null or d.mouse_filter != Control.MOUSE_FILTER_STOP or not d.size.is_equal_approx(marks.size) or CoachMarks.DIM.a < 0.4:
+		return false
+	var h: Rect2 = marks.hole()
+	var s: Vector2 = marks.size
+	for p: Vector2 in [Vector2(1, 1), Vector2(s.x - 1, 1), Vector2(1, s.y - 1), s - Vector2(1, 1)]:
+		if not h.has_point(p) and not d.blocks(p):
 			return false
-		area += d.size.x * d.size.y
-	var full: float = marks.size.x * marks.size.y
-	return absf(area + marks.hole().get_area() - full) < 2.0
+	if h.has_area():
+		if d.blocks(h.get_center()):
+			return false
+		for q: Vector2 in [h.position - Vector2(2, 2), h.end + Vector2(2, 2)]:
+			if Rect2(Vector2.ZERO, s).has_point(q) and not d.blocks(q):
+				return false
+	return true
 
 
 func _guide_done(game: GameRoot, hints_before: bool, rm_before: Variant) -> void:

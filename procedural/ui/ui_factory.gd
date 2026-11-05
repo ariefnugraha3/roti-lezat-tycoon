@@ -1262,6 +1262,8 @@ static func badge(icon_name: String, face: Color, tint: Color, diameter := 36) -
 	sb.set_content_margin_all(0.0)
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.custom_minimum_size = Vector2(float(diameter), float(diameter))
+	# Lingkaran tetap bundar di baris yang lebih tinggi (mis. kartu bertek panjang).
+	pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var c: CenterContainer = CenterContainer.new()
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pc.add_child(c)

@@ -601,12 +601,19 @@ func _build_hint(frame: Control) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	_hint.add_child(row)
-	row.add_child(ProceduralUIFactory.badge("chef", Palette.HONEY, Palette.FLOUR_WHITE, 40))
+	# Lingkaran ikon dan tombol tetap ukurannya di tengah kartu, tidak ikut
+	# meninggi bersama teks yang membungkus.
+	var icon: PanelContainer = ProceduralUIFactory.badge("chef", Palette.HONEY, Palette.FLOUR_WHITE, 44)
+	icon.name = "HintIcon"
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
 	_hint_label = ProceduralUIFactory.label("", 17, Palette.UI_WOOD_DEEP)
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(380, 0)
+	_hint_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_hint_label)
 	_hint_ok = ProceduralUIFactory.button(Tx.t("ui_got_it"), "primary")
+	_hint_ok.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hint_ok.pressed.connect(func() -> void: sim.tutorial.dismiss())
 	row.add_child(_hint_ok)
 
