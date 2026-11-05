@@ -121,9 +121,17 @@ func apply_all() -> void:
 		_apply(k)
 
 
-## Pengali ukuran huruf UI (100% / 125% / 150%, GDD 28.5).
+## Ukuran teks (keputusan maintainer 2026-11-05: teks terlalu kecil, GDD idle
+## 20 no. 62): pilihan 100% memakai TEXT_BASE, 150% tetap TEXT_MAX (ukuran
+## terbesar yang diuji ACC_IDLE_PORTRAIT_UI), dan 125% di antaranya.
+const TEXT_BASE: float = 1.15
+const TEXT_MAX: float = 1.5
+
+
+## Pengali ukuran huruf UI untuk pilihan Settings 100% / 125% / 150% (GDD 28.5).
 func text_scale() -> float:
-	return float(get_int("text_scale")) / 100.0
+	var s: float = float(get_int("text_scale")) / 100.0
+	return TEXT_BASE + (s - 1.0) * (TEXT_MAX - TEXT_BASE) / 0.5
 
 
 func reduced_motion() -> bool:

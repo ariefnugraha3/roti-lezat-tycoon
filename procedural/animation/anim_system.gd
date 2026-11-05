@@ -1230,7 +1230,7 @@ static func float_text(parent: CanvasItem, pos: Vector2, text: String, color: Co
 	var fallback: Font = ThemeDB.fallback_font
 	if fallback != null:
 		label.add_theme_font_override("font", fallback)
-	label.add_theme_font_size_override("font_size", FLOAT_TEXT_FONT_SIZE)
+	label.add_theme_font_size_override("font_size", ProceduralUIFactory.scaled(FLOAT_TEXT_FONT_SIZE))
 	label.add_theme_color_override("font_color", color)
 	# Garis tepi krem supaya tetap terbaca di atas dunia 3D yang ramai.
 	label.add_theme_color_override("font_outline_color", Palette.FLOUR_WHITE)

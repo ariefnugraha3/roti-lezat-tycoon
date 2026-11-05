@@ -729,6 +729,11 @@ static func scaled(size: int) -> int:
 	return maxi(14, int(round(float(size) * text_scale)))
 
 
+## Ukuran di Theme bersama (dibangun sekali): ukuran dasar × TEXT_BASE.
+static func theme_size(size: int) -> int:
+	return int(round(float(size) * SettingsManager.TEXT_BASE))
+
+
 static func label(text: String, size := 18, color := Palette.TEXT) -> Label:
 	var l: Label = Label.new()
 	l.text = text
@@ -944,13 +949,15 @@ static func build_theme() -> Theme:
 
 	var t: Theme = Theme.new()
 	t.default_font = cozy_font(0)
-	t.default_font_size = FONT_BODY
+	# Teks tanpa ukuran sendiri (tooltip, kolom teks) ikut ukuran dasar yang
+	# lebih besar (SettingsManager.TEXT_BASE).
+	t.default_font_size = theme_size(FONT_BODY)
 	t.default_base_scale = 1.0
 
 	# --- Label ---
 	t.set_color("font_color", "Label", Palette.TEXT)
 	t.set_color("font_outline_color", "Label", Color(0.0, 0.0, 0.0, 0.0))
-	t.set_font_size("font_size", "Label", FONT_BODY)
+	t.set_font_size("font_size", "Label", theme_size(FONT_BODY))
 	t.set_constant("line_spacing", "Label", 5)
 	t.set_constant("outline_size", "Label", 0)
 
@@ -975,7 +982,7 @@ static func build_theme() -> Theme:
 	t.set_color("font_focus_color", "Button", Palette.FLOUR_WHITE)
 	t.set_color("font_disabled_color", "Button", Color(Palette.FLOUR_WHITE, 0.95))
 	t.set_color("font_outline_color", "Button", Color(Palette.HONEY_DEEP, 0.55))
-	t.set_font_size("font_size", "Button", FONT_BODY)
+	t.set_font_size("font_size", "Button", theme_size(FONT_BODY))
 	t.set_constant("h_separation", "Button", 8)
 	t.set_constant("outline_size", "Button", 0 if flat_style else 5)
 
@@ -1067,7 +1074,7 @@ static func build_theme() -> Theme:
 	tip.content_margin_bottom = 6.0 if flat_style else 9.0
 	t.set_stylebox("panel", "TooltipPanel", tip)
 	t.set_color("font_color", "TooltipLabel", Palette.TEXT)
-	t.set_font_size("font_size", "TooltipLabel", FONT_SMALL + 1)
+	t.set_font_size("font_size", "TooltipLabel", theme_size(FONT_SMALL + 1))
 
 	# --- Separator ---
 	t.set_stylebox("separator", "HSeparator", _line_stylebox(Color(Palette.UI_WOOD, 0.22), false))
@@ -1208,7 +1215,7 @@ const AA_EDGE: float = 1.0
 
 
 ## Lebar teks toast paling besar sebelum dibungkus (px logis).
-const TOAST_TEXT_MAX_W: float = 540.0
+const TOAST_TEXT_MAX_W: float = 590.0
 
 
 static func toast_card(text: String, icon_name: String, priority: int) -> PanelContainer:
