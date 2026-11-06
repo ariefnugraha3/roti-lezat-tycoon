@@ -111,7 +111,7 @@ which keeps fixtures deterministic.
 | `mastery` | object | `MasteryManager.capture()` (idle GDD §23.3): `sold`, recipe ID → bread of that recipe sold in the shop and through RotiFood across every branch. Kept across franchises; a missing field (saves before 2026-11-05) loads as no mastery. |
 | `offline` | object | `OfflineManager.capture()`: `last_active_unix` (0 = unknown), `rate_kr_per_s` (model KR/s without boosts), `pending` (`{amount, seconds, away}` waiting for Collect, or `{}`). |
 | `boosts` | object | `BoostManager.capture()`: `income_mult`, `income_left` (real seconds), `promo_id`, `promo_left`, `cooldowns` (promotion → real seconds), `last_gift_date` (device date of the last coffee). |
-| `tutorial` | object | Onboarding steps already shown (`done`), `skipped`, and the current `prompt` (`key`, `target`, `style`). |
+| `tutorial` | object | Onboarding steps already shown (`done`), `skipped`, the current `prompt` (`key`, `target`, `style`), and `queue`, the tips already triggered but waiting their turn (saves before 2026-11-06 have none). Every change is saved at once (a critical autosave), not at the next interval. |
 | `decorations` | object | Owned items (uid, deco_id, floor, cell, slot, placed, `rot`), `equipped` cosmetics, `next_uid`, `bonus_active` (decorations whose bonus is on in this run, idle GDD §8.8). |
 | `flags` | object | `economy_overflowed`. |
 | `achievements` | object | `unlocked`: achievement ID → day. Kept across franchises. |

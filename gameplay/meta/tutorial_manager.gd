@@ -34,6 +34,7 @@ func skip() -> void:
 	prompt = {}
 	_queue.clear()
 	EventBus.tutorial_step_changed.emit(&"")
+	_save_now()
 
 
 func hints_enabled() -> bool:
@@ -61,12 +62,22 @@ func show_step(key: String, target: StringName = &"", style: String = "hint") ->
 		EventBus.tutorial_step_changed.emit(StringName(key))
 	else:
 		_queue.append(p)
+	_save_now()
 
 
 ## Pemain menutup prompt yang tampil.
 func dismiss() -> void:
 	prompt = _queue.pop_front() if not _queue.is_empty() else {}
 	EventBus.tutorial_step_changed.emit(StringName(str(prompt.get("key", ""))))
+	_save_now()
+
+
+## Kemajuan tutorial langsung disimpan (save kritis pada checkpoint stabil
+## berikutnya), tidak menunggu autosave 30 detik: game yang ditutup sesaat
+## sesudah menyelesaikan atau melewati tip tidak menampilkannya lagi saat
+## Continue. Tanpa profil aktif (tes, probe) tidak berbuat apa-apa.
+func _save_now() -> void:
+	SaveManager.request_autosave("tutorial", true)
 
 
 func dismiss_key(key: String) -> void:
@@ -208,8 +219,10 @@ func archive() -> Array[String]:
 	return out
 
 
+## `queue`: tip yang sudah terpicu tetapi menunggu giliran tampil; tanpa itu
+## tip tersebut hilang bila game ditutup sebelum gilirannya.
 func capture() -> Dictionary:
-	return {"done": done.keys(), "skipped": skipped, "prompt": prompt.duplicate()}
+	return {"done": done.keys(), "skipped": skipped, "prompt": prompt.duplicate(), "queue": _queue.duplicate(true)}
 
 
 func restore(d: Dictionary) -> void:
@@ -218,3 +231,6 @@ func restore(d: Dictionary) -> void:
 		done[str(k)] = true
 	skipped = bool(d.get("skipped", false))
 	prompt = (d.get("prompt", {}) as Dictionary).duplicate()
+	for q: Variant in d.get("queue", []):
+		if q is Dictionary and str((q as Dictionary).get("key", "")) != "":
+			_queue.append((q as Dictionary).duplicate())
