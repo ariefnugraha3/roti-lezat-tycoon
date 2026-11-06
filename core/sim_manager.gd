@@ -1,8 +1,8 @@
 class_name SimManager
 extends Node
 ## Basis setiap manajer gameplay per-profil (GDD 35.2, 98). Semua manajer adalah
-## anak SimulationRoot dan dihancurkan saat kembali ke Main Menu, sehingga state
-## antar-profil tidak pernah bocor (TEST_PROFILE_001).
+## anak SimulationRoot dan dihancurkan saat sesi berakhir (Import Save, Reset
+## Game), sehingga state antar-save tidak pernah bocor (TEST_PROFILE_001).
 ##
 ## Kontrak:
 ##   setup(sim)        dipanggil sekali setelah semua manajer dibuat

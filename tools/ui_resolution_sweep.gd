@@ -12,7 +12,8 @@ extends Node
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
 ## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
 ## langganan berkunjung; juga membuka minigame pesanannya), --menus (hanya splash dan
-## layar menu: tanpa save lalu dengan save, termasuk ketiga langkah New Game), --ads
+## layar di luar permainan: popup toko baru kedua langkahnya, lalu dengan save
+## Export Save dan Import Save), --ads
 ## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22),
 ## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13).
 
@@ -20,7 +21,7 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
 	Vector2i(2560, 1440), Vector2i(2560, 1080)]
 const SCALES: Array[int] = [100, 125, 150]
-const MENU_SCREENS: Array[StringName] = [&"main_menu", &"settings", &"credits", &"help", &"profiles", &"new_game"]
+const MENU_SCREENS: Array[StringName] = [&"new_game", &"settings", &"credits", &"help"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
 	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map", &"regular_order"]
 
@@ -143,7 +144,7 @@ func _ready() -> void:
 	print("SWEEP done, %d issues" % _issues)
 	game.modals.close_all()
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	await _frames(2)
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
@@ -167,7 +168,7 @@ func _menu_pass() -> void:
 				await _frames(2)
 			await _menu_screens(r, sc, "")
 	SettingsManager.set_value("text_scale", was_scale)
-	await game.start_new_game(&"profile_2", "female", "Sweep Bakery")
+	await game.start_new_game(SaveManager.SAVE_ID, "female", "Sweep Bakery")
 	await _frames(10)
 	var sim: SimulationRoot = game.sim
 	sim.tutorial.skip()
@@ -177,7 +178,7 @@ func _menu_pass() -> void:
 			break
 	sim.debug_add_kr(123456.0)
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	await _frames(4)
 	for r2: Vector2i in _res:
 		await _resize(r2)
@@ -196,21 +197,10 @@ func _menu_pass() -> void:
 
 func _menu_screens(r: Vector2i, sc: int, suffix: String) -> void:
 	game.modals.close_all()
-	game.show_main_menu()
-	await _frames(4)
-	_check(game.modals, "main_menu" + suffix, r, sc)
-	await _shot("main_menu" + suffix, r, sc)
-	for mode: String in ["new", "load"]:
-		var p: UIScreen = game.modals.open(&"profiles", {"mode": mode})
-		await _frames(4)
-		_check(p, "profiles_" + mode + suffix, r, sc)
-		await _shot("profiles_" + mode + suffix, r, sc)
-		game.modals.close_screen(p)
 	if suffix != "":
-		# Kode save (GDD idle 20 no. 57): Export di atas Load Game, lalu Import
-		# dengan pratinjau kode profil itu.
-		var lp: UIScreen = game.modals.open(&"profiles", {"mode": "load"})
-		var latest: StringName = SaveManager.latest_profile()
+		# Kode save (GDD idle 20 no. 57): Export Save, lalu Import Save dengan
+		# pratinjau kode save itu.
+		var latest: StringName = SaveManager.SAVE_ID
 		var sc_code: UIScreen = game.modals.open(&"save_code", {"profile_id": latest})
 		await _frames(4)
 		_check(sc_code, "save_code" + suffix, r, sc)
@@ -225,10 +215,10 @@ func _menu_screens(r: Vector2i, sc: int, suffix: String) -> void:
 		_check(imp, "import_save" + suffix, r, sc)
 		await _shot("import_save" + suffix, r, sc)
 		game.modals.close_screen(imp)
-		game.modals.close_screen(lp)
 		return
-	var ng: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_1"}) as NewGameScreen
-	for step in 3:
+	game.open_new_game()
+	var ng: NewGameScreen = game.modals.screen(&"new_game") as NewGameScreen
+	for step in NewGameScreen.STEPS:
 		ng._step = step
 		ng._render()
 		await _frames(4)
@@ -265,6 +255,15 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 	if s != null:
 		_check(s, label, r, sc)
 	await _shot(label, r, sc)
+	# Tab Gameplay Settings: bagian save (Export, Import, Reset Game) saat bermain.
+	if s is SettingsScreen and game.sim != null:
+		for b: Node in s.find_children("*", "Button", true, false):
+			if (b as Button).text == Tx.t("ui_settings_gameplay"):
+				(b as Button).pressed.emit()
+				break
+		await _frames(3)
+		_check(s, label + "_gameplay", r, sc)
+		await _shot(label + "_gameplay", r, sc)
 	# Halaman kedua cutscene: papan nama cabang baru.
 	if s is FranchiseCutscene:
 		(s as FranchiseCutscene)._advance()

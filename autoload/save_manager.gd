@@ -1,8 +1,11 @@
 extends Node
-## SaveManager — serialisasi tiga profil independen (GDD idle 15.3; v3.1 34, 77,
-## 89.3, 106, 132). Skema save idle mulai dari 1 dan ditandai `game_mode: "idle"`.
-## Save tycoon v3.1 (tanpa `game_mode`) tidak didukung: Main Menu menampilkannya
-## sebagai "Classic save (not supported)" dengan tombol Delete, tanpa migrasi.
+## SaveManager — serialisasi save (GDD idle 15.3; v3.1 34, 77, 106, 132). Game
+## hanya memakai satu save, SAVE_ID (GDD idle 19 no. 21); fungsi per profil dan
+## dua slot lainnya tersisa dari versi tiga profil, untuk menggabungkan save lama
+## (adopt_latest_save) dan untuk tes. Skema save idle mulai dari 1 dan ditandai
+## `game_mode: "idle"`. Save tycoon v3.1 (tanpa `game_mode`) tidak didukung dan
+## tidak dimigrasi: game memperlakukannya seperti tidak ada save, dan toko baru
+## memindahkannya ke slot kosong lebih dulu (make_room_for_new_game).
 ##
 ## SaveManager TIDAK memiliki state gameplay (GDD 98): saat menyimpan ia meminta
 ## snapshot dari SimulationRoot, saat memuat ia menyerahkan dictionary yang
@@ -17,6 +20,8 @@ signal save_failed(profile_id: StringName, reason: String)
 ## Folder profil. Test mengarahkannya ke folder terpisah agar save pemain aman.
 var dir: String = "user://saves"
 const PROFILE_IDS: Array[StringName] = [&"profile_1", &"profile_2", &"profile_3"]
+## Satu-satunya save yang dipakai game (GDD idle 19 no. 21).
+const SAVE_ID: StringName = &"profile_1"
 const GAME_VERSION: String = "1.0.0"
 const GAME_MODE: String = "idle"
 const REQUIRED_KEYS: Array[String] = [
@@ -25,7 +30,7 @@ const REQUIRED_KEYS: Array[String] = [
 	"equipment_states", "rng_states",
 ]
 
-## SimulationRoot aktif (diisi GameRoot). Null di Main Menu.
+## SimulationRoot aktif (diisi GameRoot). Null di luar permainan.
 var simulation: Node = null
 var active_profile: StringName = &""
 
@@ -131,6 +136,77 @@ func delete_profile(profile_id: StringName) -> void:
 		if FileAccess.file_exists(p):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 	GameLogger.important("SAVE", "profile %s deleted" % profile_id)
+
+
+# ===========================================================================
+# SATU SAVE (GDD idle 19 no. 21, 20 no. 68): game hanya memakai SAVE_ID. Dua
+# slot lain hanya tersisa dari versi dengan tiga profil.
+# ===========================================================================
+
+## Status save tunggal: "none", "playable", "classic" (save tycoon v3.1), atau
+## "corrupt" (main dan backup tidak terbaca).
+func save_state() -> String:
+	var h: Dictionary = read_header(SAVE_ID)
+	if not bool(h.get("exists", false)):
+		return "none"
+	if bool(h.get("classic", false)):
+		return "classic"
+	return "corrupt" if bool(h.get("corrupt", false)) else "playable"
+
+
+## Save versi tiga profil: toko yang terakhir dimainkan menjadi save tunggal.
+## Toko lama di SAVE_ID bertukar tempat dengannya, jadi tidak ada toko yang
+## terhapus; save yang tidak bisa dimainkan di SAVE_ID (tycoon v3.1, rusak)
+## pindah ke slot kosong bila ada. Tidak berbuat apa-apa bila SAVE_ID sudah
+## yang terbaru. true bila ada yang dipindah.
+func adopt_latest_save() -> bool:
+	var latest: StringName = latest_profile()
+	if latest == &"" or latest == SAVE_ID:
+		return false
+	var newest: Dictionary = read_profile(latest)
+	if not bool(newest.get("ok", false)):
+		return false
+	var old: Dictionary = read_profile(SAVE_ID)
+	if bool(old.get("ok", false)):
+		if not write_profile(latest, old["data"]):
+			return false
+	elif has_profile(SAVE_ID):
+		for pid: StringName in PROFILE_IDS:
+			if pid != SAVE_ID and pid != latest and not has_profile(pid):
+				_park(SAVE_ID, pid)
+				break
+	if not write_profile(SAVE_ID, newest["data"]):
+		write_profile(latest, newest["data"])
+		return false
+	GameLogger.important("SAVE", "the latest bakery moved from %s into %s" % [latest, SAVE_ID])
+	return true
+
+
+## Sebelum game baru ditulis ke SAVE_ID: save tycoon v3.1 di sana dipindah ke
+## slot kosong lain (bila ada), supaya tidak tertimpa diam-diam.
+func make_room_for_new_game() -> void:
+	if save_state() != "classic":
+		return
+	for pid: StringName in PROFILE_IDS:
+		if pid != SAVE_ID and not has_profile(pid):
+			_park(SAVE_ID, pid)
+			return
+
+
+## Pindahkan berkas main dan backup `from` apa adanya ke slot `to` yang kosong.
+func _park(from: StringName, to: StringName) -> void:
+	if has_profile(to):
+		return
+	for pair: Array in [[main_path(from), main_path(to)], [backup_path(from), backup_path(to)]]:
+		if FileAccess.file_exists(pair[0]):
+			DirAccess.rename_absolute(ProjectSettings.globalize_path(pair[0]), ProjectSettings.globalize_path(pair[1]))
+	GameLogger.important("SAVE", "the unplayable save in %s moved to %s" % [from, to])
+
+
+## Reset Game: semua slot dihapus, termasuk sisa dari versi tiga profil.
+func delete_all_profiles() -> void:
+	for pid: StringName in PROFILE_IDS:
+		delete_profile(pid)
 
 
 # ===========================================================================

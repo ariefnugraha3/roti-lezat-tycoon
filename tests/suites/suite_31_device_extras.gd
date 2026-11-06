@@ -2,7 +2,7 @@ extends TestSuite
 ## Kerapian perangkat (GDD idle 20 no. 55-57): Settings hanya berisi pengaturan
 ## yang benar-benar mengubah sesuatu dan HP bergetar untuk umpan balik penting,
 ## build Web bisa dipasang sebagai PWA, dan save bisa dipindah atau dicadangkan
-## sebagai kode teks lewat Load Game.
+## sebagai kode teks lewat Settings (GDD idle 19 no. 21: satu save, tanpa Main Menu).
 
 
 func tests() -> Array:
@@ -10,7 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_75_SETTINGS_USED", "name": "v3.1 75, idle 20 no. 55 every setting in Settings is read by the game (Edge scroll, Screen shake and Confirm expensive purchases are gone), and Vibration shows only on phones and buzzes for taps, level-ups, rewards, achievements, moves and franchises, not for other sounds, with a short gap and never when switched off", "fn": _settings_used},
 		{"id": "ACC_IDLE_PWA", "name": "idle 20 no. 56 the Web preset installs as a full-screen portrait PWA on the cream background (no cross-origin isolation for the single-threaded build), Android may vibrate, and the update check does nothing outside a browser", "fn": _pwa},
 		{"id": "ACC_IDLE_SAVE_CODE", "name": "idle 15.3, 20 no. 57 a save code holds the whole profile and comes back the same (chat line breaks ignored); wrong, cut, classic and newer codes are refused with their reason; importing writes the chosen profile under its own id and keeps the old save as backup", "fn": _save_code},
-		{"id": "ACC_IDLE_SAVE_CODE_UI", "name": "idle 20 no. 57 Load Game: each playable save card has Export Save, which copies the code; Import Save pastes a code, previews the bakery and imports it into a picked profile (asking before replacing one); the profile list and the main menu card refresh, also after a delete", "fn": _save_code_ui},
+		{"id": "ACC_IDLE_SAVE_CODE_UI", "name": "idle 20 no. 57, 68 Settings > Gameplay: Export Save copies the code of the bakery being played (saved first); Import Save pastes a code, previews the bakery, asks before replacing the one being played, then loads it and keeps the old one as the save's backup", "fn": _save_code_ui},
 	]
 
 
@@ -178,7 +178,7 @@ func _save_code() -> void:
 	check(bool(p2.get("ok", false)), "profile 2 reads back")
 	eq(str((p2.get("data", {}) as Dictionary).get("profile_id", "")), "profile_2", "under its own profile id")
 	eq(str((p2.get("data", {}) as Dictionary).get("bakery_name", "")), "Code Bakery", "with the bakery inside the code")
-	eq(SaveManager.latest_profile(), &"profile_2", "the imported bakery is the one Continue opens")
+	eq(SaveManager.latest_profile(), &"profile_2", "the imported bakery is the latest one")
 	var other: SimulationRoot = new_sim(32, &"profile_3")
 	other.bakery_name = "Old Bakery"
 	SaveManager.write_profile(&"profile_3", other.capture_save())
@@ -206,41 +206,49 @@ func _save_code_ui() -> void:
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
 	var orphans: float = Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
-	var s: SimulationRoot = new_sim(33, &"profile_1")
+	# Kode dari "perangkat lain": toko lain yang ditulis sementara di slot 2.
+	var s: SimulationRoot = new_sim(33, &"profile_2")
 	s.bakery_name = "Move Me Bakery"
 	jump_to_tier(s, 2)
-	SaveManager.write_profile(&"profile_1", s.capture_save())
+	SaveManager.write_profile(&"profile_2", s.capture_save())
 	free_sim(s)
+	var code: String = SaveManager.export_code(&"profile_2")
+	SaveManager.delete_profile(&"profile_2")
 	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
+	await game.start_new_game(SaveManager.SAVE_ID, "female", "Playing Bakery")
+	game.sim.tutorial.skip()
 	game.modals.close_all()
-	var menu: MainMenuScreen = game.modals.open(&"main_menu") as MainMenuScreen
-	var prof: UIScreen = game.modals.open(&"profiles", {"mode": "load"})
+	var settings: SettingsScreen = game.modals.open(&"settings") as SettingsScreen
+	settings._tab = 2
+	settings._render()
 	await runner.get_tree().process_frame
-	var card1: Control = prof.find_child("Profile1", true, false) as Control
-	check(card1 != null and card1.find_child("Export", true, false) is Button, "a playable save card has Export Save")
-	var card2: Control = prof.find_child("Profile2", true, false) as Control
-	check(card2 != null and card2.find_child("Export", true, false) == null, "an empty card has none")
-	var imp_btn: Button = prof.find_child("ImportSave", true, false) as Button
-	check(imp_btn != null, "Load Game has Import Save")
-	# Export: Copy menyalin kode profil itu.
-	(card1.find_child("Export", true, false) as Button).pressed.emit()
+	var ex_btn: Button = settings.find_child("ExportSave", true, false) as Button
+	var imp_btn: Button = settings.find_child("ImportSave", true, false) as Button
+	check(ex_btn != null and imp_btn != null and settings.find_child("ResetGame", true, false) is Button,
+		"Settings > Gameplay has Export Save, Import Save and Reset Game")
+	if ex_btn == null or imp_btn == null:
+		game.queue_free()
+		return
+	# Export: kodenya memuat toko yang sedang dimainkan.
+	game.sim.economy.balance = 4321.0
+	ex_btn.pressed.emit()
 	await runner.get_tree().process_frame
 	var ex: SaveCodeScreen = game.modals.screen(&"save_code") as SaveCodeScreen
-	check(ex != null, "Export Save opens the save code")
-	check(game.modals.is_open(&"profiles"), "over the profile list, which stays open")
+	check(ex != null and game.modals.is_open(&"settings"), "Export Save opens the save code over Settings")
 	if ex != null:
+		var exported: Dictionary = SaveManager.decode_code(ex.code).get("data", {})
+		eq(SaveManager.header_of(exported).get("balance_kr"), 4321.0, "the code holds the shop as it is now, not the last autosave")
 		WebPlatform.last_copied = ""
 		(ex.find_child("Copy", true, false) as Button).pressed.emit()
-		eq(WebPlatform.last_copied, SaveManager.export_code(&"profile_1"), "Copy Code copies the whole code")
+		eq(WebPlatform.last_copied, ex.code, "Copy Code copies the whole code")
 		check((ex.find_child("Status", true, false) as Label).text != "", "and says what happened")
 		check(ex.find_child("Download", true, false) == null, "Download File is only in a browser")
 		ex.close()
 	await runner.get_tree().process_frame
-	# Import: Paste membaca clipboard, pratinjau, lalu pilih profil kosong.
-	var code: String = SaveManager.export_code(&"profile_1")
+	# Import: Paste membaca clipboard, pratinjau, lalu Load This Bakery.
 	imp_btn.pressed.emit()
 	await runner.get_tree().process_frame
 	var im: ImportSaveScreen = game.modals.screen(&"import_save") as ImportSaveScreen
@@ -253,52 +261,35 @@ func _save_code_ui() -> void:
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
 	eq((im.find_child("Status", true, false) as Label).text, Tx.t("ui_import_err_format"), "a wrong clipboard is explained")
-	check(im.find_child("ImportTo1", true, false) == null, "and offers no profile")
+	check(im.find_child("LoadBakery", true, false) == null, "and offers nothing to load")
 	WebPlatform.fake_clipboard = code
 	(im.find_child("Paste", true, false) as Button).pressed.emit()
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
 	var nm: Label = im.find_child("BakeryName", true, false) as Label
 	eq(nm.text if nm != null else "", "Move Me Bakery", "Paste previews the bakery in the code")
-	var to1: Button = im.find_child("ImportTo1", true, false) as Button
-	var to3: Button = im.find_child("ImportTo3", true, false) as Button
-	check(to1 != null and to1.text.contains("Move Me Bakery"), "a full profile button names the bakery it would replace")
-	check(to3 != null and to3.text.contains(Tx.t("ui_profile_empty")), "an empty one says so")
-	# Profil berisi: konfirmasi dulu.
-	to1.pressed.emit()
-	await runner.get_tree().process_frame
-	check(game.modals.is_open(&"confirm"), "replacing a full profile asks first")
-	game.modals.close_id(&"confirm")
-	await runner.get_tree().process_frame
-	to3.pressed.emit()
-	await runner.get_tree().process_frame
-	await runner.get_tree().process_frame
-	check(not game.modals.is_open(&"import_save"), "importing into an empty profile closes Import Save")
-	eq(SaveManager.read_header(&"profile_3").get("bakery_name"), "Move Me Bakery", "profile 3 holds the bakery")
-	var prof2: UIScreen = game.modals.screen(&"profiles")
-	check(prof2 != null and prof2.find_child("Profile3", true, false).find_child("Export", true, false) is Button, "the profile list shows it")
-	var note: Label = prof2.find_child("Note", true, false) as Label if prof2 != null else null
-	eq(note.text if note != null else "", Tx.t("ui_import_done", {"name": "Move Me Bakery", "n": 3}), "with a note about the move")
-	# Main Menu di bawahnya ikut dibangun ulang: Continue = save terbaru.
-	menu = game.modals.screen(&"main_menu") as MainMenuScreen
-	check(menu != null and menu.find_child("Continue", true, false) is Button, "the main menu card still offers Continue")
-	eq(SaveManager.latest_profile(), &"profile_3", "the imported profile is the latest")
-	# Hapus profil terbaru: kartu Main Menu menunjuk profil yang tersisa.
-	(prof2.find_child("Profile3", true, false).find_child("Delete", true, false) as Button).pressed.emit()
+	var load_btn: Button = im.find_child("LoadBakery", true, false) as Button
+	check(load_btn != null, "with Load This Bakery")
+	load_btn.pressed.emit()
 	await runner.get_tree().process_frame
 	var conf: UIScreen = game.modals.screen(&"confirm")
+	check(conf != null and str(conf.params.get("text", "")).contains("Playing Bakery"), "it asks first, naming the bakery that gets replaced")
 	if conf != null:
 		var yes: Callable = conf.params.get("on_yes")
 		game.modals.close_screen(conf)
 		yes.call()
-	await runner.get_tree().process_frame
-	check(not SaveManager.has_profile(&"profile_3"), "profile 3 is deleted")
-	menu = game.modals.screen(&"main_menu") as MainMenuScreen
-	var cont: Button = menu.find_child("Continue", true, false) as Button if menu != null else null
-	check(cont != null, "the main menu card refreshed after the delete")
-	var bn: Label = menu.find_child("BakeryName", true, false) as Label if menu != null else null
-	eq(bn.text if bn != null else "", "Move Me Bakery", "and shows the remaining profile 1")
-	game.modals.close_all()
+	var guard: int = 0
+	while (game.sim == null or not game.playing or game.sim.bakery_name != "Move Me Bakery") and guard < 600:
+		await runner.get_tree().process_frame
+		guard += 1
+	check(game.playing and game.sim != null and game.sim.bakery_name == "Move Me Bakery", "the imported bakery is loaded and running")
+	eq(game.sim.world.location.tier if game.sim != null else 0, 2, "at its location")
+	eq(SaveManager.read_header(SaveManager.SAVE_ID).get("bakery_name"), "Move Me Bakery", "it is now the save")
+	var back: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveManager.backup_path(SaveManager.SAVE_ID)))
+	eq(str(back.get("bakery_name", "")), "Playing Bakery", "the replaced bakery stays as the save's backup")
+	check(not game.modals.is_open(&"import_save") and not game.modals.is_open(&"settings"), "Import Save and Settings are closed")
+	game.playing = false
+	game.end_session(false)
 	game.queue_free()
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
@@ -309,4 +300,5 @@ func _save_code_ui() -> void:
 	SaveManager.dir = "user://saves"
 	PauseManager.clear_all()
 	AudioManager.stop_all_sounds()
+	AudioManager.set_music_state(&"")
 	check(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) <= orphans, "no orphan UI nodes left")

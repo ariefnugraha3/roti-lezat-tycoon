@@ -8,8 +8,8 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_130_FLAT_UI", "name": "130.6 the UI kit draws flat: no drop shadows, lips, gloss or text outlines on panels, buttons, badges, chips and titles, and button content sits centred on the face", "fn": _flat},
 		{"id": "ACC_IDLE_BRANDING", "name": "idle 19 no. 1, 20 no. 49 the game is Crumbtown: Idle Bakery Tycoon: title, logo (Crumbtown + IDLE BAKERY TYCOON ribbon and crumbs), project name, user dir Crumbtown, Android name and package, default bakery name, and no player-facing text says Roti Lezat", "fn": _branding},
-		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and each save card shows a bakery for its location tier (an empty slot shows the '+' silhouette)", "fn": _art},
-		{"id": "ACC_IDLE_MENU_LOOK", "name": "idle 20 no. 54 the opening screens: the logo bread is the loaf mascot, the backdrop has an awning and breads on the tablecloth, the main menu's shop card offers New Game without a save and Continue with the last bakery's name and storefront, round Settings/Credits/Exit buttons work, and New Game shows its steps and a sign that follows the typed name", "fn": _menu_look},
+		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and the save summary (Export and Import Save) shows the bakery of the save's tier", "fn": _art},
+		{"id": "ACC_IDLE_MENU_LOOK", "name": "idle 20 no. 54, 19 no. 21 the opening screens: the logo bread is the loaf mascot, the backdrop has an awning and breads on the tablecloth, and the new bakery popup sits on that backdrop with no close button and step dots: choosing the baker has only Next, naming the bakery has Back and Start, and its storefront sign follows the typed name", "fn": _menu_look},
 		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, and the KR/s rate sits inside the KR chip", "fn": _polish},
 	]
 
@@ -77,18 +77,13 @@ func _art() -> void:
 	staff.configure({"hair_style": "kuncir_ganda", "apron": "#fffbf5"}, "cashier", 1)
 	check(staff.lashes, "soft hair styles get lashes, as on the 3D staff")
 	staff.free()
-	var ps := ProfileScreen.new()
-	ps.params = {"mode": "load"}
-	var full: Control = ps._card(1, {"profile_id": &"profile_1", "exists": true, "bakery_name": "Art", "day": 3,
-		"location_id": "location_t3_independent_bakery", "balance_kr": 10.0, "badges": [], "last_played_at": ""})
-	var art: ShopFrontArt = full.find_child("ShopArt", true, false) as ShopFrontArt
+	var sum: HBoxContainer = SaveSummary.row({"bakery_name": "Art", "day": 3, "location_id": "location_t3_independent_bakery",
+		"balance_kr": 10.0, "badges": []}, 96.0)
+	var art: ShopFrontArt = sum.find_child("ShopArt", true, false) as ShopFrontArt
 	check(art != null and art.tier == 3, "a Tier 3 save shows the Tier 3 bakery")
-	var empty: Control = ps._card(2, {"profile_id": &"profile_2", "exists": false})
-	var art2: ShopFrontArt = empty.find_child("ShopArt", true, false) as ShopFrontArt
-	check(art2 != null and art2.tier == 0, "an empty slot shows the '+' silhouette")
-	full.free()
-	empty.free()
-	ps.free()
+	eq((sum.find_child("BakeryName", true, false) as Label).text, "Art", "with the bakery's name")
+	check(sum.find_child("Badges", true, false) == null, "and no medal row without badges")
+	sum.free()
 
 
 ## Pemolesan UI flat 2026-11-03 (GDD idle 20 no. 47).
@@ -171,7 +166,7 @@ func _boot() -> GameRoot:
 func _finish(game: GameRoot) -> void:
 	game.modals.close_all()
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid: StringName in SaveManager.PROFILE_IDS:
@@ -227,10 +222,9 @@ func _flat() -> void:
 	pop.free()
 
 
-## Menu pembuka yang lebih hidup (GDD idle 20 no. 54): roti maskot di logo,
-## tenda dan roti di taplak latar, kartu toko Main Menu dengan Continue atau
-## New Game, tombol bundar berketerangan, dan New Game dengan bulatan langkah
-## serta papan nama yang mengikuti ketikan.
+## Layar pembuka yang lebih hidup (GDD idle 20 no. 54): roti maskot di logo,
+## tenda dan roti di taplak latar, dan popup toko baru (GDD idle 19 no. 21) di
+## atas latar itu dengan bulatan langkah serta papan nama yang mengikuti ketikan.
 func _menu_look() -> void:
 	var lock: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 76, 116)
 	var bread: Variant = lock.get_meta("bread")
@@ -251,42 +245,23 @@ func _menu_look() -> void:
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
-	game.modals.close_all()
-	var menu: UIScreen = game.modals.open(&"main_menu")
+	game.open_new_game()
 	await runner.get_tree().process_frame
-	check(menu.find_child("NewGame", true, false) is Button, "without a save the shop card offers New Game")
-	check(menu.find_child("Continue", true, false) == null, "and no Continue")
-	eq((menu.find_child("SaveRow", true, false) as Container).get_child_count(), 1, "Load Game sits alone below it")
-	var round_row: Container = menu.find_child("RoundRow", true, false) as Container
-	eq(round_row.get_child_count(), 3 if not OS.has_feature("web") else 2, "Settings, Credits and Exit are round buttons")
-	var settings: Button = round_row.find_child(Tx.t("ui_main_settings"), true, false) as Button
-	check(settings != null and settings.custom_minimum_size.x >= ProceduralUIFactory.TOUCH_MIN, "the round buttons are big enough to tap")
-	if settings != null:
-		settings.pressed.emit()
-		await runner.get_tree().process_frame
-		check(game.modals.is_open(&"settings"), "the round Settings button opens Settings")
-	game.modals.close_all()
-	# Dengan save: kartu toko profil terakhir dan Continue besar.
-	var s: SimulationRoot = new_sim(7, &"profile_2")
-	s.bakery_name = "Menu Test Bakery"
-	jump_to_tier(s, 3)
-	SaveManager.write_profile(&"profile_2", s.capture_save())
-	free_sim(s)
-	menu = game.modals.open(&"main_menu")
-	await runner.get_tree().process_frame
-	check(menu.find_child("Continue", true, false) is Button, "a save puts Continue on the shop card")
-	var name_l: Label = menu.find_child("BakeryName", true, false) as Label
-	eq(name_l.text if name_l != null else "", "Menu Test Bakery", "with the bakery's name")
-	var shop: ShopFrontArt = menu.find_child("HeroShop", true, false) as ShopFrontArt
-	eq(shop.tier if shop != null else -1, 3, "and its Tier 3 storefront")
-	eq((menu.find_child("SaveRow", true, false) as Container).get_child_count(), 2, "New Game and Load Game sit side by side")
-	game.modals.close_all()
-	var ng: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_1"}) as NewGameScreen
-	await runner.get_tree().process_frame
-	var steps: Control = ng.find_child("Steps", true, false) as Control
-	check(steps != null, "New Game shows its steps")
+	var ng: NewGameScreen = game.modals.screen(&"new_game") as NewGameScreen
+	check(ng != null, "without a save the new bakery popup opens")
+	if ng == null:
+		game.queue_free()
+		return
+	check(ng.get_child(0) is ProceduralUIFactory.CozyBackdrop, "on the opening backdrop")
+	check(ng.find_child(Tx.t("ui_close"), true, false) == null and ng.find_child("Close", true, false) == null, "with no close button")
+	check(ng.find_child("Steps", true, false) != null, "and its step dots")
+	var nav_buttons: Array = ng.find_children("*", "Button", true, false).filter(func(b: Node) -> bool: return (b as Button).text == Tx.t("ui_back"))
+	eq(nav_buttons.size(), 0, "choosing the baker has no Back: there is no menu to go back to")
+	eq((ng.find_child("Next", true, false) as Button).text, Tx.t("ui_next"), "only Next")
 	ng._go(1)
 	await runner.get_tree().process_frame
+	eq((ng.find_child("Next", true, false) as Button).text, Tx.t("ui_start"), "naming the bakery ends with Start")
+	check(ng.find_children("*", "Button", true, false).any(func(b: Node) -> bool: return (b as Button).text == Tx.t("ui_back")), "and has Back")
 	var edit: LineEdit = ng.find_children("*", "LineEdit", true, false)[0] as LineEdit
 	edit.text = "Tiny Oven"
 	edit.text_changed.emit(edit.text)

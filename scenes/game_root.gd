@@ -3,10 +3,12 @@ extends Node
 ## GameRoot — titik masuk & orkestrasi sesi (GDD idle 3.4, 9.3; v3.1 36, 89, 114).
 ##
 ## Boot bertahap: katalog divalidasi (DataRegistry), InputMap didaftarkan, lalu
-## layar "Tap to Start" membuka kunci audio web (GDD 12.1, 33.4). Main Menu
-## muncul tanpa membangun dunia apa pun (GDD 89.1). Simulasi dan dunia baru
-## dibuat saat profil dimuat, dan dihancurkan saat kembali ke menu supaya state
-## antar-profil tidak bocor (GDD 35.2).
+## layar "Tap to Start" membuka kunci audio web (GDD 12.1, 33.4). Tidak ada Main
+## Menu dan hanya ada satu save (GDD idle 19 no. 21): ketukan itu langsung
+## memuat toko, atau, pada permainan pertama, membuka popup karakter dan nama
+## toko. Simulasi dan dunia dibuat saat save dimuat, dan dibongkar sebelum save
+## lain menggantikannya (Import Save, Reset Game) supaya state tidak bocor
+## (GDD 35.2).
 ##
 ## Masuk gameplay berjalan bertahap di balik LoadingScreen (GDD 89.5, 114): tiap
 ## tahap berat diberi satu frame supaya teks dan bar kemajuannya tergambar, lalu
@@ -23,6 +25,8 @@ const LOADING_AUDIO_BUDGET_USEC: int = 30000
 ## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
 const STABLE_FRAME_MS: float = 80.0
 const MAX_SETTLE_FRAMES: int = 12
+## Puncak logo layar pembuka, sebagai bagian tinggi bingkai.
+const LOGO_TOP: float = 0.075
 
 var sim: SimulationRoot = null
 var world: WorldView = null
@@ -80,7 +84,7 @@ func _ready() -> void:
 
 
 # ===========================================================================
-# SPLASH & MENU
+# SPLASH & SAVE TUNGGAL
 # ===========================================================================
 
 func _show_splash() -> void:
@@ -97,7 +101,7 @@ func _show_splash() -> void:
 	# sisa layar, slogan kecil di bawahnya.
 	var box := VBoxContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.anchor_top = MainMenuScreen.LOGO_TOP
+	box.anchor_top = LOGO_TOP
 	box.offset_bottom = -110.0
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 18)
@@ -108,7 +112,7 @@ func _show_splash() -> void:
 	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 164)
 	logo_box.add_child(lockup)
 	ProceduralAnimationSystem.idle_wobble(lockup.get_meta("bread"))
-	box.add_child(MainMenuScreen._spacer(1.0))
+	box.add_child(_spacer(1.0))
 	# "Tap to Start": pil madu besar yang membesar-mengecil pelan.
 	var tap_row := CenterContainer.new()
 	tap_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -137,12 +141,20 @@ func _show_splash() -> void:
 		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		pulse.tween_property(tap, "scale", Vector2(1.07, 1.07), 0.8)
 		pulse.tween_property(tap, "scale", Vector2.ONE, 0.8)
-	box.add_child(MainMenuScreen._spacer(1.4))
+	box.add_child(_spacer(1.4))
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
 	# Musik menu dirakit di latar selagi pemain membaca layar ini, lalu bunyi
 	# pendek (GDD 33.6), supaya tidak ada yang perlu dirakit saat bermain.
 	AudioManager.prewarm_music([&"menu_music"])
 	AudioManager.prewarm_short_sounds()
+
+
+static func _spacer(weight: float) -> Control:
+	var s := Control.new()
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	s.size_flags_stretch_ratio = weight
+	return s
 
 
 ## Ketukan dihitung saat jari/klik DILEPAS: browser baru mengizinkan layar penuh
@@ -161,17 +173,32 @@ func _on_splash_input(event: InputEvent, layer: CanvasLayer) -> void:
 	AudioManager.unlock()
 	layer.queue_free()
 	_splash = null
-	show_main_menu()
+	begin()
 
 
-func show_main_menu() -> void:
+## Sesudah layar pembuka (GDD idle 19 no. 21): save yang ada langsung dimuat;
+## tanpa save (install baru, Reset Game, atau hanya save tycoon v3.1) popup
+## toko baru terbuka. Save dari versi tiga profil lebih dulu digabung menjadi
+## satu: toko yang terakhir dimainkan.
+func begin() -> void:
 	modals.close_all()
 	# Portal web: game selesai dimuat (GDD idle 22.2).
 	Monetization.loading_finished()
+	SaveManager.adopt_latest_save()
+	var state: String = SaveManager.save_state()
+	if state == "playable" or state == "corrupt":
+		await load_profile(SaveManager.SAVE_ID)
+	else:
+		open_new_game()
+
+
+## Popup toko baru (karakter, lalu nama toko) di atas latar layar pembuka. Bed
+## pagi dan bunyi pendek dirakit di latar selagi pemain memilih dan mengetik,
+## jadi layar loading sesudahnya tidak perlu menunggunya lagi.
+func open_new_game() -> void:
+	modals.close_all()
 	EventBus.music_state_changed.emit(&"MENU")
-	modals.open(&"main_menu")
-	# Bed pagi ikut dirakit di latar: saat pemain selesai mengisi nama toko,
-	# layar loading tidak perlu menunggunya lagi. Begitu juga bunyi pendek.
+	modals.open(&"new_game")
 	AudioManager.prewarm_music([&"menu_music", &"shop_music_morning"])
 	AudioManager.prewarm_short_sounds()
 
@@ -184,9 +211,10 @@ func skip_splash_for_tests() -> void:
 
 
 # ===========================================================================
-# PROFIL (GDD 89)
+# SAVE (GDD 89, idle 15.3)
 # ===========================================================================
 
+## Game baru di `profile_id` (selalu SaveManager.SAVE_ID di luar tes).
 func start_new_game(profile_id: StringName, gender: String, bakery_name: String) -> void:
 	await _begin_loading("ui_loading", 0.05)
 	_teardown()
@@ -195,6 +223,7 @@ func start_new_game(profile_id: StringName, gender: String, bakery_name: String)
 	var seed_value: int = absi(hash("%s|%s|%d" % [profile_id, bakery_name, Time.get_ticks_usec()])) + 1
 	sim.start_new_game(profile_id, bakery_name, gender, seed_value)
 	await _loading_stage("ui_loading_save", 0.20)
+	SaveManager.make_room_for_new_game()
 	SaveManager.write_profile(profile_id, sim.capture_save())
 	await _enter_gameplay(profile_id)
 
@@ -204,7 +233,10 @@ func load_profile(profile_id: StringName) -> void:
 	var r: Dictionary = SaveManager.read_profile(profile_id)
 	if not bool(r.get("ok", false)):
 		_end_loading(true)
-		modals.open(&"error", {"text": Tx.t("ui_save_error"), "profile_id": profile_id, "offer_new": true})
+		# Save rusak tidak pernah ditimpa diam-diam: coba lagi, atau mulai toko
+		# baru dengan konfirmasi (GDD 132).
+		modals.open(&"error", {"text": Tx.t("ui_save_error"), "profile_id": profile_id, "offer_new": true,
+			"retry": load_profile.bind(profile_id), "backdrop": true})
 		return
 	await _loading_stage("ui_loading", 0.20)
 	_teardown()
@@ -315,8 +347,8 @@ func _teardown() -> void:
 	SaveManager.active_profile = &""
 	AudioManager.rng_source = null
 	AudioManager.stop_all_loops()
-	# Ambience toko dan cuaca milik dunia; Main Menu hanya memutar menu_music
-	# (GDD 33.1). Dulu ambience terus berputar di bawah musik menu.
+	# Ambience toko dan cuaca milik dunia; popup toko baru hanya memutar
+	# menu_music (GDD 33.1).
 	AudioManager.set_ambience([])
 	for n: Node in [hud, commands, world, sim]:
 		if n != null and is_instance_valid(n):
@@ -329,13 +361,45 @@ func _teardown() -> void:
 	EventBus.profile_unloaded.emit()
 
 
-## Kembali ke Main Menu: simpan dulu (GDD 89.2).
-func return_to_menu() -> void:
-	if sim != null:
+## Akhiri sesi: simpan dulu bila `save` (GDD 89.2), lalu dunia dan simulasi
+## dibongkar tanpa membuka layar lain (tes, alat ukur, Import Save, Reset Game).
+func end_session(save: bool = true) -> void:
+	if sim != null and save:
 		SaveManager.save_now()
 	modals.close_all()
 	_teardown()
-	show_main_menu()
+
+
+## Quit Game di menu Pause (bukan Web): simpan, lalu tutup game.
+func quit_game() -> void:
+	if sim != null:
+		SaveManager.save_now()
+	get_tree().quit()
+
+
+## Reset Game di Settings (GDD idle 20 no. 68): toko yang sedang dimainkan tidak
+## disimpan lagi, semua slot save dihapus, lalu popup toko baru seperti install
+## baru. Pengaturan dan jatah iklan per perangkat tetap.
+func reset_game() -> void:
+	end_session(false)
+	SaveManager.delete_all_profiles()
+	GameLogger.important("SAVE", "game reset")
+	open_new_game()
+
+
+## Import Save di Settings (GDD idle 20 no. 57, 68): toko dari kode menggantikan
+## save tunggal lalu dimuat. Toko yang sedang dimainkan disimpan dulu dan menjadi
+## backup save itu. Kode yang gagal ditulis membuat toko lama dimuat lagi.
+func replace_save(code: String) -> void:
+	end_session(true)
+	var err: String = SaveManager.import_code(code, SaveManager.SAVE_ID)
+	await load_profile(SaveManager.SAVE_ID)
+	if sim == null:
+		return
+	if err != "":
+		EventBus.notify.emit(0, "ui_import_err_" + err, {}, &"warning")
+	else:
+		EventBus.notify.emit(1, "ui_import_loaded", {"name": sim.bakery_name}, &"star")
 
 
 # ===========================================================================
@@ -461,13 +525,11 @@ func _on_modal_stack_changed() -> void:
 
 
 ## Pasang versi PWA baru yang sudah diunduh (halaman dimuat ulang), tetapi hanya
-## di layar pembuka atau Main Menu tanpa layar lain di atasnya: tidak pernah di
-## tengah permainan, mengetik nama toko, atau memilih profil.
+## di layar pembuka: tidak pernah di tengah permainan atau saat mengetik nama toko.
 func _maybe_apply_pwa_update() -> void:
 	if not WebPlatform.pwa_update_waiting() or sim != null:
 		return
-	var top: UIScreen = modals.top()
-	if _splash != null or (top != null and top.screen_id == &"main_menu"):
+	if _splash != null:
 		GameLogger.important("BOOT", "installing the new web version")
 		WebPlatform.apply_pwa_update()
 
@@ -689,9 +751,9 @@ func loading_screen() -> LoadingScreen:
 
 
 ## GDD 114 tahap 7: musik suasana sekarang dirakit bertahap dengan bar yang terus
-## bergerak (biasanya sudah jadi di Main Menu), lalu ambience cuaca hari ini dan
-## loop mixer/oven. Dilewati sebelum audio dibuka (headless), karena belum ada
-## yang diputar.
+## bergerak (biasanya sudah jadi selagi pemain di layar pembuka), lalu ambience
+## cuaca hari ini dan loop mixer/oven. Dilewati sebelum audio dibuka (headless),
+## karena belum ada yang diputar.
 func _warm_audio(p_from: float, p_to: float) -> void:
 	if not AudioManager.unlocked:
 		return

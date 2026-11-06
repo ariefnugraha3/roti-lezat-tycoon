@@ -65,17 +65,13 @@ func _ready() -> void:
 		shop.tier = tier
 		shop.custom_minimum_size = Vector2(104, 104) * minf(z, 1.1)
 		r4.add_child(shop)
-	# Kartu profil sungguhan: save tier 3 dan profil kosong.
+	# Ringkasan save sungguhan (Export dan Import Save): save tier 3.
 	var r5 := VBoxContainer.new()
 	r5.custom_minimum_size = Vector2(600, 0)
 	r5.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(r5)
-	var ps := ProfileScreen.new()
-	ps.params = {"mode": "load"}
-	r5.add_child(ps._card(1, {"profile_id": &"profile_1", "exists": true, "bakery_name": "Sweet Crumbs", "day": 12,
-		"location_id": "location_t3_independent_bakery", "balance_kr": 12345.0, "badges": [], "last_played_at": "2026-11-03T10:00:00Z"}))
-	r5.add_child(ps._card(2, {"profile_id": &"profile_2", "exists": false}))
-	ps.free()
+	r5.add_child(SaveSummary.row({"bakery_name": "Sweet Crumbs", "day": 12,
+		"location_id": "location_t3_independent_bakery", "balance_kr": 12345.0, "badges": []}, 112.0))
 	# Logo splash (84 px) pada skala teks 100% dan 150%, di kotak selebar bingkai 720.
 	var r6 := VBoxContainer.new()
 	r6.add_theme_constant_override("separation", 0)

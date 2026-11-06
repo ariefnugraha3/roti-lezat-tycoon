@@ -44,6 +44,7 @@ func _render() -> void:
 				[Tx.t("ui_number_format_short"), Tx.t("ui_number_format_scientific")])
 			_toggle("tutorial_hints", "ui_settings_tutorial_hints")
 			btn(_body, Tx.t("ui_settings_replay_tutorial"), "secondary", func() -> void: host.open(&"help"))
+			_save_section()
 		3:
 			_toggle("reduced_motion", "ui_settings_reduced_motion")
 			# Hanya di perangkat yang bisa bergetar (Haptics, v3.1 75.4).
@@ -53,6 +54,36 @@ func _render() -> void:
 			_choice("text_scale", "ui_settings_text_scale", [100, 125, 150], ["100%", "125%", "150%"])
 			_toggle("hold_to_confirm", "ui_settings_hold_confirm")
 			_toggle("sound_captions", "ui_settings_captions")
+
+
+## Save tunggal (GDD idle 19 no. 21, 20 no. 57, 68): Export Save (kode teks
+## untuk perangkat lain), Import Save (kode yang menggantikan toko ini), dan
+## Reset Game (mulai dari awal). Hanya saat sebuah toko sedang dimainkan.
+func _save_section() -> void:
+	if game == null or game.sim == null:
+		return
+	_body.add_child(ProceduralUIFactory.section_label(Tx.t("ui_settings_save")))
+	var ex: Button = _wide_button("clipboard", "ui_save_code_export", "secondary")
+	ex.name = "ExportSave"
+	ex.pressed.connect(func() -> void:
+		# Kodenya memuat keadaan toko saat ini, bukan autosave terakhir.
+		SaveManager.save_now()
+		host.open(&"save_code", {"profile_id": SaveManager.SAVE_ID}))
+	var im: Button = _wide_button("box", "ui_import_save", "secondary")
+	im.name = "ImportSave"
+	im.pressed.connect(func() -> void: host.open(&"import_save"))
+	var rs: Button = _wide_button("cross", "ui_reset_game", "danger")
+	rs.name = "ResetGame"
+	rs.pressed.connect(func() -> void: host.confirm(Tx.t("ui_reset_confirm"), game.reset_game, true))
+	lbl(_body, Tx.t("ui_reset_hint"), 16, Palette.TEXT_MUTED, true)
+
+
+func _wide_button(icon_name: String, text_key: String, kind: String) -> Button:
+	var b: Button = ProceduralUIFactory.icon_text_button(icon_name, Tx.t(text_key), kind, 22, 18)
+	b.custom_minimum_size = Vector2(0, 56)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_child(b)
+	return b
 
 
 ## Satu baris pengaturan untuk lebar potret (GDD idle 12.0.5): `stacked` menaruh

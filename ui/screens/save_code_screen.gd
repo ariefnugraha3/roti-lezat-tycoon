@@ -1,11 +1,11 @@
 class_name SaveCodeScreen
 extends UIScreen
-## Kode save satu profil (GDD idle 15.3, 20 no. 57), dari tombol Export Save di
-## kartu profil: ringkasan toko, potongan kodenya, lalu Copy Code (semua
-## platform) dan, di Web, Download File (berkas .txt sebagai cadangan di luar
-## penyimpanan browser). Di perangkat lain kode dibuka lewat Import Save.
+## Kode save (GDD idle 15.3, 20 no. 57), dari Export Save di Settings: ringkasan
+## toko, potongan kodenya, lalu Copy Code (semua platform) dan, di Web, Download
+## File (berkas .txt sebagai cadangan di luar penyimpanan browser). Di perangkat
+## lain kode dibuka lewat Import Save.
 
-## Kode lengkap profil ini ("" bila save tidak terbaca).
+## Kode lengkap save ini ("" bila save tidak terbaca).
 var code: String = ""
 var _status: Label = null
 
@@ -31,7 +31,7 @@ func build() -> void:
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 24, true)
 	sb.set_content_margin_all(16.0)
 	card.add_theme_stylebox_override("panel", sb)
-	card.add_child(ProfileScreen.summary_row(SaveManager.read_header(pid), 96.0))
+	card.add_child(SaveSummary.row(SaveManager.read_header(pid), 96.0))
 	list.add_child(card)
 	lbl(list, Tx.t("ui_save_code_body"), 17, Palette.TEXT, true)
 	# Potongan kode dan ukurannya, supaya terlihat apa yang disalin.

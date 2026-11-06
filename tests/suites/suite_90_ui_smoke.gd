@@ -12,7 +12,7 @@ func tests() -> Array:
 	return [
 		{"id": "TEST_UI_SMOKE_001", "name": "main scene boots, new game, every screen opens", "fn": _smoke},
 		{"id": "TEST_UI_WORLD_TAPS", "name": "idle 5.1 with buyers queueing at the counter, a tap on every piece of furniture (storage, mixer, oven, shelf, table, chairs) gives it the owner's focus, and a tap on a queueing buyer focuses the owner on the counter, without any script error", "fn": _world_taps},
-		{"id": "TEST_UI_NEW_GAME_FLOW", "name": "89.4 New Game through its own buttons: character, bakery name (an invalid name is refused), the summary with the starting KR, then Start opens the shop with that name and start_kr", "fn": _new_game_flow},
+		{"id": "TEST_UI_NEW_GAME_FLOW", "name": "89.4, idle 19 no. 21 the first game through the popup's own buttons: Tap to Start without a save opens it, character, bakery name (an invalid name is refused), then Start opens the shop in the one save with that name and start_kr", "fn": _new_game_flow},
 		# Setelah smoke: kunci yang diminta saat runtime ikut diperiksa.
 		{"id": "TEST_UI_001", "name": "English localization key completeness", "fn": _localization},
 		{"id": "TEST_CAMERA_001", "name": "the camera stays on the shop floor while the owner works upstairs; the stairs door switches the view with a 0.20 s crossfade", "fn": _camera},
@@ -80,7 +80,7 @@ func _world_taps() -> void:
 		game._on_world_tap(head)
 		check(sim.player.focus_cashier, "which focuses the owner on the counter")
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:
@@ -90,7 +90,7 @@ func _world_taps() -> void:
 	PauseManager.lifecycle_enabled = false
 
 
-## Alur New Game yang dipakai pemain (dulu ringkasannya membaca path katalog
+## Alur toko baru yang dipakai pemain (dulu ringkasannya membaca path katalog
 ## v3.1 yang sudah dihapus dan Start tidak pernah sampai ke toko).
 func _new_game_flow() -> void:
 	SaveManager.dir = "user://test_saves_ui"
@@ -100,10 +100,10 @@ func _new_game_flow() -> void:
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
-	game.show_main_menu()
-	var scr: NewGameScreen = game.modals.open(&"new_game", {"profile_id": &"profile_2"}) as NewGameScreen
+	game.begin()
 	await runner.get_tree().process_frame
-	check(scr != null, "the New Game screen opens")
+	var scr: NewGameScreen = game.modals.screen(&"new_game") as NewGameScreen
+	check(scr != null, "without a save, the new bakery popup opens after Tap to Start")
 	if scr == null:
 		return
 	var female: Button = _button(scr, Tx.t("ui_character_female"))
@@ -115,20 +115,13 @@ func _new_game_flow() -> void:
 	await runner.get_tree().process_frame
 	var edit: LineEdit = scr.find_children("*", "LineEdit", true, false)[0] as LineEdit
 	edit.text = "   "
-	_button(scr, Tx.t("ui_next")).pressed.emit()
+	_button(scr, Tx.t("ui_start")).pressed.emit()
 	await runner.get_tree().process_frame
-	check(scr.find_children("*", "LineEdit", true, false).size() == 1, "a blank name is refused and the name step stays")
+	check(game.modals.is_open(&"new_game") and scr.find_children("*", "LineEdit", true, false).size() == 1,
+		"a blank name is refused and the name step stays")
 	edit.text = "Toko Roti Ibu"
-	_button(scr, Tx.t("ui_next")).pressed.emit()
-	await runner.get_tree().process_frame
-	var cash: String = Tx.kr(DataRegistry.idlef("start_kr"))
-	var summary_ok: bool = false
-	for l: Node in scr.find_children("*", "Label", true, false):
-		if (l as Label).text.contains(cash):
-			summary_ok = true
-	check(summary_ok, "the summary shows the starting KR (%s)" % cash)
 	var start: Button = _button(scr, Tx.t("ui_start"))
-	check(start != null, "the summary has Start")
+	check(start != null, "the name step has Start")
 	if start != null:
 		start.pressed.emit()
 	var waited: int = 0
@@ -140,9 +133,10 @@ func _new_game_flow() -> void:
 		eq(game.sim.bakery_name, "Toko Roti Ibu", "with the bakery name typed in")
 		eq(str(game.sim.player.appearance.get("gender", "")), "female", "and the character chosen")
 		check(game.sim.economy.balance <= DataRegistry.idlef("start_kr") + 0.5, "starting from start_kr")
-		check(SaveManager.has_profile(&"profile_2"), "the new profile is saved")
+		check(SaveManager.save_state() == "playable", "the new bakery is the save")
+		check(not SaveManager.has_profile(&"profile_2") and not SaveManager.has_profile(&"profile_3"), "and the only one")
 	game.modals.close_all()
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:
@@ -168,13 +162,13 @@ func _smoke() -> void:
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
-	game.show_main_menu()
-	check(game.modals.is_open(&"main_menu"), "main menu opens")
-	# Layar yang terbuka dari Main Menu sebelum ada game: Settings > Replay
-	# tutorial membuka Help tanpa simulasi (dulu error dan daftarnya kosong).
+	game.open_new_game()
+	check(game.modals.is_open(&"new_game"), "the new bakery popup opens")
+	# Layar tanpa game yang sedang dimainkan: Help tanpa simulasi (dulu error
+	# dan daftarnya kosong), Settings tanpa bagian save.
 	for menu_id: StringName in [&"settings", &"credits", &"help"]:
 		var ms: UIScreen = game.modals.open(menu_id, {})
-		check(ms != null, "%s opens from the main menu" % menu_id)
+		check(ms != null, "%s opens before a game is loaded" % menu_id)
 		await runner.get_tree().process_frame
 		if menu_id == &"help" and ms != null:
 			var tips: int = 0
@@ -184,13 +178,6 @@ func _smoke() -> void:
 			eq(tips, TutorialManager.STEPS.size(), "help lists every tip when no game is loaded")
 		game.modals.close_all()
 		await runner.get_tree().process_frame
-	game.show_main_menu()
-	game.modals.open(&"profiles", {"mode": "new"})
-	await runner.get_tree().process_frame
-	game.modals.close_all()
-	game.modals.open(&"new_game", {"profile_id": &"profile_1"})
-	await runner.get_tree().process_frame
-	game.modals.close_all()
 	await game.start_new_game(&"profile_1", "female", "UI Test Bakery")
 	await runner.get_tree().process_frame
 	check(game.sim != null and game.world != null and game.hud != null, "gameplay built")
@@ -335,7 +322,7 @@ func _smoke() -> void:
 	check(game.sim.statistics.get_stat("total_bread_sold") > 0.0, "bread sold during the day without any input")
 	eq(game.sim.check_invariants(), "", "invariants after a day with the HUD and world in sync")
 	game.modals.close_all()
-	game.return_to_menu()
+	game.end_session()
 	await runner.get_tree().process_frame
 	check(game.sim == null, "simulation torn down on return to menu (GDD 35.2)")
 	game.queue_free()
@@ -407,7 +394,7 @@ func _camera() -> void:
 	for i3 in 30:
 		await runner.get_tree().process_frame
 	eq(rig.active_floor, store, "tapping the door again comes back to the shop")
-	game.return_to_menu()
+	game.end_session()
 	await runner.get_tree().process_frame
 	game.queue_free()
 	await runner.get_tree().process_frame

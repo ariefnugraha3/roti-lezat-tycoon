@@ -1,13 +1,15 @@
 class_name NewGameScreen
 extends UIScreen
-## Alur New Game (GDD 7, 31.3, 89.4): Penampilan pemain (pria/wanita, murni
-## kosmetik) -> Nama toko (1-24 karakter, Unicode boleh) -> Ringkasan -> Start.
-## Di atas setiap langkah ada tiga bulatan langkah (selesai = centang hijau,
-## sekarang = madu). Langkah nama menampilkan gambar toko dengan papan nama
-## yang ikut berubah saat pemain mengetik; ringkasan menampilkan juru roti dan
-## tokonya berdampingan.
+## Toko baru (GDD 7, 31.3, 89.4; idle 19 no. 21): muncul sekali, pada permainan
+## pertama (install baru atau Reset Game), di atas latar layar pembuka. Dua
+## langkah: penampilan pemain (pria/wanita, murni kosmetik), lalu nama toko
+## (1-24 karakter, Unicode boleh) dan Start. Tidak ada Main Menu untuk kembali,
+## jadi langkah pertama tidak punya Back dan popup ini tidak bisa ditutup. Di
+## atas setiap langkah ada bulatan langkah (selesai = centang hijau, sekarang =
+## madu). Langkah nama menampilkan gambar toko dengan papan nama yang ikut
+## berubah saat pemain mengetik.
 
-const STEPS: int = 3
+const STEPS: int = 2
 const POPUP: Vector2 = Vector2(640, 680)
 
 var _step: int = 0
@@ -22,24 +24,23 @@ var _sign: Label = null
 func _init() -> void:
 	super._init()
 	blocking = false
+	keep_open = true
 
 
 func build() -> void:
+	add_child(ProceduralUIFactory.backdrop())
 	_name = Tx.t("ui_bakery_name_default")
-	_body = make_popup(Tx.t("ui_new_game_title"), POPUP)
+	_body = make_popup(Tx.t("ui_new_bakery_title"), POPUP, false)
 	_render()
 
 
 func _render() -> void:
 	clear(_body)
 	_body.add_child(_steps_row())
-	match _step:
-		0:
-			_render_character()
-		1:
-			_render_name()
-		_:
-			_render_summary()
+	if _step == 0:
+		_render_character()
+	else:
+		_render_name()
 
 
 ## Tiga bulatan langkah bernomor yang disambung garis pendek.
@@ -91,7 +92,7 @@ func _render_character() -> void:
 		row.add_child(_char_card(g))
 	var note: Label = lbl(_body, Tx.t("ui_character_note"), 16, Palette.TEXT_MUTED, true)
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_nav(on_back, Tx.t("ui_next"), _go.bind(1))
+	_nav(Callable(), Tx.t("ui_next"), _go.bind(1))
 
 
 func _char_card(g: String) -> Control:
@@ -177,7 +178,7 @@ func _render_name() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_error = lbl(_body, "", 16, Palette.DANGER, true)
 	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_nav(_go.bind(0), Tx.t("ui_next"), _accept_name)
+	_nav(_go.bind(0), Tx.t("ui_start"), _accept_name)
 
 
 ## Papan nama pratinjau mengikuti ketikan (nama kosong = nama bawaan pudar).
@@ -211,51 +212,9 @@ func _accept_name() -> void:
 		EventBus.sfx.emit(&"ui_error", &"")
 		return
 	_name = v
-	_step = 2
-	_render()
-
-
-func _render_summary() -> void:
-	_heading(Tx.t("ui_new_game_summary", {"bakery": _name}))
-	var pid: StringName = StringName(str(params.get("profile_id", "profile_1")))
-	var n: String = String(pid).replace("profile_", "")
-	# Juru roti dan tokonya berdampingan.
-	var pics: HBoxContainer = hbox(_body, 18)
-	pics.alignment = BoxContainer.ALIGNMENT_CENTER
-	var portrait := ProceduralUIFactory.ChibiPortrait.new()
-	portrait.custom_minimum_size = Vector2(170, 170)
-	portrait.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	portrait.configure(portrait_visual(_gender), "baker", 1)
-	pics.add_child(portrait)
-	var art := ShopFrontArt.new()
-	art.tier = 1
-	art.custom_minimum_size = Vector2(170, 170)
-	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	pics.add_child(art)
-	# Rincian dalam kartu: profil, juru roti, dan modal awal.
-	var card := PanelContainer.new()
-	card.name = "Details"
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 22, true)
-	sb.set_content_margin_all(16.0)
-	card.add_theme_stylebox_override("panel", sb)
-	_body.add_child(card)
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 10)
-	card.add_child(rows)
-	var character: String = Tx.t("ui_character_male") if _gender == "male" else Tx.t("ui_character_female")
-	_detail(rows, "box", Tx.t("ui_new_game_profile", {"n": n}), Palette.UI_WOOD)
-	_detail(rows, "chef", Tx.t("ui_new_game_baker", {"character": character}), Palette.UI_WOOD)
-	_detail(rows, "coin", Tx.t("ui_new_game_cash", {"cash": Tx.kr(DataRegistry.idlef("start_kr"))}), Palette.GOLDEN_CRUST)
-	_nav(_go.bind(1), Tx.t("ui_start"), func() -> void:
-		close()
-		game.start_new_game(pid, _gender, _name))
-
-
-func _detail(parent: Control, icon_name: String, text: String, tint: Color) -> void:
-	var h: HBoxContainer = hbox(parent, 12)
-	h.add_child(ProceduralUIFactory.icon(icon_name, 28, tint))
-	var l: Label = lbl(h, text, 19, Palette.TEXT, true)
-	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	var g: GameRoot = game
+	close()
+	g.start_new_game(SaveManager.SAVE_ID, _gender, _name)
 
 
 func _go(step: int) -> void:
@@ -263,26 +222,30 @@ func _go(step: int) -> void:
 	_render()
 
 
-## Baris bawah: Back di kiri, langkah berikutnya (primary) di kanan.
+## Baris bawah: Back di kiri (tidak ada di langkah pertama), langkah
+## berikutnya (primary, Start = success) di kanan.
 func _nav(back_cb: Callable, next_text: String, next_cb: Callable) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(spacer)
 	var nav: HBoxContainer = hbox(_body, 16)
-	var b: Button = btn(nav, Tx.t("ui_back"), "secondary", back_cb)
-	b.custom_minimum_size.y = 60.0
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.size_flags_stretch_ratio = 0.7
+	if back_cb.is_valid():
+		var b: Button = btn(nav, Tx.t("ui_back"), "secondary", back_cb)
+		b.custom_minimum_size.y = 60.0
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.size_flags_stretch_ratio = 0.7
 	var nx: Button = btn(nav, next_text, "success" if _step == STEPS - 1 else "primary", next_cb)
+	nx.name = "Next"
 	nx.custom_minimum_size.y = 60.0
 	nx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
+## Back/Escape: langkah nama kembali ke pemilihan juru roti; di langkah pertama
+## Back keluar dari game (dengan konfirmasi), kecuali di Web.
 func on_back() -> bool:
 	if _step > 0:
 		_step -= 1
 		_render()
-		return true
-	close()
-	host.open(&"profiles", {"mode": "new"})
+	elif not OS.has_feature("web"):
+		host.confirm(Tx.t("ui_exit_confirm"), func() -> void: get_tree().quit())
 	return true

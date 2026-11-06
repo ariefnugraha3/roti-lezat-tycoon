@@ -8,7 +8,7 @@ func build() -> void:
 	var body: VBoxContainer = make_popup(Tx.t("ui_help_title"), Vector2(640, 760), true, Palette.SHEET)
 	lbl(body, Tx.t("ui_help_replay_note"), 15, Palette.TEXT_MUTED, true)
 	var list: VBoxContainer = scroll_box(body)
-	# Dari Main Menu (Settings > Replay tutorial) belum ada game: semua tip tampil.
+	# Tanpa game yang sedang dimainkan (mis. dari layar galat): semua tip tampil.
 	var seen: Array[String] = []
 	if sim != null:
 		seen = sim.tutorial.archive()

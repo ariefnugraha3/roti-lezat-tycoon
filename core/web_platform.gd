@@ -226,7 +226,7 @@ static func poll_file() -> Variant:
 ## Build Web dipasang sebagai Progressive Web App: service worker menyimpan
 ## berkas game di perangkat, jadi kunjungan berikutnya dimuat dari cache. Versi
 ## baru yang sudah diunduh service worker dipasang (halaman dimuat ulang) begitu
-## tidak ada toko yang sedang dimainkan: di layar pembuka dan Main Menu.
+## tidak ada toko yang sedang dimainkan: di layar pembuka.
 static func pwa_update_waiting() -> bool:
 	return is_web() and JavaScriptBridge.pwa_needs_update()
 

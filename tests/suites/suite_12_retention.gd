@@ -199,7 +199,7 @@ func _craving_ui() -> void:
 		check(plain_row != null and (rid == &"recipe_plain_loaf" or not _has_pill(plain_row, Tx.t("ui_craving_pill"))), "other rows have no Craving pill")
 	game.modals.close_all()
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:
@@ -449,7 +449,7 @@ func _goals_ui() -> void:
 	check(not game.modals.is_open(&"calendar"), "no second popup that day")
 	BoostManager.date_override = ""
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:
@@ -481,7 +481,7 @@ func _boot_share(name_text: String) -> GameRoot:
 func _end_share(game: GameRoot) -> void:
 	game.modals.close_all()
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid: StringName in SaveManager.PROFILE_IDS:

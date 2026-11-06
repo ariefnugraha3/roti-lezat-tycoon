@@ -48,8 +48,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	AudioManager.unlock()
 	game.skip_splash_for_tests()
-	game.show_main_menu()
-	await game.start_new_game(&"profile_1", "female", "Probe Bakery")
+	game.open_new_game()
+	await game.start_new_game(SaveManager.SAVE_ID, "female", "Probe Bakery")
 	while not game.playing:
 		await get_tree().process_frame
 	var bot: SimBot = (load("res://tests/sim_bot.gd") as GDScript).new(game.sim)
@@ -93,7 +93,7 @@ func _ready() -> void:
 		await get_tree().process_frame
 	_sample(game, Time.get_ticks_msec() - t0, frames, worst)
 	_print_growth(first_hist, _histogram())
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:

@@ -1,9 +1,9 @@
 extends Node
 ## Alat ukur loading sungguhan (GDD 89.5, 109, 114): game_root.tscn dijalankan, audio
-## dibuka seperti ketukan Tap to Start, lalu game baru dimulai dari Main Menu
-## dan lama setiap tahap loading dicetak (log BOOT GameRoot). `--menu=N` menunggu
-## N detik di Main Menu dulu (pemain mengisi nama toko sementara musik dan bunyi
-## dirakit di latar); bawaannya 0, kasus terburuk.
+## dibuka seperti ketukan Tap to Start, lalu game baru dimulai dari popup toko
+## baru dan lama setiap tahap loading dicetak (log BOOT GameRoot). `--menu=N`
+## menunggu N detik di popup itu dulu (pemain mengisi nama toko sementara musik
+## dan bunyi dirakit di latar); bawaannya 0, kasus terburuk.
 ## Save ditulis ke user://probe_saves, bukan slot pemain.
 ## Desktop: godot --path . res://tools/loading_probe.tscn [-- --menu=5]
 ## Browser: arahkan run/main_scene ke scene ini sementara, ekspor Web (lihat CLAUDE.md).
@@ -66,8 +66,8 @@ func _ready() -> void:
 		return
 	AudioManager.unlock()
 	game.skip_splash_for_tests()
-	game.show_main_menu()
-	print("LOADING_PROBE main menu after %d ms" % (Time.get_ticks_msec() - t0))
+	game.open_new_game()
+	print("LOADING_PROBE new bakery popup after %d ms" % (Time.get_ticks_msec() - t0))
 	var waited: float = 0.0
 	while waited < menu_wait:
 		await get_tree().process_frame
@@ -100,7 +100,7 @@ func _ready() -> void:
 		worst = maxf(worst, d)
 		tt += d
 	print("LOADING_PROBE worst frame in the first 4 s of play: %.0f ms" % (worst * 1000.0))
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await get_tree().process_frame
 	for pid2: StringName in SaveManager.PROFILE_IDS:
@@ -170,16 +170,16 @@ func _frames_print(n: int, label: String) -> void:
 		print("LOADING_PROBE exp frame %d %s" % [i, label])
 
 
-## Tanpa loading: apakah frame terus berjalan bila Main Menu / perakitan audio
-## di latar aktif? Mencetak tiap detik selama 25 detik.
+## Tanpa loading: apakah frame terus berjalan bila popup toko baru / perakitan
+## audio di latar aktif? Mencetak tiap detik selama 25 detik.
 func _idle_experiment(game: GameRoot, exp: String) -> void:
 	print("LOADING_PROBE exp ", exp)
 	game.skip_splash_for_tests()
 	if exp == "menu_noprewarm":
 		AudioManager.background_prewarm = false
-		game.show_main_menu()
+		game.open_new_game()
 	elif exp == "menu_idle":
-		game.show_main_menu()
+		game.open_new_game()
 	elif exp == "sfx_only":
 		AudioManager.prewarm_short_sounds()
 	elif exp == "music_only":

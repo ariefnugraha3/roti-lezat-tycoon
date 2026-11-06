@@ -108,7 +108,7 @@ func _loading_stages() -> void:
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
-	game.show_main_menu()
+	game.open_new_game()
 	await runner.get_tree().process_frame
 	# Bed pagi belum ada: tahap musik harus merakitnya dengan bar yang bergerak.
 	AudioManager._streams.erase(MusicBuild.cache_key("music_morning"))
@@ -125,16 +125,16 @@ func _loading_stages() -> void:
 		"today's music and ambience were prepared behind the overlay")
 	near(game.sim.time.time_seconds, DataRegistry.idlef("clock.start_seconds"), 0.001, "a new game starts at 08:00 sharp (GDD idle 3.1)")
 	check(not AudioManager._ambient.is_empty(), "the shop ambience plays in the game")
-	# Muat profil (Continue): tahap bacaan save lebih dulu.
-	game.return_to_menu()
+	# Muat save (Tap to Start dengan save): tahap bacaan save lebih dulu.
+	game.end_session()
 	await runner.get_tree().process_frame
-	check(AudioManager._ambient.is_empty(), "back on the main menu the shop ambience stops; only the menu music plays (GDD 33.1)")
+	check(AudioManager._ambient.is_empty(), "once the session ends the shop ambience stops (GDD 33.1)")
 	game.load_profile(&"profile_1")
 	var rec2: Dictionary = await _record_loading(game)
 	eq(rec2["stages"], _texts(LOAD_STAGES), "loading a save walks through its stages in order")
 	check(bool(rec2["forward"]) and game.playing, "the bar moves forward and play resumes")
-	# Profil kosong: overlay hilang dan layar galat muncul.
-	game.return_to_menu()
+	# Slot kosong: overlay hilang dan layar galat muncul.
+	game.end_session()
 	await runner.get_tree().process_frame
 	await game.load_profile(&"profile_3")
 	check(game.loading_screen() == null, "no loading screen is left behind after a failed load")
@@ -246,7 +246,7 @@ func _orientation_hint() -> void:
 	check(not hint.is_showing(), "only once per session")
 	WebPlatform.force_mobile_web = false
 	WebPlatform.forced_portrait = -1
-	game.return_to_menu()
+	game.end_session()
 	await runner.get_tree().process_frame
 	game.queue_free()
 	await runner.get_tree().process_frame
@@ -259,6 +259,10 @@ func _orientation_hint() -> void:
 
 func _splash_tap() -> void:
 	var was_unlocked: bool = AudioManager.unlocked
+	# Ketukan memuat save atau membuka popup toko baru: jangan sentuh save pemain.
+	SaveManager.dir = "user://test_saves_splash"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
 	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
 	runner.add_child(game)
 	await runner.get_tree().process_frame
@@ -267,17 +271,18 @@ func _splash_tap() -> void:
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
 	game._on_splash_input(press, layer)
-	check(game._splash != null and not game.modals.is_open(&"main_menu"), "pressing down alone does not start")
+	check(game._splash != null and not game.modals.is_open(&"new_game"), "pressing down alone does not start")
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
 	game._on_splash_input(release, layer)
-	check(game._splash == null and game.modals.is_open(&"main_menu"), "lifting the finger opens the main menu")
+	check(game._splash == null and game.modals.is_open(&"new_game"), "lifting the finger starts: without a save, the new bakery popup opens")
 	check(AudioManager.unlocked, "the same tap unlocks audio (GDD 33.4)")
 	game._on_splash_input(release, layer)
 	await runner.get_tree().process_frame
-	check(game.modals.is_open(&"main_menu"), "a duplicate release does nothing more")
+	check(game.modals.is_open(&"new_game") and game.modals.top().screen_id == &"new_game", "a duplicate release does nothing more")
 	game.queue_free()
 	await runner.get_tree().process_frame
 	AudioManager.set_music_state(&"")
 	AudioManager.unlocked = was_unlocked
+	SaveManager.dir = "user://saves"

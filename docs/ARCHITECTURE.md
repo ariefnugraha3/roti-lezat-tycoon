@@ -37,7 +37,7 @@ Autoloads are services. Gameplay state never lives in them, so tearing down a
 | `EventBus` | Cross-layer signals: simulation → UI/audio/world view, plus UI request signals. |
 | `SettingsManager` | `user://settings.json`: volumes, quality, text scale, number format, tutorial hints and accessibility (GDD 75). |
 | `PauseManager` | A set of pause reasons (Pause menu, blocking modals, lifecycle). The simulation runs only when the set is empty. Losing focus pushes `lifecycle`; that time is counted as time away by `OfflineManager` (idle GDD §3.4, §9). |
-| `SaveManager` | Three profiles, atomic writes, backup, validation, classic-save detection, save codes for export and import (idle GDD §15.3, §20 no. 57, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
+| `SaveManager` | One save (`SAVE_ID`; the old three profiles are merged into it by `adopt_latest_save`, idle GDD §19 no. 21), atomic writes, backup, validation, classic-save detection, save codes for export and import (idle GDD §15.3, §20 no. 57, v3.1 §106). It stamps the offline reference before each save and holds no state of its own. See `docs/SAVE_SCHEMA.md`. |
 | `Monetization` | Rewarded ads and the Supporter Pack (idle GDD §22): one `MonetizationProvider` per platform (none, the CrazyGames/Poki portal, a test provider), per-device daily ad turns and the Supporter flag in `user://monetization.json`, pause (`ad`) and mute while an ad plays, and the portal lifecycle signals (loading finished, gameplay start/stop) from `GameRoot`. UI offers rewards only through `AdButton`. |
 | `AudioManager` | Pooled voices, priorities, cooldowns, ducking, music states, captions, and the web audio unlock (GDD 33, 93). |
 
@@ -229,8 +229,9 @@ are pruned. A new game starts at `clock.start_seconds`.
 
 ## 5. Presentation
 
-- `GameRoot` (`scenes/game_root.gd`) is the shell: splash, main menu, new game or
-  load, building and tearing down `SimulationRoot` + `WorldView` + `HUD`, routing
+- `GameRoot` (`scenes/game_root.gd`) is the shell: splash, then (`begin`) loading
+  the one save or the new bakery popup (no main menu, idle GDD §19 no. 21), Reset Game
+  and Import Save, building and tearing down `SimulationRoot` + `WorldView` + `HUD`, routing
   world taps, the music state, and lifecycle handling. New game and load run in
   stages behind `ui/components/loading_screen.gd` (GDD 89.5): each heavy stage gets
   a frame so the bar is drawn, and `playing` turns true only when the overlay fades.

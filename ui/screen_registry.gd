@@ -4,8 +4,6 @@ extends RefCounted
 
 
 static func register_all(host: ModalHost) -> void:
-	host.register(&"main_menu", func() -> UIScreen: return MainMenuScreen.new())
-	host.register(&"profiles", func() -> UIScreen: return ProfileScreen.new())
 	host.register(&"new_game", func() -> UIScreen: return NewGameScreen.new())
 	host.register(&"save_code", func() -> UIScreen: return SaveCodeScreen.new())
 	host.register(&"import_save", func() -> UIScreen: return ImportSaveScreen.new())

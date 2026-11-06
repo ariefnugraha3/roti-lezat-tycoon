@@ -2,8 +2,9 @@
 
 This document describes the save format that the code writes on the idle branch. The
 requirements are in the idle GDD (`docs/gdd-roti-lezat-idle-v1.md`) §15.3, which keeps
-the atomic-write and three-profile mechanics of GDD v3.1 §34, §77 and §106. Where this
-document and the GDD disagree, the GDD wins and the code must be fixed.
+the atomic-write mechanics of GDD v3.1 §34, §77 and §106. Since 2026-11-06 the game has
+**one save** (idle GDD §19 no. 21, §20 no. 68): `SaveManager.SAVE_ID` (`profile_1`).
+Where this document and the GDD disagree, the GDD wins and the code must be fixed.
 
 - **Game mode / schema:** `"game_mode": "idle"`, `"schema_version": 1`
   (`SimulationRoot.GAME_MODE`, `SimulationRoot.SCHEMA_VERSION`). The idle schema starts
@@ -18,10 +19,10 @@ document and the GDD disagree, the GDD wins and the code must be fixed.
 
 | Path | Content |
 |---|---|
-| `user://saves/profile_N.json` | Main save for profile N (N = 1, 2, 3). |
+| `user://saves/profile_1.json` | The save (`SaveManager.SAVE_ID`). `profile_2`/`profile_3` can still exist from the three-profile version: they are never shown, `adopt_latest_save` swaps the latest of them into `profile_1` before loading, and Reset Game deletes them. |
 | `user://saves/profile_N.backup.json` | The previous valid generation of the main save. |
 | `user://saves/profile_N.tmp` | Exists only while an atomic write is in progress. |
-| `user://settings.json` | Settings and accessibility, shared by all profiles (not a career save). |
+| `user://settings.json` | Settings and accessibility for the device (not a career save; Reset Game keeps it). |
 
 On Web, `user://` is backed by IndexedDB; on Android it is app-private storage.
 
@@ -42,15 +43,17 @@ On Web, `user://` is backed by IndexedDB; on Android it is app-private storage.
 The main file is tried first, then the backup. A stale `.tmp` is always ignored.
 Every read goes through `migrate()` and `validate_save()`. The result reports
 `used_backup` so the UI can tell the player. Any save whose `game_mode` is not
-`"idle"` (a v3.1 tycoon save) is reported as `classic` (`SaveManager.is_classic`): the Main Menu shows it as "Classic save (not
-supported)" with a Delete button, and it is never loaded or migrated (idle GDD §15.3).
+`"idle"` (a v3.1 tycoon save) is reported as `classic` (`SaveManager.is_classic`): it is never loaded or migrated
+(idle GDD §15.3). The game treats it as no save, and a new game first moves it to a free slot
+(`make_room_for_new_game`) so it is not overwritten silently. `SaveManager.save_state()` sums this up
+for `profile_1`: `none`, `playable`, `classic` or `corrupt`.
 
 ### Device files outside the profiles
 
 `user://monetization.json` (`Monetization`, idle §22) holds the device's Supporter
 Pack flag and the day's rewarded-ad turns per placement (`{"version", "supporter",
 "day", "used"}`), written with the same temp-file pattern. It is not part of any
-profile, so deleting or importing a profile never touches it.
+save, so Reset Game and Import Save never touch it.
 
 ### Save codes (`SaveManager.export_code` / `decode_code` / `import_code`)
 
@@ -61,8 +64,9 @@ schema. `decode_code` ignores spaces and line breaks, checks the base64 alphabet
 the gzip header before decompressing (at most 16 MB), then runs the same
 `migrate()` and `validate_save()` as a file read. It reports `format` (not a complete
 code), `classic`, `newer` or `invalid`. `import_code` rewrites `profile_id` to the
-target profile and goes through `write_profile`, so the profile's previous save
-becomes its backup and the imported one becomes the latest (Continue).
+target profile and goes through `write_profile`, so the previous save becomes its
+backup. In the game, Settings > Gameplay > Import Save saves the shop being played,
+imports the code into `profile_1` and loads it (`GameRoot.replace_save`).
 
 ### Autosave and the offline reference
 
@@ -88,7 +92,7 @@ which keeps fixtures deterministic.
 | `game_version` | string | `SaveManager.GAME_VERSION`. |
 | `catalog_versions` | object | `{catalog_schema_version, content_version}` from the catalogs. |
 | `created_at`, `last_played_at` | string | ISO-8601 UTC. |
-| `last_played_unix` | float | Sub-second timestamp that orders the Continue button. |
+| `last_played_unix` | float | Sub-second timestamp; picks the latest of the old three profiles (`latest_profile`). |
 | `profile_id` | string | Must match the file's profile. A mismatched profile is rejected. |
 | `bakery_name` | string | Player-chosen name; kept across franchises. |
 | `player` | object | `PlayerTaskManager.capture()`: `appearance`, `actor`, `focus_iid`, `focus_cashier`, `focus_until` (the owner's tap focus, idle GDD §5.1). |

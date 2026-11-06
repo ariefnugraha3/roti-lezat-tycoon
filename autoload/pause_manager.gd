@@ -14,7 +14,8 @@ signal lifecycle_resumed()
 const LIFECYCLE: StringName = &"lifecycle"
 const USER: StringName = &"user"
 
-## Hanya aktif saat gameplay berjalan; di Main Menu fokus hilang tidak berarti apa-apa.
+## Hanya aktif saat gameplay berjalan; di layar pembuka dan popup toko baru fokus
+## hilang tidak berarti apa-apa.
 var lifecycle_enabled: bool = false
 
 var _reasons: Dictionary = {}

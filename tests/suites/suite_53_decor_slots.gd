@@ -642,7 +642,7 @@ func _ui() -> void:
 	await runner.get_tree().process_frame
 	eq(world.slot_marker_count(), 0, "markers are gone after Decoration Mode")
 	eq(world.lifted_decor(), -1, "nothing stays lifted")
-	game.return_to_menu()
+	game.end_session()
 	await runner.get_tree().process_frame
 	game.queue_free()
 	await runner.get_tree().process_frame
@@ -696,17 +696,17 @@ func _badges() -> void:
 	saved["equipped"] = {"badge": "badge_first_crumb"}
 	dm.restore(saved)
 	check(not dm.equipped.has("badge"), "an old save's equipped badge entry is dropped")
-	# Kartu profil: medali untuk setiap badge yang sudah didapat.
+	# Ringkasan save: medali untuk setiap badge yang sudah didapat.
 	SaveManager.dir = "user://test_saves_badges"
 	SaveManager.write_profile(&"profile_1", s.capture_save())
 	var h: Dictionary = SaveManager.read_header(&"profile_1")
 	eq(h.get("badges", []), ["badge_first_crumb"] as Array[String], "the profile header lists the earned badge")
-	var row: Control = ProfileScreen.badge_row(h["badges"])
-	check(row != null and row.get_child_count() == 1, "the profile card shows one medal")
+	var row: Control = SaveSummary.badges(h["badges"])
+	check(row != null and row.get_child_count() == 1, "the save summary shows one medal")
 	if row != null:
 		check(row.get_child(0).tooltip_text == Tx.t("badge_first_crumb"), "the medal is named by its tooltip")
 		row.free()
-	check(ProfileScreen.badge_row([]) == null, "no medal row without badges")
+	check(SaveSummary.badges([]) == null, "no medal row without badges")
 	SaveManager.delete_profile(&"profile_1")
 	SaveManager.dir = "user://saves"
 	free_sim(s)

@@ -256,7 +256,7 @@ func _portals() -> void:
 	runner.add_child(game)
 	await runner.get_tree().process_frame
 	game.skip_splash_for_tests()
-	game.show_main_menu()
+	game.begin()
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
 	check(p.events.has(&"loading_finished"), "the portal hears that loading finished")

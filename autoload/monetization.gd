@@ -70,7 +70,7 @@ func _process(_delta: float) -> void:
 # SIKLUS HIDUP PORTAL
 # ===========================================================================
 
-## Game selesai dimuat (Main Menu pertama tampil).
+## Game selesai dimuat (pemain mengetuk Tap to Start).
 func loading_finished() -> void:
 	_loading_done = true
 

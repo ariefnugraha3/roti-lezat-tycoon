@@ -269,9 +269,11 @@ func _check_boot() -> void:
 	var game: GameRoot = shell.game
 	_add("the portrait frame is 720 logical px wide (GDD idle 12.0.2)", shell.viewport.size_2d_override.x == 720, str(shell.viewport.size_2d_override))
 	game.skip_splash_for_tests()
-	game.show_main_menu()
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	game.begin()
 	await get_tree().process_frame
-	_add("headless boot reaches the main menu", game.modals.is_open(&"main_menu"))
+	_add("headless boot without a save reaches the new bakery popup (GDD idle 19 no. 21)", game.modals.is_open(&"new_game"))
 	# Irisan vertikal Tier 1 (GDD idle 2.3): New Game lalu 30 menit nyata tanpa
 	# input apa pun; toko harus menjual sendiri.
 	await game.start_new_game(&"profile_1", "female", "Validator Bakery")
@@ -283,7 +285,7 @@ func _check_boot() -> void:
 	await get_tree().process_frame
 	_add("Tier 1 vertical slice sells bread with no input (GDD idle 2.3)", game.sim.statistics.get_stat("total_bread_sold") > 0.0 and game.sim.economy.balance >= 0.0)
 	_add("no console error during the Tier 1 vertical slice", _errors.count == 0, "; ".join(_errors.first))
-	game.return_to_menu()
+	game.end_session()
 	await get_tree().process_frame
 	shell.queue_free()
 	await get_tree().process_frame

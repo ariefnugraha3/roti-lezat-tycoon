@@ -31,7 +31,7 @@ func _boot() -> GameRoot:
 func _finish(game: GameRoot) -> void:
 	game.modals.close_all()
 	game.playing = true
-	game.return_to_menu()
+	game.end_session()
 	game.queue_free()
 	await runner.get_tree().process_frame
 	for pid: StringName in SaveManager.PROFILE_IDS:
