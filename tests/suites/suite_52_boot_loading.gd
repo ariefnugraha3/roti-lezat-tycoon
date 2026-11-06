@@ -12,6 +12,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_33_MUSIC_BUILD", "name": "33 music beds are built in small slices with exactly the same result as building at once", "fn": _music_build},
 		{"id": "ACC_33_MUSIC_NO_STALL", "name": "33 a music change never builds a bed on the spot: the old music plays until the new bed is ready", "fn": _music_no_stall},
+		{"id": "ACC_33_AUDIO_TAIL_PAD", "name": "idle 20 no. 66 every sound carries spare samples past its end (a copy of its start when it loops, silence otherwise), so the Android mixer never reads past the buffer", "fn": _audio_tail_pad},
 		{"id": "TEST_UI_LOADING_STAGES", "name": "89.5/114 new game and load show staged text and a forward-only bar, keep the clock still, and fade after the world is drawn", "fn": _loading_stages},
 		{"id": "ACC_12_ORIENTATION_HINT", "name": "idle 12.0.6 a phone browser held sideways gets a one-time 'Turn your phone upright' hint that blocks and pauses nothing and goes away after 4 s; upright phones and desktops get none", "fn": _orientation_hint},
 		{"id": "TEST_UI_SPLASH_TAP", "name": "12.1 Tap to Start reacts when the finger lifts, which browsers need to allow full screen", "fn": _splash_tap},
@@ -37,6 +38,36 @@ func _music_build() -> void:
 	check(sliced.result.data == whole.data, "slice by slice gives exactly the same sound as building at once")
 	eq(sliced.result.loop_mode, AudioStreamWAV.LOOP_FORWARD, "the bed loops")
 	eq(sliced.result.loop_end, whole.loop_end, "same loop length")
+
+
+func _audio_tail_pad() -> void:
+	var pad: int = AudioGenerator.TAIL_PAD
+	check(pad >= 8, "at least 8 spare samples, more than the mixer's interpolation reads ahead")
+	var bad: Array[String] = []
+	var loops: int = 0
+	var ids: Array[StringName] = AudioManager.short_sound_ids()
+	for id: StringName in ids:
+		var gen: String = String(DataRegistry.audio_event(id).generator)
+		var s: AudioStreamWAV = AudioGenerator.build(gen)
+		var n: int = s.data.size() / 2 - pad
+		if s.loop_mode == AudioStreamWAV.LOOP_FORWARD:
+			loops += 1
+			if s.loop_end != n:
+				bad.append("%s loop_end %d, samples %d" % [gen, s.loop_end, n])
+				continue
+		for k in pad:
+			var want: int = s.data.decode_s16(k * 2) if s.loop_mode == AudioStreamWAV.LOOP_FORWARD else 0
+			if s.data.decode_s16((n + k) * 2) != want:
+				bad.append("%s spare sample %d" % [gen, k])
+				break
+	check(ids.size() > 20 and loops >= 3, "checked %d sounds, %d of them loops" % [ids.size(), loops])
+	check(bad.is_empty(), "spare samples in place: %s" % ", ".join(bad))
+	var bed: AudioStreamWAV = AudioGenerator.build("music_morning")
+	eq(bed.data.size(), (bed.loop_end + pad) * 2, "the music bed has the same spare samples")
+	var same: bool = true
+	for k in pad:
+		same = same and bed.data.decode_s16((bed.loop_end + k) * 2) == bed.data.decode_s16(k * 2)
+	check(same, "and they repeat its start, so the loop joins without a click")
 
 
 func _music_no_stall() -> void:

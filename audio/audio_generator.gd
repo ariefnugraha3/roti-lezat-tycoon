@@ -14,6 +14,13 @@ extends RefCounted
 ## Laju cuplik seluruh bunyi. 22050 Hz sudah lebih dari cukup untuk palet foley
 ## hangat ala lo-fi 2000-an dan menekan biaya hitung di ponsel maupun browser.
 const SAMPLE_RATE: int = 22050
+## Sampel cadangan setelah ujung setiap stream. Interpolasi mixer Godot membaca
+## beberapa sampel melewati titik loop atau akhir bunyi; di Android buffer besar
+## berakhir tepat sebelum halaman memori pelindung, jadi tanpa cadangan ini
+## thread audio crash (SIGSEGV di AudioTrack) begitu loop ambience berputar
+## (GDD idle 20 no. 66). Loop mendapat salinan sampel awalnya (sambungan tetap
+## mulus), bunyi sekali-putar mendapat keheningan. loop_end tetap di ujung asli.
+const TAIL_PAD: int = 16
 
 ## Benih derau tetap agar bunyi selalu identik di setiap sesi (kami tidak
 ## memakai randf() global sesuai aturan proyek).
@@ -111,10 +118,11 @@ static func _new_buffer(dur: float) -> PackedFloat32Array:
 static func _to_stream(buf: PackedFloat32Array, looping: bool) -> AudioStreamWAV:
 	var n: int = buf.size()
 	var data: PackedByteArray = PackedByteArray()
-	data.resize(n * 2)
+	data.resize((n + TAIL_PAD) * 2)
 	for i in n:
 		var v: float = clampf(buf[i], -1.0, 1.0)
 		data.encode_s16(i * 2, int(round(v * 32767.0)))
+	pad_tail(data, n, looping)
 	var stream: AudioStreamWAV = AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = SAMPLE_RATE
@@ -127,6 +135,13 @@ static func _to_stream(buf: PackedFloat32Array, looping: bool) -> AudioStreamWAV
 	else:
 		stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
 	return stream
+
+
+## Isi TAIL_PAD sampel setelah sampel ke-`n` di `data` (16-bit mono): salinan
+## awal untuk loop, nol untuk bunyi sekali-putar.
+static func pad_tail(data: PackedByteArray, n: int, looping: bool) -> void:
+	for k in TAIL_PAD:
+		data.encode_s16((n + k) * 2, data.decode_s16((k % n) * 2) if looping and n > 0 else 0)
 
 
 ## Menjumlahkan src ke dalam dst mulai detik start_sec (dipotong di ujung buffer).

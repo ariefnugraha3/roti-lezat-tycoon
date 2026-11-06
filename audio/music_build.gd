@@ -246,13 +246,14 @@ func _work_chunk() -> void:
 					_buf[i] *= _gain
 			_advance(to3, Stage.ENCODE)
 			if _stage == Stage.ENCODE:
-				_data.resize(_n * 2)
+				_data.resize((_n + AudioGenerator.TAIL_PAD) * 2)
 		Stage.ENCODE:
 			var to4: int = mini(_i + CHUNK, _n)
 			for i in range(_i, to4):
 				_data.encode_s16(i * 2, int(round(clampf(_buf[i], -1.0, 1.0) * 32767.0)))
 			_advance(to4, Stage.DONE)
 			if _stage == Stage.DONE:
+				AudioGenerator.pad_tail(_data, _n, true)
 				_make_stream()
 
 

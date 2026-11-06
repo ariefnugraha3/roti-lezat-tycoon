@@ -144,7 +144,7 @@ soaks; `ACC_IDLE_PACING` and the soaks are long tests.
 | Rule | Check | Status |
 |---|---|---|
 | Web export completes (single-threaded) | `tools/release_validator.tscn` (full run), `.github/workflows/deploy-web.yml` | Tested by the full validator |
-| Android export | No Android SDK on the development machine | Not verified |
+| Android export | Debug APK (no Gradle) exported and run on the Android 14 x86_64 emulator `Crumbtown_Pixel_7_API_34`: boots, plays and sounds right after the audio tail-pad fix (idle §20 no. 66, ACC_33_AUDIO_TAIL_PAD); arm64 build handed to the maintainer for a phone. Release AAB (Gradle build template, release keystore) not tried | Partly verified (emulator) |
 | Performance on entry-level Android and phone browsers | Needs hardware | Not verified |
 
 ## Open decisions
