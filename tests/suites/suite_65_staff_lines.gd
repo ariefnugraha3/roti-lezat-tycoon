@@ -1,13 +1,14 @@
 extends TestSuite
 ## Roster ringkas dan celetukan staf (keputusan maintainer 2026-10-04, GDD 3.5,
 ## 31.6, 31.8): lima calon kasir dan lima calon koki; staf yang menganggur
-## bergantian bergestur dan sesekali berceletuk dalam bahasa Inggris.
+## bergantian bergestur, dan staf berceletuk dalam bahasa Inggris, sambil
+## bekerja juga sejak 2026-11-06 (GDD idle 20 no. 64).
 
 
 func tests() -> Array:
 	return [
 		{"id": "ACC_3_STAFF_ROSTER", "name": "3.5 the roster has five cashier and five baker candidates, each with a bio and a line of their own", "fn": _roster},
-		{"id": "ACC_31_STAFF_LINES", "name": "31.8 idle staff say an English line in a bubble at most once a minute: the first each day counts their days, the rest rotate without repeats; busy staff and Decoration Mode hide it", "fn": _lines},
+		{"id": "ACC_31_STAFF_LINES", "name": "31.8, idle 20 no. 64 staff say an English line in a bubble once a minute, idle or working: the first each day counts their days, the rest rotate without repeats (idle-only lines skipped while busy), a bubble stays its full time when they get busy, and Decoration Mode hides it", "fn": _lines},
 		{"id": "ACC_31_STAFF_IDLE_GESTURES", "name": "31.6 idle staff take turns wiping their face, stretching, humming, sipping tea and a role gesture (cashiers toss a coin, bakers pat flour off the apron), standing or seated", "fn": _gestures},
 	]
 
@@ -25,12 +26,11 @@ func _roster() -> void:
 func _lines() -> void:
 	PauseManager.clear_all()
 	var show: float = DataRegistry.balf("presentation.thought_show_seconds")
-	# Jadwal: paling sering sekali per 60 detik, dan hanya setelah diam 6 detik.
-	# Kalimat pertama hari itu jatuh tempo setelah urutan roster x 7 detik.
+	# Jadwal: sekali per 60 detik, sibuk atau tidak. Kalimat pertama hari itu
+	# jatuh tempo setelah urutan roster x 7 detik.
 	near(DataRegistry.balf("presentation.staff_line_every_seconds"), 60.0, 0.0001, "one line a minute at most")
-	check(not WorldView.staff_line_due(59.9, 30.0), "not before a minute has passed")
-	check(not WorldView.staff_line_due(60.0, 5.9), "nor before they have been idle for 6 s")
-	check(WorldView.staff_line_due(60.0, 6.0), "then they may speak")
+	check(not WorldView.staff_line_due(59.9), "not before a minute has passed")
+	check(WorldView.staff_line_due(60.0), "then they may speak, idle or working")
 	near(WorldView.staff_line_first_wait(0), 60.0, 0.0001, "the first staff member may speak first thing")
 	near(WorldView.staff_line_first_wait(1), 53.0, 0.0001, "the next one 7 s later, so they do not all talk at once")
 	# Kalimat pertama tiap hari menghitung hari kerja.
@@ -45,6 +45,14 @@ func _lines() -> void:
 	for i in pool.size():
 		said[str(WorldView.staff_line(budi, i + 1, 3, 3)["key"])] = true
 	eq(said.size(), pool.size(), "a day's lines never repeat before every line was said")
+	# Sambil bekerja: kalimat yang hanya cocok saat menganggur dilewati.
+	for sid: StringName in [budi, &"staff_cashier_dimas", &"staff_baker_joko"]:
+		for i3 in 60:
+			var k3: String = str(WorldView.staff_line(sid, i3 + 1, 3, 3, true)["key"])
+			if DataRegistry.STAFF_LINES_IDLE_ONLY.has(k3):
+				check(false, "%s says the idle-only line %s while busy" % [sid, k3])
+				break
+	check(WorldView.staff_line_pool(&"staff_cashier_dimas").has("staff_cashier_dimas_line"), "Dimas still has his own line when idle")
 	check(pool.has("staff_line_cat") and pool.has("staff_line_cashier_cardio") and pool.has("staff_cashier_budi_line"),
 		"general, cashier and personal lines are all in Budi's set")
 	check(not WorldView.staff_line_pool(&"staff_baker_joko").has("staff_line_cashier_cardio"), "bakers do not get cashier lines")
@@ -74,13 +82,11 @@ func _lines() -> void:
 	runner.add_child(world)
 	world.setup(s)
 	var bv: ActorView = null
-	for i in 300:
+	for i in 3:
 		world._process(0.05)
 		bv = world.views.get((s.staff.actors[budi] as SimActor).id)
-		if bv != null and bv.idle_seconds() >= 6.05:
-			break
 	var bb: ThoughtBubble = world.staff_bubble(budi)
-	check(bb != null and bb.is_showing(), "an idle cashier says something after 6 s")
+	check(bb != null and bb.is_showing(), "the first cashier says something first thing in the morning")
 	if bb == null:
 		world.queue_free()
 		free_sim(s)
@@ -89,7 +95,8 @@ func _lines() -> void:
 	eq(bb.text().replace("\n", " "), Tx.t(DataRegistry.STAFF_LINE_FIRST_DAY), "in English from the catalog")
 	var jb: ThoughtBubble = world.staff_bubble(&"staff_baker_joko")
 	check(jb == null or not jb.is_showing(), "Joko waits his own turn")
-	while bv.idle_seconds() < 6.0 + show + 0.2:
+	var t0: float = bv.idle_seconds()
+	while bv.idle_seconds() < t0 + show + 0.2:
 		world._process(0.05)
 	check(not bb.is_showing(), "the bubble goes after 5 s")
 	# Joko ke-5 di roster: kalimat pertamanya jatuh tempo 35 detik setelah pagi.
@@ -97,20 +104,26 @@ func _lines() -> void:
 		world._process(0.05)
 	jb = world.staff_bubble(&"staff_baker_joko")
 	check(jb != null and jb.is_showing(), "the seated baker speaks in his own turn")
-	while bv.idle_seconds() < 65.9:
+	while bv.idle_seconds() < t0 + 59.8:
 		world._process(0.05)
 	check(not bb.is_showing(), "Budi stays quiet for a full minute")
-	while bv.idle_seconds() < 66.1:
-		world._process(0.05)
-	check(bb.is_showing(), "a minute after his first line Budi says something else")
-	eq(bb.current_key(), str(WorldView.staff_line(budi, 1, 1, s.time.day)["key"]), "the next line in his set")
-	check(bb.current_key() != DataRegistry.STAFF_LINE_FIRST_DAY, "not the same line again")
-	# Begitu sibuk, gelembungnya hilang; Decoration Mode juga menyembunyikannya.
+	# Sibuk pun tetap berceletuk (GDD idle 20 no. 64), dengan kalimat yang cocok
+	# sambil bekerja.
 	s.staff.tasks[budi] = {"type": "probe"}
-	world._process(0.05)
-	world._process(0.3)
-	check(not bb.is_showing(), "a busy cashier stops talking")
+	for i4 in 10:
+		world._process(0.05)
+	check(bb.is_showing(), "a minute after his first line Budi says something else, though he is working")
+	eq(bb.current_key(), str(WorldView.staff_line(budi, 1, 1, s.time.day, true)["key"]), "the next working line in his set")
+	check(bb.current_key() != DataRegistry.STAFF_LINE_FIRST_DAY, "not the same line again")
+	check(not DataRegistry.STAFF_LINES_IDLE_ONLY.has(bb.current_key()), "and not an idle-only line")
+	for i5 in 30:
+		world._process(0.05)
+	check(bb.is_showing(), "the bubble stays while he works")
+	for i6 in int(show / 0.05) + 4:
+		world._process(0.05)
+	check(not bb.is_showing(), "and goes when its time is up")
 	s.staff.tasks.erase(budi)
+	# Decoration Mode menyembunyikannya.
 	world.decoration_mode = true
 	for i2 in 900:
 		world._process(0.05)

@@ -50,6 +50,9 @@ const STAFF_LINES: Array[String] = [
 	"staff_line_tummy", "staff_line_plants", "staff_line_diary", "staff_line_karaoke",
 	"staff_line_lottery", "staff_line_comfy_shoes", "staff_line_friends", "staff_line_butter",
 ]
+## Celetukan yang hanya cocok saat staf menganggur (mis. "...Anyone?"): tidak
+## diucapkan sambil bekerja (GDD idle 20 no. 64).
+const STAFF_LINES_IDLE_ONLY: Array[String] = ["staff_line_cashier_next", "staff_line_stretch", "staff_cashier_dimas_line"]
 const STAFF_LINES_CASHIER: Array[String] = [
 	"staff_line_cashier_cardio", "staff_line_cashier_next", "staff_line_cashier_prices", "staff_line_cashier_kaching",
 	"staff_line_cashier_smile", "staff_line_cashier_bags", "staff_line_cashier_umbrella", "staff_line_cashier_drawer",
@@ -910,9 +913,9 @@ func _validate_balance() -> void:
 	if wipe_len <= 0.0 or wipe_every <= wipe_len:
 		_err("presentation: each face wipe must end before the next one")
 	# Celetukan staf (GDD 31.8): satu gelembung selesai sebelum yang berikutnya.
-	if float(p.get("staff_line_first_seconds", 0.0)) <= 0.0 or float(p.get("staff_line_stagger_seconds", -1.0)) < 0.0 \
+	if float(p.get("staff_line_stagger_seconds", -1.0)) < 0.0 \
 			or float(p.get("staff_line_every_seconds", 0.0)) <= float(p.get("thought_show_seconds", 0.0)):
-		_err("presentation: staff lines need a positive first delay, a stagger >= 0, and a period longer than a bubble")
+		_err("presentation: staff lines need a stagger >= 0 and a period longer than a bubble")
 	for k6: String in STAFF_LINES + STAFF_LINES_CASHIER + STAFF_LINES_BAKER + [STAFF_LINE_FIRST_DAY, STAFF_LINE_DAY_N]:
 		_check_text(StringName(k6), "staff lines")
 	# Gerak menganggur staf (GDD 31.6): gerakan dikenal, masing-masing selesai

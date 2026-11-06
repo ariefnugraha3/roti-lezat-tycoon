@@ -65,7 +65,6 @@
   "wipe_gesture_seconds": 1.2,
   "thought_after_seconds": [10.0, 20.0, 30.0, 40.0],
   "thought_show_seconds": 5.0,
-  "staff_line_first_seconds": 6.0,
   "staff_line_every_seconds": 60.0,
   "staff_line_stagger_seconds": 7.0,
   "staff_idle_gestures": ["wipe", "stretch", "hum", "tea", "role"],

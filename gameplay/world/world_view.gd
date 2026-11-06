@@ -879,14 +879,15 @@ func shopper_bubble(customer_id: StringName) -> ThoughtBubble:
 	return _shopper_bubbles.get(customer_id)
 
 
-## Celetukan staf yang menganggur (keputusan maintainer 2026-10-04, GDD 31.8,
-## 127.24). Seorang staf berceletuk paling sering sekali tiap
-## `staff_line_every_seconds` detik nyata, dan hanya setelah ia diam paling
-## sedikit `staff_line_first_seconds`: gelembung satu kalimat muncul di atas
-## kepalanya. Yang pertama tiap hari menghitung hari kerjanya; sisanya
-## bergiliran dari kalimat umum, kalimat perannya, dan kalimat khasnya. Murni
-## presentasi: tanpa RNG simulasi, tidak disimpan, tidak menangkap ketukan, dan
-## disembunyikan di Decoration Mode atau bila ia di lantai lain.
+## Celetukan staf (keputusan maintainer 2026-10-04, GDD 31.8, 127.24; sejak
+## 2026-11-06 juga sambil bekerja, GDD idle 20 no. 64). Seorang staf berceletuk
+## paling sering sekali tiap `staff_line_every_seconds` detik nyata, sibuk atau
+## tidak: gelembung satu kalimat muncul di atas kepalanya dan ikut berjalan
+## sampai waktunya habis. Yang pertama tiap hari menghitung hari kerjanya;
+## sisanya bergiliran dari kalimat umum, kalimat perannya, dan kalimat khasnya
+## (yang hanya cocok saat menganggur dilewati selagi ia sibuk). Murni presentasi:
+## tanpa RNG simulasi, tidak disimpan, tidak menangkap ketukan, dan disembunyikan
+## di Decoration Mode atau bila ia di lantai lain.
 func _update_staff_lines(delta: float) -> void:
 	var live: Dictionary = {}
 	var paused: bool = PauseManager.is_paused()
@@ -902,11 +903,10 @@ func _update_staff_lines(delta: float) -> void:
 		var step: float = 0.0 if paused else delta
 		said["wait"] = float(said["wait"]) + step
 		if float(said["left"]) > 0.0:
-			# Begitu sibuk, gelembungnya langsung hilang.
-			said["left"] = 0.0 if v.idle_seconds() <= 0.0 else float(said["left"]) - step
-		elif staff_line_due(float(said["wait"]), v.idle_seconds()):
+			said["left"] = float(said["left"]) - step
+		elif staff_line_due(float(said["wait"])):
 			var day_n: int = sim.time.day - int(sim.staff.contract(id).get("hired_day", sim.time.day))
-			said["line"] = staff_line(id, int(said["count"]), day_n, sim.time.day)
+			said["line"] = staff_line(id, int(said["count"]), day_n, sim.time.day, v.idle_seconds() <= 0.0)
 			said["count"] = int(said["count"]) + 1
 			said["left"] = DataRegistry.balf("presentation.thought_show_seconds")
 			said["wait"] = 0.0
@@ -941,22 +941,25 @@ static func staff_line_first_wait(index: int) -> float:
 	return every - fposmod(float(index) * DataRegistry.balf("presentation.staff_line_stagger_seconds"), every)
 
 
-## true bila staf yang sudah `wait` detik nyata sejak celetukan terakhirnya dan
-## sedang diam `idle` detik boleh berceletuk sekarang.
-static func staff_line_due(wait: float, idle: float) -> bool:
-	return wait >= DataRegistry.balf("presentation.staff_line_every_seconds") 		and idle >= DataRegistry.balf("presentation.staff_line_first_seconds")
+## true bila staf yang sudah `wait` detik nyata sejak celetukan terakhirnya boleh
+## berceletuk sekarang, sedang bekerja atau tidak.
+static func staff_line_due(wait: float) -> bool:
+	return wait >= DataRegistry.balf("presentation.staff_line_every_seconds")
 
 
 ## Kalimat celetukan ke-`count` hari ini (0 = pertama) dari staf `sid` di hari
 ## kerjanya yang ke-`day_n`: {key, params}. Yang pertama menghitung hari kerja;
 ## sisanya bergiliran tanpa berulang dalam sehari, mulai dari tempat yang
-## berbeda tiap staf dan tiap hari.
-static func staff_line(sid: StringName, count: int, day_n: int, game_day: int) -> Dictionary:
+## berbeda tiap staf dan tiap hari. `busy`: staf sedang bekerja, jadi kalimat
+## yang hanya cocok saat menganggur (DataRegistry.STAFF_LINES_IDLE_ONLY) dilewati.
+static func staff_line(sid: StringName, count: int, day_n: int, game_day: int, busy: bool = false) -> Dictionary:
 	if count <= 0:
 		if day_n <= 1:
 			return {"key": DataRegistry.STAFF_LINE_FIRST_DAY, "params": {}}
 		return {"key": DataRegistry.STAFF_LINE_DAY_N, "params": {"n": day_n}}
 	var pool: Array[String] = staff_line_pool(sid)
+	if busy:
+		pool = pool.filter(func(k: String) -> bool: return not DataRegistry.STAFF_LINES_IDLE_ONLY.has(k))
 	return {"key": pool[posmod(staff_index(sid) * 5 + game_day * 3 + count - 1, pool.size())], "params": {}}
 
 
