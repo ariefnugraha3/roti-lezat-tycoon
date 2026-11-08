@@ -11,19 +11,26 @@ extends UIScreen
 ## tidak pernah memilih perabot lain dan tidak pernah membatalkan. Petak
 ## jejaknya putih bila sah, merah bersilang beserta alasannya bila tidak. Tata
 ## letak simulasi baru berubah saat Place diketuk; Cancel, Back, atau klik
-## kanan mengembalikan barang ke tempat semula. Perabot IN_USE tidak dapat
-## diangkat, kecuali rak berisi roti selama toko tidak buka: rotinya ikut
-## pindah (EquipmentManager.move_blocked). Ubin yang harus tetap kosong (jalur, antrean, titik layanan, akses
+## kanan mengembalikan barang ke tempat semula. Perabot yang sedang dipakai
+## juga bisa diangkat (GDD idle §20 no. 75): adonan, loyang, dan roti ikut
+## pindah, dan pemakainya berjalan ke tempat barunya (SimulationRoot.
+## on_equipment_moved). Alat yang dipegang menunjukkan sisi depannya dengan
+## panah di lantai (FrontArrow, GDD idle §20 no. 76).
+## Ubin yang harus tetap kosong (jalur, antrean, titik layanan, akses
 ## perabot, leher botol) diarsir merah selama mode ini (GDD 17.4 "preview merah
 ## dan tampilkan alasan"). Decor Shop hanya aktif after-hours.
 ##
-## Tata letak (keputusan maintainer 2026-09-30): TANPA panel samping, supaya
-## dunia terlihat penuh. Bilah atas tipis (judul, petunjuk, lantai, Done); tab di
-## tepi bawah yang membuka baki barang (Equipment / Your Decorations / Decor
-## Shop); dan toolbar aksi (Place, Rotate, Put Away, Cancel) yang melayang tepat
-## di atas barang yang dipegang dan ikut pindah bersamanya. Barang yang tidak
+## Tata letak (keputusan maintainer 2026-09-30, katalog 2026-11-08): TANPA panel
+## samping. Bilah atas tipis (judul, petunjuk, lantai, Done); di bawah, katalog
+## berbentuk lembar seperti Staff (GDD idle §20 no. 72) dengan tab per jenis
+## (Equipment / Wall / Counter / Floor / Style): baris berlencana ikon, nama,
+## keterangan, dan tombol Move/Place/Buy/Use; tab dekorasi berisi "Your
+## Decorations" lalu "Decor Shop" jenis itu, dengan pil sisa slotnya. Katalog
+## terlipat menjadi deret tab saja selama barang dipegang (dan saat tab aktif
+## diketuk lagi) supaya dunia terlihat; toolbar aksi (Place, Rotate, Put Away,
+## Cancel) melayang tepat di atas barang yang dipegang. Barang yang tidak
 ## digambar di lantai yang sedang dilihat memakai toolbar yang berlabuh di atas
-## tab.
+## katalog.
 ##
 ## Dekorasi (GDD 72.3): semuanya di lantai toko. Dekorasi dinding/meja yang
 ## dipegang menyalakan penanda slot bebas; ketuk (atau seret ke) penanda untuk
@@ -33,7 +40,7 @@ extends UIScreen
 const REASON_KEYS: Dictionary = {
 	&"zone": "ui_decor_invalid_zone", &"overlap": "ui_decor_invalid_overlap", &"path": "ui_decor_invalid_path",
 	&"access": "ui_decor_invalid_access", &"bounds": "ui_decor_invalid_bounds", &"reserved": "ui_decor_invalid_reserved",
-	&"in_use": "ui_feedback_in_use", &"slots_full": "ui_equipment_slots_full", &"limit": "ui_decor_limit",
+	&"slots_full": "ui_equipment_slots_full", &"limit": "ui_decor_limit",
 	&"invalid": "ui_decor_invalid_reserved", &"blocks_access": "ui_decor_invalid_blocks_access",
 }
 ## Detail banner untuk penolakan karena jalan (WorldManager.WALKWAY_REASONS).
@@ -41,13 +48,19 @@ const WARN_KEYS: Dictionary = {
 	&"reserved": "ui_decor_warn_walkway", &"path": "ui_decor_warn_walkway", &"blocks_access": "ui_decor_warn_access",
 }
 const WARN_SECONDS: float = 2.6
-## Tab baki bawah: -1 = baki tertutup.
+## Tab katalog bawah (GDD idle §20 no. 72).
 const TAB_EQUIPMENT: int = 0
-const TAB_OWNED: int = 1
-const TAB_SHOP: int = 2
-const TAB_KEYS: Array[String] = ["ui_market_tab_equipment", "ui_decor_owned", "ui_decor_shop"]
-const TAB_ICONS: Array[String] = ["kitchen", "frame", "cart"]
-const CARD_SIZE: Vector2 = Vector2(184.0, 92.0)
+const TAB_WALL: int = 1
+const TAB_COUNTER: int = 2
+const TAB_FLOOR: int = 3
+const TAB_STYLE: int = 4
+const TAB_KEYS: Array[String] = ["ui_market_tab_equipment", "decor_type_wall", "decor_type_counter_prop", "decor_type_floor_prop",
+	"decor_type_skin"]
+## Jenis dekorasi tiap tab (tab alat tidak punya).
+const TAB_TYPES: Array = [[], [&"wall"], [&"counter_prop"], [&"floor_prop", &"floor_overlay"], [&"skin", &"outfit"]]
+## Tinggi daftar katalog: bagian dari tinggi bingkai, paling sedikit sekian px.
+const LIST_RATIO: float = 0.33
+const LIST_MIN_PX: float = 220.0
 ## Jenis dekorasi berpasang dan urutannya di ringkasan slot baki.
 const DECOR_TYPES: Array[StringName] = [&"wall", &"counter_prop", &"floor_prop", &"floor_overlay"]
 ## Jarak ujung ekor toolbar di atas puncak perabot (meter) dan dari tepi layar (px).
@@ -86,16 +99,23 @@ var _drag_anchor0: Vector2i = NO_CELL
 var _drag_pos: Vector2 = Vector2.ZERO
 ## Barang dari baki menunggu kamera tiba di lantainya untuk disorot.
 var _focus_pending: bool = false
-var _tab: int = -1
+## Tab katalog yang dipilih, dan apakah daftarnya terbuka (false = deret tab saja).
+var _tab: int = TAB_EQUIPMENT
+var _expanded: bool = true
 var _status: Label = null
 var _top: PanelContainer = null
 var _bottom: VBoxContainer = null
-var _tray: PanelContainer = null
-var _tray_row: HBoxContainer = null
-var _tabs_box: HBoxContainer = null
+var _catalog: PanelContainer = null
+var _tabs: ProceduralUIFactory.CozyTabs = null
+var _cat_body: VBoxContainer = null
+var _usage_row: HFlowContainer = null
+var _list_scroll: ScrollContainer = null
+var _list: VBoxContainer = null
 var _legend_zone: Control = null
 var _legend_clear: Control = null
 var _toolbar: ActionBar = null
+## Panah sisi depan alat yang dipegang (GDD idle §20 no. 76).
+var _arrow: FrontArrow = null
 var _tb_name: Label = null
 var _tb_place: Button = null
 var _tb_rotate: Button = null
@@ -123,6 +143,10 @@ func build() -> void:
 	game.commands.drop_override = _on_world_drop
 	game.world.camera_rig.set_free_pan(true)
 	game.world.decoration_mode = true
+	# Panah depan alat yang dipegang: anak pertama, jadi di bawah semua panel.
+	_arrow = FrontArrow.new()
+	_arrow.world = game.world
+	add_child(_arrow)
 	var inset: Vector4 = ProceduralUIFactory.safe_area_margin()
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -142,6 +166,7 @@ func build() -> void:
 	sim.world.layout_changed.connect(_refresh_overlay)
 	var pre: int = int(params.get("select_iid", -1))
 	if pre >= 0:
+		_expanded = false
 		_hold_equipment(pre)
 		_focus_pending = has_selection()
 	_refresh_all()
@@ -206,9 +231,8 @@ func _build_top_bar(frame: Control) -> void:
 	_done_btn = done
 
 
-## Tepi bawah: keterangan arsiran, baki barang (tertutup sampai sebuah tab
-## diketuk), lalu tiga tab di tengah. Keterangan punya barisnya sendiri supaya
-## ketiga tab muat di lebar 720 pada skala teks 150% (GDD idle 12.0.5).
+## Tepi bawah: keterangan arsiran, lalu katalog seperti lembar Staff (GDD idle
+## §20 no. 72): deret tab per jenis di atas, pil sisa slot, dan daftar bergulir.
 func _build_bottom(frame: Control) -> void:
 	_bottom = VBoxContainer.new()
 	_bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -220,27 +244,42 @@ func _build_bottom(frame: Control) -> void:
 	legend_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bottom.add_child(legend_row)
 	legend_row.add_child(_build_legend())
-	_tray = PanelContainer.new()
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.PANEL, 0.96), 20, true)
-	sb.set_content_margin_all(10.0)
-	_tray.add_theme_stylebox_override("panel", sb)
-	_tray.mouse_filter = Control.MOUSE_FILTER_STOP
-	_bottom.add_child(_tray)
-	var sc := ScrollContainer.new()
-	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.custom_minimum_size = Vector2(0, CARD_SIZE.y + 14.0)
-	_tray.add_child(sc)
-	_tray_row = HBoxContainer.new()
-	_tray_row.add_theme_constant_override("separation", 10)
-	sc.add_child(_tray_row)
-	_tray.visible = false
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_bottom.add_child(row)
-	_tabs_box = HBoxContainer.new()
-	_tabs_box.add_theme_constant_override("separation", 8)
-	row.add_child(_tabs_box)
+	_catalog = PanelContainer.new()
+	_catalog.name = "Catalog"
+	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.SHEET, 26, true)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	_catalog.add_theme_stylebox_override("panel", sb)
+	_catalog.mouse_filter = Control.MOUSE_FILTER_STOP
+	_bottom.add_child(_catalog)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	_catalog.add_child(v)
+	var labels: Array = []
+	for k: String in TAB_KEYS:
+		labels.append(Tx.t(k))
+	_tabs = ProceduralUIFactory.tab_bar(labels, _tab, _set_tab)
+	v.add_child(_tabs)
+	_cat_body = VBoxContainer.new()
+	_cat_body.name = "Body"
+	_cat_body.add_theme_constant_override("separation", 8)
+	v.add_child(_cat_body)
+	_usage_row = HFlowContainer.new()
+	_usage_row.name = "SlotUsage"
+	_usage_row.add_theme_constant_override("h_separation", 6)
+	_usage_row.add_theme_constant_override("v_separation", 6)
+	_cat_body.add_child(_usage_row)
+	_list_scroll = ScrollContainer.new()
+	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_list_scroll.custom_minimum_size = Vector2(0.0, maxf(LIST_MIN_PX, get_viewport_rect().size.y * LIST_RATIO))
+	_cat_body.add_child(_list_scroll)
+	_list = VBoxContainer.new()
+	_list.name = "CatalogList"
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list.add_theme_constant_override("separation", 8)
+	_list_scroll.add_child(_list)
 
 
 ## Keterangan arsiran ubin (GDD 17.4): contoh warna + teks pendek; kalimat
@@ -357,157 +396,187 @@ static func _icon_text_button(icon_name: String, text: String, kind: String, cb:
 
 
 # ===========================================================================
-# BAKI BARANG (tab bawah)
+# KATALOG (lembar bawah seperti Staff, GDD idle §20 no. 72)
 # ===========================================================================
 
-## Ketuk tab: buka baki di tab itu; ketuk tab yang sedang terbuka: tutup baki.
-## Dibangun ulang sesudah sinyal tombolnya selesai.
+## Ketuk tab: buka daftarnya; ketuk tab yang sedang terbuka: lipat katalog
+## menjadi deret tab saja. Dibangun ulang sesudah sinyal tombolnya selesai.
 func _set_tab(idx: int) -> void:
-	_tab = -1 if _tab == idx else idx
+	if idx == _tab and _expanded:
+		_expanded = false
+	else:
+		_tab = idx
+		_expanded = true
+		_list_scroll.scroll_vertical = 0
 	_refresh_all.call_deferred()
+
+
+## Tab katalog untuk jenis dekorasi `t`.
+static func tab_for_type(t: StringName) -> int:
+	for i in TAB_TYPES.size():
+		if (TAB_TYPES[i] as Array).has(t):
+			return i
+	return TAB_WALL
 
 
 func _refresh_all() -> void:
 	_render_tabs()
-	_render_tray()
+	_render_catalog()
 	_update_toolbar_content()
 	_update_status()
 
 
-## Tab aktif memakai gaya utama. Tab alat menghitung alat yang belum dipasang.
+## Tab aktif hanya saat daftarnya terbuka. Tab alat menghitung alat yang belum
+## dipasang. Tombol tab tidak pernah dibangun ulang.
 func _render_tabs() -> void:
-	clear(_tabs_box)
 	var unplaced: int = 0
 	for e: EquipmentInstance in sim.equipment.all_sorted():
 		if not e.placed:
 			unplaced += 1
-	for i in TAB_KEYS.size():
-		var idx: int = i
-		var text: String = Tx.t(TAB_KEYS[i])
-		if i == TAB_EQUIPMENT and unplaced > 0:
-			text += " (%d)" % unplaced
-		var b: Button = _icon_text_button(TAB_ICONS[i], text, "primary" if i == _tab else "secondary", func() -> void: _set_tab(idx))
-		b.name = "Tab%d" % i
-		_tabs_box.add_child(b)
+	if not _tabs.buttons.is_empty():
+		var text: String = Tx.t(TAB_KEYS[TAB_EQUIPMENT])
+		_tabs.buttons[TAB_EQUIPMENT].text = text + (" (%d)" % unplaced if unplaced > 0 else "")
+	_tabs.select(_tab if _expanded else -1)
 
 
-func _render_tray() -> void:
-	clear(_tray_row)
-	_tray.visible = _tab >= 0
-	match _tab:
-		TAB_EQUIPMENT:
-			for e: EquipmentInstance in sim.equipment.all_sorted():
-				# Fixture bangunan (Gudang, Meja Tunggu) dipilih lewat ketukan di dunia.
-				if EquipmentManager.is_fixture(e.category()) and e.placed:
-					continue
-				var sub: String = Tx.t("ui_decor_placed") if e.placed else Tx.t("ui_decor_unplaced")
-				_tray_row.add_child(_card(Tx.item_name(e.def_id), sub, e.iid == _sel_iid, false, _pick_equipment_card.bind(e.iid)))
-		TAB_OWNED:
-			_tray_row.add_child(_slot_usage_card())
-			for o: Dictionary in sim.decoration.owned:
-				var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
-				var name_text: String = Tx.t(String(def.localization_key))
-				# Badge achievement dipasang di dinding, tetapi tetap disebut Badge.
-				var type_text: String = Tx.t("decor_type_badge" if def.is_badge() else "decor_type_" + String(def.placement_type))
-				if def.is_placeable():
-					var sub2: String = "%s · %s" % [type_text, Tx.t("ui_decor_placed") if bool(o["placed"]) else Tx.t("ui_decor_unplaced")]
-					_tray_row.add_child(_card(name_text, sub2, int(o["uid"]) == _sel_decor, false, _pick_decor_card.bind(int(o["uid"]))))
-				else:
-					var eq: bool = sim.decoration.equipped.values().has(String(def.id))
-					var sub3: String = "%s · %s" % [type_text, Tx.t("ui_decor_equipped") if eq else Tx.t("ui_decor_equip")]
-					_tray_row.add_child(_card(name_text, sub3, eq, false, _equip.bind(def.id)))
-		TAB_SHOP:
-			for x: Variant in DataRegistry.decorations():
-				var d: MiscDefinitions.DecorationDefinition = x
-				if d.source != &"shop":
-					continue
-				var card: Button = _card(Tx.t(String(d.localization_key)), shop_sub(sim, d), false, sim.decoration.can_buy(d.id) != &"", _buy.bind(d.id))
-				card.name = "Shop_" + String(d.id)
-				_tray_row.add_child(card)
+func _render_catalog() -> void:
+	_cat_body.visible = _expanded
+	clear(_usage_row)
+	clear(_list)
+	if not _expanded:
+		return
+	if _tab == TAB_EQUIPMENT:
+		_list_equipment()
+	else:
+		_list_decor(TAB_TYPES[_tab])
 
 
-## Keterangan kartu toko (GDD idle 8.8): bonusnya lalu harga sekarang, atau
-## "Active" bila bonusnya sudah menyala di putaran ini.
-static func shop_sub(s: SimulationRoot, d: MiscDefinitions.DecorationDefinition) -> String:
-	var price_text: String = Tx.t("ui_decor_buy", {"price": Tx.kr(s.decoration.price(d.id))})
-	if not d.has_bonus():
-		return price_text
-	var bonus_text: String = Tx.t("ui_decor_bonus_" + str(d.bonus["type"]), {"percent": Tx.percent(float(d.bonus["value"]))})
-	return "%s · %s" % [bonus_text, Tx.t("ui_decor_bonus_active") if s.decoration.is_bonus_active(d.id) else price_text]
-
-
-## Ringkasan slot dekorasi lokasi ini (GDD 72.3): "Wall 1/2" dan seterusnya;
-## jenis yang penuh ditulis dengan warna kayu.
-func _slot_usage_card() -> Control:
-	var pc := PanelContainer.new()
-	pc.name = "SlotUsage"
-	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Color(Palette.VANILLA_CREAM, 0.9), 16, false)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.custom_minimum_size = Vector2(0, CARD_SIZE.y)
-	pc.tooltip_text = Tx.t("ui_decor_slot_usage_tip")
-	pc.mouse_filter = Control.MOUSE_FILTER_PASS
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 1)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pc.add_child(v)
-	for t: StringName in DECOR_TYPES:
-		var used: int = sim.decoration.placed_of_type(t)
-		var cap: int = sim.decoration.cap(t)
-		var l: Label = ProceduralUIFactory.label(Tx.t("ui_decor_slot_count", {"type": Tx.t("decor_type_" + String(t)), "used": used, "max": cap}),
-			14, Palette.UI_WOOD if used >= cap else Palette.TEXT)
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(l)
-	return pc
-
-
-## Kartu barang di baki: nama (dua baris) dan keterangan kecil.
-func _card(title_text: String, sub: String, selected: bool, disabled: bool, cb: Callable) -> Button:
-	var b: Button = ProceduralUIFactory.button("", "primary" if selected else "secondary")
-	b.custom_minimum_size = CARD_SIZE
+## Baris katalog seperti baris Staff: lencana ikon, nama, keterangan, dan satu
+## tombol aksi di kanan. Mengembalikan tombolnya.
+func _item_row(icon: Array, title_text: String, sub: String, action: String, kind: String, disabled: bool, cb: Callable,
+		row_name: String, coin: bool = false) -> Button:
+	var h: HBoxContainer = UISheet.row(_list, title_text, sub, DecorIcons.badge(icon))
+	h.get_parent().name = row_name
+	var b: Button
+	if coin:
+		b = ProceduralUIFactory.icon_text_button("coin", action, kind, 20, 16)
+		b.custom_minimum_size = Vector2(maxf(140.0, ProceduralUIFactory._text_width(action, 16, true) + 64.0), 52)
+	else:
+		b = ProceduralUIFactory.button(action, kind)
+		b.custom_minimum_size = Vector2(maxf(110.0, ProceduralUIFactory._text_width(action, 16, true) + 40.0), 52)
+	b.name = "Action"
 	b.disabled = disabled
-	b.tooltip_text = title_text
-	var v := VBoxContainer.new()
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 10
-	v.offset_right = -10
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 2)
-	b.add_child(v)
-	var ink: Color = Palette.FLOUR_WHITE if selected else Palette.TEXT
-	var t: Label = ProceduralUIFactory.label(title_text, 15, ink)
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.custom_minimum_size = Vector2(CARD_SIZE.x - 20.0, 0)
-	t.max_lines_visible = 2
-	v.add_child(t)
-	var s: Label = ProceduralUIFactory.label(sub, 14, Color(ink, 0.8) if selected else Palette.TEXT_MUTED)
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# Dua baris, bukan dipotong: "Badge · Waiting to be placed" dulu terpotong di
-	# kedua ujungnya.
-	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	s.max_lines_visible = 2
-	s.custom_minimum_size = Vector2(CARD_SIZE.x - 20.0, 0)
-	v.add_child(s)
-	b.pressed.connect(cb)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if cb.is_valid():
+		b.pressed.connect(cb)
+	h.add_child(b)
 	return b
 
 
-## Kartu barang: angkat barangnya, tutup baki supaya dunia terlihat, lalu
+## Tab Equipment: semua alat kecuali fixture bangunan yang sudah terpasang
+## (Gudang, Meja Tunggu, kursi dipilih lewat ketukan di dunia).
+func _list_equipment() -> void:
+	var multi: bool = sim.world.location.is_multi_floor()
+	for e: EquipmentInstance in sim.equipment.all_sorted():
+		if EquipmentManager.is_fixture(e.category()) and e.placed:
+			continue
+		var parts: PackedStringArray = PackedStringArray()
+		if multi and e.placed:
+			parts.append(Tx.t("ui_floor_label", {"n": String(e.floor_id).replace("floor_", "")}))
+		if e.category() in [&"mixer", &"oven", &"display"]:
+			parts.append(Tx.t("ui_level_chip", {"level": sim.upgrades.station_level(e.iid)}))
+		parts.append(Tx.t("ui_decor_placed") if e.placed else Tx.t("ui_decor_unplaced"))
+		_item_row(DecorIcons.of_equipment(e.category()), Tx.item_name(e.def_id), " · ".join(parts),
+			Tx.t("ui_decor_move") if e.placed else Tx.t("ui_decor_place"), "secondary" if e.placed else "primary", false,
+			_pick_equipment_card.bind(e.iid), "Equip_%d" % e.iid)
+
+
+## Tab dekorasi: pil sisa slot, "Your Decorations" jenis itu, lalu "Decor Shop".
+func _list_decor(types: Array) -> void:
+	for t: Variant in types:
+		var tt: StringName = t
+		if tt == &"skin" or tt == &"outfit":
+			continue
+		var used: int = sim.decoration.placed_of_type(tt)
+		var cap: int = sim.decoration.cap(tt)
+		var pill: PanelContainer = ProceduralUIFactory.pill("check" if used < cap else "lock",
+			Tx.t("ui_decor_slot_count", {"type": Tx.t("decor_type_" + String(tt)), "used": used, "max": cap}),
+			Palette.UI_CREAM_DEEP, Palette.UI_WOOD if used >= cap else Palette.UI_WOOD_DEEP, 15)
+		pill.tooltip_text = Tx.t("ui_decor_slot_usage_tip")
+		_usage_row.add_child(pill)
+	_usage_row.visible = _usage_row.get_child_count() > 0
+	UISheet.section(_list, Tx.t("ui_decor_owned"))
+	var mine: int = 0
+	for o: Dictionary in sim.decoration.owned:
+		var def: MiscDefinitions.DecorationDefinition = sim.decoration.def_of(o)
+		if def == null or not types.has(def.placement_type):
+			continue
+		mine += 1
+		var name_text: String = Tx.t(String(def.localization_key))
+		var parts: PackedStringArray = PackedStringArray()
+		if def.is_badge():
+			parts.append(Tx.t("decor_type_badge"))
+		elif types.size() > 1:
+			parts.append(Tx.t("decor_type_" + String(def.placement_type)))
+		if def.has_bonus():
+			parts.append(_bonus_text(def))
+		if def.is_placeable():
+			var placed: bool = bool(o["placed"])
+			parts.append(Tx.t("ui_decor_placed") if placed else Tx.t("ui_decor_unplaced"))
+			_item_row(DecorIcons.of_decor(def), name_text, " · ".join(parts), Tx.t("ui_decor_move") if placed else Tx.t("ui_decor_place"),
+				"secondary" if placed else "primary", false, _pick_decor_card.bind(int(o["uid"])), "Owned_%d" % int(o["uid"]))
+		else:
+			var eq: bool = sim.decoration.equipped.values().has(String(def.id))
+			_item_row(DecorIcons.of_decor(def), name_text, " · ".join(parts), Tx.t("ui_decor_equipped") if eq else Tx.t("ui_decor_equip"),
+				"secondary" if eq else "primary", eq, _equip.bind(def.id), "Owned_%d" % int(o["uid"]))
+	if mine == 0:
+		var none: Label = ProceduralUIFactory.label(Tx.t("ui_decor_none_yet"), 15, Palette.TEXT_MUTED)
+		none.name = "NoneYet"
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_list.add_child(none)
+	var shop: Array[MiscDefinitions.DecorationDefinition] = []
+	for x: Variant in DataRegistry.decorations():
+		var d: MiscDefinitions.DecorationDefinition = x
+		if d.source == &"shop" and types.has(d.placement_type):
+			shop.append(d)
+	if shop.is_empty():
+		return
+	UISheet.section(_list, Tx.t("ui_decor_shop"))
+	for d2: MiscDefinitions.DecorationDefinition in shop:
+		var reason: StringName = sim.decoration.can_buy(d2.id)
+		var action: String = Tx.t("ui_decor_buy", {"price": Tx.kr(sim.decoration.price(d2.id))})
+		if reason == &"active":
+			action = Tx.t("ui_decor_bonus_active")
+		elif reason == &"owned":
+			action = Tx.t("ui_decor_owned_short")
+		var coin: bool = reason == &"" or reason == &"kr"
+		_item_row(DecorIcons.of_decor(d2), Tx.t(String(d2.localization_key)), shop_sub(sim, d2), action, "primary",
+			reason != &"", _buy.bind(d2.id), "Shop_" + String(d2.id), coin)
+
+
+static func _bonus_text(d: MiscDefinitions.DecorationDefinition) -> String:
+	return Tx.t("ui_decor_bonus_" + str(d.bonus["type"]), {"percent": Tx.percent(float(d.bonus["value"]))})
+
+
+## Keterangan baris toko (GDD idle 8.8): bonusnya, ditambah "Active" bila bonusnya
+## sudah menyala di putaran ini; tanpa bonus, jenisnya. Harganya ada di tombol Buy.
+static func shop_sub(s: SimulationRoot, d: MiscDefinitions.DecorationDefinition) -> String:
+	if not d.has_bonus():
+		return Tx.t("decor_type_" + String(d.placement_type))
+	var bonus_text: String = _bonus_text(d)
+	return "%s · %s" % [bonus_text, Tx.t("ui_decor_bonus_active")] if s.decoration.is_bonus_active(d.id) else bonus_text
+
+
+## Pilih alat dari katalog: angkat, lipat katalog supaya dunia terlihat, lalu
 ## arahkan kamera ke sana bila ia di luar layar.
 func _pick_equipment_card(iid: int) -> void:
-	_tab = -1
+	_expanded = false
 	_hold_equipment(iid)
 	_focus_pending = has_selection()
 
 
 func _pick_decor_card(uid: int) -> void:
-	_tab = -1
+	_expanded = false
 	_hold_decor(uid)
 	_focus_pending = has_selection()
 
@@ -518,14 +587,26 @@ func _equip(deco_id: StringName) -> void:
 	_refresh_all.call_deferred()
 
 
+## Beli: dekorasi baru yang bisa dipasang langsung diangkat supaya bisa ditaruh
+## (bila jenisnya masih punya slot); membeli lagi barang berbonus yang sudah
+## dimiliki hanya menyalakan bonusnya.
 func _buy(deco_id: StringName) -> void:
+	var had: bool = sim.decoration.owns(deco_id)
 	var r: StringName = sim.decoration.buy(deco_id)
 	if r != &"":
 		if r == &"kr":
 			EventBus.notify.emit(1, "ui_feedback_not_enough_kr", {}, &"coin")
 		return
 	game.world.rebuild_all()
-	_tab = TAB_OWNED
+	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	if not had and def != null and def.is_placeable():
+		var uid: int = -1
+		for o: Dictionary in sim.decoration.owned:
+			if StringName(str(o["deco_id"])) == deco_id:
+				uid = int(o["uid"])
+		if uid >= 0 and not sim.decoration.type_full(uid):
+			_pick_decor_card.call_deferred(uid)
+			return
 	_refresh_all.call_deferred()
 
 
@@ -534,17 +615,12 @@ func _buy(deco_id: StringName) -> void:
 # MEMEGANG BARANG (GDD 72.2, seperti The Sims)
 # ===========================================================================
 
-## Angkat alat `iid`. Alat yang sedang dipakai tidak bisa diangkat (rak berisi
-## roti bisa, selama toko tidak buka). Alat yang belum terpasang muncul di
+## Angkat alat `iid`, juga yang sedang dipakai (GDD idle §20 no. 75). Alat yang belum terpasang muncul di
 ## tempat sah terdekat dari tengah layar, seperti barang baru di The Sims; bila
 ## kategorinya sudah penuh, ia tetap disimpan.
 func _hold_equipment(iid: int) -> void:
 	var e: EquipmentInstance = sim.equipment.get_inst(iid)
 	if e == null:
-		return
-	if e.placed and sim.equipment.move_blocked(iid):
-		_refresh_all()
-		_set_status(&"in_use", false)
 		return
 	_drop_hold()
 	if not e.placed and not EquipmentManager.is_fixture(e.category()) \
@@ -690,6 +766,10 @@ func has_selection() -> bool:
 
 func toolbar() -> ActionBar:
 	return _toolbar
+
+
+func front_arrow() -> FrontArrow:
+	return _arrow
 
 
 static func _is_slot_type(t: StringName) -> bool:
@@ -1078,7 +1158,7 @@ func _on_world_press(pos: Vector2) -> bool:
 	var p: Dictionary = game.world.pick(pos)
 	match p.get("kind", &""):
 		&"equipment":
-			if p.has("cell") or sim.equipment.move_blocked(int(p["iid"])):
+			if p.has("cell"):
 				return false
 			_press_pick = p
 			return true
@@ -1219,6 +1299,82 @@ func on_closed() -> void:
 	game.commands.drop_override = Callable()
 	game.hud.set_decoration_active(false)
 	sim.tutorial.on_event(&"decor_closed")
+
+
+## Panah depan (GDD idle §20 no. 76): selama alat dipegang, panah madu bertepi
+## putih keluar dari sisi interaction face-nya ke ubin tempat pemakainya
+## berdiri, di posisi dan putaran calonnya. Bentuknya dihitung di lantai
+## (meter) lalu diproyeksikan kamera, jadi ia tampak terbaring di lantai; ia
+## digambar di lapisan UI paling bawah, di atas dunia 3D, supaya tetap terlihat
+## walau alatnya menghadap menjauhi kamera dan modelnya menutupi lantai di
+## depannya. Ia maju-mundur pelan kecuali Reduced Motion.
+class FrontArrow extends Control:
+	## Ukuran di lantai (meter): jarak dari tepi depan, panjang, panjang batang,
+	## setengah lebar batang dan kepala, tebal tepi putih, dan ayunan maju.
+	const GAP_M: float = 0.03
+	const LEN_M: float = 0.50
+	const SHAFT_M: float = 0.24
+	const SHAFT_HALF_M: float = 0.07
+	const HEAD_HALF_M: float = 0.19
+	const RIM_M: float = 0.03
+	const NUDGE_M: float = 0.05
+	const NUDGE_HZ: float = 1.2
+	const FLOOR_Y: float = 0.02
+
+	var world: WorldView = null
+	## Sisi depan yang sedang digambar (WorldView.hold_front), {} = tidak ada.
+	var front: Dictionary = {}
+	var _t: float = 0.0
+
+	func _init() -> void:
+		name = "FrontArrow"
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		front = world.hold_front() if world != null else {}
+		visible = not front.is_empty()
+		if visible:
+			queue_redraw()
+
+	## Geseran maju saat ini (meter): 0 bila Reduced Motion.
+	func nudge() -> float:
+		if SettingsManager.reduced_motion():
+			return 0.0
+		return NUDGE_M * (0.5 - 0.5 * cos(_t * TAU * NUDGE_HZ))
+
+	## Bentuk panah di lantai (x/z meter) untuk sisi depan `f`, digeser maju
+	## `push` meter.
+	static func shape(f: Dictionary, push: float) -> PackedVector2Array:
+		var edge: Vector2 = f["edge"]
+		var d: Vector2 = f["dir"]
+		var side := Vector2(-d.y, d.x)
+		var s: float = GAP_M + push
+		var local: Array[Vector2] = [Vector2(0.0, -SHAFT_HALF_M), Vector2(SHAFT_M, -SHAFT_HALF_M), Vector2(SHAFT_M, -HEAD_HALF_M),
+			Vector2(LEN_M, 0.0), Vector2(SHAFT_M, HEAD_HALF_M), Vector2(SHAFT_M, SHAFT_HALF_M), Vector2(0.0, SHAFT_HALF_M)]
+		var out := PackedVector2Array()
+		for p: Vector2 in local:
+			out.append(edge + d * (s + p.x) + side * p.y)
+		return out
+
+	## Tepi putih: bentuk panah yang ditebalkan RIM_M dengan sudut membulat.
+	static func rim(arrow: PackedVector2Array) -> PackedVector2Array:
+		var grown: Array[PackedVector2Array] = Geometry2D.offset_polygon(arrow, RIM_M, Geometry2D.JOIN_ROUND)
+		return grown[0] if not grown.is_empty() else arrow
+
+	func _project(pts: PackedVector2Array) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for p: Vector2 in pts:
+			out.append(world.camera_rig.world_to_screen(Vector3(p.x, FLOOR_Y, p.y)))
+		return out
+
+	func _draw() -> void:
+		if front.is_empty() or world == null:
+			return
+		var arrow: PackedVector2Array = shape(front, nudge())
+		ProceduralUIFactory.fill_aa(self, _project(rim(arrow)), Palette.FLOUR_WHITE)
+		ProceduralUIFactory.fill_aa(self, _project(arrow), Palette.HONEY)
 
 
 ## Toolbar melayang: panel krem dengan ekor segitiga yang menunjuk ke barang.

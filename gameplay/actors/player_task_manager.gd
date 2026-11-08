@@ -311,6 +311,16 @@ func _keep_serving() -> bool:
 	return _buyers_waiting(lane) or sim.cashier.transaction_for(lane.id).size() > 0
 
 
+## Alat `iid` dipindah di Decoration Mode (GDD idle §20 no. 75): bila tugas
+## pemilik menuju atau sedang memakainya, ia berjalan ke tempat barunya; bila
+## tidak ada jalan, tugasnya batal (barang di tangan tetap dibawa).
+func on_equipment_moved(iid: int) -> void:
+	if task.is_empty() or str(task["type"]) == "pack" or int(task.get("iid", -1)) != iid:
+		return
+	if not KitchenBrain.reroute(sim, actor, task):
+		cancel_all()
+
+
 func cancel_all() -> void:
 	if not task.is_empty():
 		if str(task["type"]) == "pack":

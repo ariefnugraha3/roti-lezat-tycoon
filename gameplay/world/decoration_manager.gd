@@ -397,6 +397,39 @@ func replace_lifted(uids: Array[int]) -> int:
 	return removed
 
 
+## Bagian dekorasi milik satu cabang (GDD idle §20 no. 78): letak setiap
+## dekorasi yang terpasang dan bonus yang dibeli di cabang itu. Koleksinya
+## (`owned`), skin, dan pakaian milik seluruh Crumbtown, jadi setiap cabang
+## menata koleksi yang sama dengan caranya sendiri.
+func branch_part() -> Dictionary:
+	var placed: Array = []
+	for o: Dictionary in owned:
+		if bool(o["placed"]):
+			placed.append({"uid": int(o["uid"]), "floor_id": str(o["floor_id"]), "cell": (o["cell"] as Array).duplicate(),
+				"slot": int(o["slot"]), "rot": int(o["rot"])})
+	return {"placed": placed, "bonus_active": bonus_active.keys()}
+
+
+## Capture dekorasi `global_capture` dengan letak dan bonus cabang `part`:
+## dekorasi yang tidak terpasang di cabang itu ada di inventaris. Letak yang
+## tidak sah lagi dilepas saat dimuat (`enforce_rules`).
+static func merge_branch(global_capture: Dictionary, part: Dictionary) -> Dictionary:
+	var out: Dictionary = global_capture.duplicate(true)
+	var at: Dictionary = {}
+	for p: Variant in part.get("placed", []):
+		if p is Dictionary:
+			at[int((p as Dictionary).get("uid", -1))] = p
+	for o: Variant in out.get("owned", []):
+		var od: Dictionary = o
+		var p2: Dictionary = at.get(int(od.get("uid", -1)), {})
+		od["placed"] = not p2.is_empty()
+		if not p2.is_empty():
+			for k: String in ["floor_id", "cell", "slot", "rot"]:
+				od[k] = p2.get(k, od.get(k))
+	out["bonus_active"] = (part.get("bonus_active", []) as Array).duplicate()
+	return out
+
+
 func capture() -> Dictionary:
 	return {"owned": owned.duplicate(true), "next_uid": next_uid, "equipped": equipped.duplicate(), "bonus_active": bonus_active.keys()}
 

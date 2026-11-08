@@ -1282,6 +1282,32 @@ static func set_carry_pose(actor: Node3D, carrying: bool) -> void:
 		arm.rotation = rest
 
 
+## Kedua lengan terangkat menahan tumpukan perabot di atas kepala (cutscene
+## pindah lokasi, GDD idle §20 no. 70). false mengembalikan pose istirahat.
+const OVERHEAD_ARM_PITCH: float = 2.8
+const OVERHEAD_ARM_OUT: float = 0.22
+
+
+static func set_overhead_pose(actor: Node3D, on: bool) -> void:
+	if actor == null or not is_instance_valid(actor):
+		return
+	for i in 2:
+		var arm: Node3D = _part(actor, "ArmL" if i == 0 else "ArmR")
+		if arm == null:
+			continue
+		if not arm.has_meta("carry_base_rotation"):
+			arm.set_meta("carry_base_rotation", arm.get_meta("base_rotation", arm.rotation))
+			arm.set_meta("carry_base_swing", arm.get_meta(META_SWING, 1.0))
+		var rest: Vector3 = arm.get_meta("carry_base_rotation")
+		var swing_k: float = float(arm.get_meta("carry_base_swing"))
+		if on:
+			rest = Vector3(OVERHEAD_ARM_PITCH, 0.0, OVERHEAD_ARM_OUT * (-1.0 if i == 0 else 1.0))
+			swing_k = 0.05
+		arm.set_meta(META_REST_ROT, rest)
+		arm.set_meta(META_SWING, swing_k)
+		arm.rotation = rest
+
+
 ## Ambil bagian tubuh sebagai anak langsung; bila hierarki aktor menaruhnya di
 ## bawah `Body`, coba jalur itu juga. Selalu boleh mengembalikan null.
 static func _part(actor: Node3D, part_name: String) -> Node3D:

@@ -18,6 +18,7 @@ func _branch_costs() -> void:
 	b.tutorial.skip()
 	var start: int = DataRegistry.idlei("prestige.branch_cost_start")
 	b.prestige.run_index = start + 1
+	b.prestige.branch_no = start + 1
 	var m: float = pow(DataRegistry.idlef("prestige.branch_cost_growth"), 2.0)
 	near(b.prestige.branch_cost_mult(), m, 1e-9, "branch #%d costs x growth^2" % (start + 1))
 	near(PrestigeManager.branch_cost_mult_for(start - 1), 1.0, 1e-9, "branches before #%d keep the catalog price" % start)

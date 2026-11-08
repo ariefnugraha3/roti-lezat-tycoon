@@ -120,16 +120,19 @@ static func is_fixture(category: StringName) -> bool:
 	return category == &"storage" or category == &"table" or category == &"chair"
 
 
-## Alat sedang dipakai: berisi job, roti, atau titik pakainya dipesan.
+## Alat sedang dipakai: berisi job, roti, atau titik pakainya dipesan. Tidak
+## lagi menghalangi pemindahan di Decoration Mode (GDD idle §20 no. 75): alat
+## yang sedang dipakai boleh dipindah dan diputar, isinya ikut, dan yang
+## memakainya berjalan ke tempat barunya (SimulationRoot.on_equipment_moved).
 func is_in_use(iid: int) -> bool:
-	return _in_use(iid, true)
-
-
-## Alat tidak boleh dipindah atau diputar di Decoration Mode (v3.1 72): hanya
-## alat yang berisi job atau titik pakainya dipesan. Rak berisi roti boleh
-## dipindah dan rotinya ikut pindah, karena toko idle selalu buka.
-func move_blocked(iid: int) -> bool:
-	return _in_use(iid, false)
+	var e: EquipmentInstance = get_inst(iid)
+	if e == null:
+		return false
+	if e.job_id >= 0:
+		return true
+	if e.category() == &"display" and sim.display.used(iid) > 0:
+		return true
+	return sim.world.is_use_point_reserved_for(iid)
 
 
 ## Tempat sah untuk model `def` yang menggantikan model `old` (evolusi, GDD idle
@@ -146,35 +149,26 @@ func replacement_spot(old: EquipmentInstance, def: EquipmentDefinition) -> Dicti
 	return sim.world.spot_near(probe, old.floor_id, old.anchor, old.rotation)
 
 
-func _in_use(iid: int, bread_counts: bool) -> bool:
-	var e: EquipmentInstance = get_inst(iid)
-	if e == null:
-		return false
-	if e.job_id >= 0:
-		return true
-	if bread_counts and e.category() == &"display" and sim.display.used(iid) > 0:
-		return true
-	if sim.world.is_use_point_reserved_for(iid):
-		return true
-	return false
-
-
 # ===========================================================================
 # PENEMPATAN
 # ===========================================================================
 
+## Taruh alat `iid` (Decoration Mode). Alat yang sudah terpasang boleh dipindah
+## walau sedang dipakai (GDD idle §20 no. 75): job dan rotinya terikat pada
+## iid-nya, jadi ikut pindah, lalu pemakainya diarahkan ke tile akses barunya.
 func place(iid: int, floor_id: StringName, anchor: Vector2i, rotation: int) -> StringName:
 	var e: EquipmentInstance = get_inst(iid)
 	if e == null:
 		return &"invalid"
-	if e.placed and move_blocked(iid):
-		return &"in_use"
 	if not e.placed and placed_count(e.category()) >= slot_limit(e.category()) and not is_fixture(e.category()):
 		return &"slots_full"
 	var reason: StringName = sim.world.validate_placement(e, floor_id, anchor, rotation)
 	if reason != &"":
 		return reason
+	var moved: bool = e.placed
 	_commit_place(e, floor_id, anchor, rotation)
+	if moved:
+		sim.on_equipment_moved(iid)
 	return &""
 
 

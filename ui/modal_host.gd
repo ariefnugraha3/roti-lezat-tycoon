@@ -108,6 +108,14 @@ func close_all() -> void:
 		close_screen(s)
 
 
+## true bila ada lembar bawah terbuka selain layar `except`.
+func has_sheet(except: StringName = &"") -> bool:
+	for s: UIScreen in _stack:
+		if s.sheet and s.screen_id != except:
+			return true
+	return false
+
+
 ## Tutup semua lembar bawah dan kartu upgrade (mis. supaya dunia terlihat).
 func close_sheets() -> void:
 	for s: UIScreen in _stack.duplicate():

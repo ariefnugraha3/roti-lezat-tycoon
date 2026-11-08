@@ -128,9 +128,11 @@ func reconcile() -> bool:
 	return absf(total - balance) <= maxf(0.5, absf(balance) * 1.0e-9)
 
 
-func capture() -> Dictionary:
+## `keep` = entri ledger terakhir yang disimpan apa adanya (cabang yang
+## ditinggal menyimpan 0, GDD idle §20 no. 78); sisanya dilipat ke total.
+func capture(keep: int = 200) -> Dictionary:
 	var recent: Array = []
-	var start: int = maxi(0, ledger.size() - 200)
+	var start: int = maxi(0, ledger.size() - maxi(keep, 0))
 	for i in range(start, ledger.size()):
 		recent.append(ledger[i])
 	# Entri yang tidak disimpan dilipat ke total historis agar rekonsiliasi tetap utuh.

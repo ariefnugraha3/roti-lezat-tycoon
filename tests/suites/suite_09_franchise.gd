@@ -1,12 +1,15 @@
 extends TestSuite
 ## Waralaba (GDD idle 10): bintang, syarat, reset putaran, perk, dan alur layar
-## Franchise -> konfirmasi -> cutscene -> cabang baru.
+## Franchise -> konfirmasi -> cutscene -> cabang baru. Cabang lama tetap milik
+## pemain dan bisa dikunjungi (GDD idle §20 no. 78).
 
 
 func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_PRESTIGE", "name": "idle 10.1-10.5 stars = floor((alltime / divisor)^exponent), franchise needs Tier 3 this run and >= 1 new star, the reset clears KR, location, stations, levels, recipes, staff, shop upgrades up to Lv 5 while stars, perks, alltime stats, badges, decorations, name and character stay; perks shape the new branch; the result saves, loads and replays deterministically", "fn": _prestige},
-		{"id": "ACC_IDLE_FRANCHISE_FLOW", "name": "idle 10.6, 12.3 the Franchise sheet shows stars, what selling earns, the next star and every perk; Sell & Franchise asks first, plays the Pak Lurah cutscene with the new signboard, then opens Branch #2 behind the loading screen and saves it", "fn": _flow},
+		{"id": "ACC_IDLE_FRANCHISE_FLOW", "name": "idle 10.6, 12.3 the Franchise sheet shows stars, what a new branch earns, the next star and every perk; Open a New Branch asks first, plays the Pak Lurah cutscene with the new signboard, then opens Branch #2 behind the loading screen and saves it", "fn": _flow},
+		{"id": "ACC_IDLE_BRANCH_VISIT", "name": "idle 20 no. 78 a franchise keeps the old branch with its own shop and wallet; a branch you are not in saves like offline (KR/s when left x min(away, cap) x efficiency, nothing under a minute, a toast under five minutes, Collect after that); visiting restores it exactly, the next branch can open from any branch once the newest reaches Tier 3, a branch sold before this rule reopens as a fresh shop at its tier, and everything survives save and load", "fn": _branch_visit},
+		{"id": "ACC_IDLE_BRANCH_VISIT_FLOW", "name": "idle 20 no. 78 the Crumbtown map shows what each other branch has waiting and a Visit button in its story; visiting rebuilds the world behind the loading screen, greets the branch, and its savings wait for Collect in the Welcome Back popup", "fn": _visit_flow},
 	]
 
 
@@ -248,3 +251,205 @@ func _flow() -> void:
 			found = true
 	check(found, "a toast welcomes Branch #2")
 	await _finish(game)
+
+
+# ===========================================================================
+# CABANG YANG BISA DIKUNJUNGI (GDD idle §20 no. 78)
+# ===========================================================================
+
+func _branch_visit() -> void:
+	var s: SimulationRoot = _ready_shop(81, 4.2 * _d())
+	run_hours(s, 0.3)
+	var t0: float = 1.0e6
+	var mixers1: int = s.equipment.placed_count(&"mixer")
+	var oven1: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
+	var oven_lv: int = s.upgrades.station_level(oven1.iid)
+	var recipes1: Array[StringName] = s.upgrades.unlocked_recipes()
+	var staff1: int = s.staff.employed_ids().size()
+	eq(s.franchise(t0), 2, "the franchise earns 2 stars")
+	eq(s.prestige.run_index, 2, "Branch #2 opens")
+	eq(s.prestige.branch_no, 2, "and you play it")
+	var r1: Dictionary = s.prestige.record(1)
+	check(not (r1.get("state", {}) as Dictionary).is_empty(), "Branch #1 keeps its shop")
+	near(float(r1["left_unix"]), t0, 0.001, "and when it was left")
+	check(float(r1["rate"]) > 0.0 and float(r1["cap"]) > 0.0 and float(r1["eff"]) > 0.0, "and its KR/s, cap and efficiency")
+	eq(int(r1["stars"]), 2, "the stars go to the branch that opened the next one")
+	var bal1: float = SaveManager.decode_money(((r1["state"] as Dictionary)["economy"] as Dictionary)["balance_kr"])
+	check(bal1 > 0.0, "Branch #1 keeps its own wallet")
+	near(s.economy.balance, DataRegistry.idlef("start_kr"), 0.5, "the new branch has its own fresh wallet")
+	# Tabungan menunggu, seperti offline (GDD idle 9.2).
+	var cap: float = float(r1["cap"])
+	var expect: float = Money.round_cents(float(r1["rate"]) * minf(7200.0, cap) * float(r1["eff"]))
+	near(PrestigeManager.waiting_kr(r1, t0 + 7200.0), expect, 0.01, "two hours away: KR/s x min(away, cap) x efficiency")
+	eq(PrestigeManager.waiting_kr(r1, t0 + 30.0), 0.0, "nothing waits under a minute")
+	near(PrestigeManager.waiting_kr(r1, t0 + 99999.0), Money.round_cents(float(r1["rate"]) * cap * float(r1["eff"])), 0.01, "and the cap holds")
+	run_hours(s, 0.3)
+	var bal2: float = s.economy.balance
+	# Kunjungi Cabang #1 dua jam kemudian.
+	var out: Dictionary = s.visit_branch(1, t0 + 7200.0)
+	check(not out.is_empty(), "Branch #1 can be visited")
+	eq(s.prestige.branch_no, 1, "you are in Branch #1")
+	eq(s.world.location.tier, 3, "at its Tier 3 location")
+	eq(s.equipment.placed_count(&"mixer"), mixers1, "with its mixers")
+	eq(s.upgrades.station_level(oven1.iid), oven_lv, "its oven levels")
+	eq(s.upgrades.unlocked_recipes(), recipes1, "its recipes")
+	eq(s.staff.employed_ids().size(), staff1, "and its staff")
+	near(s.economy.balance, bal1, 0.01, "and its own wallet")
+	check(s.world.layout_valid(), "its layout is valid")
+	var away: Dictionary = out.get("away", {})
+	check(bool(away.get("popup", false)), "two hours of savings wait for Collect")
+	near(float(away.get("amount", 0.0)), expect, 0.01, "the same amount the map promised")
+	eq(int(s.offline.pending.get("branch", 0)), 1, "the Welcome Back popup is Branch #1's")
+	var got: float = s.offline.collect()
+	near(got, expect, 0.01, "Collect brings it in")
+	near(s.economy.balance, bal1 + got, 1.0, "into Branch #1's wallet")
+	eq(s.check_invariants(), "", "the ledger reconciles")
+	var sold: float = s.statistics.get_stat("total_bread_sold")
+	run_hours(s, 0.3)
+	check(s.statistics.get_stat("total_bread_sold") > sold, "Branch #1 sells again")
+	# Kembali ke Cabang #2 tiga menit kemudian: tabungan kecil langsung masuk.
+	var out2: Dictionary = s.visit_branch(2, t0 + 7200.0 + 180.0)
+	var away2: Dictionary = out2.get("away", {})
+	eq(s.world.location.tier, 1, "Branch #2 is the Tier 1 garage again")
+	check(not bool(away2.get("popup", true)) and float(away2.get("amount", 0.0)) > 0.0, "three minutes of savings come in without a popup")
+	check(s.offline.pending.is_empty(), "nothing waits for Collect")
+	near(s.economy.balance, bal2 + float(away2.get("amount", 0.0)), 0.01, "they go into Branch #2's wallet")
+	eq(str((s.economy.ledger.back() as Dictionary).get("category", "")), "OFFLINE_EARNINGS", "as offline earnings")
+	# Pergi dan kembali tanpa jeda: cabangnya persis seperti ditinggal.
+	check(not s.visit_branch(1).is_empty(), "back to Branch #1")
+	var stored2: Dictionary = json_copy(s.prestige.record(2)["state"])
+	check(not s.visit_branch(2).is_empty(), "and to Branch #2 again")
+	same_state(logical_state(json_copy(s._branch_state())), logical_state(stored2), "a branch comes back exactly as it was left")
+	eq(s.visit_branch(2), {}, "visiting the branch you are in does nothing")
+	eq(s.visit_branch(9), {}, "nor does a branch that does not exist")
+	# Cabang berikutnya: syaratnya cabang terbaru (Tier 3), dari cabang mana pun.
+	s.statistics.stats["alltime_earned_kr"] = 9.5 * _d()
+	check(not s.visit_branch(1).is_empty(), "to Branch #1")
+	eq(s.prestige.franchise_block(), &"tier", "the next branch waits for the newest one (Branch #2) to reach Tier 3")
+	check(not s.visit_branch(2).is_empty(), "to Branch #2")
+	jump_to_tier(s, 3)
+	check(not s.visit_branch(1).is_empty(), "back to Branch #1")
+	eq(s.prestige.franchise_block(), &"", "now it can open from Branch #1")
+	eq(s.franchise(), 1, "for 1 new star")
+	eq(s.prestige.run_index, 3, "Branch #3 opens")
+	eq(int(s.prestige.record(2)["stars"]), 1, "the star goes to Branch #2, the newest one")
+	eq(int(s.prestige.record(1)["stars"]), 2, "Branch #1 keeps its own")
+	eq(int(s.prestige.record(2)["tier"]), 3, "Branch #2 is remembered at Tier 3")
+	near(PrestigeManager.branch_cost_mult_for(3), s.prestige.branch_cost_mult(), 1e-9, "location moves cost what Branch #3 costs")
+	check(not s.visit_branch(2).is_empty(), "to Branch #2")
+	near(s.prestige.branch_cost_mult(), PrestigeManager.branch_cost_mult_for(2), 1e-9, "and what Branch #2 costs there")
+	# Save dan load menyimpan setiap cabang.
+	var saved: Dictionary = json_copy(s.capture_save())
+	var s2: SimulationRoot = load_sim(saved)
+	same_state(logical_state(s2.capture_save()), logical_state(saved), "every branch survives a save and load")
+	check(not s2.visit_branch(1).is_empty(), "a loaded save can visit Branch #1")
+	eq(s2.world.location.tier, 3, "which is still at Tier 3")
+	free_sim(s2)
+	# Cabang yang dijual sebelum aturan ini dibuka lagi sebagai toko awal.
+	var old: Dictionary = json_copy(saved)
+	var fr: Dictionary = old["franchise"]
+	fr["branches"] = [{"number": 1, "tier": 4, "stars": 6, "earned": 610115.23, "rate": 161.07, "opened_day": 1, "sold_day": 2}]
+	fr["run_index"] = 3
+	fr["branch_no"] = 3
+	var s3: SimulationRoot = load_sim(old)
+	eq(s3.prestige.branches.size(), 2, "the old record and a placeholder for Branch #2")
+	check(bool(s3.prestige.record(2).get("unknown", false)), "Branch #2 without a story is a placeholder")
+	eq(PrestigeManager.waiting_kr(s3.prestige.record(1), t0 + 7200.0), 0.0, "a sold branch has nothing waiting")
+	var start_kr: float = s3.prestige.start_kr()
+	check(not s3.visit_branch(1, t0).is_empty(), "the sold Branch #1 can be visited")
+	eq(s3.world.location.tier, 4, "it reopens at the tier it reached")
+	eq(s3.equipment.placed_count(&"mixer"), 1, "as a fresh shop")
+	near(s3.economy.balance, start_kr, 0.5, "with the starting balance")
+	near(s3.statistics.get_stat("run_earned_kr"), 610115.23, 0.01, "its earnings stay in its story")
+	eq(s3.prestige.run_stars, 6, "and so do its stars")
+	check(s3.world.layout_valid(), "the rebuilt shop has a valid layout")
+	run_hours(s3, 0.5)
+	check(s3.statistics.get_stat("run_earned_kr") > 610115.23, "and it sells (%s)" % s3.statistics.get_stat("run_earned_kr"))
+	check(not (s3.prestige.record(3).get("state", {}) as Dictionary).is_empty(), "the branch you came from is kept")
+	check(not s3.visit_branch(2).is_empty(), "the placeholder Branch #2 reopens too")
+	eq(s3.world.location.tier, DataRegistry.idlei("prestige.unlock_location_tier"), "at Tier 3")
+	free_sim(s3)
+	free_sim(s)
+
+
+func _visit_flow() -> void:
+	var game: GameRoot = await _boot("Visit Bakery")
+	var sim: SimulationRoot = game.sim
+	jump_to_tier(sim, 3)
+	equip_shop(sim, 30)
+	sim.statistics.stats["alltime_earned_kr"] = 4.2 * _d()
+	var t0: float = 2.0e6
+	sim.offline.now_override = t0
+	game.do_franchise()
+	await _wait(game, func() -> bool: return sim.prestige.branch_no == 2)
+	check(game.playing and game.hud != null, "Branch #2 opens")
+	near(float(sim.prestige.record(1).get("left_unix", 0.0)), t0, 0.001, "Branch #1 starts saving when it is left")
+	game.modals.close_all()
+	await _frames(2)
+	# Dua jam kemudian: peta menyebut tabungan Cabang #1.
+	sim.offline.now_override = t0 + 7200.0
+	var waiting: float = PrestigeManager.waiting_kr(sim.prestige.record(1), t0 + 7200.0)
+	check(waiting > 0.0, "two hours of savings wait in Branch #1")
+	game.modals.open(&"town_map")
+	await _frames(2)
+	var map: TownMapScreen = game.modals.screen(&"town_map") as TownMapScreen
+	check(map != null, "the map opens")
+	if map == null:
+		await _finish(game)
+		return
+	var b1: Button = map.content().find_child("Branch1", true, false) as Button
+	var tag: Node = b1.find_child("Waiting", true, false) if b1 != null else null
+	var tag_ok: bool = false
+	if tag != null:
+		for l: Node in tag.find_children("*", "Label", true, false):
+			tag_ok = tag_ok or (l as Label).text == "+" + Tx.kr(waiting)
+	check(tag_ok, "Branch #1's lot shows what is waiting")
+	var b2: Button = map.content().find_child("Branch2", true, false) as Button
+	check(b2 != null and b2.find_child("Waiting", true, false) == null, "the branch you are in has no tag")
+	b1.pressed.emit()
+	await _frames(3)
+	var visit: Button = map.content().find_child("Visit", true, false) as Button
+	check(visit != null and visit.get_global_rect().size.y >= 48.0, "Branch #1's story has a Visit button")
+	if visit == null:
+		await _finish(game)
+		return
+	visit.pressed.emit()
+	await _wait(game, func() -> bool: return sim.prestige.branch_no == 1)
+	game.playing = false
+	eq(game.sim, sim, "the same simulation carries on")
+	eq(sim.prestige.branch_no, 1, "you are in Branch #1")
+	eq(sim.world.location.tier, 3, "at its Tier 3 location")
+	check(game.world != null and is_instance_valid(game.world), "the world is rebuilt")
+	var wb: UIScreen = game.modals.screen(&"welcome_back")
+	check(wb != null, "the Welcome Back popup waits")
+	if wb != null:
+		var titled: bool = false
+		for l2: Node in wb.find_children("*", "Label", true, false):
+			titled = titled or (l2 as Label).text == Tx.t("ui_welcome_back_branch_title", {"number": 1})
+		check(titled, "it is Branch #1's")
+		var before: float = sim.economy.balance
+		var collect: Button = wb.find_child("Collect", true, false) as Button
+		collect.pressed.emit()
+		await _frames(2)
+		var last: Dictionary = sim.economy.ledger.back() if not sim.economy.ledger.is_empty() else {}
+		check(str(last.get("category", "")) == "OFFLINE_EARNINGS" and absf(float(last.get("amount", 0.0)) - waiting) < 0.005,
+			"Collect brings in what the map promised")
+		check(sim.economy.balance > before, "into Branch #1's wallet")
+	var toast_text: String = Tx.t("ui_branch_welcome", {"number": 1})
+	var found: bool = false
+	for c: Node in game.hud.find_child("Toasts", true, false).get_children():
+		found = found or str(c.get_meta("text", "")) == toast_text
+	check(found, "a toast greets Branch #1")
+	var r: Dictionary = SaveManager.read_profile(&"profile_1")
+	eq(int(((r.get("data", {}) as Dictionary).get("franchise", {}) as Dictionary).get("branch_no", 0)), 1, "the visit is saved")
+	sim.offline.now_override = -1.0
+	await _finish(game)
+
+
+## Tunggu sampai `done` benar dan dunia cabangnya selesai dibangun.
+func _wait(game: GameRoot, done: Callable) -> void:
+	var waited: int = 0
+	while waited < 600 and not (done.call() and game.playing and game.hud != null and game.loading_screen() == null):
+		await runner.get_tree().process_frame
+		waited += 1
+	await _frames(3)

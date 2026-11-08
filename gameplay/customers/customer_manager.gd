@@ -674,6 +674,21 @@ func _after_shelf_check(c: Customer) -> void:
 	_choose_target(c)
 
 
+## Rak `iid` dipindah di Decoration Mode (GDD idle §20 no. 75): pembeli yang
+## menujunya atau sedang memilih di sana melepas titik browsing lamanya dan
+## berjalan ke tile akses barunya, lalu memilih lagi di sana. Pembeli yang
+## melihat rak kosong sudah ditangani `_step_to_look`.
+func on_equipment_moved(iid: int) -> void:
+	for c: Customer in sorted():
+		if c.window_shopper or c.checking_shelf or c.target_display != iid:
+			continue
+		if c.state == Customer.BROWSING:
+			sim.world.release_all_for(c.id)
+			_walk_to_display(c)
+		elif c.state == Customer.ENTERING:
+			_walk_to_display(c)
+
+
 func _walk_to_display(c: Customer) -> void:
 	var acc: Dictionary = sim.world.access_of(c.target_display)
 	if acc.is_empty():

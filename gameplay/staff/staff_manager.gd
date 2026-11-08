@@ -117,6 +117,7 @@ func hire(staff_id: StringName, free: bool = false) -> StringName:
 	_spawn(staff_id)
 	_assign_lanes()
 	EventBus.staff_state_changed.emit(staff_id)
+	EventBus.staff_hired.emit(staff_id)
 	SaveManager.request_autosave("staff_hire")
 	return &""
 
@@ -419,6 +420,25 @@ func _sit(_sid: StringName, a: SimActor, chair: EquipmentInstance) -> void:
 		var to: Vector2 = GridMath.cell_center(acc["cell"]) - seat
 		if to.length_squared() > 0.0001:
 			a.facing = to.normalized()
+
+
+## Alat `iid` dipindah di Decoration Mode (GDD idle §20 no. 75): koki yang
+## menuju atau sedang memakainya (juga kursi yang ditujunya) berjalan ke tile
+## aksesnya yang baru; bila tidak ada jalan, tugasnya batal dan ia memilih lagi.
+func on_equipment_moved(iid: int) -> void:
+	for k: Variant in Ids.sort(tasks.keys()):
+		var sid: StringName = StringName(str(k))
+		var t: Dictionary = tasks[sid]
+		var a: SimActor = actors.get(sid)
+		if a == null or int(t.get("iid", -1)) != iid:
+			continue
+		if KitchenBrain.reroute(sim, a, t):
+			continue
+		if str(t["type"]) != "sit":
+			KitchenBrain.abort(sim, sid, t)
+		tasks.erase(sid)
+		a.stop()
+		a.state = &"IDLE"
 
 
 ## Kursi dipindah di Mode Dekorasi atau dihapus: koki yang duduk di sana berdiri.

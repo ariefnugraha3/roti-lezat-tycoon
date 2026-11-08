@@ -84,6 +84,15 @@ var _neighborhood_wet: bool = false
 var _holiday_nodes: Array[Node3D] = []
 var _t: float = 0.0
 var decoration_mode: bool = false
+## Cutscene pindah lokasi (GDD idle §20 no. 70, `set_cutscene`): aktor
+## simulasi, penanda, dan gelembung tidak digambar; sutradara (MovingDay)
+## memakai bonekanya sendiri dan memegang kamera.
+var cutscene: bool = false
+## Momen kecil (GDD idle §20 no. 71): aktor dan perabot yang sedang digantikan
+## boneka atau kardus disembunyikan (id aktor / iid -> true).
+var hidden_actors: Dictionary = {}
+var hidden_furniture: Dictionary = {}
+var moments: WorldMoments = null
 ## Panaskan shader alat tier baru setelah upgrade lokasi (diset GameRoot).
 var shader_warmup: bool = false
 ## Decoration Mode boleh melihat lantai lain selama simulasi di-pause.
@@ -167,6 +176,10 @@ func setup(s: SimulationRoot) -> void:
 	street_life = StreetLife.new()
 	add_child(street_life)
 	street_life.setup(sim, self)
+	moments = WorldMoments.new().setup(sim, self)
+	add_child(moments)
+	EventBus.staff_hired.connect(moments.welcome)
+	EventBus.station_opened.connect(moments.deliver)
 	sim.world.layout_changed.connect(rebuild_furniture)
 	EventBus.location_changed.connect(func(_id: StringName) -> void: _on_location_changed())
 	EventBus.storage_door.connect(_on_storage_door)
@@ -287,6 +300,7 @@ func rebuild_furniture() -> void:
 			continue
 		var node: Node3D = _build_furniture(e)
 		parent.add_child(node)
+		node.visible = not hidden_furniture.has(e.iid)
 		furniture[e.iid] = node
 		if e.category() != &"storage" and e.category() != &"chair":
 			var m := StationMarker.new()
@@ -408,6 +422,8 @@ func _process(delta: float) -> void:
 	var player: SimActor = sim.player.actor
 	# Pemilik berpindah lantai sendiri; kamera tetap di lantai toko kecuali pemain
 	# memilih lantai lain lewat pintu tangga (GDD idle 5.1).
+	if cutscene:
+		view_floor_override = &""
 	var want_floor: StringName = view_floor_override if view_floor_override != &"" else sim.world.store_floor()
 	if sim.world.grid(want_floor) == null:
 		view_floor_override = &""
@@ -447,6 +463,52 @@ func _process(delta: float) -> void:
 	if _daylight_timer <= 0.0:
 		_daylight_timer = DAYLIGHT_INTERVAL
 		apply_daylight()
+
+
+## Mulai/akhiri cutscene pindah lokasi (GDD idle §20 no. 70): kamera ke lantai
+## toko, aktor simulasi, penanda, gelembung, kejutan, pejalan pulang, dan pejalan
+## kaki disembunyikan atau dibersihkan (semuanya kosmetik; simulasi di-pause).
+## Kendaraan tetap melaju (StreetLife berjalan selama cutscene) dan memberi jalan
+## pada truk pindahan.
+func set_cutscene(on: bool) -> void:
+	cutscene = on
+	if _thought_layer != null:
+		_thought_layer.visible = not on
+	if not on:
+		return
+	view_floor_override = &""
+	_clear_leavers()
+	if surprises != null:
+		surprises.abort()
+	if street_life != null:
+		street_life.clear_walkers()
+	for m: Variant in markers.values():
+		if is_instance_valid(m):
+			(m as StationMarker).hide_marker()
+
+
+## Model alat baru (belum diletakkan) untuk instance `iid`, sama dengan yang
+## digambar di dunia; null bila tidak ada.
+func equipment_model(iid: int) -> Node3D:
+	var e: EquipmentInstance = sim.equipment.get_inst(iid)
+	return _equipment_model(e) if e != null else null
+
+
+## Spec karakter pemilik (untuk boneka cutscene).
+func player_spec() -> Dictionary:
+	return _player_spec()
+
+
+## Lapisan 2D gelembung pikiran dan celetukan (untuk momen dunia).
+func thought_layer() -> CanvasLayer:
+	return _thought_layer
+
+
+## Kotak perabot `iid` di ruang lantainya (lokal terhadap node lantai), atau
+## AABB kosong.
+func furniture_box(iid: int) -> AABB:
+	var n: Node3D = furniture.get(iid)
+	return _world_aabb(n) if n != null and is_instance_valid(n) else AABB()
 
 
 ## Pindahkan pandangan ke lantai berikutnya (pintu tangga, tombol lantai).
@@ -579,7 +641,7 @@ func _step_leavers(delta: float) -> void:
 			continue
 		if dt > 0.0:
 			a.step(dt, sim.world)
-		v.visible = on_store
+		v.visible = on_store and not cutscene
 		v.sync(a, delta if dt > 0.0 else 0.0, on_store)
 		if not a.has_route():
 			_leavers.remove_at(i)
@@ -646,7 +708,7 @@ func _sync_one(a: SimActor, key: String, spec_fn: Callable, delta: float, live: 
 	elif v.spec_key != key:
 		v.bind(a.id, key, spec_fn.call())
 	var on_floor: bool = a.floor_id == camera_rig.active_floor
-	v.visible = on_floor
+	v.visible = on_floor and not cutscene and not hidden_actors.has(a.id)
 	v.sync(a, delta, on_floor)
 	# Data terakhir aktornya, untuk berjalan pulang setelah ia hilang di pintu.
 	v.set_meta("kind", a.kind)
@@ -1009,7 +1071,8 @@ func thought_bubble() -> ThoughtBubble:
 
 func _update_markers() -> void:
 	# Decoration Mode: penanda "!" dan bar progres hanya menutupi perabot yang ditata.
-	if decoration_mode:
+	# Cutscene pindah lokasi: perabotnya sedang diangkut.
+	if decoration_mode or cutscene:
 		for m0: Variant in markers.values():
 			(m0 as StationMarker).hide_marker()
 		return
@@ -1559,6 +1622,27 @@ func hold_top() -> Vector3:
 		return Vector3.INF
 	var c: Vector3 = _hold_aabb.get_center()
 	return Vector3(c.x, _hold_aabb.end.y + _lift_height(), c.z)
+
+
+## Sisi depan alat yang dipegang (GDD idle §20 no. 76): {"edge": titik tengah
+## sisi interaction face di lantai, "dir": arah hadapnya}, keduanya x/z dalam
+## meter, di posisi calon dan putaran calonnya. {} bila tidak ada alat yang
+## dipegang, atau modelnya tidak digambar di lantai yang sedang dilihat.
+func hold_front() -> Dictionary:
+	var iid: int = lifted_iid()
+	var node: Node3D = hold_node()
+	if iid < 0 or node == null or not node.visible or StringName(str(_hold["floor"])) != camera_rig.active_floor:
+		return {}
+	var e: EquipmentInstance = sim.equipment.get_inst(iid)
+	var cell: Vector2i = _hold["cell"]
+	if e == null or cell.x < 0:
+		return {}
+	var rot: int = int(_hold["rot"])
+	var fp: Vector2i = GridMath.rotated_footprint(e.def().footprint_tiles, rot)
+	var d: Vector2i = GridMath.face_dir(rot, e.def().interaction_face)
+	var center: Vector2 = (Vector2(cell) + Vector2(fp) * 0.5) * GridMath.WORLD_METERS_PER_TILE
+	var half: float = (float(fp.x) if d.x != 0 else float(fp.y)) * 0.5 * GridMath.WORLD_METERS_PER_TILE
+	return {"edge": center + Vector2(d) * half, "dir": Vector2(d)}
 
 
 ## Seberapa tinggi barang yang dipegang terangkat: karpet hanya sedikit.

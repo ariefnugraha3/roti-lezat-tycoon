@@ -188,6 +188,17 @@ static func begin(sim: SimulationRoot, wid: StringName, actor: SimActor, task: D
 	return true
 
 
+## Alat tujuan tugas `task` baru dipindah (GDD idle §20 no. 75): pekerja berjalan
+## ke tile aksesnya yang baru dan menyelesaikan sisa interaksinya di sana. false
+## bila tidak ada jalan; pemanggil membatalkan tugasnya.
+static func reroute(sim: SimulationRoot, actor: SimActor, task: Dictionary) -> bool:
+	if not _route(sim, actor, int(task.get("iid", -1))):
+		return false
+	if actor.has_route():
+		actor.state = &"WALKING"
+	return true
+
+
 static func _route(sim: SimulationRoot, actor: SimActor, iid: int) -> bool:
 	var acc: Dictionary = sim.world.access_of(iid)
 	if acc.is_empty():

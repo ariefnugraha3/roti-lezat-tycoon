@@ -717,17 +717,17 @@ func _town_map() -> void:
 	s.statistics.stats["run_earned_kr"] = 12345.0
 	run_hours(s, 0.2)
 	var earned: float = s.statistics.get_stat("run_earned_kr")
-	var sold_day: int = s.time.day
 	var gained: int = s.prestige.stars_gain()
 	check(gained > 0 and s.franchise() == gained, "franchise")
-	eq(s.prestige.branches.size(), 1, "the sold branch is recorded")
+	eq(s.prestige.branches.size(), 1, "the first branch is recorded")
 	var b: Dictionary = s.prestige.branches[0]
 	eq(int(b["number"]), 1, "as branch 1")
 	eq(int(b["tier"]), 3, "with the tier it reached")
 	eq(int(b["stars"]), gained, "the stars it earned")
 	near(float(b["earned"]), earned, 0.01, "the KR it earned")
-	eq(int(b["sold_day"]), sold_day, "and the day it was sold")
-	check(not b.has("current"), "a sold branch is not current")
+	eq(int(b["opened_day"]), 1, "and the day it opened")
+	check(not (b.get("state", {}) as Dictionary).is_empty(), "it keeps its shop to visit (GDD idle 20 no. 78)")
+	check(not b.has("current"), "a branch you are not in is not current")
 	eq(s.prestige.run_started_day, s.time.day, "the new branch opens today")
 	var lots: Array[Dictionary] = TownMapScreen.branches(s)
 	eq(lots.size(), 2, "the map now shows two bakeries")
@@ -739,6 +739,7 @@ func _town_map() -> void:
 	free_sim(u)
 	var old: Dictionary = json_copy(s.capture_save())
 	(old["franchise"] as Dictionary).erase("branches")
+	(old["franchise"] as Dictionary).erase("branch_no")
 	old["franchise"]["run_index"] = 3
 	var v: SimulationRoot = load_sim(old)
 	var lots2: Array[Dictionary] = TownMapScreen.branches(v)
@@ -754,6 +755,7 @@ func _town_map_ui() -> void:
 	game.playing = false
 	sim.prestige.branches.append({"number": 1, "tier": 4, "stars": 9, "earned": 1.5e6, "rate": 812.0, "opened_day": 1, "sold_day": 6})
 	sim.prestige.run_index = 2
+	sim.prestige.branch_no = 2
 	game.hud.open_tab(&"franchise")
 	await _frames(2)
 	var fr: UIScreen = game.modals.screen(&"franchise")

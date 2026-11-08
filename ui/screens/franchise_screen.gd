@@ -1,9 +1,10 @@
 class_name FranchiseScreen
 extends UISheet
 ## Layar Waralaba (GDD idle 10, 12.3): bintang sekarang dan yang akan didapat,
-## pengali penghasilan, perk (tercapai/terkunci), dan tombol Sell & Franchise.
-## Konfirmasi membuka cutscene Pak Lurah; resetnya sendiri dijalankan GameRoot
-## setelah cutscene (GDD idle 10.6).
+## pengali penghasilan, perk (tercapai/terkunci), dan tombol Open a New Branch.
+## Konfirmasi membuka cutscene Pak Lurah; cabang barunya dibuka GameRoot setelah
+## cutscene (GDD idle 10.6). Cabang ini tidak dijual: ia tetap di Peta Crumbtown
+## dan bisa dikunjungi (GDD idle §20 no. 78).
 
 var _sell: Button = null
 var _gain: Label = null
@@ -22,7 +23,7 @@ func build_page(body: VBoxContainer) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "FranchiseList"
 	var p: PrestigeManager = sim.prestige
-	var card: PanelContainer = ProceduralUIFactory.card(Tx.t("ui_branch_number", {"number": p.run_index}))
+	var card: PanelContainer = ProceduralUIFactory.card(Tx.t("ui_branch_number", {"number": p.branch_no}))
 	card.name = "Summary"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_child(card)
@@ -81,7 +82,10 @@ func tick_page() -> void:
 	match block:
 		&"tier":
 			var loc: LocationDefinition = DataRegistry.location_by_tier(DataRegistry.idlei("prestige.unlock_location_tier"))
-			_gain.text = Tx.t("ui_franchise_need_tier", {"location": Tx.t(String(loc.localization_key))})
+			if p.branch_no == p.run_index:
+				_gain.text = Tx.t("ui_franchise_need_tier", {"location": Tx.t(String(loc.localization_key))})
+			else:
+				_gain.text = Tx.t("ui_franchise_need_tier_branch", {"number": p.run_index, "location": Tx.t(String(loc.localization_key))})
 		&"stars":
 			_gain.text = Tx.t("ui_franchise_need_stars")
 		_:

@@ -564,11 +564,11 @@ func _ui() -> void:
 	var deco: DecorationScreen = game.modals.open(&"decoration", {})
 	await runner.get_tree().process_frame
 	var world: WorldView = game.world
-	# Ringkasan slot di baki "Your Decorations".
-	deco._set_tab(DecorationScreen.TAB_OWNED)
+	# Ringkasan slot di tab Wall katalog.
+	deco._set_tab(DecorationScreen.TAB_WALL)
 	await runner.get_tree().process_frame
-	var usage: Control = deco._tray_row.find_child("SlotUsage", true, false) as Control
-	check(usage != null, "the tray shows how many spots this shop has")
+	var usage: Control = deco.find_child("SlotUsage", true, false) as Control
+	check(usage != null and usage.is_visible_in_tree(), "the Wall tab shows how many spots this shop has")
 	if usage != null:
 		var lines: PackedStringArray = PackedStringArray()
 		for l: Node in usage.find_children("*", "Label", true, false):

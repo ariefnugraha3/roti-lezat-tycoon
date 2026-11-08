@@ -2374,12 +2374,19 @@ static func _planter(mb: MeshBuilder, p: Vector3) -> void:
 
 ## Papan menu kapur berdiri (berbentuk A) di teras toko.
 static func _menu_board(mb: MeshBuilder, p: Vector3) -> void:
+	# Papan A: kedua papan condong ke dalam (puncaknya bertemu, kakinya melebar).
+	# Papan di sisi z < 0 menghadap jalan dan kamera; tulisan kapur ada di sana.
+	var lean: float = 0.22
 	for sz: float in [-1.0, 1.0]:
-		var tilt := Basis(Vector3(1.0, 0.0, 0.0), sz * 0.22)
+		var tilt := Basis(Vector3(1.0, 0.0, 0.0), -sz * lean)
 		mb.box(Transform3D(tilt, p + Vector3(0.0, 0.42, sz * 0.1)), Vector3(0.5, 0.84, 0.03), Palette.DOOR_WOOD)
 		mb.box(Transform3D(tilt, p + Vector3(0.0, 0.45, sz * 0.118)), Vector3(0.42, 0.62, 0.01), Palette.CHALKBOARD)
+	var front := Basis(Vector3(1.0, 0.0, 0.0), lean)
 	for i in 3:
-		mb.box(Transform3D(Basis(Vector3(1.0, 0.0, 0.0), -0.22), p + Vector3(0.0, 0.62 - 0.14 * float(i), -0.127 + 0.03 * float(i))), Vector3(0.3 - 0.06 * float(i), 0.03, 0.006), Palette.CHALK_WHITE)
+		# Muka luar papan kapur depan: z = -0.123 + tan(lean) * (y - 0.45).
+		var y: float = 0.62 - 0.14 * float(i)
+		var z: float = -0.123 + tan(lean) * (y - 0.45) - 0.003
+		mb.box(Transform3D(front, p + Vector3(0.0, y, z)), Vector3(0.3 - 0.06 * float(i), 0.03, 0.006), Palette.CHALK_WHITE)
 
 
 ## Gedung kuliah tiga lantai beratap genteng di kejauhan: pita jendela tiap lantai.

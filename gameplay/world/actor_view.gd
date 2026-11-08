@@ -110,6 +110,37 @@ func bind(id: StringName, key: String, spec: Dictionary) -> void:
 	_apply_carry_pose()
 
 
+## Pakai model yang sudah jadi (salinan `puppet_model()` aktor lain) tanpa merakit
+## ulang mesh-nya: boneka cutscene pindah lokasi (GDD idle §20 no. 70).
+func bind_model(id: StringName, key: String, m: Node3D) -> void:
+	actor_id = id
+	spec_key = key
+	if model != null and is_instance_valid(model):
+		model.queue_free()
+	_clear_idle_fx()
+	model = m
+	add_child(model)
+	ProceduralAnimationSystem.stand_up(model)
+	ProceduralAnimationSystem.end_pose(model)
+	_apply_carry_pose()
+
+
+## Salinan model ini dalam pose istirahat dan tanpa kain lap gerak menganggur,
+## untuk `bind_model` boneka lain (jauh lebih murah daripada merakit ulang).
+func puppet_model() -> Node3D:
+	if model == null or not is_instance_valid(model):
+		return null
+	var dup: Node3D = model.duplicate() as Node3D
+	if _cloth != null and is_instance_valid(_cloth) and model.is_ancestor_of(_cloth):
+		var c: Node = dup.get_node_or_null(model.get_path_to(_cloth))
+		if c != null:
+			c.get_parent().remove_child(c)
+			c.free()
+	dup.position = Vector3.ZERO
+	dup.scale = dup.get_meta(ProceduralAnimationSystem.META_BASE_SCALE, dup.scale)
+	return dup
+
+
 func reset_for_pool() -> void:
 	actor_id = &""
 	visible = false

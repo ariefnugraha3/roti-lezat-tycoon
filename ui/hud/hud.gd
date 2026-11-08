@@ -79,6 +79,8 @@ var _refresh: float = 0.0
 var _recent_notices: Dictionary = {}
 ## Chip level di atas stasiun (GDD idle 12.1).
 var level_chips: LevelChips = null
+## Kolom kiri, kanan, dan tengah atas: isinya penghalang chip level.
+var _corner_cols: Array[Control] = []
 
 
 func _ready() -> void:
@@ -112,6 +114,11 @@ func _ready() -> void:
 	_build_top_right(frame)
 	_build_top_center(frame)
 	_build_tab_bar(frame)
+	for col_name: String in ["TopLeft", "TopRight", "TopCenter"]:
+		var col: Control = frame.find_child(col_name, true, false) as Control
+		if col != null:
+			_corner_cols.append(col)
+	level_chips.blockers = chip_blockers
 	_build_hint(frame)
 	_build_regular(frame)
 	_build_toasts(frame)
@@ -404,6 +411,24 @@ func event_chip() -> Button:
 ## Pil craving (untuk tes).
 func craving_chip() -> Button:
 	return _craving
+
+
+## Kotak layar panel HUD yang tidak boleh ditutupi chip level (GDD idle §20
+## no. 77): isi kolom kiri, kanan, dan tengah atas, serta bar tab. Chip yang
+## menabraknya ditata ulang seperti chip yang menabrak chip lain.
+func chip_blockers() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for col: Control in _corner_cols:
+		if not col.is_visible_in_tree():
+			continue
+		for c: Node in col.get_children():
+			var cc: Control = c as Control
+			if cc != null and cc.is_visible_in_tree() and cc.size.x > 0.0 and cc.size.y > 0.0:
+				out.append(cc.get_global_rect())
+	var bar: Control = _tab_bar.get_parent() as Control if _tab_bar != null else null
+	if bar != null and bar.is_visible_in_tree():
+		out.append(bar.get_global_rect())
+	return out
 
 
 func _build_tab_bar(frame: Control) -> void:

@@ -476,8 +476,10 @@ func _prewarm_day_music() -> void:
 # ===========================================================================
 
 ## Ketukan dunia (GDD idle 5.1, 5.2): stasiun dan kasir menjadi prioritas
-## pemilik sebentar dan yang sedang bekerja mendapat Semangat. Pintu tangga
-## memindahkan pandangan kamera ke lantai lain.
+## pemilik sebentar dan yang sedang bekerja mendapat Semangat. Kartu upgrade
+## hanya dibuka dari chip level (GDD idle §20 no. 77), jadi ketukan Semangat
+## tidak pernah membuka, mengganti, atau menutup kartu; ketukan di lantai kosong
+## menutupnya. Pintu tangga memindahkan pandangan kamera ke lantai lain.
 func _on_world_tap(pos: Vector2) -> void:
 	if sim == null:
 		return
@@ -493,6 +495,8 @@ func _on_world_tap(pos: Vector2) -> void:
 			open_regular_order()
 		&"portal":
 			world.toggle_view_floor()
+		&"cell", &"none":
+			modals.close_id(&"upgrade_card")
 		_:
 			pass
 
@@ -564,6 +568,23 @@ func _on_lifecycle_resumed() -> void:
 	check_daily_gift()
 
 
+## Pindah ke lokasi berikutnya (GDD idle 8.7) lewat cutscene truk pindahan (GDD
+## idle §20 no. 70): lokasinya pindah tepat sekali di tengah cutscene
+## (MovingCutscene). "" bila dimulai, selain itu kunci alasan (tidak ada yang
+## berubah). Tanpa dunia (tes simulasi) lokasi langsung pindah.
+func start_move() -> String:
+	if sim == null:
+		return "ui_upgrade_max"
+	var reason: String = sim.upgrade_block_reason()
+	if reason != "":
+		return reason
+	if world == null or not playing:
+		return sim.upgrade_location()
+	if not modals.is_open(&"moving_cutscene"):
+		modals.open(&"moving_cutscene")
+	return ""
+
+
 ## Waralaba dari cutscene (GDD idle 10.6): reset putaran di simulasi, simpan,
 ## lalu dunia dan HUD cabang baru dibangun ulang di balik layar loading. Simulasi
 ## yang sama dipakai terus, jadi tidak bergantung pada pembacaan ulang save.
@@ -573,9 +594,36 @@ func do_franchise() -> void:
 	var pid: StringName = sim.profile_id
 	modals.close_all()
 	await _begin_loading("ui_loading_franchise", 0.05)
-	if sim.franchise() <= 0:
+	if sim.franchise(sim.offline.now_unix()) <= 0:
 		_end_loading(true)
 		return
+	await _reenter_branch(pid)
+	EventBus.notify.emit(1, "ui_branch_open", {"number": sim.prestige.run_index}, &"star")
+
+
+## Kunjungi cabang `n` dari Peta Crumbtown (GDD idle §20 no. 78): cabang ini
+## ditinggal dan cabang `n` dimuat di simulasi yang sama, lalu dunia dan HUD-nya
+## dibangun ulang di balik layar loading seperti Waralaba. Tabungan cabang itu
+## sejak ditinggal menunggu Collect di popup Selamat Datang, atau langsung masuk
+## dengan toast bila ditinggal sebentar.
+func visit_branch(n: int) -> void:
+	if sim == null or n == sim.prestige.branch_no:
+		return
+	var pid: StringName = sim.profile_id
+	modals.close_all()
+	await _begin_loading("ui_loading_branch", 0.05)
+	var r: Dictionary = sim.visit_branch(n, sim.offline.now_unix())
+	if r.is_empty():
+		_end_loading(true)
+		return
+	await _reenter_branch(pid)
+	EventBus.notify.emit(1, "ui_branch_welcome", {"number": n}, &"shop")
+	_show_offline(r.get("away", {}))
+
+
+## Simpan cabang yang baru dibuka atau dikunjungi, lalu bangun ulang dunia, HUD,
+## dan lapisan perintah untuknya (Waralaba, kunjungan cabang).
+func _reenter_branch(pid: StringName) -> void:
 	SaveManager.save_now()
 	playing = false
 	_disconnect_bus()
@@ -589,7 +637,6 @@ func do_franchise() -> void:
 	world = null
 	await _loading_stage("ui_loading", 0.20)
 	await _enter_gameplay(pid)
-	EventBus.notify.emit(1, "ui_branch_open", {"number": sim.prestige.run_index}, &"star")
 
 
 ## Penghasilan saat pergi sejak acuan terakhir (GDD idle 9.3): dipanggil saat

@@ -210,7 +210,11 @@ func _recipe_row(parent: Control, r: RecipeDefinition) -> void:
 	var rid: StringName = r.id
 	b.pressed.connect(func() -> void:
 		if sim.upgrades.unlock_recipe(rid):
-			refresh())
+			refresh()
+			# Sorotan resep baru di atas lembar ini (GDD idle §20 no. 73).
+			if host != null:
+				host.close_id(&"recipe_reveal")
+				host.open(&"recipe_reveal", {"recipe": rid}))
 	h.add_child(b)
 	_unlock_buttons[rid] = b
 

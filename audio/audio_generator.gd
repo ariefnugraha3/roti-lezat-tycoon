@@ -534,7 +534,7 @@ const RECIPES: Array[String] = [
 	"place_display", "paper_rustle", "happy_chirp", "impatient_tap", "sad_soft", "coin_chime",
 	"register_ding", "tablet_chime", "bag_seal", "handover_ping", "tablet_cancel",
 	"sparkle_chime", "whoosh", "achievement_flourish",
-	"upgrade_sting", "tap_pop", "level_up", "milestone_fanfare", "coin_shower", "welcome_back_chime", "franchise_jingle", "rain_loop", "sunny_ambience", "room_tone",
+	"upgrade_sting", "tap_pop", "truck_horn", "level_up", "milestone_fanfare", "coin_shower", "welcome_back_chime", "franchise_jingle", "rain_loop", "sunny_ambience", "room_tone",
 	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "clock_chime",
 	"music_menu", "music_morning", "music_day", "music_busy_layer", "music_rain",
 	"music_after_hours",
@@ -620,6 +620,8 @@ static func build(generator_id: String) -> AudioStreamWAV:
 			return _upgrade_sting()
 		"tap_pop":
 			return _tap_pop()
+		"truck_horn":
+			return _truck_horn()
 		"level_up":
 			return _level_up()
 		"milestone_fanfare":
@@ -791,6 +793,19 @@ static func _tap_pop() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.045, 0.08, 1568.0, 2093.0, "triangle", 0.25,
 			{"attack": 0.003, "decay": 0.03, "sustain": 0.2, "release": 0.04})
 	return _to_stream(_normalize(buf, 0.55), false)
+
+
+## Klakson truk pindahan (GDD idle §20 no. 70): dua "tin" pendek dua nada,
+## kotak yang dilunakkan segitiga supaya ramah di telinga.
+static func _truck_horn() -> AudioStreamWAV:
+	var buf: PackedFloat32Array = _new_buffer(0.46)
+	var env: Dictionary = {"attack": 0.006, "decay": 0.03, "sustain": 0.85, "release": 0.04}
+	for i in 2:
+		var t0: float = 0.2 * float(i)
+		buf = _add_osc(buf, t0, 0.15, 415.3, 411.0, "square", 0.22, env)
+		buf = _add_osc(buf, t0, 0.15, 523.25, 518.0, "square", 0.18, env)
+		buf = _add_osc(buf, t0, 0.15, 415.3, 411.0, "triangle", 0.35, env)
+	return _to_stream(_normalize(buf, 0.5), false)
 
 
 ## Naik level (GDD idle 14): dua nada bel naik yang cerah dan pendek.

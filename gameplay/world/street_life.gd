@@ -54,6 +54,19 @@ const RIPPLE_SECONDS: float = 0.9
 const RIPPLE_RADIUS: float = 0.26
 const RIPPLE_ALPHA: Array[float] = [0.5, 0.3, 0.12]
 
+## Kendaraan tamu (truk pindahan, GDD idle §20 no. 70): {} atau {x, z, len,
+## width, speed, dir}, diperbarui MovingDay tiap frame. Lajur yang badannya
+## bersinggungan dengan tamu tidak memunculkan kendaraan baru, kendaraan di
+## lajur itu yang ada di belakang tamu mengerem dan mengantre di belakangnya,
+## roda dua tidak menyalip ke arahnya, dan pejalan kaki tidak muncul di garis
+## trotoar yang ditutupinya. Tamu sendiri menjaga jarak dengan kendaraan di
+## depannya lewat `gap_ahead`.
+var guest: Dictionary = {}
+## Setengah lebar kendaraan terlebar (bus) dan jarak samping minimal (m) untuk
+## uji singgungan lajur dengan tamu.
+const GUEST_LANE_HALF: float = 0.86
+const GUEST_CLEAR: float = 0.08
+
 var sim: SimulationRoot = null
 var view: WorldView = null
 ## Kendaraan aktif per lajur: [{def, next, cars: [{kind, x, z, speed, want, len, ...}]}].
@@ -157,6 +170,109 @@ func clear() -> void:
 	_root = null
 
 
+## Hapus pejalan kaki saja; kendaraan tetap melaju (awal cutscene pindah lokasi).
+func clear_walkers() -> void:
+	for wk: Dictionary in walkers:
+		_release(wk)
+	walkers.clear()
+
+
+# ===========================================================================
+# KENDARAAN TAMU (truk pindahan)
+# ===========================================================================
+
+func set_guest(g: Dictionary) -> void:
+	guest = g
+
+
+## Badan kendaraan selebar setengah `half` di garis tengah `zc` bersinggungan
+## dengan badan tamu.
+func _touches_guest(zc: float, half: float) -> bool:
+	return not guest.is_empty() and absf(zc - float(guest["z"])) < float(guest["width"]) * 0.5 + half + GUEST_CLEAR
+
+
+## Lajur yang kendaraannya bisa bersinggungan dengan tamu: setengah lebar
+## kendaraan terlebar di lajur itu ditambah geser acak roda dua.
+func lane_blocked(lane: Dictionary) -> bool:
+	if guest.is_empty():
+		return false
+	var half: float = 0.0
+	for k: Variant in (lane["def"]["kinds"] as Dictionary).keys():
+		half = maxf(half, _half_width(StringName(str(k))))
+	return _touches_guest(float(lane["def"]["z"]), minf(half, GUEST_LANE_HALF) + float(lane["def"].get("jitter", 0.0)))
+
+
+func _guest_on_walks() -> bool:
+	if guest.is_empty():
+		return false
+	for wd: Variant in _walk_defs:
+		if _touches_guest(float((wd as Dictionary)["z"]), 0.3):
+			return true
+	return false
+
+
+static func _half_width(kind: StringName) -> float:
+	return float(TrafficFactory.info(kind)["width"]) * 0.5
+
+
+## Jarak bebas (m) dari moncong kendaraan sepanjang `length` di x `x` yang melaju
+## ke arah `dir` sampai kendaraan terdekat di depannya yang badannya
+## bersinggungan dengan pita z `z` ± `half`, dan kecepatan kendaraan itu.
+## Vector2(INF, 0) bila jalannya kosong.
+func gap_ahead(x: float, z: float, half: float, length: float, dir: float) -> Vector2:
+	var best := Vector2(INF, 0.0)
+	for lane: Dictionary in lanes:
+		var ld: float = float(lane["def"]["dir"])
+		for car: Dictionary in lane["cars"]:
+			var cz: float = float(car["z"]) + float(car.get("offset", 0.0))
+			if absf(cz - z) >= half + _half_width(car["kind"]) + GUEST_CLEAR:
+				continue
+			var d: float = (float(car["x"]) - x) * dir
+			if d <= 0.0:
+				continue
+			var gap: float = d - (length + float(car["len"])) * 0.5
+			if gap < best.x:
+				# Kendaraan yang berlawanan arah dianggap diam (tidak terjadi bila
+				# lajurnya tidak bersinggungan).
+				best = Vector2(gap, float(car["speed"]) if is_equal_approx(ld, dir) else 0.0)
+	return best
+
+
+## Tes: taruh kendaraan `kind` di lajur ke-`lane_i` pada x `x`, melaju `speed`
+## m/s. Mengembalikan data kendaraannya.
+func debug_add_car(lane_i: int, kind: StringName, x: float, speed: float) -> Dictionary:
+	var lane: Dictionary = lanes[lane_i]
+	var def: Dictionary = lane["def"]
+	var dir: float = float(def["dir"])
+	var inf: Dictionary = TrafficFactory.info(kind)
+	var mi: MeshInstance3D = TrafficFactory.build(kind, 0, _rain, 0.0)
+	mi.rotation.y = -PI * 0.5 if dir > 0.0 else PI * 0.5
+	_root.add_child(mi)
+	var car: Dictionary = {"kind": kind, "variant": 0, "node": mi, "x": x, "z": float(def["z"]), "speed": speed, "want": speed,
+		"len": float(inf["length"]), "bob": float(inf["bob"]), "phase": 0.0, "level": 0, "age": 1.0, "pop": false,
+		"pop_out": 0.0, "frames": TrafficFactory.frames(kind), "frame": 0, "stride": float(inf.get("stride", 1.0)), "dist": 0.0}
+	(lane["cars"] as Array).append(car)
+	_place_car(car, false, 0.0)
+	return car
+
+
+## Hapus kendaraan yang badannya menimpa persegi tamu di x `x` (saat truk muncul).
+func remove_near(x: float, z: float, half: float, length: float) -> void:
+	for lane: Dictionary in lanes:
+		var cars: Array = lane["cars"]
+		var i: int = 0
+		while i < cars.size():
+			var car: Dictionary = cars[i]
+			var cz: float = float(car["z"]) + float(car.get("offset", 0.0))
+			var overlap_z: bool = absf(cz - z) < half + _half_width(car["kind"]) + GUEST_CLEAR
+			var overlap_x: bool = absf(float(car["x"]) - x) < (length + float(car["len"])) * 0.5 + SAFE_GAP
+			if overlap_z and overlap_x:
+				_free_node(car.get("node"))
+				cars.remove_at(i)
+				continue
+			i += 1
+
+
 func _free_node(n: Variant) -> void:
 	if n != null and is_instance_valid(n):
 		(n as Node).queue_free()
@@ -228,7 +344,9 @@ func update(delta: float) -> void:
 	if sim.weather.is_rain() != _rain:
 		_rain = sim.weather.is_rain()
 		_restyle()
-	if PauseManager.is_paused() or delta <= 0.0:
+	# Cutscene pindah lokasi: simulasi di-pause, tetapi jalanan tetap hidup.
+	var cutscene: bool = view != null and view.cutscene
+	if (PauseManager.is_paused() and not cutscene) or delta <= 0.0:
 		return
 	_t += delta
 	_work_deadline = Time.get_ticks_usec() + WORK_USEC
@@ -237,7 +355,9 @@ func update(delta: float) -> void:
 	var act: float = activity()
 	for lane: Dictionary in lanes:
 		_step_lane(lane, delta, act)
-	_step_walkers(delta, act)
+	# Pejalan kaki tidak muncul selama cutscene (kru melintasi trotoar) atau di
+	# garis trotoar yang tertutup truk.
+	_step_walkers(delta, 0.0 if cutscene or _guest_on_walks() else act)
 	_step_ripples(delta)
 	_warm_step()
 
@@ -268,7 +388,8 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 	var dir: float = float(def["dir"])
 	var cars: Array = lane["cars"]
 	lane["next"] = float(lane["next"]) - delta * act
-	if float(lane["next"]) <= 0.0 and _spawn_car(lane):
+	var blocked: bool = lane_blocked(lane)
+	if float(lane["next"]) <= 0.0 and not blocked and _spawn_car(lane):
 		var gap: Vector2 = def["gap"]
 		lane["next"] = _rng.randf_range(gap.x, gap.y)
 	var end_x: float = float(def["x0"]) if dir < 0.0 else float(def["x1"])
@@ -279,24 +400,44 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 		var car: Dictionary = cars[i]
 		var want: float = float(car["want"])
 		var passing: bool = false
-		if i > 0:
-			var ahead: Dictionary = cars[i - 1]
+		var ahead: Dictionary = cars[i - 1] if i > 0 else {}
+		# Truk pindahan di depan kendaraan ini yang badannya bersinggungan: diikuti
+		# seperti kendaraan biasa bila jarak bempernya lebih dekat daripada
+		# kendaraan di depan (yang bisa saja sedang lewat di sampingnya), dan tidak
+		# pernah disalip.
+		var cz: float = float(car["z"]) + float(car.get("offset", 0.0))
+		var behind_guest: bool = false
+		if blocked and (float(guest["x"]) - float(car["x"])) * dir > 0.0 and _touches_guest(cz, _half_width(car["kind"])):
+			var guest_gap: float = absf(float(guest["x"]) - float(car["x"])) - (float(guest["len"]) + float(car["len"])) * 0.5
+			var ahead_gap: float = INF
+			if not ahead.is_empty():
+				ahead_gap = absf(float(ahead["x"]) - float(car["x"])) - (float(ahead["len"]) + float(car["len"])) * 0.5
+			if guest_gap < ahead_gap:
+				behind_guest = true
+				ahead = {"x": guest["x"], "len": guest["len"], "speed": guest["speed"], "want": guest["speed"]}
+		if not ahead.is_empty():
 			var gap_m: float = absf(float(ahead["x"]) - float(car["x"])) - (float(ahead["len"]) + float(car["len"])) * 0.5
 			if gap_m < _brake_gap(float(car["speed"]), float(ahead["speed"])):
 				# Roda dua menyalip yang jauh lebih lambat (gerobak, sepeda, becak)
 				# dengan bergeser ke tengah jalan; selain itu melambat di belakangnya.
-				if TWO_WHEELS.has(car["kind"]) and float(ahead["want"]) < want * PASS_RATIO:
+				if not behind_guest and TWO_WHEELS.has(car["kind"]) and float(ahead["want"]) < want * PASS_RATIO \
+						and not _pass_hits_guest(car, dir):
 					passing = true
 				else:
 					want = minf(want, float(ahead["speed"]) * (0.8 if gap_m < SAFE_GAP else 1.0))
 		if passing:
 			car["pass_until"] = float(cars[i - 1]["x"]) + dir * (float(cars[i - 1]["len"]) + float(car["len"]) + 1.0)
 		var offset_want: float = 0.0
-		if car.has("pass_until") and float(car["x"]) * dir < float(car["pass_until"]) * dir:
+		if car.has("pass_until") and float(car["x"]) * dir < float(car["pass_until"]) * dir and not _pass_hits_guest(car, dir):
 			# Lalu lintas lajur kiri: tengah jalan ada di -z untuk arah -x, di +z untuk +x.
 			offset_want = dir * PASS_OFFSET
 		else:
 			car.erase("pass_until")
+		# Yang sedang menyalip di samping truk pindahan baru kembali ke lajurnya
+		# setelah melewatinya.
+		if absf(offset_want) < 0.001 and absf(float(car.get("offset", 0.0))) > 0.001 and _beside_guest(car) \
+				and _touches_guest(float(car["z"]), _half_width(car["kind"])):
+			offset_want = float(car["offset"])
 		car["offset"] = move_toward(float(car.get("offset", 0.0)), offset_want, delta * 1.6)
 		car["speed"] = move_toward(float(car["speed"]), want, delta * BRAKE)
 		car["x"] = float(car["x"]) + dir * float(car["speed"]) * delta
@@ -308,6 +449,23 @@ func _step_lane(lane: Dictionary, delta: float, act: float) -> void:
 			cars.remove_at(i)
 			continue
 		i += 1
+
+
+## Menyalip (bergeser PASS_OFFSET ke tengah jalan) akan menyenggol truk pindahan
+## yang ada di dekat kendaraan ini.
+func _pass_hits_guest(car: Dictionary, dir: float) -> bool:
+	if guest.is_empty():
+		return false
+	var near: bool = absf(float(car["x"]) - float(guest["x"])) < (float(guest["len"]) + float(car["len"])) * 0.5 + 3.0
+	return near and _touches_guest(float(car["z"]) + dir * PASS_OFFSET, _half_width(car["kind"]))
+
+
+## Kendaraan berada di samping truk pindahan (rentang x-nya bertumpuk, dengan
+## sedikit kelonggaran).
+func _beside_guest(car: Dictionary) -> bool:
+	if guest.is_empty():
+		return false
+	return absf(float(car["x"]) - float(guest["x"])) < (float(guest["len"]) + float(car["len"])) * 0.5 + 1.0
 
 
 ## Jarak yang dibutuhkan kendaraan berkecepatan `v` untuk melambat ke `v_ahead`

@@ -77,8 +77,35 @@ func thaw() -> Dictionary:
 ## Penghasilan untuk `away` detik pergi: KR/s tersimpan × min(away, batas) ×
 ## efisiensi. Mengembalikan {amount, seconds}.
 func earnings_for(away: float) -> Dictionary:
+	return _earnings(rate_kr_per_s, away)
+
+
+func _earnings(rate: float, away: float) -> Dictionary:
 	var counted: float = clampf(away, 0.0, cap_seconds())
-	return {"amount": Money.round_cents(maxf(rate_kr_per_s, 0.0) * counted * efficiency()), "seconds": counted}
+	return {"amount": Money.round_cents(maxf(rate, 0.0) * counted * efficiency()), "seconds": counted}
+
+
+## Cabang `branch` baru dikunjungi pada jam unix `now` (GDD idle §20 no. 78):
+## selama ditinggal sejak `left` ia menabung seperti penghasilan offline, dengan
+## KR/s `rate` saat ditinggal dan batas serta efisiensi cabang ini. Aturannya
+## sama dengan `settle`: < min_away diabaikan, < popup_min langsung masuk
+## (toast), selebihnya menunggu Collect di popup Selamat Datang cabang itu.
+## Tabungan cabang sebelumnya sudah masuk saat ditinggal, jadi `pending` kosong.
+## Hasil: {} atau {amount, seconds, away, popup, branch}.
+func settle_branch(now: float, left: float, rate: float, branch: int) -> Dictionary:
+	if left <= 0.0 or now <= left:
+		return {}
+	var away: float = now - left
+	if away < DataRegistry.idlef("offline.min_away_seconds"):
+		return {}
+	var e: Dictionary = _earnings(rate, away)
+	var out: Dictionary = {"amount": float(e["amount"]), "seconds": float(e["seconds"]), "away": away,
+		"popup": away >= DataRegistry.idlef("offline.popup_min_seconds"), "branch": branch}
+	if bool(out["popup"]):
+		pending = {"amount": float(out["amount"]), "seconds": float(out["seconds"]), "away": away, "branch": branch}
+	else:
+		_credit(float(out["amount"]), float(out["seconds"]))
+	return out
 
 
 ## Hitung waktu sejak acuan terakhir (GDD idle 9.3, 9.4) lalu perbarui acuan.

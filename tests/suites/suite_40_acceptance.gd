@@ -13,7 +13,7 @@ func tests() -> Array:
 		{"id": "ACC_LAYOUT_SOLVER", "name": "opening stations fills every tier's slots with a valid layout", "fn": _layout_solver},
 		{"id": "ACC_81_PLACEMENT", "name": "81.1/81.4 placement keeps paths and access tiles", "fn": _placement},
 		{"id": "ACC_IDLE_ONE_SPEED", "name": "idle 0.2: one speed, 1 real second = 1 in-game minute; only the Pause menu stops the clock", "fn": _one_speed},
-		{"id": "ACC_81_IN_USE", "name": "81.14 a station holding a batch cannot move", "fn": _in_use},
+		{"id": "ACC_IDLE_MOVE_BUSY", "name": "idle 20 no. 75 furniture in use still moves: a mixer holding a batch keeps it, the owner walking to it goes to its new access tile and carries on there; a buyer browsing a shelf that moves walks to its new spot and still buys, leaving no reservation behind", "fn": _move_busy},
 		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 a shelf holding bread moves and turns with its bread", "fn": _stocked_shelf},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
@@ -233,22 +233,117 @@ func _one_speed() -> void:
 	free_sim(s)
 
 
-func _in_use() -> void:
+## Perabot yang sedang dipakai tetap bisa dipindah (GDD idle §20 no. 75,
+## menggantikan v3.1 72 dan 81 no. 14): isinya ikut, pemakainya pindah tempat.
+func _move_busy() -> void:
 	var s: SimulationRoot = new_sim(101)
-	freeze_production(s)
+	s.tutorial.skip()
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
 	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
-	var j: ProductionJob = s.production.create_job(&"recipe_plain_loaf", 1, mixer, -1, -1, &"test")
-	s.production.start_mixing(j.job_id, &"test")
-	check(s.equipment.is_in_use(mixer.iid), "mixing mixer is IN_USE")
-	check(s.equipment.move_blocked(mixer.iid), "a mixing mixer may not move")
-	var fg: FloorGrid = s.world.grid(mixer.floor_id)
-	var moved: int = 0
-	for z in fg.size.y:
-		for x in fg.size.x:
-			if s.equipment.place(mixer.iid, mixer.floor_id, Vector2i(x, z), mixer.rotation) == &"":
-				moved += 1
-	eq(moved, 0, "in-use furniture cannot move anywhere (v3.1 81.14)")
+	var owner: SimActor = s.player.actor
+	var t: float = 0.0
+	while t < 120.0 and not (mixer.job_id >= 0 and int(s.player.task.get("iid", -1)) == mixer.iid and owner.has_route()):
+		s.step(s.tick_seconds)
+		t += s.tick_seconds
+	check(mixer.job_id >= 0 and owner.has_route(), "the owner walks to the mixer holding a batch")
+	check(s.equipment.is_in_use(mixer.iid), "the mixer is in use")
+	var jid: int = mixer.job_id
+	var j: ProductionJob = s.production.get_job(jid)
+	var stage: StringName = j.stage
+	var spot: Dictionary = _shelf_spot(s, mixer, false)
+	check(not spot.is_empty(), "the mixer has another free spot")
+	if spot.is_empty():
+		free_sim(s)
+		return
+	eq(s.equipment.place(mixer.iid, mixer.floor_id, spot["anchor"], spot["rot"]), &"", "Place moves the mixer in use")
+	eq(mixer.anchor, spot["anchor"], "the mixer stands at its new spot")
+	eq(mixer.job_id, jid, "its batch moved with it")
+	eq(j.stage, stage, "at the same stage")
+	var acc: Dictionary = s.world.access_of(mixer.iid)
+	eq([owner.goal_floor, owner.goal_cell], [acc["floor"], acc["cell"]], "the owner now walks to the mixer's new access tile")
+	t = 0.0
+	while t < 60.0 and j.stage == stage:
+		s.step(s.tick_seconds)
+		t += s.tick_seconds
+	check(j.stage != stage, "the owner carries on with the batch")
+	eq([owner.floor_id, owner.cell()], [acc["floor"], acc["cell"]], "standing at the mixer's new access tile")
+	run_for(s, 240.0)
+	check(mixer.job_id != jid, "the batch went on to the oven")
+	eq(s.check_invariants(), "", "invariants after moving the mixer")
 	free_sim(s)
+
+	# Koki yang sedang menuju oven yang dipindah.
+	var s3: SimulationRoot = new_sim(103)
+	s3.tutorial.skip()
+	s3.demand.next_physical_at = NEVER
+	s3.demand.next_rotifood_at = NEVER
+	park_owner(s3)
+	eq(s3.staff.hire(&"staff_baker_joko", true), &"", "a baker is hired")
+	var baker: SimActor = s3.staff.actors.get(&"staff_baker_joko")
+	var oven: EquipmentInstance = s3.equipment.placed_list(&"oven")[0]
+	t = 0.0
+	while t < 240.0 and not (baker != null and int((s3.staff.tasks.get(&"staff_baker_joko", {}) as Dictionary).get("iid", -1)) == oven.iid 			and baker.has_route()):
+		s3.step(s3.tick_seconds)
+		t += s3.tick_seconds
+	check(baker != null and baker.has_route(), "the baker walks to the oven")
+	var spot3: Dictionary = _shelf_spot(s3, oven, false)
+	check(not spot3.is_empty(), "the oven has another free spot")
+	if baker == null or spot3.is_empty():
+		free_sim(s3)
+		return
+	var task3: Dictionary = s3.staff.tasks[&"staff_baker_joko"]
+	eq(s3.equipment.place(oven.iid, oven.floor_id, spot3["anchor"], spot3["rot"]), &"", "Place moves the oven the baker is heading to")
+	var acc3: Dictionary = s3.world.access_of(oven.iid)
+	eq([baker.goal_floor, baker.goal_cell], [acc3["floor"], acc3["cell"]], "the baker now walks to the oven's new access tile")
+	t = 0.0
+	while t < 60.0 and s3.staff.tasks.get(&"staff_baker_joko") == task3:
+		s3.step(s3.tick_seconds)
+		t += s3.tick_seconds
+	eq([baker.floor_id, baker.cell()], [acc3["floor"], acc3["cell"]], "and finishes the step there")
+	run_for(s3, 240.0)
+	eq(s3.check_invariants(), "", "invariants after moving the oven")
+	free_sim(s3)
+
+	# Pembeli yang sedang memilih di rak yang dipindah.
+	var s2: SimulationRoot = new_sim(102)
+	s2.tutorial.skip()
+	freeze_production(s2)
+	park_owner(s2)
+	s2.demand.next_physical_at = NEVER
+	s2.demand.next_rotifood_at = NEVER
+	var disp: EquipmentInstance = s2.equipment.placed_list(&"display")[0]
+	stock(s2, &"recipe_plain_loaf", 6, 0, disp.iid)
+	s2.customers.try_admit({"archetype": &"customer_generic"})
+	var c: Customer = s2.customers.sorted()[0]
+	walk_in(s2, c)
+	t = 0.0
+	while t < 60.0 and c.state != Customer.BROWSING:
+		s2.step(s2.tick_seconds)
+		t += s2.tick_seconds
+	eq(c.state, Customer.BROWSING, "a buyer browses the shelf")
+	eq(c.target_display, disp.iid, "the stocked shelf")
+	var old_acc: Dictionary = s2.world.access_of(disp.iid)
+	check(s2.equipment.is_in_use(disp.iid), "the shelf is in use")
+	var spot2: Dictionary = _shelf_spot(s2, disp, false)
+	check(not spot2.is_empty(), "the shelf has another free spot")
+	if spot2.is_empty():
+		free_sim(s2)
+		return
+	eq(s2.equipment.place(disp.iid, disp.floor_id, spot2["anchor"], spot2["rot"]), &"", "Place moves the shelf while the buyer browses it")
+	var acc2: Dictionary = s2.world.access_of(disp.iid)
+	eq(s2.world.point_holder(old_acc["floor"], old_acc["cell"]), &"", "the old browsing spot is free")
+	eq(c.state, Customer.ENTERING, "the buyer stops browsing")
+	eq(c.actor.goal_cell, acc2["cell"], "and walks to the shelf's new access tile")
+	t = 0.0
+	while t < 60.0 and c.held.is_empty():
+		s2.step(s2.tick_seconds)
+		t += s2.tick_seconds
+	check(not c.held.is_empty(), "the buyer still takes bread")
+	eq(c.actor.cell(), acc2["cell"], "from the shelf's new spot")
+	check(not s2.world.point_reservations.values().has(String(c.id)), "and holds no browsing spot afterwards")
+	eq(s2.check_invariants(), "", "invariants after moving the shelf")
+	free_sim(s2)
 
 
 ## Rak berisi roti boleh dipindah dan diputar kapan saja (toko idle selalu
@@ -264,7 +359,6 @@ func _stocked_shelf() -> void:
 	check(s.display.used(disp.iid) > 0, "the shelf holds bread")
 	var bread: String = JSON.stringify(s.display.capture())
 	check(s.equipment.is_in_use(disp.iid), "a shelf holding bread still counts as in use")
-	check(not s.equipment.move_blocked(disp.iid), "but it may move")
 	var spot: Dictionary = _shelf_spot(s, disp, false)
 	check(not spot.is_empty(), "the shelf has another free spot")
 	if spot.is_empty():

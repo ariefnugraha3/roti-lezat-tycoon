@@ -58,7 +58,7 @@ It owns one instance of each manager as a child `SimManager` node:
 | Customers | `QueueManager`, `CashierManager`, `CustomerManager`, `DemandManager` (`gameplay/customers/`) | Lanes and reservations; transactions; walk-in customers and window shoppers; arrivals and the pending pool. |
 | Delivery | `RotiFoodManager` (`gameplay/delivery/`) | RotiFood orders, accepted and packed automatically, and their drivers. |
 | Staff | `StaffManager` (`gameplay/staff/`) | Contracts (hire once, no wages), staff actors and tasks, cashier lane assignment, staff chairs. |
-| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch number and branch cost multiplier, idle §23.1), `MasteryManager` (permanent recipe mastery, idle §23.3), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3), `EventManager` (device-date seasonal events, idle §21.6) | Their respective systems. |
+| Meta | `gameplay/meta/`: `WeatherManager`, `PrestigeManager` (franchise stars, perks, branch numbers, the stored branches you are not in, idle §20 no. 78, and the branch cost multiplier, idle §23.1), `MasteryManager` (permanent recipe mastery, idle §23.3), `StatisticsManager`, `AchievementManager`, `TutorialManager` (onboarding, idle §13), `OfflineManager` (idle §9.2–9.4), `BoostManager` (coffee, promotions, achievement boosts, idle §11), `CravingManager` (daily craving and local favourites, idle §21.1), `GoalManager` (three daily goals, idle §21.2), `CalendarManager` (daily stamp card, idle §21.3), `EventManager` (device-date seasonal events, idle §21.6) | Their respective systems. |
 
 Every field has exactly one owning manager (GDD 98). Other managers call its methods
 and never write its fields directly.
@@ -130,11 +130,19 @@ are pruned. A new game starts at `clock.start_seconds`.
   parks carried items on the Holding Table, lifts decorations, migrates the equipment
   with deterministic auto-placement and puts decorations back where they fit. On any
   failure it restores a snapshot.
-- **Franchise** (idle §10): `SimulationRoot.franchise` adds the new stars, bumps the
-  branch number, resets the run (economy, levels, stations, recipes, staff,
-  boosts, global upgrades up to Lv 5), keeps stars, perks, statistics, achievements,
-  decorations, the clock and the tutorial, applies the perks to the new branch, and
-  saves. `GameRoot.do_franchise` rebuilds the world and HUD behind the loading screen.
+- **Franchise and branches** (idle §10, §20 no. 78): `SimulationRoot.franchise` adds
+  the new stars, leaves the current branch (`_leave_branch` stores its part of the save,
+  `SimulationRoot.BRANCH_KEYS` plus decoration placements and run earnings, in
+  `PrestigeManager.branches` with the unix time and KR/s it was left at), bumps the
+  branch number and opens a fresh shop (`_open_branch`: economy, levels, stations,
+  recipes, staff, global upgrades up to Lv 5; boosts reset), keeping stars, perks,
+  statistics, achievements, the decoration collection, the clock and the tutorial.
+  `SimulationRoot.visit_branch` leaves the current branch the same way and loads the
+  target's state through `load_from_save` on the same simulation (or `_open_branch` at
+  the recorded tier for a branch sold before the rule); `OfflineManager.settle_branch`
+  credits what it saved while it was left. Only the branch being played is simulated.
+  `GameRoot.do_franchise` and `GameRoot.visit_branch` rebuild the world and HUD behind
+  the loading screen (`_reenter_branch`).
 - **KR/s model** (idle §9.1): `IdleEconomyManager.compute` estimates units per hour as the
   smallest of demand, queue capacity, machine capacity (with per-batch hand-off gaps
   along the real kitchen routes) and owner/staff time, separately for day and night,
@@ -182,9 +190,10 @@ are pruned. A new game starts at `clock.start_seconds`.
   nothing blocking) places the button from `progress()`; catches go through
   `GoldenManager.catch`, and Golden hour / Rush hour are extra factors in
   `BoostManager.income_now` / `arrival_now`.
-- **Crumbtown map** (idle §21.7): `SimulationRoot.franchise` calls
-  `PrestigeManager.record_branch` before the reset; `TownMapScreen.branches` joins the
-  sold branches, placeholders for older saves and `current_branch()`.
+- **Crumbtown map** (idle §21.7): `TownMapScreen.branches` joins the records of the
+  other branches (placeholders for older saves included) and `current_branch()` in
+  number order; each other branch shows `PrestigeManager.waiting_kr` and its story page
+  has a Visit button (`GameRoot.visit_branch`).
 - **Share and photo mode** (idle §21.4–21.5): `ShareCard` captures the game viewport with
   the HUD and modal layers hidden for two frames, builds the 1080×1350 card in a temporary
   `SubViewport` and exports PNGs (`WebPlatform.share_or_download_png` on Web, otherwise

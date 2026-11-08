@@ -691,7 +691,7 @@ func _ui() -> void:
 	var start: Button = row.find_child("Start", true, false) as Button if row != null else null
 	check(start != null and start.visible and not start.disabled, "Flyers can start from the Upgrades sheet")
 	if start != null:
-		eq(start.text, Tx.t("ui_promo_start", {"price": Tx.kr(sim.boosts.promo_cost(&"promo_flyer"))}), "the button says the cost")
+		eq(BuyButtons.texts(start), PackedStringArray([Tx.t("ui_promo_start_short"), Tx.kr(sim.boosts.promo_cost(&"promo_flyer"))]), "the button says Start and the cost")
 		start.pressed.emit()
 	await _frames(2)
 	eq(sim.boosts.promo_id, &"promo_flyer", "the promotion runs")
@@ -706,18 +706,23 @@ func _ui() -> void:
 	# Toko dekorasi.
 	var deco: DecorationScreen = game.modals.open(&"decoration") as DecorationScreen
 	await _frames(2)
-	deco._set_tab(DecorationScreen.TAB_SHOP)
+	deco._set_tab(DecorationScreen.tab_for_type(&"floor_prop"))
 	await _frames(2)
-	var card: Button = deco.find_child("Shop_decor_potted_plant", true, false) as Button
+	var card: Control = deco.find_child("Shop_decor_potted_plant", true, false) as Control
 	var plant: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(&"decor_potted_plant")
-	check(card != null and card.tooltip_text != "", "the shop lists the potted plant")
+	check(card != null, "the Floor tab's shop lists the potted plant")
 	var want: String = DecorationScreen.shop_sub(sim, plant)
+	var price: String = Tx.kr(sim.decoration.price(&"decor_potted_plant"))
 	var found: bool = false
+	var priced: bool = false
 	if card != null:
 		for l: Node in card.find_children("*", "Label", true, false):
 			if (l as Label).text == want:
 				found = true
-	check(found and want.begins_with(Tx.t("ui_decor_bonus_arrival", {"percent": Tx.percent(float(plant.bonus["value"]))})), "its card shows the bonus and price")
+			if (l as Label).text.contains(price):
+				priced = true
+	check(found and want.begins_with(Tx.t("ui_decor_bonus_arrival", {"percent": Tx.percent(float(plant.bonus["value"]))})), "its row shows the bonus")
+	check(priced, "and its Buy button the price (%s)" % price)
 	game.modals.close_all()
 	await _frames(1)
 	BoostManager.date_override = ""

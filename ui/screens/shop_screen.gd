@@ -125,10 +125,12 @@ func _confirm_move() -> void:
 	if nxt == null:
 		return
 	host.confirm(Tx.t("ui_shop_move_confirm", {"to": Tx.t(String(nxt.localization_key)), "price": Tx.kr(sim.location_price(nxt.tier))}), func() -> void:
-		var r: String = sim.upgrade_location()
+		# Cutscene truk pindahan (GDD idle §20 no. 70); lokasinya pindah di tengahnya.
+		var r: String = game.start_move() if game != null else sim.upgrade_location()
 		if r != "":
 			EventBus.notify.emit(1, r, {}, &"warning")
-		refresh())
+		if is_inside_tree():
+			refresh())
 
 
 ## Buka stasiun ke-n kategori `cat` (GDD idle 8.4).
@@ -155,7 +157,8 @@ func _open_row(parent: Control, cat: StringName) -> void:
 	b.disabled = sim.upgrades.open_station_block(cat) != &""
 	b.pressed.connect(func() -> void:
 		if sim.upgrades.open_station(cat) >= 0:
-			refresh())
+			# Lembar ditutup supaya kardus stasiun baru terlihat (GDD idle §20 no. 71).
+			close())
 	h.add_child(b)
 	_open_buttons[cat] = b
 

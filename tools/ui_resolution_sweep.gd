@@ -15,7 +15,9 @@ extends Node
 ## layar di luar permainan: popup toko baru kedua langkahnya, lalu dengan save
 ## Export Save dan Import Save), --ads
 ## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22),
-## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13).
+## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13),
+## --tier=N (lokasi permainan, bawaan 3), --equip (semua slot stasiun dibuka: chip level
+## di toko yang penuh).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
 	Vector2i(1536, 2048), Vector2i(2048, 1536), Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1920, 1080),
@@ -40,6 +42,9 @@ var _full: bool = false
 var _menus: bool = false
 ## Potret tip onboarding sesudah HUD (--tips).
 var _tips: bool = false
+## Lokasi permainan (--tier=N) dan semua slot stasiun dibuka (--equip).
+var _tier: int = 3
+var _equip: bool = false
 
 
 func _ready() -> void:
@@ -74,6 +79,10 @@ func _ready() -> void:
 		elif a == "--golden":
 			# Roti Emas di tengah terbang dan hadiah boost-nya di HUD (GDD idle 21.9).
 			_golden = true
+		elif a.begins_with("--tier="):
+			_tier = clampi(int(a.substr(7)), 1, 5)
+		elif a == "--equip":
+			_equip = true
 		elif a.begins_with("--date="):
 			# Tanggal perangkat palsu, mis. untuk event musiman (GDD idle 21.6).
 			BoostManager.date_override = a.substr(7)
@@ -110,11 +119,23 @@ func _ready() -> void:
 	PauseManager.clear_all()
 	var sim: SimulationRoot = game.sim
 	sim.tutorial.skip()
-	while sim.world.location.tier < 3:
-		sim.debug_add_kr(SimulationRoot.location_cost(sim.world.location.tier + 1))
+	while sim.world.location.tier < _tier:
+		sim.debug_add_kr(sim.location_price(sim.world.location.tier + 1))
 		if sim.upgrade_location() != "":
 			break
+	if _equip:
+		sim.debug_add_kr(1.0e15)
+		for cat: StringName in [&"display", &"oven", &"mixer"]:
+			while sim.upgrades.open_station(cat) >= 0:
+				pass
+		await _frames(4)
 	sim.debug_set_time(10.0 * 3600.0)
+	# Beberapa dekorasi milik (belum dipasang) supaya tab katalog Decoration Mode
+	# punya baris "Your Decorations".
+	for did: StringName in [&"decor_gingham_curtains", &"decor_cassette_radio", &"decor_potted_plant", &"decor_terracotta_rug",
+			&"outfit_apron_neighborhood"]:
+		if not sim.decoration.owns(did):
+			sim.decoration._add(did)
 	game.playing = true
 	for r2: Vector2i in _res:
 		await _resize(r2)
@@ -255,6 +276,38 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 	if s != null:
 		_check(s, label, r, sc)
 	await _shot(label, r, sc)
+	# Katalog Decoration Mode (GDD idle §20 no. 72): setiap tab jenis barang.
+	if s is DecorationScreen:
+		var deco: DecorationScreen = s
+		for t in range(1, DecorationScreen.TAB_KEYS.size()):
+			deco._set_tab(t)
+			await _frames(3)
+			_check(s, "decoration_tab%d" % t, r, sc)
+			await _shot("decoration_tab%d" % t, r, sc)
+		# Mixer dipegang, empat putaran: panah sisi depannya (GDD idle §20 no. 76).
+		var mixers: Array[EquipmentInstance] = game.sim.equipment.placed_list(&"mixer")
+		if not mixers.is_empty():
+			deco._hold_equipment(mixers[0].iid)
+			for q in 4:
+				await _frames(3)
+				_check(s, "decoration_hold_r%d" % deco._rot, r, sc)
+				await _shot("decoration_hold_r%d" % deco._rot, r, sc)
+				deco._rotate()
+			deco._cancel()
+	# Cerita cabang lain (tabungan, Visit) dan cabang yang sedang dimainkan (GDD
+	# idle 21.7, §20 no. 78).
+	if s is TownMapScreen:
+		var map: TownMapScreen = s
+		for n: int in [1, game.sim.prestige.branch_no]:
+			var lot: Button = map.content().find_child("Branch%d" % n, true, false) as Button
+			if lot == null:
+				continue
+			lot.pressed.emit()
+			await _frames(3)
+			_check(s, "town_map_branch%d" % n, r, sc)
+			await _shot("town_map_branch%d" % n, r, sc)
+			map.pop_page()
+			await _frames(2)
 	# Tab Gameplay Settings: bagian save (Export, Import, Reset Game) saat bermain.
 	if s is SettingsScreen and game.sim != null:
 		for b: Node in s.find_children("*", "Button", true, false):
@@ -304,13 +357,17 @@ func _params_for(id: StringName) -> Dictionary:
 			_stamp_card(3)
 			return {"date": BoostManager.today()}
 		&"town_map":
-			# Empat cabang yang sudah dijual, lalu cabang ke-5 yang buka.
+			# Empat cabang lain yang menabung (GDD idle §20 no. 78), lalu cabang ke-5
+			# yang sedang dimainkan.
 			var pm: PrestigeManager = game.sim.prestige
 			if pm.branches.is_empty():
+				var now: float = game.sim.offline.now_unix()
 				for t: int in [3, 4, 5, 4]:
 					pm.branches.append({"number": pm.branches.size() + 1, "tier": t, "stars": 5 * t, "earned": 1.0e6 * t,
-						"rate": 400.0 * t, "opened_day": 1, "sold_day": 5})
+						"rate": 400.0 * t, "opened_day": 1, "left_unix": now - 1800.0 * t, "cap": 3.0 * 3600.0, "eff": 0.5,
+						"state": {"location_id": String(DataRegistry.location_by_tier(t).id)}})
 				pm.run_index = 5
+				pm.branch_no = 5
 	return {}
 
 

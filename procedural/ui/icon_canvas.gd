@@ -20,7 +20,7 @@ extends Control
 ## [/codeblock]
 
 
-## Seluruh nama ikon yang dikenali (44 nama).
+## Seluruh nama ikon yang dikenali.
 const NAMES: Array[String] = [
 	"coin", "star", "clock", "bolt", "bread", "bag", "cart", "people", "heart",
 	"angry", "sad", "happy", "rain", "sun", "party", "bubble", "check", "cross",
@@ -29,7 +29,7 @@ const NAMES: Array[String] = [
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
 	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share",
-	"clipboard",
+	"clipboard", "plant", "lamp", "rug", "apron", "bell", "book", "calculator",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -54,7 +54,8 @@ const PASS_SHADOW: int = 2
 	"note", "moon", "scooter", "hourglass",
 	"pause", "play", "kitchen", "shop", "frame",
 	"gear", "sound", "mute", "skip", "rotate",
-	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share"
+	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share",
+	"clipboard", "plant", "lamp", "rug", "apron", "bell", "book", "calculator"
 ) var icon_name: String = "coin":
 	set(value):
 		icon_name = value
@@ -230,6 +231,13 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"camera": _i_camera(c, s, col)
 		"share": _i_share(c, s, col)
 		"clipboard": _i_clipboard(c, s, col)
+		"plant": _i_plant(c, s, col)
+		"lamp": _i_lamp(c, s, col)
+		"rug": _i_rug(c, s, col)
+		"apron": _i_apron(c, s, col)
+		"bell": _i_bell(c, s, col)
+		"book": _i_book(c, s, col)
+		"calculator": _i_calculator(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -800,6 +808,83 @@ func _i_clipboard(c: Vector2, s: float, col: Color) -> void:
 	_bar(c, s, -0.18, -0.06, 0.18, -0.06, 0.055, ink)
 	_bar(c, s, -0.18, 0.12, 0.18, 0.12, 0.055, ink)
 	_bar(c, s, -0.18, 0.30, 0.04, 0.30, 0.055, ink)
+
+
+## Tanaman dalam pot — dekorasi lantai dan bak bunga (GDD idle §20 no. 72).
+func _i_plant(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_dot(c, s, 0.0, -0.24, 0.17, col)
+	_dot(c, s, -0.20, -0.10, 0.15, col)
+	_dot(c, s, 0.20, -0.10, 0.15, col)
+	_dot(c, s, 0.0, -0.04, 0.14, col)
+	_round_rect(c, s, -0.31, 0.08, 0.62, 0.11, 0.04, ink)
+	_blob(c, s, [Vector2(-0.25, 0.17), Vector2(0.25, 0.17), Vector2(0.19, 0.46), Vector2(-0.19, 0.46)], ink)
+
+
+## Lampu gantung — lampu hangat di dinding (GDD idle §20 no. 72).
+func _i_lamp(c: Vector2, s: float, col: Color) -> void:
+	_bar(c, s, 0.0, -0.50, 0.0, -0.28, 0.05, col)
+	_blob(c, s, [Vector2(-0.10, -0.30), Vector2(0.10, -0.30), Vector2(0.38, 0.10), Vector2(-0.38, 0.10)], col)
+	_dot(c, s, 0.0, 0.17, 0.11, col)
+	_bar(c, s, -0.26, 0.30, -0.34, 0.40, 0.04, col)
+	_bar(c, s, 0.26, 0.30, 0.34, 0.40, 0.04, col)
+	_bar(c, s, 0.0, 0.36, 0.0, 0.46, 0.04, col)
+
+
+## Karpet berumbai — karpet dan keset lantai (GDD idle §20 no. 72).
+func _i_rug(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	for x: float in [-0.30, -0.15, 0.0, 0.15, 0.30]:
+		_bar(c, s, x, -0.26, x, -0.40, 0.035, col)
+		_bar(c, s, x, 0.26, x, 0.40, 0.035, col)
+	_round_rect(c, s, -0.42, -0.28, 0.84, 0.56, 0.07, col)
+	_bar(c, s, -0.28, -0.10, 0.28, -0.10, 0.05, ink)
+	_bar(c, s, -0.28, 0.10, 0.28, 0.10, 0.05, ink)
+
+
+## Celemek — pakaian pemilik (GDD idle §20 no. 72).
+func _i_apron(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_arcline(c, s, 0.0, -0.30, 0.13, PI, TAU, 0.05, col)
+	_round_rect(c, s, -0.16, -0.32, 0.32, 0.28, 0.05, col)
+	_bar(c, s, -0.20, -0.06, -0.42, 0.04, 0.045, col)
+	_bar(c, s, 0.20, -0.06, 0.42, 0.04, 0.045, col)
+	_blob(c, s, [Vector2(-0.20, -0.10), Vector2(0.20, -0.10), Vector2(0.30, 0.34), Vector2(0.24, 0.44),
+		Vector2(-0.24, 0.44), Vector2(-0.30, 0.34)], col)
+	_round_rect(c, s, -0.13, 0.12, 0.26, 0.14, 0.04, ink)
+
+
+## Lonceng meja kuningan (GDD idle §20 no. 72).
+func _i_bell(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	var dome: Array = []
+	for i in 13:
+		var a: float = PI + PI * float(i) / 12.0
+		dome.append(Vector2(cos(a) * 0.34, 0.16 + sin(a) * 0.40))
+	_blob(c, s, dome, col)
+	_dot(c, s, 0.0, -0.30, 0.07, col)
+	_round_rect(c, s, -0.44, 0.16, 0.88, 0.13, 0.06, col)
+	_bar(c, s, -0.30, 0.38, 0.30, 0.38, 0.06, ink)
+
+
+## Buku resep tebal (GDD idle §20 no. 72).
+func _i_book(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.34, -0.40, 0.68, 0.80, 0.07, col)
+	_round_rect(c, s, -0.34, -0.40, 0.13, 0.80, 0.05, ink)
+	_bar(c, s, -0.08, -0.16, 0.22, -0.16, 0.05, ink)
+	_bar(c, s, -0.08, 0.0, 0.16, 0.0, 0.05, ink)
+	_round_rect(c, s, 0.26, -0.32, 0.06, 0.64, 0.02, _lit(col))
+
+
+## Kalkulator jadul (GDD idle §20 no. 72).
+func _i_calculator(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.31, -0.42, 0.62, 0.84, 0.08, col)
+	_round_rect(c, s, -0.21, -0.32, 0.42, 0.18, 0.03, ink)
+	for y: float in [0.0, 0.14, 0.28]:
+		for x: float in [-0.14, 0.0, 0.14]:
+			_dot(c, s, x, y, 0.045, ink)
 
 
 ## Lanjut — segitiga main (tombol yang sama saat waktu sedang dijeda).

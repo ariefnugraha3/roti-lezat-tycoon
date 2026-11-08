@@ -74,6 +74,9 @@ func _hire_button(def: StaffDefinition) -> Button:
 	b.pressed.connect(func() -> void:
 		if sim.staff.hire(sid) == &"":
 			EventBus.sfx.emit(&"ui_confirm", &"")
+			# Lembar ditutup supaya sambutan staf baru terlihat (GDD idle §20 no. 71).
+			close()
+			return
 		refresh())
 	return b
 

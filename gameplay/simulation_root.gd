@@ -16,6 +16,14 @@ const MAX_TICKS_PER_FRAME: int = 16
 const GAME_MODE: String = "idle"
 ## Skema save idle mulai dari 1 (GDD idle 15.3).
 const SCHEMA_VERSION: int = 1
+## Kunci save milik satu cabang (GDD idle §20 no. 78): semua yang dimulai ulang
+## oleh Waralaba. Ditambah letak dan bonus dekorasi (DecorationManager.
+## branch_part), posisi pemilik (`player` tanpa penampilan), penghasilan cabang
+## (`run_earned_kr`), dan hari pencapaian tier. Sisanya (jam, cuaca, bintang,
+## statistik, pencapaian, mastery, koleksi dekorasi, tutorial, boost, tujuan
+## harian, pelanggan langganan, RNG) milik seluruh Crumbtown.
+const BRANCH_KEYS: Array[String] = ["location_id", "economy", "upgrades", "display_inventory", "production_jobs",
+	"equipment_states", "customers", "queues", "cashier", "demand", "rotifood_orders", "staff", "flags"]
 
 var rng: RNGManager
 var time: TimeManager
@@ -483,29 +491,141 @@ func upgrade_location() -> String:
 
 
 # ===========================================================================
-# WARALABA (GDD idle 10.5, 10.6)
+# WARALABA DAN CABANG (GDD idle 10.5, 10.6, §20 no. 78)
 # ===========================================================================
 
-## Jual toko ini dan buka cabang baru: bintang baru ditambahkan, nomor putaran
-## naik, lalu KR, lokasi, stasiun dan levelnya, resep, staf, upgrade global
-## level 1-5, dan reputasi direset. Bintang, perk, statistik (kecuali
-## penghasilan putaran), pencapaian, dekorasi milik, nama toko, karakter,
-## tutorial, jam, dan cuaca tetap. Perk berlaku untuk putaran baru. Mengembalikan
-## bintang yang didapat (0 = ditolak, tidak ada yang berubah).
-func franchise() -> int:
+## Buka cabang baru: bintang baru ditambahkan dan cabang ini ditinggal (tetap
+## milik pemain, menabung seperti offline, bisa dikunjungi dari Peta Crumbtown).
+## Cabang baru mulai dengan KR, lokasi, stasiun dan levelnya, resep, staf, dan
+## upgrade global level 1-5 yang baru; bintang, perk, statistik (kecuali
+## penghasilan cabang), pencapaian, koleksi dekorasi, nama toko, karakter,
+## tutorial, jam, dan cuaca tetap. Perk berlaku untuk cabang baru. Boleh dari
+## cabang mana pun begitu cabang terbaru mencapai Tier 3. `now_unix` = jam unix
+## saat cabang ini ditinggal (GameRoot; 0 = tidak diketahui, tanpa tabungan,
+## seperti di tes simulasi). Mengembalikan bintang yang didapat (0 = ditolak,
+## tidak ada yang berubah).
+func franchise(now_unix: float = 0.0) -> int:
 	if prestige.franchise_block() != &"":
 		return 0
 	SaveManager.request_autosave("franchise_before", true)
 	var gained: int = prestige.stars_gain()
-	prestige.record_branch(gained)
-	_clear_actors()
+	prestige.credit_newest(gained)
 	prestige.stars += gained
+	idle_economy.invalidate()
+	var kept_globals: Dictionary = _kept_globals()
+	_leave_branch(now_unix)
 	prestige.run_index += 1
+	prestige.open_new(prestige.run_index)
+	boosts.new_run()
+	_open_branch(prestige.start_tier(), kept_globals)
+	statistics.add(&"franchise_count", 1)
+	goals.new_run()
+	achievements.check_tier(world.location.tier)
+	tutorial.on_event(&"franchise")
+	if not world.layout_valid():
+		GameLogger.warn("WORLD", "new branch layout failed protected-path validation")
+	GameLogger.important("FRANCHISE", "branch #%d opened with %d new stars (%d total)" % [prestige.run_index, gained, prestige.stars])
+	EventBus.location_changed.emit(world.location.id)
+	SaveManager.request_autosave("franchise_after", true)
+	return gained
+
+
+## Pindah ke cabang `n` (Peta Crumbtown, GDD idle §20 no. 78). Cabang ini
+## ditinggal seperti saat Waralaba; cabang `n` dimuat dari state-nya lewat jalur
+## load biasa, atau dibangun ulang sebagai toko awal di tier tertingginya bila
+## state-nya tidak ada (cabang yang dijual sebelum §20 no. 78). Tabungannya
+## sejak ditinggal dihitung untuk jam unix `now_unix` (0 = tanpa tabungan).
+## Hasil: {} bila ditolak, selain itu {"away": hasil OfflineManager.settle_branch}.
+func visit_branch(n: int, now_unix: float = 0.0) -> Dictionary:
+	if n == prestige.branch_no or prestige.record(n).is_empty():
+		return {}
+	SaveManager.request_autosave("branch_before", true)
+	var appearance: Dictionary = player.appearance.duplicate()
+	var kept_globals: Dictionary = _kept_globals()
+	_leave_branch(now_unix)
+	var rec: Dictionary = prestige.take(n)
+	var state: Dictionary = rec.get("state", {})
+	if state.is_empty():
+		_open_branch(clampi(int(rec.get("tier", 1)), 1, 5), kept_globals)
+		statistics.stats["run_earned_kr"] = maxf(float(rec.get("earned", 0.0)), 0.0)
+		if int(rec.get("opened_day", 0)) < 1:
+			prestige.run_started_day = time.day
+		GameLogger.important("FRANCHISE", "branch #%d rebuilt as a fresh Tier %d shop" % [n, world.location.tier])
+	else:
+		var full: Dictionary = capture_save()
+		for k: String in BRANCH_KEYS:
+			if state.has(k):
+				full[k] = state[k]
+		var pl: Dictionary = (state.get("player", {}) as Dictionary).duplicate(true)
+		pl["appearance"] = appearance
+		full["player"] = pl
+		full["decorations"] = DecorationManager.merge_branch(full["decorations"], state.get("decorations", {}))
+		var st: Dictionary = full["stats"]
+		(st["stats"] as Dictionary)["run_earned_kr"] = maxf(float(state.get("run_earned_kr", 0.0)), 0.0)
+		if state.get("tier_reached_day") is Dictionary:
+			st["tier_reached_day"] = (state["tier_reached_day"] as Dictionary).duplicate()
+		load_from_save(full)
+		GameLogger.important("FRANCHISE", "visiting branch #%d" % n)
+	idle_economy.invalidate()
+	_auto_cache = &""
+	_auto_cache_key = "-"
+	_auto_plain_key = "-"
+	# KR/s penghasilan offline aplikasi sekarang milik cabang ini (GDD idle 9.2).
+	offline.rate_kr_per_s = idle_economy.rate(false)
+	var away: Dictionary = offline.settle_branch(now_unix, float(rec.get("left_unix", 0.0)), float(rec.get("rate", 0.0)), n)
+	achievements.check_tier(world.location.tier)
+	EventBus.location_changed.emit(world.location.id)
+	SaveManager.request_autosave("branch_after", true)
+	return {"away": away}
+
+
+## Upgrade global di atas `prestige.keep_global_levels_above` dibawa ke toko awal
+## baru (GDD idle 10.5).
+func _kept_globals() -> Dictionary:
 	var keep_above: int = DataRegistry.idlei("prestige.keep_global_levels_above")
-	var kept_globals: Dictionary = {}
+	var out: Dictionary = {}
 	for k: Variant in upgrades.global_levels.keys():
 		if int(upgrades.global_levels[k]) > keep_above:
-			kept_globals[k] = int(upgrades.global_levels[k])
+			out[k] = int(upgrades.global_levels[k])
+	return out
+
+
+## Tinggalkan cabang yang sedang dimainkan: penghasilan yang menunggu Collect
+## masuk ke dompetnya dulu, lantai dikosongkan dari aktor, pesanan RotiFood yang
+## sudah selesai dibuang seperti tengah malam (sebagian besar save cabang), lalu
+## bagian save miliknya disimpan di catatan cabang bersama acuan tabungannya.
+func _leave_branch(now_unix: float) -> void:
+	if not offline.pending.is_empty():
+		offline.collect()
+	_clear_actors()
+	rotifood.prune()
+	prestige.store_current(_branch_state(), now_unix, idle_economy.rate(false), offline.cap_seconds(), offline.efficiency())
+
+
+## Bagian save cabang yang sedang dimainkan (BRANCH_KEYS dan seterusnya), salinan
+## JSON-aman. Ledger-nya diringkas ke total historis.
+func _branch_state() -> Dictionary:
+	var full: Dictionary = capture_save()
+	var out: Dictionary = {}
+	for k: String in BRANCH_KEYS:
+		out[k] = full[k]
+	out["economy"] = economy.capture(0)
+	var pl: Dictionary = (full["player"] as Dictionary).duplicate(true)
+	pl.erase("appearance")
+	out["player"] = pl
+	out["decorations"] = decoration.branch_part()
+	out["run_earned_kr"] = statistics.get_stat("run_earned_kr")
+	out["tier_reached_day"] = statistics.tier_reached_day.duplicate()
+	return out.duplicate(true)
+
+
+## Toko awal baru di lokasi tier `tier` untuk cabang yang sedang dimainkan
+## (cabang Waralaba baru, atau cabang lama yang dibangun ulang): manajer milik
+## cabang dimulai ulang, upgrade global `kept_globals` dibawa, perk cabang baru
+## berlaku, dan dekorasi lain dari cabang sebelumnya dipasang lagi di denah baru
+## bila masih sah. Dekorasi berbonus kembali ke inventaris dan bonusnya mati
+## sampai dibeli lagi di cabang ini.
+func _open_branch(tier: int, kept_globals: Dictionary) -> void:
 	var appearance: Dictionary = player.appearance.duplicate()
 	var lifted: Array[int] = decoration.begin_run()
 	for m: SimManager in [economy, upgrades, display, equipment, production, queue, cashier, customers, demand, rotifood,
@@ -513,8 +633,10 @@ func franchise() -> int:
 		m.new_game()
 	player.appearance = appearance
 	upgrades.global_levels = kept_globals
-	boosts.new_run()
-	_setup_run(prestige.start_tier())
+	# Denah selalu dibangun ulang, juga di tier yang sama: peta ubin lama masih
+	# mencatat perabot cabang yang baru ditinggal.
+	world.set_location(DataRegistry.location_by_tier(tier).id)
+	_setup_run(tier)
 	if prestige.has_perk(&"perk_recipe_memory"):
 		for rid: StringName in Ids.sort(prestige.recipes_ever.keys().map(func(x: Variant) -> StringName: return StringName(str(x)))):
 			if DataRegistry.recipe(rid) != null and not upgrades.recipe_levels.has(rid):
@@ -526,20 +648,9 @@ func franchise() -> int:
 				break
 	decoration.replace_lifted(lifted)
 	statistics.begin_run(world.location.id)
-	statistics.add(&"franchise_count", 1)
-	prestige.run_started_day = time.day
-	goals.new_run()
-	achievements.check_tier(world.location.tier)
-	tutorial.on_event(&"franchise")
 	_auto_cache = &""
 	_auto_cache_key = "-"
 	_auto_plain_key = "-"
-	if not world.layout_valid():
-		GameLogger.warn("WORLD", "new branch layout failed protected-path validation")
-	GameLogger.important("FRANCHISE", "branch #%d opened with %d new stars (%d total)" % [prestige.run_index, gained, prestige.stars])
-	EventBus.location_changed.emit(world.location.id)
-	SaveManager.request_autosave("franchise_after", true)
-	return gained
 
 
 ## Kosongkan lantai dari aktor sebelum dunia dibangun ulang.
@@ -716,6 +827,43 @@ func load_from_save(d: Dictionary) -> void:
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "loaded layout failed protected-path validation")
 	GameLogger.important("SAVE", "profile %s loaded at day %d" % [profile_id, time.day])
+
+
+## Alat `iid` yang sudah terpasang baru dipindah atau diputar di Decoration Mode
+## (GDD idle §20 no. 75). Isinya (adonan, loyang, roti di rak) terikat pada
+## iid-nya, jadi ikut tanpa diubah. Pekerja yang menuju atau sedang memakainya
+## dan pembeli yang menuju atau sedang memilih di raknya berjalan ke tile akses
+## barunya; aktor yang kini berdiri di jejak barunya bergeser ke sel bebas
+## terdekat, dan setiap aktor yang sedang berjalan mencari jalan baru (GDD 17.5).
+func on_equipment_moved(iid: int) -> void:
+	player.on_equipment_moved(iid)
+	staff.on_equipment_moved(iid)
+	customers.on_equipment_moved(iid)
+	var e: EquipmentInstance = equipment.get_inst(iid)
+	var fg: FloorGrid = world.grid(e.floor_id) if e != null else null
+	for a: SimActor in _actors():
+		if a.outside:
+			continue
+		if fg != null and a.floor_id == e.floor_id and int(fg.furniture_at.get(a.cell(), -1)) == iid:
+			var free: Vector2i = world.nearest_walkable(a.floor_id, a.cell(), a.nav_class)
+			if free.x >= 0:
+				a.pos = GridMath.cell_center(free)
+		a.repath(world)
+
+
+## Semua aktor simulasi yang berjalan di grid: pemilik, staf, pembeli, dan
+## driver RotiFood, dalam urutan tetap.
+func _actors() -> Array[SimActor]:
+	var out: Array[SimActor] = [player.actor]
+	for sid: Variant in Ids.sort(staff.actors.keys()):
+		out.append(staff.actors[sid])
+	for c: Customer in customers.sorted():
+		if c.actor != null:
+			out.append(c.actor)
+	for o: DeliveryOrder in rotifood.active_orders():
+		if o.driver != null:
+			out.append(o.driver)
+	return out
 
 
 # ===========================================================================

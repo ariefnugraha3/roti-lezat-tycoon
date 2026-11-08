@@ -28,6 +28,9 @@ var _fade_layer: CanvasLayer = null
 var _pan_idle: float = 0.0
 var _nudge: Vector3 = Vector3.ZERO
 var _nudge_left: float = 0.0
+## Cutscene pindah lokasi (GDD idle §20 no. 70): titik fokus yang dipegang
+## sutradara (MovingDay), tanpa batas lantai; INF = kamera gameplay biasa.
+var cutscene_focus: Vector3 = Vector3.INF
 
 
 func _ready() -> void:
@@ -59,6 +62,10 @@ func set_floor_bounds(size_m: Vector2) -> void:
 ## Dipanggil WorldView tiap frame dengan posisi pemain.
 func follow(target: Vector3, delta: float) -> void:
 	follow_target = target
+	if cutscene_focus != Vector3.INF:
+		_focus = cutscene_focus
+		_apply()
+		return
 	_pan_idle += delta
 	if _pan_idle > 2.5:
 		pan_offset = pan_offset.lerp(Vector3.ZERO, minf(1.0, delta * 1.5))

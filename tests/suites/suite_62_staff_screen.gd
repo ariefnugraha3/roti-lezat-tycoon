@@ -116,7 +116,9 @@ func _hire_from_detail() -> void:
 	await runner.get_tree().process_frame
 	check(sim.staff.is_employed(id), "the candidate is hired")
 	near(sim.economy.balance, bal - float(costs[0]), 0.001, "paid once, hire_cost[0]")
-	st.pop_page()
+	# Lembar ditutup supaya sambutan staf baru terlihat (GDD idle §20 no. 71).
+	check(not game.modals.is_open(&"staff"), "the sheet closes so the new hire's welcome shows")
+	st = game.modals.open(&"staff", {}) as StaffScreen
 	await runner.get_tree().process_frame
 	await runner.get_tree().process_frame
 	var team_row: Node = st.content().find_child(String(id), true, false)

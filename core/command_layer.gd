@@ -73,6 +73,21 @@ func _input(event: InputEvent) -> void:
 			_captured = false
 
 
+## Penunjuk sedang di atas kontrol UI yang menerima mouse (lembar, kartu, HUD).
+func _over_ui() -> bool:
+	return get_viewport().gui_get_hovered_control() != null
+
+
+## Roda mouse (atas/bawah/kiri/kanan) atau gestur trackpad (cubit, geser dua jari).
+static func _is_scroll(event: InputEvent) -> bool:
+	if event is InputEventGesture:
+		return true
+	if event is InputEventMouseButton:
+		var b: MouseButton = (event as InputEventMouseButton).button_index
+		return b in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_LEFT, MOUSE_BUTTON_WHEEL_RIGHT]
+	return false
+
+
 func _end_capture(pos: Vector2) -> void:
 	var was_drag: bool = _dragging
 	_captured = false
@@ -94,6 +109,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		pause_requested.emit()
 		return
 	if not enabled or world == null:
+		return
+	# Roda mouse dan cubit hanya mengubah zoom di atas dunia. Godot meneruskan
+	# event gulir melewati Control MOUSE_FILTER_STOP (mouse_force_pass_scroll_events),
+	# jadi gulir di atas lembar yang sudah mentok atas/bawah, atau di judulnya,
+	# sampai ke sini; di atas UI event itu diabaikan.
+	if _is_scroll(event) and _over_ui():
 		return
 	if event.is_action_pressed("camera_zoom_in"):
 		world.camera_rig.zoom(-DataRegistry.balf("camera.zoom_step"))

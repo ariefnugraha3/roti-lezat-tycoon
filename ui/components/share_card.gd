@@ -117,7 +117,7 @@ static func build(game: GameRoot, photo: Image) -> Image:
 	col.add_child(name_l)
 	var where: String = Tx.t(String(sim.world.location.localization_key))
 	if sim.prestige.run_index > 1:
-		where = Tx.t("ui_share_branch_line", {"location": where, "number": sim.prestige.run_index})
+		where = Tx.t("ui_share_branch_line", {"location": where, "number": sim.prestige.branch_no})
 	var sub: Label = _fixed(ProceduralUIFactory.label(where, 28, Palette.TEXT_MUTED), 28)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)

@@ -619,6 +619,120 @@ static func vintage(mb: MeshBuilder, xf: Transform3D, v: int, detail: int = 1) -
 
 
 # ===========================================================================
+# TRUK PINDAHAN (GDD idle §20 no. 70)
+# ===========================================================================
+
+## Truk bak kayu untuk cutscene pindah lokasi. Ukuran (m) dalam ruang lokal truk:
+## depan menghadap -Z, alas di y = 0, tengah truk di x = z = 0.
+const TRUCK_LENGTH: float = 3.8
+const TRUCK_WIDTH: float = 1.42
+## Lantai bak (puncak papan lantainya) dan rentang z bak.
+const TRUCK_BED_Y: float = 0.7
+const TRUCK_BED_Z: Vector2 = Vector2(-0.8, 1.86)
+## Pinggul pengemudi di kursi kabin (sisi kanan, +X) dan engsel pintu bak belakang.
+const TRUCK_DRIVER: Vector3 = Vector3(0.3, 0.7, -1.3)
+const TRUCK_TAILGATE: Vector3 = Vector3(0.0, 0.7, 1.89)
+const TRUCK_CAB: Color = Palette.HONEY
+const TRUCK_TRIM: Color = Palette.FLOUR_WHITE
+## Tinggi papan samping bak di atas lantainya.
+const TRUCK_RAIL_H: float = 0.36
+
+
+## Truk pindahan: bodi satu mesh (kabin terbuka berjendela tanpa kaca supaya
+## pengemudinya terlihat, bak kayu, roda) dan pintu bak belakang terpisah
+## (`Tailgate`, berporos di engselnya: rotation.x = PI/2 terbuka rebah ke
+## belakang). Satu material MATTE bersama, tanpa kombinasi shader baru.
+static func moving_truck() -> Node3D:
+	var root := Node3D.new()
+	root.name = "MovingTruck"
+	var mb := MeshBuilder.new()
+	_truck_body(mb)
+	var body: MeshInstance3D = mb.commit("Body", MeshBuilder.MATTE)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(body)
+	var hinge := Node3D.new()
+	hinge.name = "Tailgate"
+	hinge.position = TRUCK_TAILGATE
+	root.add_child(hinge)
+	var gm := MeshBuilder.new()
+	var w: float = TRUCK_WIDTH - 0.04
+	for i in 2:
+		_box(gm, Transform3D.IDENTITY, Vector3(0.0, 0.08 + 0.18 * float(i), 0.0), Vector3(w, 0.14, 0.05), Palette.PINE_WOOD.darkened(0.04 * float(i)))
+	for sx: float in [-1.0, 0.0, 1.0]:
+		_box(gm, Transform3D.IDENTITY, Vector3(sx * (w * 0.5 - 0.05), TRUCK_RAIL_H * 0.5, 0.03), Vector3(0.06, TRUCK_RAIL_H, 0.03), TRUCK_CAB.darkened(0.1))
+	var gate: MeshInstance3D = gm.commit("Gate", MeshBuilder.MATTE)
+	gate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hinge.add_child(gate)
+	return root
+
+
+static func _truck_body(mb: MeshBuilder) -> void:
+	var o := Transform3D.IDENTITY
+	var w: float = TRUCK_WIDTH
+	var half_l: float = TRUCK_LENGTH * 0.5
+	var metal: Color = Palette.CABLE.lightened(0.55)
+	var dark: Color = Palette.TIRE.lightened(0.08)
+	# Roda dan sasis.
+	for sx: float in [-1.0, 1.0]:
+		for wz: float in [-1.22, 1.08]:
+			_wheel(mb, o, Vector3(sx * (w * 0.5 - 0.1), 0.25, wz), 0.25, 0.2, metal, sx, 10)
+	_box(mb, o, Vector3(0.0, 0.38, 0.05), Vector3(w - 0.3, 0.12, TRUCK_LENGTH - 0.4), dark)
+	# Kabin: badan bawah, tiang, atap, dinding belakang, dasbor, kursi, setir.
+	var cab_z0: float = -half_l
+	var cab_z1: float = -0.86
+	var cab_len: float = cab_z1 - cab_z0
+	var cab_cz: float = (cab_z0 + cab_z1) * 0.5
+	var belt: float = 0.94
+	var roof_y: float = 1.58
+	_rb(mb, o, Vector3(0.0, (0.32 + belt) * 0.5, cab_cz), Vector3(w, belt - 0.32, cab_len), 0.14, TRUCK_CAB, 2)
+	_rb(mb, o, Vector3(0.0, belt - 0.06, cab_z0 + 0.2), Vector3(w - 0.06, 0.1, 0.36), 0.05, TRUCK_CAB, 1)
+	var post_h: float = roof_y - belt
+	for sx2: float in [-1.0, 1.0]:
+		for pz: float in [cab_z0 + 0.12, cab_z1 - 0.06]:
+			_rb(mb, o, Vector3(sx2 * (w * 0.5 - 0.05), belt + post_h * 0.5, pz), Vector3(0.08, post_h, 0.09), 0.03, TRUCK_CAB, 1)
+		# Garis putih dan lambang roti di pintu.
+		_box(mb, o, Vector3(sx2 * (w * 0.5 + 0.002), belt - 0.16, cab_cz), Vector3(0.008, 0.07, cab_len - 0.18), TRUCK_TRIM)
+		mb.ellipsoid(o * _at(Vector3(sx2 * (w * 0.5 + 0.004), 0.62, cab_cz + 0.04)), Vector3(0.012, 0.11, 0.17), Palette.GOLDEN_CRUST, 8, 3)
+		for cut: float in [-0.07, 0.0, 0.07]:
+			_box(mb, o, Vector3(sx2 * (w * 0.5 + 0.012), 0.64, cab_cz + 0.04 + cut), Vector3(0.006, 0.11, 0.018), Palette.CARAMEL)
+		# Kaca spion.
+		_rb(mb, o, Vector3(sx2 * (w * 0.5 + 0.08), belt + 0.12, cab_z0 + 0.2), Vector3(0.05, 0.12, 0.08), 0.02, dark, 1)
+	_rb(mb, o, Vector3(0.0, roof_y + 0.04, cab_cz), Vector3(w + 0.02, 0.09, cab_len + 0.04), 0.04, TRUCK_CAB, 1)
+	_box(mb, o, Vector3(0.0, roof_y - 0.04, cab_z0 + 0.13), Vector3(w - 0.12, 0.06, 0.06), TRUCK_CAB)
+	_box(mb, o, Vector3(0.0, belt + post_h * 0.5, cab_z1 - 0.03), Vector3(w - 0.1, post_h, 0.05), TRUCK_CAB.darkened(0.06))
+	_box(mb, o, Vector3(0.0, belt - 0.02, cab_z0 + 0.3), Vector3(w - 0.2, 0.06, 0.16), dark)
+	mb.torus(o * Transform3D(Basis(Vector3.RIGHT, 1.1), Vector3(TRUCK_DRIVER.x, belt + 0.06, cab_z0 + 0.42)), 0.1, 0.018, dark, 12, 4)
+	_rb(mb, o, Vector3(0.0, belt + 0.1, cab_z1 - 0.12), Vector3(w - 0.2, 0.32, 0.1), 0.04, Palette.STRAWBERRY_DEEP.darkened(0.2), 1)
+	# Depan: lampu, gril, bemper, pelat.
+	for lx: float in [-0.46, 0.46]:
+		mb.ellipsoid(o * _at(Vector3(lx, 0.62, cab_z0 - 0.005)), Vector3(0.1, 0.09, 0.03), LAMP, 8, 3)
+	for gy: float in [0.5, 0.58, 0.66]:
+		_box(mb, o, Vector3(0.0, gy, cab_z0 - 0.004), Vector3(0.5, 0.03, 0.02), TRUCK_TRIM.darkened(0.12))
+	_rb(mb, o, Vector3(0.0, 0.34, cab_z0 - 0.04), Vector3(w + 0.04, 0.12, 0.1), 0.04, metal, 1)
+	_box(mb, o, Vector3(0.0, 0.36, cab_z0 - 0.095), Vector3(0.32, 0.08, 0.01), TRUCK_TRIM)
+	# Bak: lantai kayu, papan samping dan depan bertiang, lampu belakang.
+	var bz0: float = TRUCK_BED_Z.x
+	var bz1: float = TRUCK_BED_Z.y
+	var bed_len: float = bz1 - bz0
+	var bed_cz: float = (bz0 + bz1) * 0.5
+	_box(mb, o, Vector3(0.0, TRUCK_BED_Y - 0.06, bed_cz), Vector3(w, 0.12, bed_len), Palette.PINE_WOOD.darkened(0.12))
+	for i in 5:
+		var px: float = -w * 0.5 + w * (float(i) + 0.5) / 5.0
+		_box(mb, o, Vector3(px, TRUCK_BED_Y + 0.002, bed_cz), Vector3(w / 5.0 - 0.02, 0.004, bed_len - 0.04), Palette.PINE_WOOD.lightened(0.04 * float(i % 2)))
+	for sx3: float in [-1.0, 1.0]:
+		for j in 2:
+			_box(mb, o, Vector3(sx3 * (w * 0.5 - 0.03), TRUCK_BED_Y + 0.08 + 0.18 * float(j), bed_cz), Vector3(0.05, 0.14, bed_len), Palette.PINE_WOOD.darkened(0.04 * float(j)))
+		for pz2: float in [bz0 + 0.04, bed_cz, bz1 - 0.04]:
+			_box(mb, o, Vector3(sx3 * (w * 0.5 - 0.01), TRUCK_BED_Y + TRUCK_RAIL_H * 0.5, pz2), Vector3(0.06, TRUCK_RAIL_H + 0.02, 0.07), TRUCK_CAB.darkened(0.1))
+		mb.ellipsoid(o * _at(Vector3(sx3 * 0.5, 0.5, half_l - 0.02)), Vector3(0.07, 0.06, 0.03), Palette.STRAWBERRY, 6, 3)
+		# Penahan lumpur di belakang roda belakang.
+		_box(mb, o, Vector3(sx3 * (w * 0.5 - 0.1), 0.24, 1.44), Vector3(0.2, 0.26, 0.02), dark)
+	for k in 2:
+		_box(mb, o, Vector3(0.0, TRUCK_BED_Y + 0.08 + 0.18 * float(k), bz0 + 0.03), Vector3(w - 0.04, 0.14, 0.05), Palette.PINE_WOOD.darkened(0.04 * float(k)))
+	_rb(mb, o, Vector3(0.0, 0.42, half_l - 0.06), Vector3(w - 0.1, 0.1, 0.1), 0.04, metal, 1)
+
+
+# ===========================================================================
 # PENGENDARA: model karakter yang sama dengan pembeli
 # ===========================================================================
 

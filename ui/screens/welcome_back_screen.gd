@@ -22,13 +22,16 @@ func build() -> void:
 	var p: Dictionary = sim.offline.pending if sim != null else {}
 	var amount: float = float(p.get("amount", 0.0))
 	var away: float = float(p.get("away", 0.0))
-	var body: VBoxContainer = make_popup(Tx.t("ui_welcome_back_title"), Vector2(620, 480.0 + 240.0 * maxf(0.0, SettingsManager.text_scale() - 1.0)), false)
+	# Tabungan cabang yang baru dikunjungi (GDD idle §20 no. 78).
+	var branch: int = int(p.get("branch", 0))
+	var title: String = Tx.t("ui_welcome_back_branch_title", {"number": branch}) if branch > 0 else Tx.t("ui_welcome_back_title")
+	var body: VBoxContainer = make_popup(title, Vector2(620, 480.0 + 240.0 * maxf(0.0, SettingsManager.text_scale() - 1.0)), false)
 	var row: HBoxContainer = hbox(body, 22)
 	var lurah := LurahPortrait.new()
 	lurah.name = "Lurah"
 	lurah.custom_minimum_size = Vector2(110, 110)
 	row.add_child(lurah)
-	var greet: Label = ProceduralUIFactory.label(Tx.t("ui_welcome_back_lurah"), 18, Palette.TEXT)
+	var greet: Label = ProceduralUIFactory.label(Tx.t("ui_welcome_back_branch_lurah") if branch > 0 else Tx.t("ui_welcome_back_lurah"), 18, Palette.TEXT)
 	greet.name = "Greeting"
 	greet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var bubble: PanelContainer = ProceduralUIFactory.speech_bubble(greet)

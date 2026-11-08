@@ -46,6 +46,8 @@ signal level_up(kind: StringName, id: Variant, level: int, milestone: bool)
 ## Model stasiun berevolusi ke tier baru (GDD idle 8.2, 14).
 signal station_evolved(equipment_id: int, from_tier: int, to_tier: int)
 signal station_opened(equipment_id: int)
+## Staf baru direkrut dan mulai bekerja (GDD idle 5.5; sambutan GDD idle §20 no. 71).
+signal staff_hired(staff_id: StringName)
 signal recipe_unlocked(recipe_id: StringName)
 
 # --- Permintaan UI dari lapisan tugas pemain (bukan mutasi) -----------------

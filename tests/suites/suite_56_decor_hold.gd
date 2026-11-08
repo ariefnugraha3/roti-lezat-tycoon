@@ -14,6 +14,7 @@ func tests() -> Array:
 		{"id": "ACC_72_DECOR_TAP_THROUGH", "name": "72.2 while holding, a tap lands on the floor under the finger (also behind other furniture), never picks another piece and never drops the held one; dragging the floor pans the camera", "fn": _tap_through},
 		{"id": "ACC_72_DECOR_NEW_ITEM", "name": "72.2 a decoration from the tray appears on a free spot on screen and stays in the inventory until placed; Done places a validly held item", "fn": _new_item},
 		{"id": "ACC_72_DECOR_STOCKED_SHELF", "name": "72.2 dragging a shelf that holds bread lifts it with its bread and Place moves both; stations have no Put Away", "fn": _stocked_shelf},
+		{"id": "ACC_IDLE_DECOR_FRONT_ARROW", "name": "idle §20 no. 76 held furniture shows an arrow from its front side onto its access tile, turning with every Rotate; nothing held, no arrow", "fn": _front_arrow},
 	]
 
 
@@ -292,7 +293,7 @@ func _new_item() -> void:
 	var o: Dictionary = game.sim.decoration.item(uid)
 	check(not bool(o["placed"]), "the new plant waits in the inventory")
 	# Kartu baki: barang muncul di tempat sah di layar, tetap di inventaris sampai Place.
-	deco._set_tab(DecorationScreen.TAB_OWNED)
+	deco._set_tab(DecorationScreen.TAB_FLOOR)
 	await runner.get_tree().process_frame
 	deco._pick_decor_card(uid)
 	await runner.get_tree().process_frame
@@ -360,3 +361,58 @@ func _stocked_shelf() -> void:
 			inside = inside and p.x >= box.position.x and p.x <= box.end.x and p.z >= box.position.z and p.z <= box.end.z
 	check(inside, "and that bread sits on the shelf's new tiles")
 	await _finish(game)
+
+
+## Panah depan (GDD idle §20 no. 76): alat yang dipegang menunjukkan sisi
+## interaction face-nya dengan panah di lantai yang berbaring di ubin aksesnya,
+## dan panah itu ikut berputar setiap kali Rotate diketuk.
+func _front_arrow() -> void:
+	var game: GameRoot = await _boot("Arrow Bakery")
+	var sim: SimulationRoot = game.sim
+	var deco: DecorationScreen = await _open(game)
+	var world: WorldView = game.world
+	var arrow: DecorationScreen.FrontArrow = deco.front_arrow()
+	check(arrow != null and deco.get_child(0) == arrow, "the arrow layer sits under every Decoration Mode panel")
+	await runner.get_tree().process_frame
+	check(not arrow.visible and world.hold_front().is_empty(), "with nothing held there is no arrow")
+	var mixer: EquipmentInstance = sim.equipment.placed_list(&"mixer")[0]
+	var face: StringName = mixer.def().interaction_face
+	var acc: Vector2i = sim.world.access_of(mixer.iid)["cell"]
+	deco._hold_equipment(mixer.iid)
+	await runner.get_tree().process_frame
+	check(arrow.visible, "holding a mixer shows its arrow")
+	var mid: float = DecorationScreen.FrontArrow.GAP_M + DecorationScreen.FrontArrow.LEN_M * 0.5
+	var f: Dictionary = world.hold_front()
+	var d: Vector2 = f["dir"]
+	eq(GridMath.world_to_cell((f["edge"] as Vector2) + d * mid), acc, "the arrow lies on the tile where the mixer's user stands")
+	var pts: PackedVector2Array = DecorationScreen.FrontArrow.shape(f, 0.0)
+	check((pts[3] - (f["edge"] as Vector2)).dot(d) > (pts[0] - (f["edge"] as Vector2)).dot(d) + 0.3, "its tip points away from the mixer")
+	check(absf(_area(DecorationScreen.FrontArrow.rim(pts))) > absf(_area(pts)) * 1.2, "a white rim surrounds it")
+	var seen: Dictionary = {}
+	for i in 4:
+		deco._tb_rotate.pressed.emit()
+		await runner.get_tree().process_frame
+		var h: Dictionary = world.held()
+		var rot: int = int(h["rot"])
+		f = world.hold_front()
+		d = f["dir"]
+		eq(Vector2i(d), GridMath.face_dir(rot, face), "after Rotate the arrow follows the new facing (rotation %d)" % rot)
+		var fronts: Array[Vector2i] = GridMath.front_cells(Vector2i(h["cell"]), mixer.def().footprint_tiles, rot, face)
+		check(fronts.has(GridMath.world_to_cell((f["edge"] as Vector2) + d * mid)), "and lies on its front tiles (rotation %d)" % rot)
+		check(arrow.visible, "the arrow stays while the mixer is held (rotation %d)" % rot)
+		seen[Vector2i(d)] = true
+	eq(seen.size(), 4, "four Rotates point the arrow four ways")
+	deco._tb_cancel.pressed.emit()
+	await runner.get_tree().process_frame
+	check(not arrow.visible and world.hold_front().is_empty(), "Cancel takes the arrow away")
+	await _finish(game)
+
+
+## Luas bertanda poligon (rumus tali sepatu).
+func _area(pts: PackedVector2Array) -> float:
+	var a: float = 0.0
+	for i in pts.size():
+		var p: Vector2 = pts[i]
+		var q: Vector2 = pts[(i + 1) % pts.size()]
+		a += p.x * q.y - q.x * p.y
+	return a * 0.5

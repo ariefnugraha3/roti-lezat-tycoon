@@ -1,46 +1,141 @@
 class_name PrestigeManager
 extends SimManager
-## PrestigeManager — Bintang Waralaba, perk, dan nomor putaran (GDD idle 10).
-## Bintang tidak dibelanjakan: setiap bintang menambah pengali penghasilan, dan
-## total bintang membuka perk permanen (GDD idle 10.3, 10.4).
+## PrestigeManager — Bintang Waralaba, perk, dan cabang (GDD idle 10, 21.7, §20
+## no. 78). Bintang tidak dibelanjakan: setiap bintang menambah pengali
+## penghasilan, dan total bintang membuka perk permanen (GDD idle 10.3, 10.4).
+##
+## Waralaba tidak menjual toko lagi (§20 no. 78): cabang lama tetap milik pemain
+## dan bisa dikunjungi dari Peta Crumbtown. Cabang yang sedang dimainkan hidup di
+## simulasi; setiap cabang lain hanya catatan di `branches`, dengan state
+## tokonya (`state`, bagian save milik cabang itu, SimulationRoot.BRANCH_KEYS)
+## dan acuan tabungannya (`left_unix`, `rate`, `cap`, `eff`): selama ditinggal,
+## cabang menabung seperti penghasilan offline (GDD idle 9.2).
 
 ## Bintang Waralaba yang dimiliki (ID `franchise_stars`).
 var stars: int = 0
-## Nomor putaran: 1 untuk toko pertama, naik setiap Waralaba.
+## Nomor cabang terbaru (= jumlah cabang yang pernah dibuka); naik setiap
+## Waralaba.
 var run_index: int = 1
+## Nomor cabang yang sedang dimainkan (1..run_index).
+var branch_no: int = 1
 ## Resep yang pernah dibuka di putaran mana pun (perk_recipe_memory).
 var recipes_ever: Dictionary = {}
-## Cabang yang sudah dijual, untuk Peta Crumbtown (GDD idle 21.7): {number,
-## tier, stars, earned, rate, opened_day, sold_day}.
+## Catatan setiap cabang selain yang sedang dimainkan, urut nomor (Peta
+## Crumbtown, GDD idle 21.7): {number, tier (tertinggi), stars (didapat saat
+## cabang sesudahnya dibuka), earned, rate (KR/s model tanpa boost saat
+## ditinggal), opened_day, left_unix, cap, eff, state}. Catatan tanpa `state`
+## (cabang yang dijual sebelum §20 no. 78, atau `unknown` dari save sebelum
+## peta) dibangun ulang sebagai toko awal saat pertama dikunjungi.
 var branches: Array[Dictionary] = []
-## Hari in-game cabang sekarang dibuka.
+## Hari in-game cabang yang sedang dimainkan dibuka.
 var run_started_day: int = 1
+## Bintang yang sudah didapat cabang yang sedang dimainkan (catatan `stars`).
+var run_stars: int = 0
 
 
 func new_game() -> void:
 	stars = 0
 	run_index = 1
+	branch_no = 1
 	recipes_ever.clear()
 	branches.clear()
 	run_started_day = 1
+	run_stars = 0
 
 
-## Cabang yang sedang buka, dalam bentuk catatan cabang (Peta Crumbtown):
-## bintang = yang didapat bila dijual sekarang.
+## Cabang yang sedang dimainkan, dalam bentuk catatan cabang (Peta Crumbtown):
+## `stars` = yang didapat bila Waralaba sekarang, `stars_earned` = yang sudah
+## didapatnya.
 func current_branch() -> Dictionary:
-	return {"number": run_index, "tier": sim.world.location.tier if sim.world.location != null else 1, "stars": stars_gain(),
-		"earned": sim.statistics.get_stat("run_earned_kr"), "rate": sim.idle_economy.rate(false),
+	return {"number": branch_no, "tier": sim.world.location.tier if sim.world.location != null else 1, "stars": stars_gain(),
+		"stars_earned": run_stars, "earned": sim.statistics.get_stat("run_earned_kr"), "rate": sim.idle_economy.rate(false),
 		"opened_day": run_started_day, "current": true}
 
 
-## Waralaba (SimulationRoot.franchise): catat cabang yang dijual dengan
-## `gained` bintang, sebelum putarannya direset.
-func record_branch(gained: int) -> void:
+## Catatan cabang `n` yang sedang tidak dimainkan, atau {}.
+func record(n: int) -> Dictionary:
+	for b: Dictionary in branches:
+		if int(b["number"]) == n:
+			return b
+	return {}
+
+
+## Tier tertinggi cabang terbaru: syarat Waralaba berikutnya (GDD idle 10.1).
+func newest_tier() -> int:
+	if branch_no == run_index:
+		return sim.world.location.tier if sim.world.location != null else 1
+	return int(record(run_index).get("tier", 1))
+
+
+## Waralaba: bintang `gained` dicatat untuk cabang terbaru, yang membuka cabang
+## berikutnya.
+func credit_newest(gained: int) -> void:
+	if branch_no == run_index:
+		run_stars += gained
+	else:
+		var r: Dictionary = record(run_index)
+		if not r.is_empty():
+			r["stars"] = int(r.get("stars", 0)) + gained
+
+
+## Cabang yang sedang dimainkan ditinggal: catatannya disimpan bersama `state`
+## dan acuan tabungannya (`left_unix` 0 = tidak diketahui, tanpa tabungan).
+func store_current(state: Dictionary, left_unix: float, rate: float, cap: float, eff: float) -> void:
 	var b: Dictionary = current_branch()
 	b.erase("current")
-	b["stars"] = gained
-	b["sold_day"] = sim.time.day
-	branches.append(b)
+	b["stars"] = run_stars
+	b.erase("stars_earned")
+	b["left_unix"] = maxf(left_unix, 0.0)
+	b["rate"] = maxf(rate, 0.0)
+	b["cap"] = maxf(cap, 0.0)
+	b["eff"] = maxf(eff, 0.0)
+	b["state"] = state
+	_put(b)
+
+
+## Mulai memainkan cabang `n`: catatannya diambil dari `branches` (state-nya
+## dipakai SimulationRoot) dan dikembalikan.
+func take(n: int) -> Dictionary:
+	var r: Dictionary = {}
+	for i in branches.size():
+		if int(branches[i]["number"]) == n:
+			r = branches[i]
+			branches.remove_at(i)
+			break
+	branch_no = n
+	run_started_day = maxi(1, int(r.get("opened_day", sim.time.day)))
+	run_stars = maxi(0, int(r.get("stars", 0)))
+	return r
+
+
+## Cabang baru `n` dibuka hari ini (Waralaba).
+func open_new(n: int) -> void:
+	branch_no = n
+	run_started_day = sim.time.day
+	run_stars = 0
+
+
+## Tabungan cabang `r` yang menunggu bila dikunjungi pada jam unix `now`:
+## KR/s saat ditinggal × min(lama ditinggal, batas) × efisiensi, 0 bila belum
+## `offline.min_away_seconds`. Perkiraan Peta; kunjungannya sendiri memakai
+## batas dan efisiensi cabang itu saat dimuat (OfflineManager.settle_branch).
+static func waiting_kr(r: Dictionary, now: float) -> float:
+	var left: float = float(r.get("left_unix", 0.0))
+	if left <= 0.0 or now <= left or (r.get("state", {}) as Dictionary).is_empty():
+		return 0.0
+	var away: float = now - left
+	if away < DataRegistry.idlef("offline.min_away_seconds"):
+		return 0.0
+	return Money.round_cents(float(r.get("rate", 0.0)) * minf(away, float(r.get("cap", 0.0))) * float(r.get("eff", 0.0)))
+
+
+func _put(b: Dictionary) -> void:
+	var at: int = branches.size()
+	for i in branches.size():
+		if int(branches[i]["number"]) > int(b["number"]):
+			at = i
+			break
+	branches.insert(at, b)
 
 
 ## Perk `id` sudah terbuka oleh total bintang (GDD idle 10.4).
@@ -86,22 +181,23 @@ func kr_to_next_star() -> float:
 	return maxf(0.0, need - _alltime())
 
 
-## &"" bila Waralaba boleh sekarang; selain itu alasan: tier (lokasi Tier 3
-## belum dicapai di putaran ini) atau stars (belum ada bintang baru).
+## &"" bila Waralaba boleh sekarang (dari cabang mana pun); selain itu alasan:
+## tier (cabang terbaru belum mencapai lokasi Tier 3) atau stars (belum ada
+## bintang baru).
 func franchise_block() -> StringName:
-	if sim.world.location.tier < DataRegistry.idlei("prestige.unlock_location_tier"):
+	if newest_tier() < DataRegistry.idlei("prestige.unlock_location_tier"):
 		return &"tier"
 	if stars_gain() < 1:
 		return &"stars"
 	return &""
 
 
-## Pengali biaya pindah lokasi cabang ini (GDD idle 23.1): 1 sampai sebelum
+## Pengali biaya pindah lokasi cabang yang sedang dimainkan (GDD idle 23.1): 1 sampai sebelum
 ## cabang `branch_cost_start`, lalu branch_cost_growth^(n − start + 1). Level,
 ## buka stasiun dan resep, rekrut, dan dekorasi tetap harga katalog, supaya
 ## penghasilan tiap putaran tidak turun dan tangganya tanpa tebing.
 func branch_cost_mult() -> float:
-	return branch_cost_mult_for(run_index)
+	return branch_cost_mult_for(branch_no)
 
 
 static func branch_cost_mult_for(branch: int) -> float:
@@ -179,23 +275,41 @@ func note_recipe_unlocked(recipe_id: StringName) -> void:
 
 
 func capture() -> Dictionary:
-	return {"stars": stars, "run_index": run_index, "perks": Array(perks()).map(func(x: StringName) -> String: return String(x)),
-		"recipes_ever": recipes_ever.keys(), "branches": branches.duplicate(true), "run_started_day": run_started_day}
+	return {"stars": stars, "run_index": run_index, "branch_no": branch_no, "perks": Array(perks()).map(func(x: StringName) -> String: return String(x)),
+		"recipes_ever": recipes_ever.keys(), "branches": branches.duplicate(true), "run_started_day": run_started_day, "run_stars": run_stars}
 
 
 func restore(d: Dictionary) -> void:
 	new_game()
 	stars = maxi(0, int(d.get("stars", 0)))
 	run_index = maxi(1, int(d.get("run_index", 1)))
+	branch_no = clampi(int(d.get("branch_no", run_index)), 1, run_index)
 	for r: Variant in d.get("recipes_ever", []):
 		if DataRegistry.recipe(StringName(str(r))) != null:
 			recipes_ever[str(r)] = true
 	run_started_day = maxi(1, int(d.get("run_started_day", 1)))
+	run_stars = maxi(0, int(d.get("run_stars", 0)))
 	for b: Variant in d.get("branches", []):
-		if b is Dictionary and int((b as Dictionary).get("number", 0)) >= 1:
-			var e: Dictionary = {}
-			for k: String in ["number", "tier", "stars", "opened_day", "sold_day"]:
-				e[k] = int((b as Dictionary).get(k, 0))
-			for k2: String in ["earned", "rate"]:
-				e[k2] = float((b as Dictionary).get(k2, 0.0))
-			branches.append(e)
+		var n: int = int((b as Dictionary).get("number", 0)) if b is Dictionary else 0
+		if n < 1 or n > run_index or n == branch_no or not record(n).is_empty():
+			continue
+		var e: Dictionary = {}
+		for k: String in ["number", "tier", "stars", "opened_day"]:
+			e[k] = int((b as Dictionary).get(k, 0))
+		e["tier"] = clampi(int(e["tier"]), 1, 5)
+		for k2: String in ["earned", "rate", "left_unix", "cap", "eff"]:
+			e[k2] = maxf(float((b as Dictionary).get(k2, 0.0)), 0.0)
+		if (b as Dictionary).has("sold_day"):
+			e["sold_day"] = int((b as Dictionary)["sold_day"])
+		if bool((b as Dictionary).get("unknown", false)):
+			e["unknown"] = true
+		var st: Variant = (b as Dictionary).get("state", {})
+		if st is Dictionary and not (st as Dictionary).is_empty():
+			e["state"] = (st as Dictionary).duplicate(true)
+		_put(e)
+	# Cabang dari save sebelum peta hanya tahu nomornya (GDD idle 21.7): tempat
+	# kosong bertoko tier `unlock_location_tier`, dibangun ulang saat dikunjungi.
+	for n2 in range(1, run_index + 1):
+		if n2 != branch_no and record(n2).is_empty():
+			_put({"number": n2, "tier": DataRegistry.idlei("prestige.unlock_location_tier"), "stars": 0, "earned": 0.0, "rate": 0.0,
+				"opened_day": 0, "left_unix": 0.0, "cap": 0.0, "eff": 0.0, "unknown": true})

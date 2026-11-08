@@ -1,9 +1,10 @@
 class_name UpgradeCard
 extends UIScreen
-## Kartu upgrade stasiun (GDD idle 12.2): dibuka dengan mengetuk chip level di
-## atas mixer, oven, rak, atau meja kasir. Kartu melayang di atas stasiunnya
-## seperti toolbar Decoration Mode; bila tidak muat di atasnya, kartu menempel
-## tepat di atas bar tab. Isinya judul "Oven · Lv 12", efek sekarang ->
+## Kartu upgrade stasiun (GDD idle 12.2): dibuka hanya dengan mengetuk chip
+## level di atas mixer, oven, rak, atau meja kasir (GDD idle §20 no. 77; ketukan
+## pada perabotnya sendiri hanya memberi Semangat). Kartu melayang di atas
+## stasiunnya seperti toolbar Decoration Mode; bila tidak muat di atasnya, kartu
+## menempel tepat di atas bar tab. Isinya judul "Oven · Lv 12", efek sekarang ->
 ## berikutnya, bar ke milestone berikutnya, dan tombol ×1 / ×10 / Max.
 ## Tidak mem-pause toko. Params: {kind: &"station"|&"counter", id}.
 

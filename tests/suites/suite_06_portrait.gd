@@ -7,6 +7,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_PORTRAIT_FRAME", "name": "idle 12.0.2 the frame box is right for every screen shape (720 logical px wide, ratio clamped 9:16-9:21, centred) and taps outside it never reach the game", "fn": _frame},
 		{"id": "ACC_IDLE_TABLECLOTH_SIDES", "name": "idle 12.0.3 outside the frame lies the gingham tablecloth with lace on the side touching the frame and faint floating icons; no game control is there; 9:16-9:21 phones show no tablecloth", "fn": _tablecloth},
 		{"id": "ACC_IDLE_PORTRAIT_UI", "name": "idle 12.0.7 on every size of the portrait matrix (phones, tablets, laptops) at 100/125/150% text, the HUD and every screen open with no visible control outside the frame and no sideways scrolling", "fn": _portrait_ui},
+		{"id": "ACC_IDLE_WHEEL_OVER_SHEET", "name": "idle 12.0.5 the mouse wheel over an open sheet (or any screen) scrolls its list and never zooms the camera, also at the top and bottom of the list; over the world it still zooms", "fn": _wheel_over_sheet},
 		{"id": "ACC_IDLE_PORTRAIT_CAMERA", "name": "idle 12.0.4 the camera keeps the world width (KEEP_WIDTH); Tier 1-3 floors show whole across the screen between the HUD bars on 9:16 and 9:21; bigger floors follow the owner", "fn": _camera},
 	]
 
@@ -67,6 +68,90 @@ func _frame() -> void:
 	AudioManager.set_music_state(&"")
 	AudioManager.unlocked = was_unlocked
 	PauseManager.clear_all()
+
+
+## Roda mouse di dalam bingkai (shell sungguhan): di atas lembar menggulir
+## daftarnya saja, di atas dunia mengubah zoom kamera.
+func _wheel_over_sheet() -> void:
+	SaveManager.dir = "user://test_saves_ui"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	PauseManager.clear_all()
+	var shell: PortraitShell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	runner.add_child(shell)
+	await runner.get_tree().process_frame
+	shell.layout_for(Vector2(720.0, 1280.0), 1.0)
+	var game: GameRoot = shell.game
+	game.skip_splash_for_tests()
+	await game.start_new_game(&"profile_1", "male", "Wheel Bakery")
+	await runner.get_tree().process_frame
+	game.modals.close_all()
+	game.sim.tutorial.skip()
+	PauseManager.clear_all()
+	var rig: CameraRig = game.world.camera_rig
+	for id: StringName in [&"shop", &"upgrades", &"menu"]:
+		var scr: UIScreen = game.modals.open(id, {})
+		await runner.get_tree().process_frame
+		await runner.get_tree().process_frame
+		var sc: ScrollContainer = null
+		for n: Node in scr.find_children("*", "ScrollContainer", true, false):
+			if (n as ScrollContainer).is_visible_in_tree() and (n as ScrollContainer).get_v_scroll_bar().max_value > (n as ScrollContainer).size.y + 1.0:
+				sc = n
+				break
+		if not check(sc != null, "%s has a list that scrolls" % id):
+			game.modals.close_all()
+			continue
+		var at: Vector2 = sc.get_global_rect().get_center()
+		var w0: float = rig.ortho_size
+		# Tengah daftar, lalu terus menggulir melewati ujung bawah dan atas.
+		for k in 40:
+			_wheel(at, MOUSE_BUTTON_WHEEL_DOWN)
+			await runner.get_tree().process_frame
+		check(sc.scroll_vertical > 0, "%s: the wheel scrolls the list down" % id)
+		for k2 in 80:
+			_wheel(at, MOUSE_BUTTON_WHEEL_UP)
+			await runner.get_tree().process_frame
+		eq(sc.scroll_vertical, 0, "%s: and back up to the top" % id)
+		near(rig.ortho_size, w0, 0.0001, "%s: the camera never zooms while the wheel turns over it" % id)
+		# Di atas judul lembar (bukan daftarnya) juga tidak.
+		var head: Vector2 = Vector2(at.x, sc.get_global_rect().position.y - 30.0)
+		for k3 in 5:
+			_wheel(head, MOUSE_BUTTON_WHEEL_UP)
+			await runner.get_tree().process_frame
+		near(rig.ortho_size, w0, 0.0001, "%s: nor over its header" % id)
+		game.modals.close_all()
+		await runner.get_tree().process_frame
+	# Di atas dunia roda mouse tetap mengubah zoom.
+	var w1: float = rig.ortho_size
+	_wheel(Vector2(360.0, 500.0), MOUSE_BUTTON_WHEEL_DOWN)
+	await runner.get_tree().process_frame
+	check(rig.ortho_size > w1, "over the world the wheel still zooms out")
+	game.end_session()
+	shell.queue_free()
+	await runner.get_tree().process_frame
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
+
+
+## Roda mouse seperti mouse sungguhan: penunjuk bergerak ke `at` dulu (Godot
+## memperbarui kontrol yang di-hover dari gerakan), lalu tombol roda ditekan dan
+## dilepas.
+func _wheel(at: Vector2, button: MouseButton) -> void:
+	var m := InputEventMouseMotion.new()
+	m.position = at
+	m.global_position = at
+	runner.get_viewport().push_input(m, true)
+	for pressed: bool in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.pressed = pressed
+		e.factor = 1.0
+		e.position = at
+		e.global_position = at
+		runner.get_viewport().push_input(e, true)
 
 
 func _click(at: Vector2) -> void:
@@ -224,7 +309,7 @@ const UI_SIZES: Array[Vector2] = [Vector2(720, 1280), Vector2(1080, 1920), Vecto
 	Vector2(1536, 2048), Vector2(2048, 1536), Vector2(1280, 720), Vector2(1366, 768), Vector2(1920, 1080),
 	Vector2(2560, 1440), Vector2(2560, 1080)]
 const UI_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"help", &"welcome_back", &"franchise_cutscene", &"tutorial", &"new_game", &"save_code", &"import_save", &"credits"]
+	&"help", &"welcome_back", &"franchise_cutscene", &"moving_cutscene", &"tutorial", &"new_game", &"save_code", &"import_save", &"credits"]
 
 
 ## Kontrol yang tampak tetapi keluar dari isi bingkai (di luar ScrollContainer

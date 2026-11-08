@@ -11,10 +11,10 @@ config_version=5
 [application]
 
 config/name="Crumbtown: Idle Bakery Tycoon"
-config/use_custom_user_dir=true
-config/custom_user_dir_name="Crumbtown"
 config/version="1.0.0"
 run/main_scene="res://scenes/main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Crumbtown"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(1, 0.972549, 0.917647, 1)

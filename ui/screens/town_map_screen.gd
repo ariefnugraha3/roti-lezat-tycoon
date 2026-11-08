@@ -6,6 +6,10 @@ extends UISheet
 ## yang sedang buka diberi pita "You are here", dan satu kavling kosong "Next
 ## branch" menunggu Waralaba berikutnya. Mengetuk sebuah toko membuka kartu
 ## ceritanya. Dibuka dari lembar Franchise.
+##
+## Setiap cabang tetap milik pemain (GDD idle §20 no. 78): kavling cabang lain
+## menyebut tabungan yang menunggu ("+1.2K KR"), dan kartu ceritanya punya tombol
+## "Visit Branch #n" (GameRoot.visit_branch).
 
 const LOTS_PER_STREET: int = 3
 
@@ -46,17 +50,27 @@ func build_page(body: VBoxContainer) -> void:
 		street.lots.add_child(_lot(lots[i]))
 
 
-## Semua cabang: yang sudah dijual (PrestigeManager.branches, ditambah tempat
-## kosong untuk cabang lama dari save sebelum peta) lalu cabang yang buka.
+## Semua cabang urut nomor: catatan cabang lain (PrestigeManager.branches,
+## termasuk tempat kosong untuk cabang dari save sebelum peta) dan cabang yang
+## sedang dimainkan.
 static func branches(s: SimulationRoot) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var known: Dictionary = {}
+	var cur: Dictionary = s.prestige.current_branch()
 	for b: Dictionary in s.prestige.branches:
-		known[int(b.get("number", 0))] = b
-	for n in range(1, s.prestige.run_index):
-		out.append(known.get(n, {"number": n, "unknown": true, "tier": DataRegistry.idlei("prestige.unlock_location_tier")}))
-	out.append(s.prestige.current_branch())
+		if not cur.is_empty() and int(b.get("number", 0)) > int(cur["number"]):
+			out.append(cur)
+			cur = {}
+		out.append(b)
+	if not cur.is_empty():
+		out.append(cur)
 	return out
+
+
+## Tabungan yang menunggu di cabang `b` bila dikunjungi sekarang.
+func _waiting(b: Dictionary) -> float:
+	if bool(b.get("current", false)) or sim == null:
+		return 0.0
+	return PrestigeManager.waiting_kr(b, sim.offline.now_unix())
 
 
 func _lot(b: Dictionary) -> Button:
@@ -97,6 +111,29 @@ func _lot(b: Dictionary) -> Button:
 			ink = Palette.FLOUR_WHITE
 			cap_text = Tx.t("ui_map_here", {"number": n})
 		btn.pressed.connect(_open_branch.bind(b))
+		var wait: float = _waiting(b)
+		if wait > 0.0:
+			var tag := PanelContainer.new()
+			tag.name = "Waiting"
+			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tag.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			var tsb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.BUTTER_SOFT, 12, false)
+			tsb.content_margin_left = 6.0
+			tsb.content_margin_right = 10.0
+			tsb.content_margin_top = 1.0
+			tsb.content_margin_bottom = 1.0
+			tag.add_theme_stylebox_override("panel", tsb)
+			var th := HBoxContainer.new()
+			th.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			th.add_theme_constant_override("separation", 4)
+			tag.add_child(th)
+			var coin: Control = ProceduralUIFactory.icon("coin", 18, Palette.GOLD_STAR)
+			coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			th.add_child(coin)
+			var tl: Label = ProceduralUIFactory.label("+" + Tx.kr(wait), 13, Palette.UI_WOOD_DEEP)
+			tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			th.add_child(tl)
+			v.add_child(tag)
 	var cap := PanelContainer.new()
 	cap.name = "Caption"
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -136,21 +173,40 @@ func _branch_page(body: VBoxContainer, b: Dictionary) -> void:
 	var title: Label = ProceduralUIFactory.title("%s · %s" % [sim.bakery_name, Tx.t(String(loc.localization_key))], 22)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list.add_child(title)
-	if bool(b.get("unknown", false)):
-		lbl(list, Tx.t("ui_map_unknown"), 15, Palette.TEXT_MUTED, true).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		return
+	var current: bool = bool(b.get("current", false))
+	if not current:
+		var visit: Button = ProceduralUIFactory.icon_text_button("shop", Tx.t("ui_map_visit", {"number": int(b["number"])}), "primary", 22, 18)
+		visit.name = "Visit"
+		visit.custom_minimum_size = Vector2(0, 60)
+		visit.pressed.connect(_visit.bind(int(b["number"])))
+		list.add_child(visit)
+	if bool(b.get("unknown", false)) or (not current and (b.get("state", {}) as Dictionary).is_empty()):
+		var lost: Label = lbl(list, Tx.t("ui_map_unknown" if bool(b.get("unknown", false)) else "ui_map_rebuild"), 15, Palette.TEXT_MUTED, true)
+		lost.name = "Rebuild"
+		lost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if bool(b.get("unknown", false)):
+			return
 	var rows: Array = []
-	if bool(b.get("current", false)):
+	if current:
 		rows.append(["star", Tx.t("ui_map_stars_now"), Tx.big(float(b.get("stars", 0)))])
+		if int(b.get("stars_earned", 0)) > 0:
+			rows.append(["star", Tx.t("ui_map_stars"), Tx.big(float(b.get("stars_earned", 0)))])
 	else:
 		rows.append(["star", Tx.t("ui_map_stars"), Tx.big(float(b.get("stars", 0)))])
+		rows.append(["coin", Tx.t("ui_map_waiting"), Tx.kr(_waiting(b))])
 	rows.append(["coin", Tx.t("ui_map_earned"), Tx.kr(float(b.get("earned", 0.0)))])
 	rows.append(["bolt", Tx.t("ui_map_rate"), Tx.t("ui_kr_per_second", {"amount": Tx.rate(float(b.get("rate", 0.0)))})])
-	rows.append(["sun", Tx.t("ui_map_days"), Tx.t("ui_map_days_value", {"from": int(b.get("opened_day", 1)), "to": int(b.get("sold_day", sim.time.day))})])
+	rows.append(["sun", Tx.t("ui_map_days"), Tx.t("ui_map_days_value", {"from": maxi(1, int(b.get("opened_day", 1)))})])
 	for r: Array in rows:
 		var row: HBoxContainer = UISheet.row(list, str(r[1]), "", ProceduralUIFactory.badge(str(r[0]), Palette.HONEY_SOFT, Palette.HONEY_DEEP, 44))
 		var val: Label = lbl(row, str(r[2]), 18, Palette.UI_WOOD_DEEP)
 		val.add_theme_font_override("font", ProceduralUIFactory.display_font())
+
+
+## Tombol Visit: pindah ke cabang `n` di balik layar loading.
+func _visit(n: int) -> void:
+	if game != null:
+		game.visit_branch(n)
 
 
 ## Satu jalan kota: rumput, pohon kecil, dan jalan beraspal bergaris di bawah
