@@ -5,7 +5,7 @@ extends UIScreen
 ## disusul hujan koin. Back sama dengan Collect, jadi penghasilannya tidak
 ## pernah hilang; bila game ditinggal sebelum Collect, `pending` ikut tersimpan
 ## dan popup tampil lagi saat profil dimuat. Bila iklan berhadiah tersedia,
-## Collect ×2 menggandakannya setelah iklan selesai (GDD idle 22.3).
+## Collect ×2 menggandakannya setelah iklan selesai (GDD idle 22.4).
 
 var _double: Button = null
 var _note: Label = null
@@ -58,14 +58,18 @@ func build() -> void:
 	var amt: Label = lbl(h, "+" + Tx.kr(amount), 34, Palette.UI_WOOD_DEEP)
 	amt.name = "Amount"
 	if sim != null:
+		var hours: String = _hours_text(sim.offline.cap_seconds())
+		var percent: int = int(Money.round_half_up(sim.offline.efficiency() * 100.0))
+		# Satu baris saja (GDD idle §20 no. 84): batas waktu yang terlampaui,
+		# atau aturan batas dan efisiensinya.
 		if away > float(p.get("seconds", 0.0)) + 1.0:
-			var capped: Label = lbl(body, Tx.t("ui_welcome_back_capped", {"hours": _hours_text(sim.offline.cap_seconds())}), 16, Palette.TEXT_MUTED, true)
+			var capped: Label = lbl(body, Tx.t("ui_welcome_back_capped", {"hours": hours, "percent": percent}), 16, Palette.TEXT_MUTED, true)
 			capped.name = "Capped"
 			capped.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var info: Label = lbl(body, Tx.t("ui_offline_cap", {"hours": _hours_text(sim.offline.cap_seconds()),
-			"percent": int(Money.round_half_up(sim.offline.efficiency() * 100.0))}), 15, Palette.TEXT_MUTED, true)
-		info.name = "CapInfo"
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		else:
+			var info: Label = lbl(body, Tx.t("ui_offline_cap", {"hours": hours, "percent": percent}), 15, Palette.TEXT_MUTED, true)
+			info.name = "CapInfo"
+			info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(spacer)

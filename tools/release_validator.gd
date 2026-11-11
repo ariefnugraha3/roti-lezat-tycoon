@@ -261,6 +261,7 @@ func _free(s: SimulationRoot) -> void:
 
 func _check_boot() -> void:
 	SaveManager.dir = "user://validator_saves"
+	Monetization.use_test_file("release_validator")
 	_errors.reset()
 	# Scene utama sungguhan: bingkai potret dengan GameRoot di dalamnya (GDD idle 12.0.2).
 	var shell: PortraitShell = (load("res://scenes/main.tscn") as PackedScene).instantiate()

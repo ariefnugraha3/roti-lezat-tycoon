@@ -50,7 +50,7 @@ func _gap() -> void:
 	ProceduralUIFactory.text_scale = 1.5
 	var checked: Array[String] = []
 	var tight: Array[String] = []
-	for c: Array in [[&"staff", {}], [&"help", {}], [&"stats", {}], [&"settings", {}]]:
+	for c: Array in [[&"staff", {}], [&"menu", {}], [&"help", {}], [&"stats", {}], [&"settings", {}]]:
 		game.modals.close_all()
 		var scr: UIScreen = game.modals.open(c[0], c[1])
 		if scr == null:

@@ -4,7 +4,10 @@ extends SimManager
 ## serba bisa (GDD idle 5.1, 5.2). Pemain tidak perlu menyuruhnya: setiap kali
 ## menganggur ia memilih (1) melayani jalur A bila ada pembeli menunggu di sana
 ## dan tidak ada jalur kasir lain yang buka dengan ruang, (2) pekerjaan dapur
-## (KitchenBrain, GDD idle 4.3), (3) mengemas pesanan RotiFood, atau (4) diam.
+## (KitchenBrain, GDD idle 4.3), (3) mengemas pesanan RotiFood, atau (4)
+## menunggu (GDD idle §20 no. 81): di dapur dekat stasiun batch yang paling
+## dulu selesai bila ada roti yang sedang dibuat; bila tidak, berjaga sebagai
+## kasir di jalur A; dan bila jalur A tidak bisa dijaga, di sebelah meja kasir.
 ##
 ## Ketukan pemain pada stasiun (GDD idle 5.1, 5.2) menjadikan stasiun itu
 ## prioritas pertama pemilik selama `owner.focus_seconds`, dan mengetuk mixer,
@@ -27,6 +30,13 @@ var focus_iid: int = -1
 var focus_cashier: bool = false
 var focus_until: float = -1.0
 var _rethink_at: float = 0.0
+## Tempat pemilik menunggu saat tidak ada pekerjaan (GDD idle §20 no. 81):
+## &"kitchen", &"counter" (berjaga di jalur A), &"beside" (di sebelah kasir), atau
+## &"" saat bekerja. Untuk tampilan dan tes; tidak disimpan.
+var idle_spot: StringName = &""
+## Cache `wants_kitchen` per detik-simulasi (dipanggil berkali-kali per tick).
+var _kitchen_at: float = -1.0
+var _kitchen_cache: bool = false
 ## Transien (tidak disimpan): ketukan Semangat terakhir per stasiun (iid) atau
 ## jalur ("lane:<id>"), ms nyata.
 var _last_boost_ms: Dictionary = {}
@@ -184,16 +194,36 @@ func step(dt: float) -> void:
 		focus_iid = -1
 		focus_cashier = false
 	if manning_lane != &"":
-		if actor.has_route():
-			return
+		var lane: QueueLane = sim.queue.lane(manning_lane)
 		if _keep_serving():
-			var lane: QueueLane = sim.queue.lane(manning_lane)
-			actor.state = &"SERVING_CASHIER"
-			actor.facing = Vector2(lane.service_point - lane.cashier_point).normalized()
+			if not actor.has_route():
+				actor.state = &"SERVING_CASHIER"
+				actor.facing = Vector2(lane.service_point - lane.cashier_point).normalized()
+			return
+		# Tidak ada yang dilayani: berjaga di kasir selama tidak ada roti yang
+		# sedang dibuat dan tidak ada pekerjaan (GDD idle §20 no. 81).
+		if sim.time.sim_seconds < _rethink_at or _counter_duty_ok():
+			if sim.time.sim_seconds >= _rethink_at:
+				_rethink_at = sim.time.sim_seconds + RETHINK_SECONDS
+			idle_spot = &"counter"
+			if not actor.has_route() and lane != null:
+				actor.state = &"IDLE"
+				actor.facing = Vector2(lane.service_point - lane.cashier_point).normalized()
 			return
 		manning_lane = &""
+		idle_spot = &""
+		actor.stop()
 		actor.state = &"IDLE"
 	if not task.is_empty():
+		# Berjalan ke tempat menunggu: berhenti begitu ada pekerjaan.
+		if str(task["type"]) == "idle_walk" and sim.time.sim_seconds >= _rethink_at:
+			_rethink_at = sim.time.sim_seconds + RETHINK_SECONDS
+			if (actor.carried.is_empty() and _should_serve()) or _has_work():
+				actor.stop()
+				task = {}
+				idle_spot = &""
+				_choose_and_begin()
+				return
 		if actor.has_route():
 			return
 		task["wait"] = float(task.get("wait", 0.0)) - dt
@@ -224,7 +254,137 @@ func _choose_and_begin() -> bool:
 		var oid: int = sim.rotifood.next_order_to_pack(PLAYER_ID)
 		if oid >= 0:
 			return _begin({"type": "pack", "order_id": oid})
-	return false
+	return _idle()
+
+
+# ===========================================================================
+# MENUNGGU (GDD idle §20 no. 81)
+# ===========================================================================
+
+## Ada roti yang sedang dibuat: batch mana pun yang belum sampai di rak (dibuat
+## pemilik atau koki).
+func bread_in_progress() -> bool:
+	return not sim.production.jobs.is_empty()
+
+
+## Ada pekerjaan dapur atau pesanan RotiFood untuk dikemas (bukan melayani).
+func _has_work() -> bool:
+	if not KitchenBrain.choose(sim, PLAYER_ID, actor, focus_iid if focus_active() else -1).is_empty():
+		return true
+	return actor.carried.is_empty() and sim.rotifood.next_order_to_pack(PLAYER_ID) >= 0
+
+
+## Pemilik ingin kembali ke dapur: ada roti yang sedang dibuat atau ada
+## pekerjaan dapur (mengemas RotiFood dikerjakan di kasir, jadi tidak dihitung).
+## Selama itu jalur A berhenti menerima pembeli baru bila jalur kasir lain masih
+## punya ruang (QueueManager.accepts_new), supaya antreannya habis dan pemilik
+## bisa pergi.
+func wants_kitchen() -> bool:
+	if _kitchen_at != sim.time.sim_seconds:
+		_kitchen_at = sim.time.sim_seconds
+		_kitchen_cache = bread_in_progress() or not KitchenBrain.choose(sim, PLAYER_ID, actor, focus_iid if focus_active() else -1).is_empty()
+	return _kitchen_cache
+
+
+## Pemilik ada di jalur `lane_id`: menjaganya (termasuk berjalan ke sana), atau
+## mengemas pesanan RotiFood di titik kasirnya (selalu jalur A). Jalur A tanpa
+## pemilik tertutup selama ada kasir dengan ruang (GDD idle §20 no. 82).
+func attends(lane_id: StringName) -> bool:
+	if manning_lane == lane_id:
+		return true
+	if task.is_empty() or str(task["type"]) != "pack":
+		return false
+	var main: QueueLane = sim.queue.main_lane()
+	return main != null and main.id == lane_id
+
+
+## Berjaga di kasir tanpa pembeli masih tempat yang tepat.
+func _counter_duty_ok() -> bool:
+	return not bread_in_progress() and not _has_work()
+
+
+## Tidak ada pekerjaan: menunggu di dapur bila ada roti yang sedang dibuat,
+## bila tidak berjaga sebagai kasir di jalur A, dan bila jalur A tidak bisa
+## dijaga, di sebelah meja kasir. true bila pemilik mulai berjalan atau berjaga.
+func _idle() -> bool:
+	if bread_in_progress():
+		return _go_idle(_kitchen_spot(), &"kitchen")
+	var lane: QueueLane = sim.queue.main_lane()
+	if lane != null and actor.carried.is_empty() and _begin({"type": "serve"}):
+		idle_spot = &"counter"
+		_rethink_at = sim.time.sim_seconds + RETHINK_SECONDS
+		return true
+	return _go_idle(_beside_counter(lane), &"beside")
+
+
+func _go_idle(spot: Dictionary, kind: StringName) -> bool:
+	if spot.is_empty():
+		idle_spot = &""
+		return false
+	var f: StringName = StringName(str(spot["floor"]))
+	var c: Vector2i = spot["cell"]
+	if actor.floor_id == f and (actor.cell() == c or (kind == &"kitchen" and _near(actor.cell(), spot["near"]))):
+		idle_spot = kind
+		return false
+	if not actor.go_to(sim.world, f, c):
+		idle_spot = &""
+		return false
+	task = {"type": "idle_walk", "spot": String(kind), "wait": 0.0}
+	idle_spot = kind
+	actor.state = &"WALKING"
+	return true
+
+
+static func _near(a: Vector2i, b: Vector2i) -> bool:
+	return absi(a.x - b.x) <= 1 and absi(a.y - b.y) <= 1
+
+
+## Tempat menunggu di dapur: di samping tile akses stasiun batch yang paling
+## dulu butuh tangan (mixer saat diaduk, oven saat dipanggang), urut sisa waktu
+## lalu nomor job. {floor, cell, near (tile akses)} atau {}.
+func _kitchen_spot() -> Dictionary:
+	var best: Dictionary = {}
+	var best_left: float = INF
+	for j: ProductionJob in sim.production.sorted_jobs():
+		var iid: int = j.oven_id if j.stage in [ProductionJob.BAKING, ProductionJob.BAKE_DONE_WAITING_PICKUP] else j.mixer_id
+		var acc: Dictionary = sim.world.access_of(iid) if iid >= 0 else {}
+		if acc.is_empty():
+			continue
+		var left: float = maxf(0.0, j.stage_duration - j.stage_elapsed) if j.stage in [ProductionJob.MIXING, ProductionJob.BAKING] else 0.0
+		if left < best_left:
+			best_left = left
+			var f: StringName = StringName(str(acc["floor"]))
+			var cell: Vector2i = acc["cell"]
+			best = {"floor": f, "cell": _free_cell_near(f, cell), "near": cell}
+	return best
+
+
+## Tempat menunggu di sebelah meja kasir jalur A. {floor, cell} atau {}.
+func _beside_counter(lane: QueueLane) -> Dictionary:
+	if lane == null:
+		return {}
+	return {"floor": lane.floor_id, "cell": _free_cell_near(lane.floor_id, lane.cashier_point, lane)}
+
+
+## Sel tetangga `cell` yang bisa dilalui staf, bukan tile akses perabot dan bukan
+## slot atau titik layanan jalur mana pun; `cell` sendiri bila tidak ada.
+func _free_cell_near(floor_id: StringName, cell: Vector2i, skip: QueueLane = null) -> Vector2i:
+	var fg: FloorGrid = sim.world.grid(floor_id)
+	if fg == null:
+		return cell
+	var taken: Dictionary = {}
+	for l: QueueLane in sim.queue.all_lanes():
+		if l.floor_id != floor_id:
+			continue
+		taken[l.service_point] = true
+		taken[l.cashier_point] = true
+		for s: Vector2i in l.slots:
+			taken[s] = true
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
+		var c: Vector2i = cell + d
+		if fg.is_walkable(c) and not fg.access_at.has(c) and not taken.has(c):
+			return c
+	return cell
 
 
 func _interact_seconds() -> float:
@@ -258,6 +418,9 @@ func _begin(t: Dictionary) -> bool:
 
 
 func _finish(t: Dictionary) -> Dictionary:
+	if str(t["type"]) == "idle_walk":
+		actor.state = &"IDLE"
+		return {}
 	if str(t["type"]) == "pack":
 		sim.rotifood.finish_pack(int(t["order_id"]), PLAYER_ID)
 		actor.state = &"IDLE"
@@ -283,9 +446,10 @@ func _buyers_waiting(lane: QueueLane) -> bool:
 
 
 ## GDD idle 5.1 no. 1: ada pembeli menunggu di jalur A dan tidak ada jalur
-## kasir lain yang buka dengan ruang. Ketukan arahan pada kasir mengirim pemilik
-## ke jalur A walau belum ada yang menunggu di sana: jalur A buka dan antrean
-## jalur lain menyeimbang ke sana (v3.1 21.3).
+## kasir lain yang buka dengan ruang (bila ada, antrean jalur A pindah ke sana,
+## GDD idle §20 no. 82). Ketukan arahan pada kasir mengirim pemilik ke jalur A
+## walau belum ada yang menunggu di sana: jalur A buka dan antrean jalur lain
+## menyeimbang ke sana (v3.1 21.3).
 func _should_serve() -> bool:
 	var lane: QueueLane = sim.queue.main_lane()
 	if lane == null:
@@ -322,7 +486,8 @@ func on_equipment_moved(iid: int) -> void:
 
 
 func cancel_all() -> void:
-	if not task.is_empty():
+	idle_spot = &""
+	if not task.is_empty() and str(task["type"]) != "idle_walk":
 		if str(task["type"]) == "pack":
 			sim.rotifood.release_pack(int(task["order_id"]), PLAYER_ID)
 		else:

@@ -1,12 +1,19 @@
 class_name MenuScreen
 extends UISheet
-## Layar Menu (GDD idle 4.2, 8.5, 12.3): petak rak dengan resep yang dijualnya
-## (pilih resep atau "Auto"), lalu daftar resep dengan gambar BreadArt, harga
-## jual, dan tombol buka. Detail petak terbuka sebagai halaman berikutnya di
-## lembar yang sama. Mengganti resep petak tidak membuang roti yang sudah ada:
-## petak menjual habis roti lama, lalu diisi resep baru.
+## Layar Menu (GDD idle 4.2, 8.5, 12.3): kartu Variety (bonus variasi di rak
+## dan roti yang sedang dijual, GDD idle §20 no. 83), lalu satu kartu per rak
+## dengan ubin petaknya (gambar resep, Auto, isi), lalu daftar resep dengan
+## gambar BreadArt, harga jual, dan tombol buka. Mengetuk ubin membuka pilihan
+## resep petak itu sebagai halaman berikutnya di lembar yang sama. Mengganti
+## resep petak tidak membuang roti yang sudah ada: petak menjual habis roti
+## lama, lalu diisi resep baru.
 
 const ART_LIST: float = 44.0
+## Ubin petak rak: ukuran, gambar roti, dan ukuran huruf dasar.
+const TILE_W: float = 104.0
+const TILE_H: float = 112.0
+const TILE_ART: float = 50.0
+const TILE_TEXT: int = 13
 
 ## Tombol Unlock yang tampil: recipe_id -> Button, diperbarui tiap tick.
 var _unlock_buttons: Dictionary = {}
@@ -14,6 +21,9 @@ var _unlock_buttons: Dictionary = {}
 var _level_rows: Array[BuyButtons] = []
 ## Craving yang tampil di kartu; halaman dibangun ulang bila hari berganti.
 var _shown_craving: StringName = &""
+## Ubin petak yang tampil: [{iid, index, recipe, stock: Label}], isinya
+## diperbarui tiap tick; resep yang berganti membangun ulang halaman.
+var _tiles: Array[Dictionary] = []
 
 
 func sheet_title() -> String:
@@ -27,16 +37,14 @@ func sheet_icon() -> String:
 func build_page(body: VBoxContainer) -> void:
 	_unlock_buttons.clear()
 	_level_rows.clear()
+	_tiles.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "MenuList"
+	_variety_card(list)
 	section(list, Tx.t("ui_menu_slots"))
 	var shelves: Array[EquipmentInstance] = sim.equipment.placed_list(&"display")
 	for n in shelves.size():
-		var e: EquipmentInstance = shelves[n]
-		var shelf: Label = lbl(list, Tx.t("ui_menu_shelf", {"n": n + 1, "capacity": sim.display.slot_capacity(e.iid)}), 16, Palette.UI_WOOD_DEEP, true)
-		shelf.add_theme_font_override("font", ProceduralUIFactory.display_font())
-		for i in sim.display.slot_count(e.iid):
-			_slot_row(list, e.iid, i)
+		_shelf_card(list, shelves[n], n)
 	section(list, Tx.t("ui_menu_recipes"))
 	_craving_card(list)
 	for r: RecipeDefinition in DataRegistry.recipes():
@@ -75,6 +83,11 @@ func _craving_card(parent: Control) -> void:
 	var fav: Label = lbl(v, Tx.t("ui_favorite_card", {"recipes": ", ".join(names),
 		"percent": int(round((DataRegistry.idlef("craving.favorite_mult") - 1.0) * 100.0))}), 14, Palette.MATCHA_DEEP, true)
 	fav.name = "Favorites"
+	# Roti khas cabang ini (GDD idle §20 no. 92; cabang pertama tidak punya).
+	if sim.prestige.signature() != &"":
+		var sig: Label = lbl(v, Tx.t("ui_signature_line", {"recipe": Tx.recipe_name(sim.prestige.signature()),
+			"mult": "%.1f" % DataRegistry.idlef("branch.signature_mult")}), 14, Palette.UI_WOOD, true)
+		sig.name = "SignatureLine"
 	# Event musiman (GDD idle 21.6).
 	if not sim.events.active().is_empty():
 		var feat: PackedStringArray = PackedStringArray()
@@ -101,6 +114,10 @@ func _tags(h: HBoxContainer, rid: StringName) -> void:
 		var fp: PanelContainer = ProceduralUIFactory.pill("heart", Tx.t("ui_favorite_pill"), Palette.MATCHA_SOFT, Palette.MATCHA_DEEP, 13)
 		fp.name = "FavoritePill"
 		tags.add_child(fp)
+	if rid != &"" and rid == sim.prestige.signature():
+		var sp: PanelContainer = ProceduralUIFactory.pill("star", Tx.t("ui_signature_pill"), Palette.BUTTER_SOFT, Palette.UI_WOOD_DEEP, 13)
+		sp.name = "SignaturePill"
+		tags.add_child(sp)
 	if sim.events.is_featured(rid):
 		var ep: PanelContainer = ProceduralUIFactory.pill("party", Tx.t("ui_event_pill"), Palette.PASTEL_PERIWINKLE.lightened(0.45), Palette.APRON_NAVY, 13)
 		ep.name = "EventPill"
@@ -112,22 +129,104 @@ func _tags(h: HBoxContainer, rid: StringName) -> void:
 
 
 
-## Satu petak: gambar resep yang sedang dijual, isi petak, dan tombol ganti.
-func _slot_row(parent: Control, iid: int, index: int) -> void:
+## Kartu Variety (GDD idle §20 no. 83): pengali harga dari jumlah resep
+## berbeda di rak, aturannya, dan roti yang sedang dijual.
+func _variety_card(parent: Control) -> void:
+	var pc: PanelContainer = card(parent)
+	pc.name = "VarietyCard"
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	pc.add_child(v)
+	var t: Label = lbl(v, Tx.t("ui_variety_title", {"mult": "%.2f" % sim.variety_mult()}), 18, Palette.UI_WOOD_DEEP, true)
+	t.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	t.name = "VarietyTitle"
+	var rule: Label = lbl(v, Tx.t("ui_variety_desc_one" if sim.shelf_variety() == 1 else "ui_variety_desc", {"count": sim.shelf_variety(),
+		"percent": int(round(DataRegistry.idlef("variety.bonus_per_recipe") * 100.0)), "max": DataRegistry.idlei("variety.max_recipes")}), 14, Palette.TEXT_MUTED, true)
+	rule.name = "VarietyRule"
+	var flow := HFlowContainer.new()
+	flow.name = "SellingNow"
+	flow.add_theme_constant_override("h_separation", 12)
+	flow.add_theme_constant_override("v_separation", 6)
+	v.add_child(flow)
+	for rid: Variant in sim.menu_recipes():
+		var chip := HBoxContainer.new()
+		chip.add_theme_constant_override("separation", 4)
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var art: BreadArt = BreadArt.for_recipe(StringName(str(rid)), 30.0)
+		art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		chip.add_child(art)
+		chip.add_child(ProceduralUIFactory.label(Tx.recipe_name(StringName(str(rid))), 14, Palette.UI_WOOD_DEEP))
+		flow.add_child(chip)
+
+
+## Satu rak: judulnya lalu ubin setiap petak, mengalir ke baris berikutnya bila
+## tidak muat.
+func _shelf_card(parent: Control, e: EquipmentInstance, n: int) -> void:
+	var pc: PanelContainer = card(parent)
+	pc.name = "Shelf_%d" % e.iid
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	pc.add_child(v)
+	var head: Label = lbl(v, Tx.t("ui_menu_shelf", {"n": n + 1, "capacity": sim.display.slot_capacity(e.iid)}), 16, Palette.UI_WOOD_DEEP, true)
+	head.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	var flow := HFlowContainer.new()
+	flow.name = "Slots"
+	flow.add_theme_constant_override("h_separation", 8)
+	flow.add_theme_constant_override("v_separation", 8)
+	v.add_child(flow)
+	for i in sim.display.slot_count(e.iid):
+		flow.add_child(_slot_tile(e.iid, i))
+
+
+## Satu petak sebagai ubin yang bisa diketuk ("Change"): gambar resep yang
+## sedang dijual, nomor petak dan Auto, lalu isinya.
+func _slot_tile(iid: int, index: int) -> Control:
 	var rid: StringName = sim.display.effective_recipe(iid, index)
 	var auto: bool = sim.display.assignment(iid, index) == &""
-	var left: Control = BreadArt.for_recipe(rid, ART_LIST) if rid != &"" else ProceduralUIFactory.icon("box", int(ART_LIST * 0.7), Palette.TEXT_MUTED)
-	var title: String = Tx.recipe_name(rid) if rid != &"" else Tx.t("ui_menu_slot_none")
-	if auto:
-		title = Tx.t("ui_slot_auto_now", {"recipe": title})
-	var sub: String = Tx.t("ui_menu_slot_stock", {"n": index + 1, "units": sim.display.slot_units(iid, index), "capacity": sim.display.slot_capacity(iid)})
-	var h: HBoxContainer = UISheet.row(parent, title, sub, left)
-	h.get_parent().name = "Slot_%d_%d" % [iid, index]
-	var b: Button = ProceduralUIFactory.button(Tx.t("ui_menu_change"), "secondary")
+	var holder := MarginContainer.new()
+	holder.name = "Slot_%d_%d" % [iid, index]
+	var b: Button = ProceduralUIFactory.button("", "secondary")
 	b.name = "Change"
-	b.custom_minimum_size = Vector2(maxf(120.0, ProceduralUIFactory._text_width(Tx.t("ui_menu_change"), 18, true) + 40.0), 52)
+	b.custom_minimum_size = Vector2(TILE_W, TILE_H)
+	b.clip_contents = true
+	b.tooltip_text = "%s · %s" % [Tx.recipe_name(rid) if rid != &"" else Tx.t("ui_menu_slot_none"), Tx.t("ui_menu_change")]
 	b.pressed.connect(func() -> void: push_page(Tx.t("ui_menu_choose_title", {"n": index + 1}), _choose_page.bind(iid, index)))
-	h.add_child(b)
+	holder.add_child(b)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	b.add_child(v)
+	var art: Control = BreadArt.for_recipe(rid, TILE_ART) if rid != &"" else ProceduralUIFactory.icon("box", int(TILE_ART * 0.7), Palette.TEXT_MUTED)
+	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(art)
+	var name_l: Label = ProceduralUIFactory.label(Tx.t("ui_slot_tile_auto" if auto else "ui_slot_tile", {"n": index + 1}), TILE_TEXT, Palette.UI_WOOD_DEEP)
+	name_l.name = "SlotName"
+	name_l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_l.set_meta("base_size", TILE_TEXT)
+	v.add_child(name_l)
+	BuyButtons.fit_label(name_l, TILE_W - 2.0 * BuyButtons.FIT_PAD)
+	var stock: Label = ProceduralUIFactory.label("", TILE_TEXT, Palette.TEXT_MUTED)
+	stock.name = "Stock"
+	stock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stock.set_meta("base_size", TILE_TEXT)
+	v.add_child(stock)
+	var t: Dictionary = {"iid": iid, "index": index, "recipe": rid, "stock": stock}
+	_tiles.append(t)
+	_tile_stock(t)
+	return holder
+
+
+## Isi petak sebuah ubin ("7/13").
+func _tile_stock(t: Dictionary) -> void:
+	var l: Label = t["stock"]
+	if not is_instance_valid(l):
+		return
+	l.text = Tx.t("ui_slot_tile_stock", {"units": sim.display.slot_units(int(t["iid"]), int(t["index"])), "capacity": sim.display.slot_capacity(int(t["iid"]))})
+	BuyButtons.fit_label(l, TILE_W - 2.0 * BuyButtons.FIT_PAD)
 
 
 ## Halaman pilihan resep sebuah petak: Auto lalu setiap resep yang bisa dibuat.
@@ -136,7 +235,7 @@ func _choose_page(body: VBoxContainer, iid: int, index: int) -> void:
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "ChooseList"
 	var current: StringName = sim.display.assignment(iid, index)
-	var best: StringName = sim.auto_recipe()
+	var best: StringName = sim.auto_slot_recipe(iid, index)
 	var auto_sub: String = Tx.t("ui_slot_auto_desc", {"recipe": Tx.recipe_name(best) if best != &"" else "-"})
 	_choice_row(list, Tx.t("ui_slot_auto"), auto_sub, ProceduralUIFactory.icon("star", int(ART_LIST * 0.7), Palette.GOLD_STAR), current == &"", iid, index, &"")
 	for r: RecipeDefinition in DataRegistry.recipes():
@@ -235,6 +334,15 @@ func tick_page() -> void:
 	if page_depth() == 0 and sim.cravings.today() != _shown_craving:
 		refresh()
 		return
+	if page_depth() == 0:
+		for t: Dictionary in _tiles:
+			if sim.display.effective_recipe(int(t["iid"]), int(t["index"])) != StringName(t["recipe"]):
+				# Rencana Auto berganti (resep baru, level, variasi): ubin dan
+				# kartu Variety dibangun ulang.
+				refresh()
+				return
+		for t2: Dictionary in _tiles:
+			_tile_stock(t2)
 	for lb: BuyButtons in _level_rows:
 		if is_instance_valid(lb):
 			lb.refresh()

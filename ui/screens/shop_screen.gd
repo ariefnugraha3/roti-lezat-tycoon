@@ -2,8 +2,8 @@ class_name ShopScreen
 extends UISheet
 ## Layar Shop (GDD idle 8.4, 8.7, 8.9, 12.3): pindah ke lokasi berikutnya
 ## (perbandingan Current -> Next seperti Store Upgrade v3.1), buka stasiun baru,
-## dan upgrade global. Semua daftar vertikal di lembar bawah. Kartu Supporter
-## Pack (GDD idle 22.4) di atas, hanya bila toko platform tersedia.
+## dan upgrade global. Semua daftar vertikal di lembar bawah. Pembelian ada di
+## lembar Store (GDD idle 22.5).
 
 var _rows: Array[BuyButtons] = []
 var _move: Button = null
@@ -23,8 +23,6 @@ func build_page(body: VBoxContainer) -> void:
 	_open_buttons.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "ShopList"
-	if Monetization.store_available() or Monetization.supporter:
-		_supporter(list)
 	_location(list)
 	section(list, Tx.t("ui_shop_open_stations"))
 	for cat: StringName in [&"mixer", &"oven", &"display"]:
@@ -68,49 +66,6 @@ func _location(parent: Control) -> void:
 	_move.disabled = sim.upgrade_block_reason() != ""
 	_move.pressed.connect(_confirm_move)
 	body.add_child(_move)
-
-
-## Supporter Pack (GDD idle 22.4): manfaatnya, Beli dengan harga toko, dan
-## Restore purchases; sesudah dibeli, ucapan terima kasih.
-func _supporter(parent: Control) -> void:
-	section(parent, Tx.t("ui_supporter_title"))
-	var pc: PanelContainer = card(parent)
-	pc.name = "Supporter"
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	pc.add_child(v)
-	var top: HBoxContainer = hbox(v, 12)
-	var b: PanelContainer = ProceduralUIFactory.badge("heart", Palette.HONEY, Palette.FLOUR_WHITE, 52)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	top.add_child(b)
-	var text: Label = lbl(top, Tx.t("ui_supporter_owned" if Monetization.supporter else "ui_supporter_body"), 16, Palette.TEXT, true)
-	text.name = "Body"
-	if Monetization.supporter:
-		return
-	var row: HBoxContainer = hbox(v, 10)
-	var price: String = Monetization.supporter_price()
-	var buy: Button = ProceduralUIFactory.icon_text_button("heart", Tx.t("ui_supporter_buy", {"price": price}) if price != "" else Tx.t("ui_supporter_buy_noprice"), "primary", 20, 17)
-	buy.name = "Buy"
-	buy.custom_minimum_size.y = 56
-	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buy.pressed.connect(func() -> void:
-		buy.disabled = true
-		Monetization.buy_supporter(func(ok: bool) -> void:
-			if not is_inside_tree():
-				return
-			buy.disabled = false
-			if not ok:
-				EventBus.notify.emit(1, "ui_supporter_failed", {}, &"warning")
-			refresh()))
-	row.add_child(buy)
-	var restore: Button = ProceduralUIFactory.button(Tx.t("ui_supporter_restore"), "plain")
-	restore.name = "Restore"
-	restore.custom_minimum_size.y = 56
-	restore.pressed.connect(func() -> void:
-		Monetization.restore_purchases(func(_owned: bool) -> void:
-			if is_inside_tree():
-				refresh()))
-	row.add_child(restore)
 
 
 ## Tombol pindah lokasi bila bisa diketuk sekarang (panduan onboarding), atau null.

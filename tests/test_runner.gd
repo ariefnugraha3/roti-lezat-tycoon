@@ -43,6 +43,10 @@ class _ErrorCounter extends Logger:
 		_mutex.unlock()
 
 
+## Berkas perangkat monetisasi untuk tes.
+const TEST_MONETIZATION: String = "user://test_monetization.json"
+
+
 func _ready() -> void:
 	for a: String in OS.get_cmdline_user_args():
 		if a.begins_with("--only="):
@@ -62,6 +66,8 @@ func _ready() -> void:
 	# Menunggu satu frame agar semua autoload selesai _ready.
 	await get_tree().process_frame
 	var code: int = await _run_all()
+	Monetization.reset_for_tests()
+	Monetization.path = "user://monetization.json"
 	ProceduralCaches.clear_all()
 	# Bunyi yang berhenti baru dibebaskan pada mix audio berikutnya.
 	AudioManager.stop_all_sounds()
@@ -93,6 +99,12 @@ func _run_all() -> int:
 			suite.checks = 0
 			CravingManager.enabled = false
 			EventManager.enabled = false
+			# Monetisasi (GDD idle 22): setiap tes mulai tanpa toko, tanpa iklan, dan
+			# tanpa hak beli, di berkas perangkatnya sendiri (toko uji tidak pernah
+			# menyentuh berkas pemain). Tes monetisasi memasang penyedianya sendiri.
+			Monetization.path = TEST_MONETIZATION
+			Monetization.reset_for_tests()
+			Monetization.use_provider(MonetizationProvider.new())
 			var started: int = Time.get_ticks_msec()
 			PauseManager.clear_all()
 			_errors.reset()

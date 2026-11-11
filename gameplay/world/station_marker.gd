@@ -19,6 +19,10 @@ extends Node3D
 ## Bar progres SENGAJA tidak memakai angka atau hitung mundur: pemain hanya perlu
 ## tahu "masih jalan" atau "sudah penuh", dan angka detik akan menarik matanya
 ## dari dapur ke teks.
+##
+## Bentuknya pil membulat seperti kit UI flat (GDD idle §20 no. 86): bingkai dan
+## alur persegi membulat penuh, isi persegi membulat yang memanjang ke kanan.
+## Mesh-nya dibuat sekali per ukuran dan dipakai bersama semua penanda.
 
 ## Tinggi penanda di atas puncak perabot, meter.
 const HOVER: float = 0.22
@@ -32,6 +36,11 @@ const MODE_NONE: String = ""
 const MODE_PROGRESS: String = "progress"
 
 var mode: String = MODE_NONE
+
+## Mesh persegi membulat per ukuran ("w|h|r" -> ArrayMesh), dipakai bersama.
+static var _round_meshes: Dictionary = {}
+## Segmen per sudut membulat.
+const CORNER_SEGMENTS: int = 6
 
 var _bar: Node3D = null
 var _isi: MeshInstance3D = null
@@ -132,7 +141,7 @@ func _build_bar() -> Node3D:
 	root.name = "Bar"
 
 	var latar: MeshInstance3D = _quad(
-		Vector2(BAR_WIDTH + 0.030, BAR_HEIGHT + 0.030), Palette.DARK_CHOCOLATE)
+		Vector2(BAR_WIDTH + 0.030, BAR_HEIGHT + 0.030), Palette.UI_WOOD_DEEP)
 	latar.name = "Latar"
 	root.add_child(latar)
 	var alur: MeshInstance3D = _quad(Vector2(BAR_WIDTH, BAR_HEIGHT), Palette.PANEL_ALT)
@@ -140,7 +149,7 @@ func _build_bar() -> Node3D:
 	alur.position = Vector3(0.0, 0.0, BAR_DEPTH * 0.3)
 	root.add_child(alur)
 
-	_isi = _quad(Vector2(BAR_WIDTH, BAR_HEIGHT * 0.72), Palette.SUCCESS)
+	_isi = _quad(Vector2(BAR_WIDTH, BAR_HEIGHT * 0.72), Palette.SUCCESS, 0.4)
 	_isi.name = "Isi"
 	_isi_mat = _isi.material_override as StandardMaterial3D
 	root.add_child(_isi)
@@ -148,14 +157,14 @@ func _build_bar() -> Node3D:
 	return root
 
 
-## Satu bidang datar. Memakai BoxMesh setipis kertas alih-alih QuadMesh supaya
-## tetap terlihat dari sisi mana pun tanpa mematikan culling.
+## Satu bidang datar persegi membulat (jari-jari `round` × setengah tingginya;
+## 1 = pil penuh). Bidangnya bermuka dua, jadi terlihat dari sisi mana pun
+## tanpa mematikan culling.
 ##
 ## Materialnya SENGAJA tidak memakai billboard_mode: yang memutar penanda adalah
 ## node induknya, satu kali untuk seluruh lapisan (lihat catatan kepala berkas).
-func _quad(ukuran: Vector2, warna: Color) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(ukuran.x, ukuran.y, 0.006)
+func _quad(ukuran: Vector2, warna: Color, round: float = 1.0) -> MeshInstance3D:
+	var mesh: ArrayMesh = rounded_mesh(ukuran.x, ukuran.y, ukuran.y * 0.5 * clampf(round, 0.0, 1.0))
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = warna
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -168,6 +177,34 @@ func _quad(ukuran: Vector2, warna: Color) -> MeshInstance3D:
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
+
+
+## Bidang persegi membulat w × h (jari-jari r) di bidang XY, bermuka dua,
+## di-cache per ukuran.
+static func rounded_mesh(w: float, h: float, r: float) -> ArrayMesh:
+	var rr: float = clampf(r, 0.0, minf(w, h) * 0.5)
+	var key: String = "%.4f|%.4f|%.4f" % [w, h, rr]
+	if _round_meshes.has(key):
+		return _round_meshes[key]
+	var pts: PackedVector2Array = PackedVector2Array()
+	var hw: float = w * 0.5 - rr
+	var hh: float = h * 0.5 - rr
+	var centers: Array[Vector2] = [Vector2(hw, hh), Vector2(-hw, hh), Vector2(-hw, -hh), Vector2(hw, -hh)]
+	for c in 4:
+		for i in CORNER_SEGMENTS + 1:
+			var a: float = PI * 0.5 * (float(c) + float(i) / float(CORNER_SEGMENTS))
+			pts.append(centers[c] + Vector2(cos(a), sin(a)) * rr)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i2 in pts.size():
+		var a2: Vector2 = pts[i2]
+		var b2: Vector2 = pts[(i2 + 1) % pts.size()]
+		for tri: Array in [[Vector2.ZERO, a2, b2], [Vector2.ZERO, b2, a2]]:
+			for p: Vector2 in tri:
+				st.add_vertex(Vector3(p.x, p.y, 0.0))
+	var mesh: ArrayMesh = st.commit()
+	_round_meshes[key] = mesh
+	return mesh
 
 
 ## Kotak pembatas gabungan seluruh mesh keturunan, dalam koordinat lokal `node`.

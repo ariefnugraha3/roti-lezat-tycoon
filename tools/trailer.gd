@@ -92,6 +92,7 @@ func _ready() -> void:
 	SettingsManager.values["ambient_volume"] = 30
 	ProceduralUIFactory.text_scale = 1.0
 	SaveManager.dir = "user://trailer_saves"
+	Monetization.use_test_file("trailer")
 	_build_stage()
 	await _boot_game()
 	_build_music()

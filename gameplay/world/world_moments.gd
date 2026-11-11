@@ -74,6 +74,14 @@ func _process(delta: float) -> void:
 		k += 1
 
 
+## Node yang tersimpan di momen, atau null bila sudah dibebaskan (dunia
+## dibangun ulang saat pindah lokasi atau kunjungan cabang).
+static func _alive(v: Variant) -> Node:
+	if v == null or not is_instance_valid(v):
+		return null
+	return v as Node
+
+
 ## Selesaikan semua momen sekarang (tes, dunia dibangun ulang).
 func finish_all() -> void:
 	for w: Dictionary in welcomes:
@@ -113,7 +121,9 @@ func _door() -> Vector2:
 ## true bila sambutan `w` sudah selesai.
 func _step_welcome(w: Dictionary, delta: float) -> bool:
 	var sid: StringName = w["id"]
-	if not sim.staff.actors.has(sid):
+	# Boneka yang dibebaskan karena dunia dibangun ulang (pindah lokasi,
+	# kunjungi cabang) mengakhiri momennya.
+	if not sim.staff.actors.has(sid) or (w.get("puppet") != null and _alive(w.get("puppet")) == null):
 		_end_welcome(w)
 		return true
 	var real: SimActor = sim.staff.actors[sid]
@@ -148,7 +158,10 @@ func _step_welcome(w: Dictionary, delta: float) -> bool:
 				return false
 			w["state"] = "greet"
 			w["t"] = 0.0
-			var p: ActorView = w["puppet"]
+			var p: ActorView = _alive(w.get("puppet")) as ActorView
+			if p == null:
+				_end_welcome(w)
+				return true
 			(w["actor"] as SimActor).facing = _toward_camera()
 			_greet_bubble(w, p)
 			_sparkle_at(p.head_anchor(), _store())
@@ -158,7 +171,10 @@ func _step_welcome(w: Dictionary, delta: float) -> bool:
 			return false
 		"greet":
 			_sync_puppet(w, delta)
-			var pv: ActorView = w["puppet"]
+			var pv: ActorView = _alive(w.get("puppet")) as ActorView
+			if pv == null:
+				_end_welcome(w)
+				return true
 			ProceduralAnimationSystem.wave(pv.model, clampf(minf(float(w["t"]), GREET_SECONDS - float(w["t"])) * 4.0, 0.0, 1.0), float(w["t"]))
 			_place_bubble(w, pv)
 			if float(w["t"]) < GREET_SECONDS:
@@ -227,8 +243,8 @@ func _walk(w: Dictionary, delta: float) -> void:
 
 
 func _sync_puppet(w: Dictionary, delta: float) -> void:
-	var p: ActorView = w["puppet"]
-	if p == null or not is_instance_valid(p):
+	var p: ActorView = _alive(w.get("puppet")) as ActorView
+	if p == null:
 		return
 	p.sync(w["actor"], delta, true)
 	p.visible = view.camera_rig.active_floor == _store() and not view.cutscene
@@ -333,7 +349,7 @@ func deliver(iid: int) -> void:
 	if box.size == Vector3.ZERO or not view.floors.has(e.floor_id):
 		return
 	view.hidden_furniture[iid] = true
-	var node: Node3D = view.furniture.get(iid)
+	var node: Node3D = _alive(view.furniture.get(iid)) as Node3D
 	if node != null:
 		node.visible = false
 	var d: Dictionary = {"iid": iid, "floor": e.floor_id, "t": 0.0, "revealed": false, "landed": false, "peek": false,
@@ -424,13 +440,16 @@ func _step_delivery(d: Dictionary, delta: float) -> bool:
 	if sim.equipment.get_inst(iid) == null:
 		_end_delivery(d)
 		return true
+	var box: Node3D = _alive(d.get("box")) as Node3D
+	if box == null or not box.is_inside_tree():
+		_end_delivery(d)
+		return true
 	d["t"] = float(d["t"]) + delta
 	var t: float = float(d["t"])
-	var box: Node3D = d["box"]
 	var base: Vector3 = d["base"]
 	# Stasiun tetap tersembunyi walau perabot dibangun ulang di tengah jalan.
 	if not bool(d["revealed"]):
-		var hidden: Node3D = view.furniture.get(iid)
+		var hidden: Node3D = _alive(view.furniture.get(iid)) as Node3D
 		if hidden != null:
 			hidden.visible = false
 	if t < DROP_SECONDS:
@@ -482,8 +501,8 @@ func _step_delivery(d: Dictionary, delta: float) -> bool:
 func _reveal(d: Dictionary) -> void:
 	var iid: int = int(d["iid"])
 	view.hidden_furniture.erase(iid)
-	var node: Node3D = view.furniture.get(iid)
-	if node == null or not is_instance_valid(node):
+	var node: Node3D = _alive(view.furniture.get(iid)) as Node3D
+	if node == null:
 		return
 	node.visible = true
 	var full: Vector3 = node.scale
@@ -501,8 +520,8 @@ func _end_delivery(d: Dictionary) -> void:
 	var iid: int = int(d["iid"])
 	if not bool(d.get("revealed", false)):
 		view.hidden_furniture.erase(iid)
-		var node: Node3D = view.furniture.get(iid)
-		if node != null and is_instance_valid(node):
+		var node: Node3D = _alive(view.furniture.get(iid)) as Node3D
+		if node != null:
 			node.visible = true
 		d["revealed"] = true
 	var box: Variant = d.get("box")

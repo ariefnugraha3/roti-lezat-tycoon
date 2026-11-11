@@ -10,6 +10,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_HIRE_WELCOME", "name": "idle 20 no. 71 a new hire walks in from the pavement through the door as a look-alike, waves and greets with a bubble, then takes over from the real staff member (hidden meanwhile) who has been working since the hire; hiring from the Staff sheet closes it; Reduced Motion only shows the greeting", "fn": _welcome},
 		{"id": "ACC_IDLE_RECIPE_REVEAL", "name": "idle 20 no. 73 unlocking a recipe in the Menu sheet shows a non-blocking spotlight over it (bread art popping in on rays, 'New on the menu!' with its name and price) that closes by itself after a moment or at a tap, the bread flying into the Menu tab; the sheet stays open and the shop keeps running", "fn": _recipe_reveal},
+		{"id": "ACC_IDLE_MOMENTS_REBUILD", "name": "idle 20 no. 71, 84 a station delivery and a new hire's welcome that are still playing when the whole world is rebuilt (moving location, visiting a branch) end quietly: no freed box or look-alike is touched, the moments clear, the new shelf shows and the staff member is visible again", "fn": _moments_rebuild},
 		{"id": "ACC_IDLE_STATION_DELIVERY", "name": "idle 20 no. 71 a newly opened station arrives in a cardboard box that drops, lands, opens and gives way to the station popping out; an upstairs station is shown briefly before the camera returns; opening from the Shop sheet closes it; Reduced Motion only sparkles", "fn": _delivery},
 	]
 
@@ -178,6 +179,40 @@ func _recipe_reveal() -> void:
 			rv2._gui_input(tap)
 			check(rv2.is_leaving(), "a tap sends it off early")
 		check(await _until(func() -> bool: return not game.modals.is_open(&"recipe_reveal")), "and it closes")
+	await _finish(game)
+
+
+func _moments_rebuild() -> void:
+	var game: GameRoot = await _boot("Rebuild Bakery", 2)
+	var sim: SimulationRoot = game.sim
+	var world: WorldView = game.world
+	var moments: WorldMoments = world.moments
+	sim.debug_add_kr(1.0e9)
+	var iid: int = -1
+	for cat: StringName in [&"display", &"mixer", &"oven"]:
+		iid = sim.upgrades.open_station(cat)
+		if iid >= 0:
+			break
+	check(iid >= 0, "a station opens")
+	var hired: StringName = &""
+	for def: StaffDefinition in DataRegistry.staff_list():
+		if sim.staff.hire(def.id) == &"":
+			hired = def.id
+			break
+	check(hired != &"", "someone is hired")
+	await _frames(3)
+	check(not moments.deliveries.is_empty(), "the delivery is playing")
+	# Dunia dibangun ulang di tengah momen.
+	world.rebuild_all()
+	await _frames(30)
+	eq(moments.deliveries.size(), 0, "the delivery ends after the rebuild")
+	if iid >= 0:
+		var n: Variant = world.furniture.get(iid)
+		check(n != null and is_instance_valid(n) and (n as Node3D).visible, "the new station shows")
+	Engine.time_scale = SPEED
+	check(await _until(func() -> bool: return moments.welcomes.is_empty()), "the welcome ends too")
+	Engine.time_scale = 1.0
+	check(not world.hidden_actors.has(hired), "the new hire is visible again")
 	await _finish(game)
 
 

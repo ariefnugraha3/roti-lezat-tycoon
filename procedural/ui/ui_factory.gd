@@ -1129,6 +1129,17 @@ static func _text_width(text: String, size: int, bold := false) -> float:
 	return f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, scaled(size)).x
 
 
+## Ukuran huruf terbesar dari [param size] turun sampai [param min_size] yang
+## membuat [param text] satu baris selebar paling banyak [param room] px dengan
+## [param font]. Dipakai papan nama toko supaya nama panjang mengecil, tidak
+## terpotong (Seksi 20 no. 103).
+static func fit_font_size(font: Font, text: String, size: int, room: float, min_size: int = 12) -> int:
+	var sz: int = size
+	while sz > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > room:
+		sz -= 1
+	return sz
+
+
 # ---------------------------------------------------------------------------
 # Utilitas layar (GDD 7)
 # ---------------------------------------------------------------------------

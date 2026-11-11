@@ -6,7 +6,7 @@ extends CanvasLayer
 ## lembar terbuka), tetapi disembunyikan selama modal pemblokir, Decoration Mode,
 ## dan Photo mode. Satu ketukan menangkapnya; hadiahnya ditulis di toast.
 ## Sesudah roti berhadiah KR, tombol kecil ×2 muncul beberapa detik di tempat
-## tangkapan bila iklan berhadiah tersedia (GDD idle 22.3 `golden_double`).
+## tangkapan bila iklan berhadiah tersedia (GDD idle 22.4 `golden_double`).
 
 const SIZE: float = 112.0
 

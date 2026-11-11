@@ -6,7 +6,7 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_7_STAFF_NO_SIDE_SCROLL", "name": "idle 12.0.5 the Staff sheet never scrolls sideways: one vertical list, every detail page fits the sheet's width at 100% and 125% text scale", "fn": _no_side_scroll},
+		{"id": "ACC_7_STAFF_NO_SIDE_SCROLL", "name": "idle 12.0.5 the Staff sheet never scrolls sideways: one vertical list with Your Team, the next candidate per role (a note when the role is full) and Other candidates on its own page; every page fits the sheet's width at 100% and 125% text scale", "fn": _no_side_scroll},
 		{"id": "ACC_7_STAFF_HIRE_FROM_DETAIL", "name": "idle 5.5 Hire on a candidate's detail page hires them at once for hire_cost[n]; they move to Your Team and a full role says so", "fn": _hire_from_detail},
 	]
 
@@ -76,11 +76,31 @@ func _no_side_scroll() -> void:
 		eq(_sideways(st), 0, "%d%%: nothing scrolls sideways" % pct)
 		var lists: int = st.find_children("*", "ScrollContainer", true, false).size()
 		eq(lists, 1, "%d%%: the staff list is the only part that scrolls" % pct)
-		var rows: int = 0
-		for def: StaffDefinition in DataRegistry.staff_list():
-			if st.content().find_child(String(def.id), true, false) != null:
-				rows += 1
-		eq(rows, DataRegistry.staff_list().size(), "%d%%: every hired person and candidate has a row" % pct)
+		for hid: StringName in sim.staff.employed_ids():
+			check(st.content().find_child(String(hid), true, false) != null, "%d%%: %s has a row in Your Team" % [pct, hid])
+		# Satu kandidat berikutnya per peran, sisanya di halaman pilihan; peran
+		# penuh hanya diberi satu catatan (GDD idle §20 no. 84).
+		check(st.content().find_child("Full_cashier", true, false) != null, "%d%%: the full cashier role shows one note" % pct)
+		check(st.content().find_child("staff_cashier_sari", true, false) == null, "%d%%: no Hire rows for a full role" % pct)
+		var bakers: Array[StaffDefinition] = st.candidates(&"baker")
+		check(st.content().find_child(String(bakers[0].id), true, false) != null, "%d%%: the next kitchen candidate has a row" % pct)
+		check(st.content().find_child(String(bakers[1].id), true, false) == null, "%d%%: the other kitchen candidates wait on their own page" % pct)
+		var more: Node = st.content().find_child("More_baker", true, false)
+		var choose: Button = more.find_child("Choose", true, false) as Button if more != null else null
+		check(choose != null, "%d%%: Other candidates opens the choice page" % pct)
+		if choose != null:
+			choose.pressed.emit()
+			await runner.get_tree().process_frame
+			await runner.get_tree().process_frame
+			eq(st.page_depth(), 1, "%d%%: the choice page is a page of the same sheet" % pct)
+			var on_page: int = 0
+			for d: StaffDefinition in bakers:
+				if st.content().find_child(String(d.id), true, false) != null:
+					on_page += 1
+			eq(on_page, bakers.size(), "%d%%: every kitchen candidate is on the choice page" % pct)
+			eq(_sideways(st), 0, "%d%%: the choice page does not scroll sideways" % pct)
+			st.pop_page()
+			await runner.get_tree().process_frame
 		var worst_x: float = -INF
 		for def2: StaffDefinition in DataRegistry.staff_list():
 			st.push_page(def2.display_name, st._detail.bind(def2.id))
@@ -123,9 +143,9 @@ func _hire_from_detail() -> void:
 	await runner.get_tree().process_frame
 	var team_row: Node = st.content().find_child(String(id), true, false)
 	check(team_row != null and team_row.find_child("Hire", true, false) == null, "Your Team lists them without a Hire button")
-	var other: Node = st.content().find_child("staff_cashier_budi", true, false)
-	var full: Button = other.find_child("Hire", true, false) as Button if other != null else null
-	check(full != null and full.disabled and _text(full) == Tx.t("ui_staff_role_full"), "another cashier says the role is full at Tier 1")
+	var full_note: Label = st.content().find_child("Full_cashier", true, false) as Label
+	check(full_note != null and full_note.text == Tx.t("ui_staff_full_cashier", {"max": 1}), "the full cashier role says so once at Tier 1")
+	check(st.content().find_child("staff_cashier_budi", true, false) == null, "no Hire row for another cashier while the role is full")
 	var baker: Node = st.content().find_child("staff_baker_joko", true, false)
 	var bh: Button = baker.find_child("Hire", true, false) as Button if baker != null else null
 	check(_text(bh).contains(Tx.big(float(costs[1]))), "the next person costs hire_cost[1] (%s)" % _text(bh))

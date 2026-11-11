@@ -95,8 +95,11 @@ func _prestige() -> void:
 	check(s.world.layout_valid(), "the new branch has a valid layout")
 	# Pengali bintang dan perk 1 bintang.
 	var base_price: float = DataRegistry.recipe(&"recipe_plain_loaf").base_sell_price_kr
-	near(s.recipe_price(&"recipe_plain_loaf") / s.boost_income_mult(), base_price * (1.0 + DataRegistry.idlef("prestige.income_per_star") * 2.0), 1e-6,
-		"every star adds 2% to the price (Lv 1 Plain Loaf, without the achievement boost)")
+	near(s.recipe_price(&"recipe_plain_loaf") / s.boost_income_mult() / s.prestige.town_mult() / s.prestige.signature_mult(&"recipe_plain_loaf"),
+		base_price * (1.0 + DataRegistry.idlef("prestige.income_per_star") * 2.0), 1e-6,
+		"every star adds 2% to the price (Lv 1 Plain Loaf, without the achievement boost, town bonus and signature bread)")
+	near(s.prestige.town_bonus(), PrestigeManager.town_bonus_for_tier(3) + PrestigeManager.town_bonus_for_tier(1), 1e-9,
+		"the old Tier 3 branch and the new garage make the town bonus")
 	check(s.prestige.has_perk(&"perk_offline_plus"), "1 star unlocks Night Watch")
 	near(s.offline.cap_seconds(), (2.0 + 6.0 + 1.0) * 3600.0, 0.001, "which adds 1 h to the offline cap")
 	eq(s.prestige.franchise_block(), &"tier", "the new branch must reach Tier 3 again")
@@ -335,9 +338,9 @@ func _branch_visit() -> void:
 	eq(int(s.prestige.record(2)["stars"]), 1, "the star goes to Branch #2, the newest one")
 	eq(int(s.prestige.record(1)["stars"]), 2, "Branch #1 keeps its own")
 	eq(int(s.prestige.record(2)["tier"]), 3, "Branch #2 is remembered at Tier 3")
-	near(PrestigeManager.branch_cost_mult_for(3), s.prestige.branch_cost_mult(), 1e-9, "location moves cost what Branch #3 costs")
+	near(PrestigeManager.branch_cost_mult_for(3, s.prestige.stars), s.prestige.branch_cost_mult(), 1e-9, "location moves cost what Branch #3 costs")
 	check(not s.visit_branch(2).is_empty(), "to Branch #2")
-	near(s.prestige.branch_cost_mult(), PrestigeManager.branch_cost_mult_for(2), 1e-9, "and what Branch #2 costs there")
+	near(s.prestige.branch_cost_mult(), PrestigeManager.branch_cost_mult_for(2, s.prestige.stars), 1e-9, "and what Branch #2 costs there")
 	# Save dan load menyimpan setiap cabang.
 	var saved: Dictionary = json_copy(s.capture_save())
 	var s2: SimulationRoot = load_sim(saved)

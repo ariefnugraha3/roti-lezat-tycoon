@@ -309,7 +309,8 @@ const UI_SIZES: Array[Vector2] = [Vector2(720, 1280), Vector2(1080, 1920), Vecto
 	Vector2(1536, 2048), Vector2(2048, 1536), Vector2(1280, 720), Vector2(1366, 768), Vector2(1920, 1080),
 	Vector2(2560, 1440), Vector2(2560, 1080)]
 const UI_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"help", &"welcome_back", &"franchise_cutscene", &"moving_cutscene", &"tutorial", &"new_game", &"save_code", &"import_save", &"credits"]
+	&"help", &"welcome_back", &"franchise_cutscene", &"moving_cutscene", &"tutorial", &"new_game", &"save_code", &"import_save", &"credits",
+	&"store", &"offer", &"test_purchase", &"dummy_ad", &"reward_reveal"]
 
 
 ## Kontrol yang tampak tetapi keluar dari isi bingkai (di luar ScrollContainer
@@ -331,6 +332,13 @@ static func _ui_issues(root: Node, vis: Rect2) -> Array[String]:
 				break
 			p = p.get_parent()
 		if clipped:
+			# Teks satu baris di tombol yang memotong isinya harus muat utuh
+			# (GDD idle §20 no. 84: "Max (+250" terpotong).
+			if p is Button and c is Label and (c as Label).autowrap_mode == TextServer.AUTOWRAP_OFF and (c as Label).text != "":
+				var l: Label = c
+				var w: float = l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
+				if w > (p as Button).size.x - 2.0:
+					out.append("text '%s' cut off in %s (%.0f > %.0f px)" % [l.text, root.get_path_to(p), w, (p as Button).size.x])
 			continue
 		var g: Rect2 = c.get_global_rect()
 		if g.size.x < 1.0 or g.size.y < 1.0:
@@ -341,6 +349,8 @@ static func _ui_issues(root: Node, vis: Rect2) -> Array[String]:
 
 
 func _portrait_ui() -> void:
+	# Store dengan toko yang tersedia, supaya semua kartunya ikut diperiksa.
+	Monetization.use_provider(TestMonetizationProvider.new())
 	SaveManager.dir = "user://test_saves_portrait_ui"
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
@@ -358,6 +368,8 @@ func _portrait_ui() -> void:
 	PauseManager.clear_all()
 	game.playing = false
 	jump_to_tier(game.sim, 3)
+	# Saldo besar: tombol Max menyebut ratusan level, teks terpanjangnya.
+	game.sim.debug_add_kr(1.0e15)
 	# Ringkasan toko berisi untuk Save Code dan pratinjau Import Save.
 	SaveManager.write_profile(&"profile_1", game.sim.capture_save())
 	var code: String = SaveManager.export_code(&"profile_1")
@@ -385,6 +397,15 @@ func _portrait_ui() -> void:
 						params = {"key": "onb_recipe"}
 					&"save_code":
 						params = {"profile_id": &"profile_1"}
+					&"offer":
+						Monetization.offers["starter_pack"] = Monetization.now_unix()
+						params = {"id": &"starter_pack"}
+					&"test_purchase":
+						params = {"product": &"golden_oven"}
+					&"dummy_ad":
+						params = {"done": Callable()}
+					&"reward_reveal":
+						params = {"product": &"starter_pack"}
 				var scr: UIScreen = game.modals.open(id, params)
 				if scr is ImportSaveScreen:
 					(scr as ImportSaveScreen).show_code(code)

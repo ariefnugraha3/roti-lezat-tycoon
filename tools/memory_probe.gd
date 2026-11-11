@@ -41,6 +41,7 @@ func _ready() -> void:
 		elif a == "--ui":
 			_ui = true
 	SaveManager.dir = PROBE_DIR
+	Monetization.use_test_file("memory_probe")
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
 	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()

@@ -6,9 +6,9 @@ extends TestSuite
 
 func tests() -> Array:
 	return [
-		{"id": "ACC_IDLE_ADS", "name": "idle 22.1, 22.3 rewarded ads: buttons hide without ads, the shop pauses and goes quiet while one plays, the reward comes only after a finished ad and spends one of the day's turns, a failed ad costs nothing, turns refill on a new device day, and Collect x2, another coffee, skip wait and golden x2 give their rewards", "fn": _ads},
-		{"id": "ACC_IDLE_SUPPORTER", "name": "idle 22.4 Supporter Pack: shown in Shop only when a store exists, buying makes every ad reward free without an ad, survives a restart, comes back with Restore, and puts the Supporter Heart badge in the profile's decorations", "fn": _supporter},
-		{"id": "ACC_IDLE_PORTALS", "name": "idle 22.2 the CrazyGames and Poki presets load their SDK with their feature tag and no PWA, the plain Web build loads none, desktop has no ad provider, and the portal hears loading finished and gameplay start/stop", "fn": _portals},
+		{"id": "ACC_IDLE_ADS", "name": "idle 22.1, 22.4 rewarded ads: buttons hide without ads, the shop pauses and goes quiet while one plays, the reward comes only after a finished ad and spends one of the day's turns, a failed ad costs nothing, turns refill on a new device day, and Collect x2, another coffee, skip wait and golden x2 give their rewards", "fn": _ads},
+		{"id": "ACC_IDLE_SUPPORTER", "name": "idle 22.5 No Ads (the old Supporter Pack): sold in the Store only when a store exists, buying makes every ad reward free without an ad, survives a restart, comes back with Restore, and puts the Supporter Heart badge in the profile's decorations", "fn": _supporter},
+		{"id": "ACC_IDLE_PORTALS", "name": "idle 22.2 the CrazyGames and Poki presets load their SDK with their feature tag and no PWA, the plain Web build loads none, desktop uses the test store while monetization.dummy_store is on, and the portal hears loading finished and gameplay start/stop", "fn": _portals},
 	]
 
 
@@ -23,7 +23,7 @@ func _setup_ads() -> TestMonetizationProvider:
 func _teardown_ads() -> void:
 	Monetization.reset_for_tests()
 	Monetization.use_provider(MonetizationProvider.new())
-	Monetization.path = "user://monetization.json"
+	Monetization.path = "user://test_monetization.json"
 	BoostManager.date_override = ""
 	PauseManager.clear_all()
 	AudioManager.stop_all_sounds()
@@ -173,26 +173,33 @@ func _supporter() -> void:
 	game.modals.close_all()
 	game.playing = false
 	PauseManager.clear_all()
-	var shop: UIScreen = game.modals.open(&"shop")
+	var shop: UIScreen = game.modals.open(&"store", {"tab": StoreScreen.TAB_OFFERS})
 	await runner.get_tree().process_frame
-	check(shop.find_child("Supporter", true, false) == null, "no Supporter Pack without a store")
+	await runner.get_tree().process_frame
+	check(shop.find_child("Product_no_ads", true, false) == null, "no No Ads without a store")
+	check(shop.find_child("Unavailable", true, false) != null, "the Store says it is not available")
 	game.modals.close_all()
 	p.store = true
-	shop = game.modals.open(&"shop")
+	shop = game.modals.open(&"store", {"tab": StoreScreen.TAB_OFFERS})
 	await runner.get_tree().process_frame
-	var buy: Button = shop.find_child("Supporter", true, false).find_child("Buy", true, false) as Button if shop.find_child("Supporter", true, false) != null else null
-	check(buy != null, "Shop shows the Supporter Pack with a Buy button")
-	check(buy != null and (buy.get_meta("caption") as Label).text.contains("$2.99"), "with the store's price")
+	await runner.get_tree().process_frame
+	var card: Node = shop.find_child("Product_no_ads", true, false)
+	var buy: Button = card.find_child("Buy", true, false) as Button if card != null else null
+	check(buy != null, "the Store sells No Ads with a Buy button")
+	check(buy != null and buy.text.contains("$2.99"), "with the store's price (%s)" % (buy.text if buy != null else ""))
 	var badge: StringName = StringName(str(DataRegistry.idle("monetization.supporter_badge")))
 	check(not game.sim.decoration.owns(badge), "no Supporter badge before buying")
 	if buy != null:
 		buy.pressed.emit()
 	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
 	check(Monetization.supporter, "buying makes this device a Supporter")
 	check(game.sim.decoration.owns(badge), "the Supporter Heart badge joins the decorations")
-	var shop2: UIScreen = game.modals.screen(&"shop")
-	var body: Label = shop2.find_child("Supporter", true, false).find_child("Body", true, false) as Label if shop2 != null else null
+	var shop2: UIScreen = game.modals.screen(&"store")
+	var card2: Node = shop2.find_child("Product_no_ads", true, false) if shop2 != null else null
+	var body: Label = card2.find_child("Sub", true, false) as Label if card2 != null else null
 	eq(body.text if body != null else "", Tx.t("ui_supporter_owned"), "the card says thank you")
+	check(card2 != null and card2.find_child("Owned", true, false) != null, "and shows Owned")
 	game.modals.close_all()
 	# Hadiah tanpa iklan.
 	p.ready = false
@@ -246,7 +253,8 @@ func _portals() -> void:
 		check(str(found["Web Poki"]["head"]).contains("game-cdn.poki.com/scripts/v2/poki-sdk.js"), "Poki loads its v2 SDK")
 		eq(found["Web Poki"]["features"], "poki", "with the poki feature")
 		check(not found["Web Poki"]["pwa"] and not found["Web Poki"]["threads"], "single-threaded, no PWA")
-	eq(Monetization._platform_provider().id(), &"none", "desktop has no ad provider")
+	eq(Monetization._platform_provider().id(), &"dummy" if bool(DataRegistry.idle("monetization.dummy_store")) else &"none",
+		"desktop uses the test store until the real store plugins exist")
 	# Siklus hidup yang didengar portal.
 	var p: TestMonetizationProvider = _setup_ads()
 	SaveManager.dir = "user://test_saves_portal"

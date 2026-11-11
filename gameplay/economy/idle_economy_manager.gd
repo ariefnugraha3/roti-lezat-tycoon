@@ -23,6 +23,11 @@ const SERVICE_OVERHEAD_SECONDS: float = 1.0
 ## Interaksi pekerja per batch: mulai aduk, ambil adonan, masukkan oven, ambil
 ## loyang, taruh di rak (GDD idle 4.3).
 const ACTIONS_PER_BATCH: float = 5.0
+## Jalan mixer-oven per serah-terima oven bila ada koki: dua, bukan tiga, karena
+## pemilik yang menganggur menunggu di samping batch yang paling dulu selesai
+## (GDD idle §20 no. 81), jadi satu pekerja sudah ada di sana. Disetel terhadap
+## simulasi hidup (toko contoh Tier 1, GDD idle §20 no. 83).
+const OVEN_WALKS_WITH_BAKERS: float = 2.0
 ## Umur cache hasil model (detik-simulasi).
 const CACHE_SECONDS: float = 1.0
 
@@ -79,48 +84,18 @@ func compute(with_boosts: bool = true) -> Dictionary:
 		return out
 	var menu: Array = Ids.sort(slot_cap.keys())
 	# 2. Campuran pembeli (24 jam) dan pilihan resepnya.
-	var mods: Dictionary = {}
 	var night_hours: int = 0
 	for h in 24:
-		var t: float = float(h) * 3600.0 + 1800.0
-		var block: StringName = sim.demand.time_block(t)
-		mods[block] = int(mods.get(block, 0)) + 1
-		if sim.time.is_night(t):
+		if sim.time.is_night(float(h) * 3600.0 + 1800.0):
 			night_hours += 1
 	var day_hours: int = 24 - night_hours
-	var tier: int = sim.world.location.tier
-	var weight_sum: float = 0.0
-	var arch_w: Dictionary = {}
-	for def: CustomerArchetypeDefinition in DataRegistry.archetypes():
-		var avg_mod: float = 0.0
-		for blk: Variant in mods.keys():
-			avg_mod += def.time_modifier(StringName(str(blk))) * float(mods[blk]) / 24.0
-		var w: float = def.spawn_weight(tier) * avg_mod
-		if w > 0.0:
-			arch_w[def] = w
-			weight_sum += w
-	var share_walk: Dictionary = {}
-	var q_mean: float = 0.0
-	var speed_mean: float = 0.0
-	for def2: Variant in arch_w.keys():
-		var a: CustomerArchetypeDefinition = def2
-		var p_a: float = float(arch_w[a]) / maxf(weight_sum, 0.0001)
-		var q: float = CustomerManager.mean_quantity(a)
-		q_mean += p_a * q
-		speed_mean += p_a * a.movement_speed_mps
-		var rw: Dictionary = CustomerManager.recipe_weights(a, menu)
-		var tot: float = 0.0
-		for v: Variant in rw.values():
-			tot += float(v)
-		for rid2: Variant in menu:
-			share_walk[rid2] = float(share_walk.get(rid2, 0.0)) + p_a * q * float(rw.get(String(rid2), 0.0)) / maxf(tot, 0.0001)
-	q_mean = maxf(q_mean, 0.0001)
-	# share_walk[r]: bagian resep r dari unit yang dibeli pembeli.
-	for rid3: Variant in menu:
-		share_walk[rid3] = float(share_walk[rid3]) / q_mean
+	var walk_mix: Dictionary = _walk_mix(menu)
+	var share_walk: Dictionary = walk_mix["share"]
+	var q_mean: float = walk_mix["q_mean"]
+	var speed_mean: float = walk_mix["speed_mean"]
 	var units_mean: float = _rotifood_units_mean()
 	var generic: CustomerArchetypeDefinition = DataRegistry.archetype(&"customer_generic")
-	var gw: Dictionary = CustomerManager.recipe_weights(generic, menu)
+	var gw: Dictionary = CustomerManager.recipe_weights(generic, menu, sim.recipe_popularity(menu))
 	var gtot: float = 0.0
 	for v2: Variant in gw.values():
 		gtot += float(v2)
@@ -170,7 +145,7 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	if bakers.is_empty():
 		gap_oven = PlayerTaskManager.RETHINK_SECONDS + 4.0 * act + (cycle_m + r_mo) / v_k
 	else:
-		gap_oven = StaffManager.RETHINK_SECONDS + 3.0 * act + 3.0 * r_mo / v_k
+		gap_oven = StaffManager.RETHINK_SECONDS + 3.0 * act + OVEN_WALKS_WITH_BAKERS * r_mo / v_k
 	var gap_mixer: float = (StaffManager.RETHINK_SECONDS if not bakers.is_empty() else PlayerTaskManager.RETHINK_SECONDS) \
 		+ float(routes["mixer_acts"]) * act + 2.0 * float(routes["storage_mixer"]) / v_k
 	var mixer_cap: float = 0.0
@@ -250,6 +225,55 @@ func compute(with_boosts: bool = true) -> Dictionary:
 	out["real_seconds_per_hour"] = real_per_hour
 	out["rate"] = maxf(0.0, kr_total / 24.0 / real_per_hour)
 	return out
+
+
+## Bagian setiap resep `menu` dari unit yang dibeli pembeli jalan kaki (campuran
+## arketipe 24 jam di tier lokasi sekarang × bobot pilihan resepnya, GDD idle
+## 6.2). Dipakai juga rencana petak Auto (SimulationRoot._menu_value).
+func walk_shares(menu: Array) -> Dictionary:
+	return _walk_mix(menu)["share"]
+
+
+## {share: resep -> bagian unit, q_mean: rata-rata jumlah beli, speed_mean:
+## rata-rata kecepatan jalan} pembeli jalan kaki untuk menu `menu` (urut Ids).
+func _walk_mix(menu: Array) -> Dictionary:
+	var mods: Dictionary = {}
+	for h in 24:
+		var t: float = float(h) * 3600.0 + 1800.0
+		var block: StringName = sim.demand.time_block(t)
+		mods[block] = int(mods.get(block, 0)) + 1
+	var tier: int = sim.world.location.tier
+	var weight_sum: float = 0.0
+	var arch_w: Dictionary = {}
+	for def: CustomerArchetypeDefinition in DataRegistry.archetypes():
+		var avg_mod: float = 0.0
+		for blk: Variant in mods.keys():
+			avg_mod += def.time_modifier(StringName(str(blk))) * float(mods[blk]) / 24.0
+		var w: float = def.spawn_weight(tier) * avg_mod
+		if w > 0.0:
+			arch_w[def] = w
+			weight_sum += w
+	var share_walk: Dictionary = {}
+	var q_mean: float = 0.0
+	var speed_mean: float = 0.0
+	var pop: Dictionary = sim.recipe_popularity(menu)
+	for def2: Variant in arch_w.keys():
+		var a: CustomerArchetypeDefinition = def2
+		var p_a: float = float(arch_w[a]) / maxf(weight_sum, 0.0001)
+		var q: float = CustomerManager.mean_quantity(a)
+		q_mean += p_a * q
+		speed_mean += p_a * a.movement_speed_mps
+		var rw: Dictionary = CustomerManager.recipe_weights(a, menu, pop)
+		var tot: float = 0.0
+		for v: Variant in rw.values():
+			tot += float(v)
+		for rid2: Variant in menu:
+			share_walk[rid2] = float(share_walk.get(rid2, 0.0)) + p_a * q * float(rw.get(String(rid2), 0.0)) / maxf(tot, 0.0001)
+	q_mean = maxf(q_mean, 0.0001)
+	# share_walk[r]: bagian resep r dari unit yang dibeli pembeli.
+	for rid3: Variant in menu:
+		share_walk[rid3] = float(share_walk.get(rid3, 0.0)) / q_mean
+	return {"share": share_walk, "q_mean": q_mean, "speed_mean": speed_mean}
 
 
 ## Pembeli per jam in-game paling banyak yang bisa dilayani antrean fisik:

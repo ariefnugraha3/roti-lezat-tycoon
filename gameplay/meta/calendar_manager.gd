@@ -77,6 +77,8 @@ func claim(date: String) -> Dictionary:
 		sim.boosts.add_income(DataRegistry.idlef("calendar.boost_mult"), float(r["boost_minutes"]) * 60.0)
 	if StringName(r["decor"]) != &"":
 		sim.decoration.grant(StringName(r["decor"]))
+	# Golden Crumbs (lebih banyak di cap ketujuh) dan XP Bakery Pass (GDD idle 22.3, 22.7).
+	sim.premium.on_calendar((stamps - 1) % rewards().size() == rewards().size() - 1)
 	EventBus.sfx.emit(&"achievement_unlock", &"")
 	SaveManager.request_autosave("calendar")
 	return r

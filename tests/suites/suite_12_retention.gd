@@ -59,14 +59,14 @@ func _craving() -> void:
 	# Harga: belum terbuka = tanpa efek; terbuka = max(2x sendiri, 1.25x terbaik).
 	var plain: float = s.plain_price(c1)
 	if not s.upgrades.is_unlocked(c1):
-		near(s.recipe_price(c1), plain * s.boost_income_mult(), 1e-6, "a locked craving changes nothing")
+		near(s.recipe_price(c1), plain * s.variety_mult() * s.boost_income_mult(), 1e-6, "a locked craving changes nothing")
 		s.debug_add_kr(UpgradeManager.unlock_cost(r1) + 10.0)
 		check(s.upgrades.unlock_recipe(c1), "the craving can be unlocked")
 		plain = s.plain_price(c1)
 	var best: float = s.best_plain_price()
 	check(best >= plain, "the best bread counts the craving itself")
-	near(s.recipe_price(c1), best * DataRegistry.idlef("craving.best_mult") * s.boost_income_mult(), 1e-6, "the craving sells for 1.2x the best bread")
-	near(s.recipe_price(c1, false), plain, 1e-6, "offline and the model without boosts ignore the craving")
+	near(s.recipe_price(c1), best * DataRegistry.idlef("craving.best_mult") * s.variety_mult() * s.boost_income_mult(), 1e-6, "the craving sells for 1.2x the best bread")
+	near(s.recipe_price(c1, false), plain * s.variety_mult(false), 1e-6, "offline and the model without boosts ignore the craving")
 	check(s.recipe_price(c1) > s.recipe_price(&"recipe_plain_loaf") or c1 == &"recipe_plain_loaf", "the craving beats the other breads")
 	eq(s.auto_recipe(), c1, "Auto switches to the craving")
 	# Roti lain yang levelnya jauh lebih tinggi: craving mengikuti 1.25x roti terbaik.
@@ -78,7 +78,7 @@ func _craving() -> void:
 	s.idle_economy.invalidate()
 	var best2: float = s.best_plain_price()
 	check(best2 > s.plain_price(c1) * 2.0, "another bread is far better levelled")
-	near(s.recipe_price(c1), best2 * DataRegistry.idlef("craving.best_mult") * s.boost_income_mult(), 1e-6, "the craving sells for 1.2x a far better levelled bread")
+	near(s.recipe_price(c1), best2 * DataRegistry.idlef("craving.best_mult") * s.variety_mult() * s.boost_income_mult(), 1e-6, "the craving sells for 1.2x a far better levelled bread")
 	eq(s.auto_recipe(), c1, "Auto still prefers the craving")
 	# Model offline: tanpa craving sama sekali, juga untuk pilihan Auto (semua
 	# petak di Auto).
@@ -143,7 +143,7 @@ func _craving() -> void:
 	check(not s.cravings.is_favorite(&"recipe_sugar_donut") and s.cravings.is_favorite(&"recipe_chocolate_bread"), "favourites follow the location")
 	# Craving mati: harga biasa.
 	CravingManager.enabled = false
-	near(s.recipe_price(c2), s.plain_price(c2) * s.boost_income_mult(), 1e-6, "with cravings off prices are plain")
+	near(s.recipe_price(c2), s.plain_price(c2) * s.variety_mult() * s.boost_income_mult(), 1e-6, "with cravings off prices are plain")
 	free_sim(s)
 
 

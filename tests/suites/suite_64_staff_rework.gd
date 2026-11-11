@@ -8,8 +8,11 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_3_STAFF_EQUAL", "name": "idle 5.5 every assistant is equal: no tiers, perks or wages, one walking speed, caps per location tier", "fn": _staff_equal},
 		{"id": "ACC_21_LANES_PER_TIER", "name": "21.2, 57 Tiers 1-3 have two checkout lanes and Tiers 4-5 three: lane A is the owner's, one cashier for each other lane", "fn": _lanes_per_tier},
-		{"id": "ACC_21_PLAYER_AND_CASHIER", "name": "idle 5.1 the owner leaves the counter to a cashier with room, serves lane A beside them after a tap on the counter, and both lanes sell on their own", "fn": _player_and_cashier},
+		{"id": "ACC_21_PLAYER_AND_CASHIER", "name": "idle 5.1, 20 no. 81 with no bread being made the idle owner keeps lane A beside the cashier, newcomers split over both lanes, and both lanes sell on their own", "fn": _player_and_cashier},
+		{"id": "ACC_IDLE_OWNER_WAITS", "name": "idle 20 no. 81 an owner with nothing to do waits in the kitchen beside the batch that needs a hand first while bread is being made, otherwise becomes the cashier at lane A (a buyer is served without a walk), and leaves the counter for the kitchen once a batch starts; lane A takes no newcomers while the owner wants the kitchen and the cashier has room; the spot beside the counter is a free walkable tile", "fn": _owner_waits},
 		{"id": "ACC_21_CASHIER_LANES_SERVE", "name": "21.2 at Tiers 3-5 every hired cashier reaches the post of its own lane and serves customers there without the owner", "fn": _cashier_lanes_serve},
+		{"id": "ACC_21_NO_LANE_PINGPONG", "name": "idle 20 no. 80, 82 with the owner away and one cashier (Tier 1) or two (Tier 4), full cashier lanes overflow into lane A; once a cashier lane has room those buyers move to it, each at most once instead of bouncing every tick, and the cashiers serve everyone", "fn": _no_lane_pingpong},
+		{"id": "ACC_IDLE_DRIVER_ACTIVE_LANE", "name": "idle 20 no. 82 without a RotiFood counter a driver queues at the active checkout: lane A while the owner mans it, otherwise the cashier's lane; a driver waiting at lane A moves to the cashier when the owner leaves, and the cashier packs and hands the order over with the driver at the counter", "fn": _driver_active_lane},
 		{"id": "ACC_21_QUEUE_SPLIT", "name": "21.3 the queue only forms at open lanes: it splits when a lane opens and flows back when the owner leaves; a checkout in progress never moves", "fn": _queue_split},
 		{"id": "ACC_23_BAKER_WORKS", "name": "idle 5.3 a hired baker runs whole batches for the shelves on their own and sits on the chair when nothing is needed", "fn": _baker_works},
 		{"id": "ACC_5_STAFF_CHAIR", "name": "5.1.4 one staff chair per baker slot, a movable fixture; idle bakers sit on it and follow it when moved", "fn": _staff_chair},
@@ -148,15 +151,17 @@ func _player_and_cashier() -> void:
 	var b: QueueLane = _lane(s, &"lane_b")
 	eq(StringName(str(s.staff.lane_assign.get(&"staff_cashier_budi", ""))), b.id, "the cashier takes lane B, never the owner's lane A")
 	check(_step_until(s, func() -> bool: return s.staff.cashier_at_post(b.id)), "Budi reaches lane B")
-	eq(s.queue.open_physical_lanes(), [b] as Array[QueueLane], "with the owner away only the cashier's lane is open")
+	# Tidak ada roti yang sedang dibuat: pemilik yang menganggur menjadi kasir di
+	# jalur A (GDD idle §20 no. 81).
+	check(_step_until(s, func() -> bool: return s.player.is_manning_lane(a.id)), "with no bread being made the owner mans lane A beside the cashier")
+	eq(s.player.idle_spot, &"counter", "waiting as the cashier")
+	eq(s.queue.open_physical_lanes().size(), 2, "both lanes are open")
 	for i0 in 4:
 		stock(s, &"recipe_plain_loaf", 13, i0)
 	var c0: Customer = _cust(s)
-	check(_step_until(s, func() -> bool: return _served(s) >= 1, 4000), "the cashier serves lane B on their own")
-	check(not s.player.is_manning_lane(a.id), "the owner leaves the counter to the cashier")
-	check(bool(s.player.tap_cashier(a.id)["focus"]), "tapping the counter calls the owner to it")
-	check(_step_until(s, func() -> bool: return s.player.is_manning_lane(a.id)), "the owner mans lane A beside the cashier")
-	eq(s.queue.open_physical_lanes().size(), 2, "both lanes are open")
+	check(_step_until(s, func() -> bool: return _served(s) >= 1, 4000), "the first buyer is served")
+	check(bool(s.player.tap_cashier(a.id)["focus"]), "tapping the counter still focuses the owner on it")
+	check(s.player.is_manning_lane(a.id), "who stays at lane A")
 	var c1: Customer = _cust(s)
 	var c2: Customer = _cust(s)
 	check(c0 != null and c1 != null and c2 != null, "customers arrive")
@@ -358,3 +363,165 @@ func _staff_chair() -> void:
 	check(_step_until(u, func() -> bool: return a.seat_iid == chair.iid, 2000), "and sits down again at its new place")
 	eq(a.cell(), u.world.access_of(chair.iid)["cell"], "at the new front tile")
 	free_sim(u)
+
+
+## Antrean penuh di jalur kasir meluap ke jalur A tanpa bolak-balik (GDD idle
+## §20 no. 80). Dulu: jalur B penuh -> jalur A buka -> penyeimbangan memindah
+## pembeli ke A -> B punya ruang -> A tutup -> pembeli kembali ke B -> B penuh
+## lagi, setiap tick, dan pemilik tidak pernah datang karena B selalu tampak
+## punya ruang saat ia memeriksa.
+func _no_lane_pingpong() -> void:
+	for setup: Array in [[1, [&"staff_cashier_budi"]], [4, [&"staff_cashier_budi", &"staff_cashier_sari"]]]:
+		var t: int = int(setup[0])
+		var ids: Array[StringName] = []
+		ids.assign(setup[1])
+		var s: SimulationRoot = _with_staff(2140 + t, ids, t)
+		park_owner(s)
+		var a: QueueLane = s.queue.main_lane()
+		var staff_lanes: Array[QueueLane] = s.queue.staff_lanes()
+		check(_step_until(s, func() -> bool:
+			for l0: QueueLane in staff_lanes:
+				if not s.staff.cashier_at_post(l0.id):
+					return false
+			return true), "tier %d: every cashier reaches the post" % t)
+		var displays: Array[EquipmentInstance] = s.equipment.placed_list(&"display")
+		for i0 in 4:
+			stock(s, &"recipe_plain_loaf", 13, i0, displays[0].iid)
+		var room: int = 0
+		for l1: QueueLane in staff_lanes:
+			room += l1.capacity()
+		var want: int = room + 6
+		var spawned: int = 0
+		var served0: int = _served(s)
+		var lane_of: Dictionary = {}
+		var switches: Dictionary = {}
+		var a_used: bool = false
+		var left_a: int = 0
+		for k in 30000:
+			if spawned < want and k % 10 == 0 and _cust(s) != null:
+				spawned += 1
+			s.step(s.tick_seconds)
+			for c: Customer in s.customers.sorted():
+				if c.lane_id == &"":
+					continue
+				if lane_of.has(c.id) and lane_of[c.id] != c.lane_id:
+					switches[c.id] = int(switches.get(c.id, 0)) + 1
+					if lane_of[c.id] == a.id:
+						left_a += 1
+				lane_of[c.id] = c.lane_id
+				a_used = a_used or c.lane_id == a.id
+			if spawned >= want and _served(s) - served0 >= want:
+				break
+		var most: int = 0
+		for v: Variant in switches.values():
+			most = maxi(most, int(v))
+		check(a_used, "tier %d: the full cashier lanes overflow into lane A" % t)
+		check(left_a > 0, "tier %d: with the owner away, buyers at lane A move to a cashier with room (%d)" % [t, left_a])
+		check(most <= 1, "tier %d: no buyer bounces between the lanes (most lane switches by one buyer: %d)" % [t, most])
+		eq(_served(s) - served0, want, "tier %d: the cashiers serve everyone" % t)
+		eq(s.check_invariants(), "", "tier %d: invariants" % t)
+		free_sim(s)
+
+
+## Driver RotiFood tanpa meja RotiFood antre di kasir yang aktif (GDD idle §20
+## no. 82).
+func _driver_active_lane() -> void:
+	var s: SimulationRoot = _with_staff(2160, [&"staff_cashier_budi"])
+	park_owner(s)
+	var a: QueueLane = s.queue.main_lane()
+	var b: QueueLane = _lane(s, &"lane_b")
+	check(s.queue.rotifood_lane == null, "Tier 1 has no RotiFood counter")
+	check(_step_until(s, func() -> bool: return s.staff.cashier_at_post(b.id)), "Budi reaches lane B")
+	for i0 in 3:
+		stock(s, &"recipe_plain_loaf", 13, i0)
+	# Pemilik pergi: driver antre di jalur kasir.
+	var o1: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_plain_loaf": 2}, 0.0)
+	check(_step_until(s, func() -> bool: return o1.driver != null), "the first driver comes")
+	eq(s.queue.lane_of(o1.driver_id()), b, "with the owner away the driver queues at the cashier's lane")
+	check(_step_until(s, func() -> bool: return o1.state == DeliveryOrder.COMPLETED, 6000), "the cashier packs and hands the order over")
+	# Pemilik menjaga jalur A: driver antre di sana.
+	_man(s, a)
+	# Pesanan kedua menunggu stok, jadi driver-nya menunggu di jalur A.
+	var o2: DeliveryOrder = s.rotifood.debug_create_order({&"recipe_sugar_donut": 2}, 0.0)
+	check(_step_until(s, func() -> bool: return o2.driver != null), "the second driver comes")
+	eq(s.queue.lane_of(o2.driver_id()), a, "with the owner at lane A the driver queues there")
+	check(_step_until(s, func() -> bool: return o2.driver_phase in [&"queued", &"at_service"] and not o2.driver.has_route()), "the driver waits at lane A")
+	eq(s.queue.lane_of(o2.driver_id()), a, "while the owner is there")
+	# Pemilik pergi sebelum pesanannya siap: driver pindah ke kasir yang aktif.
+	park_owner(s)
+	s.step(s.tick_seconds)
+	eq(s.queue.lane_of(o2.driver_id()), b, "once the owner leaves, the driver moves to the cashier")
+	stock(s, &"recipe_sugar_donut", 6, 3)
+	check(_step_until(s, func() -> bool: return o2.state == DeliveryOrder.COMPLETED, 6000), "the cashier packs it with the driver at the counter and hands it over")
+	eq(s.check_invariants(), "", "invariants")
+	free_sim(s)
+
+
+## Pemilik yang menganggur (GDD idle §20 no. 81): menunggu di dapur selama ada
+## roti yang sedang dibuat, bila tidak menjadi kasir di jalur A.
+func _owner_waits() -> void:
+	var s: SimulationRoot = new_sim(2150)
+	s.tutorial.skip()
+	s.debug_add_kr(1.0e6)
+	s.demand.next_physical_at = NEVER
+	s.demand.next_rotifood_at = NEVER
+	s.demand.next_window_shopper_at = NEVER
+	var a: QueueLane = s.queue.main_lane()
+	var p: PlayerTaskManager = s.player
+	# Rak kosong: pemilik memulai batch, lalu tidak ada pekerjaan lain.
+	check(_step_until(s, func() -> bool:
+		return p.bread_in_progress() and p.task.is_empty() and p.manning_lane == &"" and not p.actor.has_route() and p.idle_spot == &"kitchen", 4000),
+		"the owner starts a batch, then with bread being made waits in the kitchen")
+	check(p.actor.carried.is_empty() and KitchenBrain.choose(s, PlayerTaskManager.PLAYER_ID, p.actor).is_empty(), "with nothing else to do")
+	var j: ProductionJob = s.production.sorted_jobs()[0]
+	var iid: int = j.oven_id if j.stage in [ProductionJob.BAKING, ProductionJob.BAKE_DONE_WAITING_PICKUP] else j.mixer_id
+	var acc: Dictionary = s.world.access_of(iid)
+	var at: Vector2i = p.actor.cell()
+	check(StringName(str(acc["floor"])) == p.actor.floor_id and absi(at.x - (acc["cell"] as Vector2i).x) <= 1 and absi(at.y - (acc["cell"] as Vector2i).y) <= 1,
+		"beside the station of the batch that needs a hand first")
+	check(s.world.grid(p.actor.floor_id).is_kitchen(at), "in the kitchen")
+	check(not p.is_manning_lane(a.id), "not at the counter")
+	# Tidak ada roti yang sedang dibuat: pemilik menjadi kasir di jalur A.
+	freeze_production(s)
+	check(_step_until(s, func() -> bool: return not p.bread_in_progress() and p.is_manning_lane(a.id), 40000),
+		"with no bread being made the owner becomes the cashier at lane A")
+	eq(p.idle_spot, &"counter", "and waits there")
+	check(s.queue.is_open(a), "lane A is open")
+	var walked: Array[bool] = [false]
+	var c: Customer = _cust(s)
+	check(c != null, "a buyer comes in")
+	var served0: int = _served(s)
+	check(_step_until(s, func() -> bool:
+		walked[0] = walked[0] or p.actor.has_route()
+		return _served(s) > served0, 4000), "and is served")
+	check(not walked[0], "without the owner walking to the counter first")
+	# Batch baru dimulai: pemilik meninggalkan kasir ke dapur.
+	var d: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	s.display.set_assignment(d.iid, 0, &"recipe_plain_loaf")
+	check(_step_until(s, func() -> bool: return p.bread_in_progress() and p.manning_lane == &"" and p.idle_spot == &"kitchen", 4000),
+		"once a batch starts the owner leaves the counter and waits in the kitchen")
+	free_sim(s)
+	# Dengan kasir: jalur A tidak menerima pembeli baru selama pemilik ingin ke
+	# dapur dan jalur kasir masih punya ruang.
+	var t: SimulationRoot = _with_staff(2151, [&"staff_cashier_budi"])
+	var a2: QueueLane = t.queue.main_lane()
+	var b2: QueueLane = _lane(t, &"lane_b")
+	check(_step_until(t, func() -> bool: return t.staff.cashier_at_post(b2.id) and t.player.is_manning_lane(a2.id)), "owner at lane A, cashier at lane B")
+	check(t.queue.accepts_new(a2), "lane A takes newcomers while there is nothing to bake")
+	var d2: EquipmentInstance = t.equipment.placed_list(&"display")[0]
+	t.display.set_assignment(d2.iid, 0, &"recipe_plain_loaf")
+	t.player._kitchen_at = -1.0
+	check(t.player.wants_kitchen(), "a batch to start calls the owner to the kitchen")
+	check(t.queue.is_open(a2) and not t.queue.accepts_new(a2), "lane A stays open for its queue but takes no newcomers")
+	check(t.queue.accepts_new(b2), "they go to the cashier instead")
+	check(_step_until(t, func() -> bool: return t.player.manning_lane == &"", 4000), "the owner leaves the counter for the kitchen")
+	check(not t.queue.is_open(a2), "and lane A closes behind them")
+	# Di sebelah kasir: tile bebas yang bisa dilalui di samping titik kasir.
+	var side: Dictionary = t.player._beside_counter(a2)
+	var sc: Vector2i = side.get("cell", Vector2i(-1, -1))
+	var fg: FloorGrid = t.world.grid(a2.floor_id)
+	check(sc != a2.cashier_point and absi(sc.x - a2.cashier_point.x) <= 1 and absi(sc.y - a2.cashier_point.y) <= 1, "the spot beside the counter is next to the cashier point")
+	check(fg.is_walkable(sc) and not fg.access_at.has(sc) and not a2.slots.has(sc) and sc != a2.service_point and not b2.slots.has(sc) and sc != b2.cashier_point,
+		"and a free walkable tile, not a queue slot or another post")
+	eq(t.check_invariants(), "", "invariants")
+	free_sim(t)

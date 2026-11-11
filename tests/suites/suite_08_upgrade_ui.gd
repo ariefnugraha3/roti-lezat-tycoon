@@ -8,8 +8,11 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_LEVEL_CHIPS", "name": "idle 12.1 every station and the counter on the viewed floor carry a big 'Lv n' chip (touch target >= 56 px) whose arrow shows when x1 is affordable; the chips survive HUD refreshes and a tap opens the upgrade card", "fn": _chips},
 		{"id": "ACC_IDLE_UPGRADE_CARD", "name": "idle 12.2 the upgrade card floats above its station (or docks above the tab bar), shows 'Oven · Lv n', the effect now -> next and the next milestone, and its x1 / x10 / Max buttons buy exactly what they say", "fn": _card},
 		{"id": "ACC_IDLE_CHIP_OPENS_CARD", "name": "idle 20 no. 77 tapping a mixer, oven, shelf or checkout counter gives the owner's focus (Semangat) but opens no upgrade card and never closes or replaces an open one; a real tap on a level chip opens its card; an empty floor tap closes it", "fn": _chip_opens_card},
+		{"id": "ACC_IDLE_BUBBLES_OVER_CHIPS", "name": "idle 20 no. 79 owner, staff and shopper speech bubbles draw above the level chips (the chips have their own canvas layer under the bubble layer) and below the HUD and sheets; the chip layer hides with the HUD, in Decoration Mode and in Photo mode, and a bubble never takes a chip's tap", "fn": _bubbles_over_chips},
 		{"id": "ACC_IDLE_CHIPS_DECLUTTER", "name": "idle 20 no. 77 level chips are big (20 px text, pill >= 40 px tall, touch target >= 56 px) and in a full Tier 5 shop no two overlap, each stays on screen, a chip pushed off its station gets a line to it, and tapping each one opens its own card", "fn": _chips_declutter},
 		{"id": "ACC_IDLE_UPGRADES_SHEET", "name": "idle 12.3 the Upgrades sheet lists every station, counter, recipe, staff and global upgrade sorted by KR/s gained per KR, and buying from a row re-sorts the list", "fn": _upgrades},
+		{"id": "ACC_IDLE_LEVEL_FEEDBACK", "name": "idle 1.2, 20 no. 85 a level-up that raises KR/s shows the new rate at once with a '+x/s' that floats up from it and fades; the station sparkles and bounces back to its size; a big KR jump counts up on the KR pill and ends on the balance, small sales show at once", "fn": _level_feedback},
+		{"id": "ACC_IDLE_BOTTLENECK", "name": "idle 20 no. 88 the counter chip says 'Queue full' while buyers were turned away by a full queue in the last 10 s and not otherwise; a chip's arrow is green when one level raises KR/s and grey when it adds nothing now (checked one chip per refresh)", "fn": _bottleneck},
 		{"id": "ACC_IDLE_SHOP_SHEET", "name": "idle 8.4, 8.7, 8.9 the Shop sheet compares this location with the next and moves there after a confirm, opens new stations, and sells shop upgrades", "fn": _shop},
 	]
 
@@ -29,6 +32,88 @@ func _boot(label: String) -> GameRoot:
 	PauseManager.clear_all()
 	game.playing = false
 	return game
+
+
+func _bottleneck() -> void:
+	var game: GameRoot = await _boot("Bottleneck Bakery")
+	var sim: SimulationRoot = game.sim
+	var chips: LevelChips = game.hud.level_chips
+	sim.debug_add_kr(1.0e7)
+	game.hud._refresh_all()
+	await _frames(2)
+	check(not chips.queue_full_shown(), "no 'Queue full' while nobody was turned away")
+	sim.statistics.add(&"total_customers_missed", 1)
+	game.hud._refresh_all()
+	check(chips.queue_full_shown(), "a buyer turned away by a full queue lights 'Queue full' on the counter chip")
+	chips._missed_at_msec = Time.get_ticks_msec() - int((LevelChips.QUEUE_FULL_SECONDS + 1.0) * 1000.0)
+	game.hud._refresh_all()
+	check(not chips.queue_full_shown(), "it goes out once nobody was turned away for a while")
+	# Panah: hijau bila naik level menaikkan KR/s, abu-abu bila tidak.
+	var n: int = chips._chips.size()
+	for i in n * 2:
+		chips.refresh()
+	var rate: float = sim.idle_economy.rate(false)
+	var checked: int = 0
+	for key: Variant in chips._chips.keys():
+		var c: Dictionary = chips._chips[key]
+		if not (c["arrow"] as Control).visible:
+			continue
+		var gain: float = sim.idle_economy.delta_rate(sim.upgrades.offer(c["kind"], c["id"]), 1)
+		eq(chips.arrow_useful(String(key)), gain > rate * LevelChips.NO_GAIN_RATIO, "%s arrow is %s (gain %.4f/s)" % [key, "green" if gain > rate * LevelChips.NO_GAIN_RATIO else "grey", gain])
+		checked += 1
+	check(checked >= 2, "several chips were judged (%d)" % checked)
+	await _finish(game)
+
+
+func _level_feedback() -> void:
+	var game: GameRoot = await _boot("Feedback Bakery")
+	var sim: SimulationRoot = game.sim
+	sim.debug_add_kr(1.0e6)
+	game.hud._refresh_all()
+	await _frames(2)
+	# Level resep selalu menaikkan harga, jadi KR/s naik.
+	var rate0: float = sim.income_rate()
+	game.hud._refresh_all()
+	check(sim.upgrades.buy(&"recipe", &"recipe_plain_loaf", &"x1") == 1, "one recipe level bought")
+	await _frames(2)
+	var rate1: float = sim.income_rate()
+	check(rate1 > rate0, "the recipe level raises KR/s")
+	var floats: Array[Node] = game.hud.find_children("GainFloat", "Label", true, false)
+	check(floats.size() >= 1, "a '+x/s' floats up from the KR/s")
+	if floats.size() >= 1:
+		eq((floats[0] as Label).text, Tx.t("ui_upgrade_gain", {"amount": Tx.rate(rate1 - rate0)}), "it names the KR/s gained")
+	eq(game.hud._rate.text, Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate1)}), "the KR/s shows the new rate at once")
+	# Stasiun: berkilau dan memantul (Lv 1 -> 2, tanpa milestone).
+	var oven: EquipmentInstance = sim.equipment.placed_list(&"oven")[0]
+	var node: Node3D = game.world.furniture.get(oven.iid)
+	check(node != null, "the oven has a model")
+	var scale0: Vector3 = node.scale if node != null else Vector3.ONE
+	var sparks0: int = game.world.floors[oven.floor_id].find_children("*", "CPUParticles3D", true, false).size()
+	check(sim.upgrades.buy(&"station", oven.iid, &"x1") == 1, "one oven level bought")
+	await _frames(2)
+	check(game.world.floors[oven.floor_id].find_children("*", "CPUParticles3D", true, false).size() > sparks0, "the oven sparkles")
+	if node != null and not SettingsManager.reduced_motion():
+		check(not node.scale.is_equal_approx(scale0), "the oven bounces")
+	await runner.get_tree().create_timer(1.2).timeout
+	if node != null and is_instance_valid(node):
+		check(node.scale.is_equal_approx(scale0), "and settles back to its size (%s)" % node.scale)
+	eq(game.hud.find_children("GainFloat", "Label", true, false).size(), 0, "the '+x/s' is gone after a moment")
+	# Hitung-naik KR.
+	game.hud._refresh_all()
+	var shown0: float = game.hud.shown_kr()
+	sim.debug_add_kr(sim.economy.balance)
+	game.hud._refresh_all()
+	await _frames(3)
+	if not SettingsManager.reduced_motion():
+		check(game.hud.shown_kr() < sim.economy.balance - 0.5 and game.hud.shown_kr() >= shown0, "a big jump counts up")
+	await runner.get_tree().create_timer(0.9).timeout
+	game.hud._refresh_all()
+	near(game.hud.shown_kr(), sim.economy.balance, 0.001, "the count ends on the balance")
+	eq(game.hud._kr.text, Tx.money(sim.economy.balance), "and shows it")
+	sim.debug_add_kr(0.5)
+	game.hud._refresh_all()
+	near(game.hud.shown_kr(), sim.economy.balance, 0.001, "a small sale shows at once")
+	await _finish(game)
 
 
 func _finish(game: GameRoot) -> void:
@@ -294,6 +379,59 @@ func _chips_declutter() -> void:
 		await _frames(2)
 	check(open >= 3, "most chips are not under the HUD (%d of %d)" % [open, shown.size()])
 	eq(right, open, "tapping each chip opens that station's own card")
+	await _finish(game)
+
+
+## Balon dialog di atas chip level (GDD idle §20 no. 79).
+func _bubbles_over_chips() -> void:
+	var game: GameRoot = await _boot("Bubble Chip Bakery")
+	var sim: SimulationRoot = game.sim
+	game.hud._refresh_all()
+	await _frames(2)
+	var chips: LevelChips = game.hud.level_chips
+	var cl: CanvasLayer = chips.get_canvas_layer_node()
+	check(cl != null and cl == game.hud.chip_layer() and cl.layer == HUD.CHIP_LAYER, "the chips have their own canvas layer")
+	var bl: CanvasLayer = game.world.thought_bubble().get_canvas_layer_node()
+	check(bl != null and bl == game.world.thought_layer(), "the owner's bubble is in the bubble layer")
+	check(cl != null and bl != null and cl.layer < bl.layer, "bubbles draw above the chips")
+	check(bl != null and bl.layer < game.hud.layer and bl.layer < game.modals.layer, "and below the HUD and the sheets")
+	check(cl != null and cl.layer > game.world._rain_layer.layer, "the chips stay above the rain")
+	# Balon staf dan pembeli memakai lapisan yang sama: semuanya ThoughtBubble di
+	# ThoughtLayer, dan tidak menangkap ketukan.
+	var b := ThoughtBubble.new()
+	game.world.thought_layer().add_child(b)
+	var oven: EquipmentInstance = sim.equipment.placed_list(&"oven")[0]
+	var r: Rect2 = chips.chip_rect(&"station", oven.iid)
+	check(r.has_area(), "the oven's chip is on screen")
+	b.show_key(String(DataRegistry.THOUGHT_KEYS[0]))
+	b.point_at(r.get_center() + Vector2(0.0, ThoughtBubble.TAIL_LENGTH + 18.0))
+	await _frames(3)
+	var covered: bool = false
+	for n: Node in b.find_children("*", "PanelContainer", true, false):
+		covered = covered or (n as Control).get_global_rect().has_point(r.get_center())
+	check(covered, "a bubble can sit right over a chip")
+	var mm := InputEventMouseMotion.new()
+	mm.position = r.get_center()
+	mm.global_position = r.get_center()
+	runner.get_viewport().push_input(mm, true)
+	var hov: Control = runner.get_viewport().gui_get_hovered_control()
+	var chip_b: Button = chips.chip(&"station", oven.iid)
+	check(hov != null and (hov == chip_b or chip_b.is_ancestor_of(hov)), "the chip under it still takes the pointer")
+	_tap(r.get_center())
+	await _frames(2)
+	var cards: Array[UpgradeCard] = _cards(game)
+	check(cards.size() == 1 and int(cards[0].id) == oven.iid, "and tapping it opens the oven's card")
+	game.modals.close_all()
+	b.queue_free()
+	# Lapisan chip ikut tersembunyi bersama HUD.
+	game.hud.set_decoration_active(true)
+	check(not cl.visible, "Decoration Mode and Photo mode hide the chips with the HUD")
+	game.hud.set_decoration_active(false)
+	check(cl.visible, "and show them again")
+	game.hud.visible = false
+	check(not cl.visible, "a hidden HUD (share card photo) hides the chips too")
+	game.hud.visible = true
+	check(cl.visible, "and shows them again")
 	await _finish(game)
 
 

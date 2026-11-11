@@ -59,8 +59,15 @@ class DecorationDefinition:
 	## dinding yang juga tampil sebagai medali di kartu profil dengan ikon ini.
 	var badge_icon: StringName
 	## Bonus permanen selama putaran (GDD idle 8.8): {type: arrival|price|rotifood,
-	## value}, atau {} untuk dekorasi kosmetik.
+	## value}, atau {} untuk dekorasi kosmetik. Dekorasi premium, penawaran, dan
+	## Bakery Pass memberi bonusnya selama dimiliki (GDD idle 22.8).
 	var bonus: Dictionary = {}
+	## Harga Golden Crumbs (sumber `premium`, GDD idle 22.8); 0 = tidak dijual.
+	var price_crumbs: int = 0
+	## Pakaian pemilik (GDD idle 22.8): {apron: "#hex", hat: gaya topi}.
+	var look: Dictionary = {}
+	## Warna varian model atau kanopi (GDD idle 22.8), "#hex"; kosong = warna bawaan.
+	var colors: Array[Color] = []
 
 	static func from_dict(d: Dictionary) -> DecorationDefinition:
 		var x := DecorationDefinition.new()
@@ -81,7 +88,21 @@ class DecorationDefinition:
 		var b: Variant = d.get("bonus")
 		if b is Dictionary:
 			x.bonus = (b as Dictionary).duplicate()
+		x.price_crumbs = int(d.get("price_crumbs", 0))
+		var lk: Variant = d.get("look")
+		if lk is Dictionary:
+			x.look = (lk as Dictionary).duplicate()
+		for c: Variant in d.get("colors", []):
+			x.colors.append(Color.html(str(c)) if Color.html_is_valid(str(c)) else Color.MAGENTA)
 		return x
+
+	## Warna varian ke-`i`, atau `fallback` bila katalog tidak memberinya.
+	func color(i: int, fallback: Color) -> Color:
+		return colors[i] if i < colors.size() else fallback
+
+	## Bonusnya berlaku selama dimiliki, tidak perlu dibeli lagi tiap cabang.
+	func bonus_always() -> bool:
+		return has_bonus() and source != &"shop"
 
 	func has_bonus() -> bool:
 		return not bonus.is_empty()

@@ -36,6 +36,7 @@ func _ready() -> void:
 	var t0: int = Time.get_ticks_msec()
 	print("LOADING_PROBE start (engine up %d ms)" % Time.get_ticks_msec())
 	SaveManager.dir = PROBE_DIR
+	Monetization.use_test_file("loading_probe")
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
 	for ab: String in OS.get_cmdline_user_args():

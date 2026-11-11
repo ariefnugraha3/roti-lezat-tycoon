@@ -21,6 +21,19 @@ const TABLE_ITEM_SCALE: float = 0.75
 const PICK_CUSTOMER_PX: float = 56.0
 ## Jarak ujung ekor gelembung pikiran di atas puncak kepala/topi pemain (m).
 const THOUGHT_ANCHOR_GAP: float = 0.08
+## Lapisan kanvas balon dialog pemilik, staf, dan pembeli: di atas chip level
+## (HUD.CHIP_LAYER), di bawah transisi lantai (5) dan HUD (GDD idle §20 no. 79).
+const THOUGHT_LAYER: int = 4
+## Bayangan lembut di bawah perabot (GDD idle §20 no. 86): alfa pusatnya dan
+## lebarnya dibanding jejak perabot.
+const GROUND_SHADOW_ALPHA: float = 0.42
+const GROUND_SHADOW_PAD: float = 1.5
+## Mesh cakram bayangan bersama (gradasi pusat -> tepi, material SHADOW).
+static var _ground_mesh: Mesh = null
+static var _ground_mat: Material = null
+## Pantulan perabot saat naik level (GDD idle §20 no. 85).
+const LEVEL_POP: float = 1.1
+const LEVEL_POP_SECONDS: float = 0.3
 ## Roti yang tampak masuk ke kantong di meja kasir saat membungkus.
 const PACK_BREAD_MAX: int = 3
 ## Geser kantong sepanjang meja agar tidak tertutup mesin kasir (m).
@@ -166,7 +179,7 @@ func setup(s: SimulationRoot) -> void:
 	add_child(_slot_markers)
 	_thought_layer = CanvasLayer.new()
 	_thought_layer.name = "ThoughtLayer"
-	_thought_layer.layer = 3
+	_thought_layer.layer = THOUGHT_LAYER
 	add_child(_thought_layer)
 	_thought_bubble = ThoughtBubble.new()
 	_thought_layer.add_child(_thought_bubble)
@@ -187,6 +200,7 @@ func setup(s: SimulationRoot) -> void:
 	EventBus.sale_completed.connect(_on_sale)
 	EventBus.tap_boost.connect(_on_tap_boost)
 	EventBus.station_evolved.connect(_on_station_evolved)
+	EventBus.level_up.connect(_on_level_up)
 	SettingsManager.settings_changed.connect(func(_k: String) -> void: _apply_brightness())
 	rebuild_all()
 	# Kamera mulai di lantai toko (GDD idle 5.1): pemilik boleh di dapur atas.
@@ -274,7 +288,7 @@ func _build_neighborhood() -> void:
 	_neighborhood_wet = sim.weather.is_rain()
 	for fd2: FloorDefinition in sim.world.location.floors:
 		if fd2.id == sim.world.location.store_floor():
-			_neighborhood = NeighborhoodFactory.build(sim.world.location, fd2, _neighborhood_wet)
+			_neighborhood = NeighborhoodFactory.build(sim.world.location, fd2, _neighborhood_wet, sim.prestige.branch_no - 1)
 	if _neighborhood != null:
 		add_child(_neighborhood)
 	if street_life != null:
@@ -308,6 +322,9 @@ func rebuild_furniture() -> void:
 			m.pasang_di(node)
 			markers[e.iid] = m
 		_aabbs[e.iid] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
+		# Sesudah kotak pilih dan penanda, supaya cakram bayangan tidak ikut
+		# memperlebar keduanya.
+		_add_ground_shadow(node, e)
 	_update_counter_aabbs()
 	_rebuild_decor()
 	_apply_hold()
@@ -343,6 +360,34 @@ func _rebuild_decor() -> void:
 			_swing.append(sw)
 		_decor[int(o["uid"])] = {"node": node, "floor": fid, "type": def.placement_type,
 			"aabb": node.transform * EquipmentFactory._mesh_bounds(node), "base": node.position}
+
+
+## Bayangan lembut di lantai di bawah perabot `node` (GDD idle §20 no. 86):
+## cakram gradasi selebar jejaknya, anak node itu, jadi ikut tersembunyi saat
+## dipegang di Decoration Mode, ikut memantul, dan ikut tumbuh saat evolusi.
+## Satu mesh dan material SHADOW bersama: tanpa shader baru.
+func _add_ground_shadow(node: Node3D, e: EquipmentInstance) -> void:
+	if _ground_mesh == null:
+		var mb := MeshBuilder.new()
+		var col := Color(CharacterFactory.SHADOW_COLOR, GROUND_SHADOW_ALPHA)
+		mb.disc(Transform3D(), 0.5, col, Color(col, 0.0), 24)
+		var proto: MeshInstance3D = mb.commit("GroundShadow", MeshBuilder.SHADOW)
+		_ground_mesh = proto.mesh
+		_ground_mat = proto.material_override
+		proto.free()
+	var def: EquipmentDefinition = e.def()
+	var fp: Vector2i = GridMath.rotated_footprint(def.footprint_tiles, e.rotation)
+	var t: float = GridMath.WORLD_METERS_PER_TILE
+	var center := Vector3((float(e.anchor.x) + float(fp.x) * 0.5) * t, 0.006, (float(e.anchor.y) + float(fp.y) * 0.5) * t)
+	var world_xf := Transform3D(Basis.from_scale(Vector3(float(fp.x) * t * GROUND_SHADOW_PAD, 1.0, float(fp.y) * t * GROUND_SHADOW_PAD)), center)
+	var mi := MeshInstance3D.new()
+	mi.name = "GroundShadow"
+	mi.set_meta(EquipmentFactory.META_NO_BOUNDS, true)
+	mi.mesh = _ground_mesh
+	mi.material_override = _ground_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(mi)
+	mi.transform = node.transform.affine_inverse() * world_xf
 
 
 func _build_furniture(e: EquipmentInstance) -> Node3D:
@@ -673,15 +718,27 @@ func _npc_spec(visual_key: String, seed_value: int, rainy: bool) -> Dictionary:
 
 
 ## Spec karakter pemain (GDD 31.3): pilihan pria/wanita murni visual; outfit
-## hadiah achievement mengganti celemek (GDD 72.1).
+## hadiah achievement mengganti celemek (GDD 72.1); outfit premium, penawaran,
+## dan Bakery Pass mengganti celemek dan topi dari `look` katalognya (GDD idle
+## 22.8).
 func _player_spec() -> Dictionary:
-	var female: bool = str(sim.player.appearance.get("gender", "male")) == "female"
-	var sp: Dictionary = CharacterFactory.spec_for_player("wanita" if female else "pria")
-	match str(sim.decoration.equipped.get("outfit", "")):
+	return owner_spec(str(sim.player.appearance.get("gender", "male")), str(sim.decoration.equipped.get("outfit", "")))
+
+
+## Spec pemilik dengan jenis kelamin `gender` ("male"/"female") dan pakaian
+## `outfit` (id dekorasi atau ""). Dipakai dunia dan panggung perayaan Store.
+static func owner_spec(gender: String, outfit: String) -> Dictionary:
+	var sp: Dictionary = CharacterFactory.spec_for_player("wanita" if gender == "female" else "pria")
+	match outfit:
 		"outfit_apron_neighborhood":
 			sp["apron"] = Palette.GINGHAM_A
 		"outfit_chef_hat_perfect":
 			sp["hat"] = "toque"
+		_:
+			var od: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(outfit)) if outfit != "" else null
+			if od != null and not od.look.is_empty():
+				sp["apron"] = Color.html(str(od.look.get("apron", "#ffffff")))
+				sp["hat"] = str(od.look.get("hat", "none"))
 	return sp
 
 
@@ -1207,14 +1264,42 @@ func _on_sale(_amount: float, _channel: StringName) -> void:
 	pass
 
 
+## Naik level stasiun (GDD idle 1.2 pilar 2, §20 no. 85): perabotnya berkilau
+## dan memantul sebentar. Milestone tidak memantul, karena evolusi modelnya
+## (`_on_station_evolved`) mungkin sedang mengganti perabot itu. Reduced Motion:
+## kilau saja.
+func _on_level_up(kind: StringName, id: Variant, _level: int, milestone: bool) -> void:
+	if kind != &"station" or sim == null:
+		return
+	var iid: int = int(id)
+	var e: EquipmentInstance = sim.equipment.get_inst(iid)
+	if e == null or not e.placed or not floors.has(e.floor_id):
+		return
+	# Selagi dunia dibangun ulang (pindah lokasi) kamus perabot bisa masih
+	# memegang node yang sudah dibebaskan: periksa sebelum dipakai.
+	var nv: Variant = furniture.get(iid)
+	if nv == null or not is_instance_valid(nv) or not (nv as Node3D).is_inside_tree():
+		return
+	var node: Node3D = nv
+	var top: Vector3 = top_of_iid(iid)
+	if top != Vector3.INF:
+		FX.sugar_sparkle(floors[e.floor_id], top)
+	if not milestone and not SettingsManager.reduced_motion():
+		ProceduralAnimationSystem.squash_pop(node, LEVEL_POP, LEVEL_POP_SECONDS)
+
+
 ## Evolusi model (GDD idle 8.2, 14): model lama mengecil sambil berkilau lalu
 ## model baru melompat keluar dengan squash & stretch. Reduced Motion: kilau saja.
 func _on_station_evolved(iid: int, from_tier: int, _to_tier: int) -> void:
 	var e: EquipmentInstance = sim.equipment.get_inst(iid)
 	if e == null or not e.placed or not floors.has(e.floor_id):
 		return
-	var parent: Node3D = floors[e.floor_id]
-	var node: Node3D = furniture.get(iid)
+	var pv: Variant = floors[e.floor_id]
+	if not is_instance_valid(pv):
+		return
+	var parent: Node3D = pv
+	var nv: Variant = furniture.get(iid)
+	var node: Node3D = nv if nv != null and is_instance_valid(nv) else null
 	var top: Vector3 = top_of_iid(iid)
 	if top != Vector3.INF:
 		FX.sugar_sparkle(parent, top)
@@ -1994,7 +2079,7 @@ static func ghost_tile(valid: bool) -> Node3D:
 ## bila ada perabot terpilih, ubin di luar area perabot itu (abu-abu bertitik).
 func show_tile_overlay(clear_cells: Array[Vector2i], wrong_zone_cells: Array[Vector2i]) -> void:
 	clear_tile_overlay()
-	_tile_overlay.add_child(ProceduralMeshFactory.tile_overlay(clear_cells, Color(Palette.DANGER, 0.20), Color(Palette.DANGER, 0.70), &"stripes"))
+	_tile_overlay.add_child(ProceduralMeshFactory.tile_overlay(clear_cells, Color(Palette.DANGER, 0.24), Color(Palette.DANGER, 0.6), &"frame"))
 	if not wrong_zone_cells.is_empty():
 		_tile_overlay.add_child(ProceduralMeshFactory.tile_overlay(wrong_zone_cells, Color(Palette.TEXT_MUTED, 0.22), Color(Palette.TEXT_MUTED, 0.55), &"dot"))
 

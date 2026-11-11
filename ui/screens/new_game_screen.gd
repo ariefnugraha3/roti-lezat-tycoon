@@ -11,6 +11,9 @@ extends UIScreen
 
 const STEPS: int = 2
 const POPUP: Vector2 = Vector2(640, 680)
+## Nama toko paling panjang (GDD 89.4) dan lebar papan pratinjaunya.
+const NAME_MAX: int = 24
+const SIGN_MAX_W: float = 480.0
 
 var _step: int = 0
 var _gender: String = "male"
@@ -159,14 +162,15 @@ func _render_name() -> void:
 	plate.add_theme_stylebox_override("panel", psb)
 	stack.add_child(plate)
 	_sign = ProceduralUIFactory.label(_name, 22, Palette.BUTTER_YELLOW)
+	_sign.name = "SignName"
 	_sign.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sign.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_sign.custom_minimum_size = Vector2(minf(ProceduralUIFactory._text_width(_name, 22, true) + 8.0, 480.0), 0.0)
+	_fit_sign()
 	plate.add_child(_sign)
 	_edit = LineEdit.new()
 	_edit.text = _name
-	_edit.max_length = 64
+	# Aturan nama: paling banyak NAME_MAX karakter (validate_name).
+	_edit.max_length = NAME_MAX
 	_edit.custom_minimum_size = Vector2(0, 60)
 	_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_edit.add_theme_font_size_override("font_size", ProceduralUIFactory.scaled(22))
@@ -188,15 +192,24 @@ func _on_typed(text: String) -> void:
 	var t: String = text.strip_edges()
 	_sign.text = t if t != "" else Tx.t("ui_bakery_name_default")
 	_sign.modulate.a = 1.0 if t != "" else 0.5
-	_sign.custom_minimum_size.x = minf(ProceduralUIFactory._text_width(_sign.text, 22, true) + 8.0, 480.0)
+	_fit_sign()
 	_error.text = ""
+
+
+## Papan pratinjau selebar namanya; nama yang lebih lebar dari SIGN_MAX_W
+## hurufnya mengecil supaya tetap terbaca utuh (Seksi 20 no. 103).
+func _fit_sign() -> void:
+	var f: Font = ProceduralUIFactory.display_font()
+	var sz: int = ProceduralUIFactory.fit_font_size(f, _sign.text, ProceduralUIFactory.scaled(22), SIGN_MAX_W - 8.0)
+	_sign.add_theme_font_size_override("font_size", sz)
+	_sign.custom_minimum_size.x = minf(f.get_string_size(_sign.text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 8.0, SIGN_MAX_W)
 
 
 ## Aturan nama (GDD 89.4): 1-24 karakter terlihat setelah trim, tanpa karakter
 ## kontrol/baris baru.
 static func validate_name(text: String) -> String:
 	var t: String = text.strip_edges()
-	if t.length() < 1 or t.length() > 24:
+	if t.length() < 1 or t.length() > NAME_MAX:
 		return ""
 	for i in t.length():
 		var code: int = t.unicode_at(i)

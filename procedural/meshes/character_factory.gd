@@ -178,6 +178,13 @@ const HAIR_STYLES: Dictionary = {
 	"jenggot": {"front": 52.0, "side": 96.0, "back": 134.0, "puff": 0.018, "bangs": "part", "frame": -0.020},
 }
 
+## Bagian wajah yang digambar lewat satu mesh gabungan (GDD idle §20 no. 87).
+const FACE_PARTS: Array[String] = ["EyeL", "EyeR", "BrowL", "BrowR", "Mouth"]
+const FACE_MERGED: String = "FaceMerged"
+const META_MERGE_FACE: String = "merge_face"
+const META_FACE_CACHE: String = "face_meshes"
+const META_FACE_ARRAYS: String = "face_arrays"
+
 ## Gaya rambut & aksesori yang memberi karakter bulu mata lentik (murni visual).
 const LASH_STYLES: Array[String] = ["bob", "ombre", "kuncir_ganda", "panjang_kepang", "sanggul", "ikal"]
 const LASH_ACCESSORIES: Array[String] = ["jepit_stroberi", "bando_gingham", "pita_kuning", "anting_mutiara", "kalung_mutiara"]
@@ -272,6 +279,22 @@ static func build(spec: Dictionary) -> Node3D:
 
 	root.scale = Vector3.ONE * float(s["height"])
 	root.set_meta("spec", s)
+	# Wajah digambar sebagai satu mesh gabungan (GDD idle §20 no. 87); mode
+	# capture (TrafficFactory._rig) menggabung bagiannya sendiri.
+	if not MeshBuilder.capture:
+		var merged := MeshInstance3D.new()
+		merged.name = FACE_MERGED
+		merged.material_override = MeshBuilder.material(MeshBuilder.MATTE)
+		merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Segitiga dan kotaknya dihitung pada bagian wajah yang tersembunyi.
+		merged.set_meta("tris", 0)
+		merged.set_meta("aabb", AABB())
+		face.add_child(merged)
+		face.set_meta(META_MERGE_FACE, true)
+		for nm: String in FACE_PARTS:
+			var fp: Node3D = _child3d(face, nm)
+			if fp != null:
+				fp.visible = false
 	set_expression(root, str(s["mood"]))
 	_assign_owner(root, root)
 	return root
@@ -285,8 +308,11 @@ static func triangle_count(actor: Node) -> int:
 	return t
 
 
-## Jumlah mesh yang benar-benar digambar (perkiraan draw call) satu karakter.
+## Jumlah mesh yang benar-benar digambar (perkiraan draw call) satu karakter:
+## mesh yang tampil saja (bagian wajah tersembunyi digambar lewat FaceMerged).
 static func mesh_count(actor: Node) -> int:
+	if actor is Node3D and not (actor as Node3D).visible:
+		return 0
 	var n: int = 1 if actor is MeshInstance3D and (actor as MeshInstance3D).mesh != null else 0
 	for c: Node in actor.get_children():
 		n += mesh_count(c)
@@ -577,6 +603,59 @@ static func set_expression(actor: Node3D, mood: String) -> void:
 		mouth.basis = mouth_basis * Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(float(e["mouth_roll"])))
 		_apply_part(mouth, e["mouth_scale"], e["mouth_offset"])
 	actor.set_meta("mood", key)
+	_merge_face(face, key)
+
+
+## Wajah gabungan (GDD idle §20 no. 87): kelima bagian wajah (mata, alis, mulut)
+## tetap ada sebagai node ber-transform ekspresi, tetapi disembunyikan; satu
+## mesh FaceMerged menggambar geometri mereka pada transform itu, jadi satu draw
+## call, bukan lima. Mesh per ekspresi di-cache di node Face, jadi ganti
+## ekspresi berikutnya tidak membangun apa pun.
+static func _merge_face(face: Node3D, mood: String) -> void:
+	if not face.has_meta(META_MERGE_FACE):
+		return
+	var merged: MeshInstance3D = face.get_node_or_null(NodePath(FACE_MERGED)) as MeshInstance3D
+	if merged == null:
+		return
+	var cache: Dictionary = face.get_meta(META_FACE_CACHE, {})
+	if not cache.has(mood):
+		cache[mood] = _face_mesh(face)
+		face.set_meta(META_FACE_CACHE, cache)
+	merged.mesh = cache[mood]
+
+
+static func _face_mesh(face: Node3D) -> ArrayMesh:
+	var v := PackedVector3Array()
+	var n := PackedVector3Array()
+	var c := PackedColorArray()
+	var idx := PackedInt32Array()
+	for nm: String in FACE_PARTS:
+		var p: Node3D = _child3d(face, nm)
+		if p == null or not p.has_meta(META_FACE_ARRAYS):
+			continue
+		var arr: Array = p.get_meta(META_FACE_ARRAYS)
+		var pv: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var pn: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		var xf: Transform3D = p.transform
+		var nb: Basis = xf.basis.inverse().transposed()
+		var base: int = v.size()
+		for i in pv.size():
+			v.append(xf * pv[i])
+			n.append((nb * pn[i]).normalized())
+		c.append_array(arr[Mesh.ARRAY_COLOR])
+		for k: int in (arr[Mesh.ARRAY_INDEX] as PackedInt32Array):
+			idx.append(base + k)
+	var mesh := ArrayMesh.new()
+	if v.is_empty():
+		return mesh
+	var out: Array = []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = v
+	out[Mesh.ARRAY_NORMAL] = n
+	out[Mesh.ARRAY_COLOR] = c
+	out[Mesh.ARRAY_INDEX] = idx
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out)
+	return mesh
 
 
 ## Kain lap hijau mint bergaris putih di tangan kanan saat mengelap wajah
@@ -948,14 +1027,18 @@ static func _build_face(s: Dictionary, face: Node3D) -> void:
 		if lashes:
 			var lash := Transform3D(Basis(Vector3(0.0, 0.0, 1.0), deg_to_rad(32.0 * outer)), Vector3(0.82 * rx * outer, 0.74 * ry, 0.004))
 			em.ellipsoid(lash, Vector3(0.44 * rx, 0.0048, 0.004), EYE_COLOR, 5, 2)
+		var eye_arrays: Array = em.arrays()
 		var eye: MeshInstance3D = em.commit("Eye" + side)
+		eye.set_meta(META_FACE_ARRAYS, eye_arrays)
 		eye.transform = _head_surface(radii, EYE_X * dir, EYE_Y, -0.003)
 		face.add_child(eye)
 		_remember(eye)
 
 		var bm := MeshBuilder.new()
 		bm.capsule(Vector3(-0.019, 0.0, 0.0), Vector3(0.019, 0.0, 0.0), 0.0058, 0.0058, brow_col, 4, 1)
+		var brow_arrays: Array = bm.arrays()
 		var brow: MeshInstance3D = bm.commit("Brow" + side)
+		brow.set_meta(META_FACE_ARRAYS, brow_arrays)
 		brow.transform = _head_surface(radii, EYE_X * dir, BROW_Y, 0.001)
 		face.add_child(brow)
 		_remember(brow)
@@ -973,7 +1056,9 @@ static func _build_face(s: Dictionary, face: Node3D) -> void:
 		var a2: float = PI * float(k2) / 6.0
 		tongue.append(Vector2(0.0105 * cos(a2), -0.0105 - 0.0045 * sin(a2)))
 	mm.polygon(Transform3D(Basis(), Vector3(0.0, 0.0, 0.0006)), tongue, TONGUE_COLOR)
+	var mouth_arrays: Array = mm.arrays()
 	var mouth: MeshInstance3D = mm.commit("Mouth")
+	mouth.set_meta(META_FACE_ARRAYS, mouth_arrays)
 	mouth.transform = _head_surface(radii, 0.0, MOUTH_Y, 0.0012)
 	face.add_child(mouth)
 	_remember(mouth)

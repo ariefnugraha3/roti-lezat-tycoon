@@ -10,7 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_BRANDING", "name": "idle 19 no. 1, 20 no. 49 the game is Crumbtown: Idle Bakery Tycoon: title, logo (Crumbtown + IDLE BAKERY TYCOON ribbon and crumbs), project name, user dir Crumbtown, Android name and package, default bakery name, and no player-facing text says Roti Lezat", "fn": _branding},
 		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and the save summary (Export and Import Save) shows the bakery of the save's tier", "fn": _art},
 		{"id": "ACC_IDLE_MENU_LOOK", "name": "idle 20 no. 54, 19 no. 21 the opening screens: the logo bread is the loaf mascot, the backdrop has an awning and breads on the tablecloth, and the new bakery popup sits on that backdrop with no close button and step dots: choosing the baker has only Next, naming the bakery has Back and Start, and its storefront sign follows the typed name", "fn": _menu_look},
-		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, and the KR/s rate sits inside the KR chip", "fn": _polish},
+		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, every bottom tab draws its own illustrated icon on its own pastel plate (only the open sheet's icon is active), and the KR/s rate sits inside the KR chip", "fn": _polish},
 	]
 
 
@@ -118,6 +118,17 @@ func _polish() -> void:
 	var up: UpgradesScreen = game.modals.screen(&"upgrades") as UpgradesScreen
 	check(up != null, "the Upgrades tab opens its sheet")
 	eq(hud.active_tab(), &"upgrades", "the Upgrades tab is active")
+	# Ikon tab bawah: ilustrasi berwarna per tab di piring pastelnya sendiri (Seksi 20 no. 104).
+	var plates: Dictionary = {}
+	for tid: StringName in TabIcon.KINDS:
+		var tb: Button = hud.tab_button(tid)
+		var ti: TabIcon = tb.get_meta("icon") as TabIcon if tb != null else null
+		check(ti != null and ti.kind == tid, "the %s tab draws its own illustrated icon" % tid)
+		if ti != null:
+			plates[str(TabIcon.PLATES[ti.kind])] = true
+			eq(ti.active, tid == &"upgrades", "only the open sheet's tab icon is active (%s)" % tid)
+			check(ti.get_parent().get_parent() == tb, "the %s icon sits inside its tab button" % tid)
+	eq(plates.size(), TabIcon.KINDS.size(), "every tab has its own plate colour")
 	var tab_sb: StyleBoxFlat = hud.tab_button(&"upgrades").get_theme_stylebox("normal") as StyleBoxFlat
 	check(tab_sb != null and tab_sb.bg_color.is_equal_approx(Palette.HONEY), "the active tab has a honey face")
 	var other: StyleBoxFlat = hud.tab_button(&"menu").get_theme_stylebox("normal") as StyleBoxFlat
@@ -137,6 +148,8 @@ func _polish() -> void:
 	hud.tab_button(&"menu").pressed.emit()
 	await _frames(2)
 	eq(hud.active_tab(), &"menu", "opening another sheet moves the honey tab")
+	check((hud.tab_button(&"menu").get_meta("icon") as TabIcon).active and not (hud.tab_button(&"upgrades").get_meta("icon") as TabIcon).active,
+		"and its icon with it")
 	hud.tab_button(&"menu").pressed.emit()
 	await _frames(2)
 	eq(hud.active_tab(), &"", "closing the sheet clears the active tab")

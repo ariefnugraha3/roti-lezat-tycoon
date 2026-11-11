@@ -110,7 +110,7 @@ func create_random_order() -> DeliveryOrder:
 	var picks: Array = []
 	var pool: Array = menu.duplicate()
 	for k in kinds:
-		var pid: StringName = CustomerManager.pick_recipe(generic, pool, r)
+		var pid: StringName = CustomerManager.pick_recipe(generic, pool, r, sim.recipe_popularity(pool))
 		picks.append(pid)
 		pool.erase(pid)
 	var items: Dictionary = {}
@@ -260,6 +260,7 @@ func step(dt: float) -> void:
 		if o0.state == DeliveryOrder.WAITING_FOR_STOCK:
 			_try_reserve(o0)
 	_cashier_packing(dt)
+	_leave_empty_lane_a()
 	for o: DeliveryOrder in active_orders():
 		match o.driver_phase:
 			&"none":
@@ -297,6 +298,32 @@ func step(dt: float) -> void:
 			sim.world.release_all_for(o2.driver_id())
 			o2.driver = null
 			o2.driver_phase = &"gone"
+
+
+## Tanpa meja RotiFood (Tier 1-2) driver menunggu di jalur kasir. Jalur A yang
+## ditinggal pemilik tutup selama ada kasir dengan ruang; driver yang menunggu
+## di sana (masih di jalan, antre, atau di depan meja) pindah ke kasir yang aktif
+## dan berjalan ke ujung antreannya (GDD idle §20 no. 82). Serah terimanya tetap
+## otomatis begitu pesanan dikemas.
+func _leave_empty_lane_a() -> void:
+	if sim.queue.rotifood_lane != null:
+		return
+	var a: QueueLane = sim.queue.main_lane()
+	if a == null or sim.queue.is_open(a):
+		return
+	for o: DeliveryOrder in active_orders():
+		if o.driver == null or not o.driver_phase in [&"approaching", &"entering", &"queued", &"at_service"]:
+			continue
+		if not a.has_actor(o.driver_id()):
+			continue
+		var to: QueueLane = sim.queue.roomiest_cashier_lane()
+		if to == null or not sim.queue.move_actor(o.driver_id(), a, to):
+			return
+		if o.driver_phase != &"approaching":
+			o.driver_phase = &"entering"
+			o.driver_last_slot = -1
+			o.driver_stall = 0.0
+			_go_tail(o, to)
 
 
 func _leaving() -> Array[DeliveryOrder]:

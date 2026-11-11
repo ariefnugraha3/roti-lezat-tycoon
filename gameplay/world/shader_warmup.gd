@@ -144,7 +144,7 @@ func _fill(world: WorldView) -> void:
 	_place(WorldView.ghost_tile(true), 1.0)
 	_place(WorldView.ghost_tile(false), 1.0)
 	var cell := Vector2i.ZERO
-	for pattern: StringName in [&"stripes", &"dot"]:
+	for pattern: StringName in [&"frame", &"dot"]:
 		var ov: MeshInstance3D = ProceduralMeshFactory.tile_overlay([cell], Color(Palette.DANGER, 0.2), Color(Palette.DANGER, 0.7), pattern)
 		_place(ov, 1.0)
 	# Kantong kertas di meja kasir saat membungkus (GDD 21.4).

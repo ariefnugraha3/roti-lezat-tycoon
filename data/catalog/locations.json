@@ -648,11 +648,11 @@
      "portal": {
       "cell": [
        4,
-       0
+       7
       ],
       "access": [
        4,
-       1
+       6
       ],
       "target_floor": "floor_1"
      },
@@ -1098,10 +1098,6 @@
        10
       ],
       [
-       3,
-       11
-      ],
-      [
        0,
        5
       ],
@@ -1143,12 +1139,12 @@
      "supply_drop_cell": null,
      "portal": {
       "cell": [
-       0,
-       0
+       3,
+       11
       ],
       "access": [
-       1,
-       0
+       3,
+       10
       ],
       "target_floor": "floor_1"
      },

@@ -105,7 +105,7 @@ which keeps fixtures deterministic.
 | `production_jobs` | object | `jobs` (stage, `stage_duration`/`stage_elapsed`, batch, mixer/oven iid, target slot, `claimed_by`, `carrier_id`, `table_seq`, …), `next_job_id`, `next_table_seq`. No burn stage exists. |
 | `equipment_states` | object | `items: [{iid, def_id, floor_id, grid_x, grid_y, rotation_quarters, placed, job_id}]`, `next_iid`. `def_id` carries the evolved model tier. |
 | `customers` | object | Active customers (state, held lots, targets, `checking_shelf` for a buyer looking at an empty shelf, `actor`) and `next_num`/`next_window_num`. A save without `checking_shelf` loads it as false. |
-| `queues` | object | Per lane: reservations, line and service occupant; `highest_occupancy`. |
+| `queues` | object | Per lane: reservations, line and service occupant; `highest_occupancy`. A `held` key written between 2026-11-08 and 2026-11-09 (idle GDD §20 no. 80) is ignored. |
 | `cashier` | object | In-progress transactions per lane. |
 | `demand` | object | Next walk-in, RotiFood and window-shopper times and the pending pool. |
 | `rotifood_orders` | object | Orders (items, prices, packed lots, driver state) and `next_order_id`. Orders are accepted and packed automatically. |
@@ -118,7 +118,8 @@ which keeps fixtures deterministic.
 | `tutorial` | object | Onboarding steps already shown (`done`), `skipped`, the current `prompt` (`key`, `target`, `style`), and `queue`, the tips already triggered but waiting their turn (saves before 2026-11-06 have none). Every change is saved at once (a critical autosave), not at the next interval. |
 | `decorations` | object | Owned items (uid, deco_id, floor, cell, slot, placed, `rot`), `equipped` cosmetics, `next_uid`, `bonus_active` (decorations whose bonus is on in this run, idle GDD §8.8). |
 | `flags` | object | `economy_overflowed`. |
-| `achievements` | object | `unlocked`: achievement ID → day. Kept across franchises. |
+| `achievements` | object | `unlocked`: achievement ID → day; since idle GDD §20 no. 90 `series`: endless series ID → level reached (missing = level 0). Kept across franchises. |
+| `premium` | object | Since idle GDD §22 (2026-11-10): `crumbs`, `earned_total`, `spent_total` (Golden Crumbs), `ad_boost_left` (real seconds of the ×2 boost), `pass` {`season` "YYYY-MM" or "", `xp`, `premium`, `claimed_free`, `claimed_premium`}, `club_claim_date`, `delivered` (pack ids whose contents reached this save). Kept across franchises and branches. Missing = a new `premium` part with `premium.start_crumbs`. Device entitlements (No Ads, Golden Oven, Night Manager, Baker's Club, offers) live in `user://monetization.json`, never in the save. |
 | `stats` | object | `stats` (every key of `StatisticsManager.STAT_KEYS`, among them `run_earned_kr`, `alltime_earned_kr`, `offline_seconds_total`, `offline_earned_kr`, `franchise_count`, and since idle GDD §21.2 `levels_bought`, `semangat_taps`, `goals_completed`, `calendar_stamps`; a missing key loads as 0), `records`, `tier_reached_day`. |
 | `cravings` | object | `CravingManager.capture()` (idle GDD §21.1): `day` (in-game day of the last draw), `recipe` (today's craving, "" before day 2), `previous` (yesterday's). Optional: a save without it draws today's craving on load. |
 | `goals` | object | `GoalManager.capture()` (idle GDD §21.2): `day` (in-game day of the last issue) and `goals`, each `{id, stat, base, target, reward, claimed}` (`base` = the statistic when the goal was issued; `reward` in KR, fixed at issue). Unknown template IDs are dropped on load. Optional: a save without it gets today's set on load. |

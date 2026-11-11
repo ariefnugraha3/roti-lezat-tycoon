@@ -36,3 +36,8 @@ static func register_all(host: ModalHost) -> void:
 	host.register(&"moving_cutscene", func() -> UIScreen: return MovingCutscene.new())
 	host.register(&"recipe_reveal", func() -> UIScreen: return RecipeReveal.new())
 	host.register(&"debug", func() -> UIScreen: return DebugScreen.new())
+	host.register(&"store", func() -> UIScreen: return StoreScreen.new())
+	host.register(&"offer", func() -> UIScreen: return OfferScreen.new())
+	host.register(&"dummy_ad", func() -> UIScreen: return DummyAdScreen.new())
+	host.register(&"test_purchase", func() -> UIScreen: return TestPurchaseScreen.new())
+	host.register(&"reward_reveal", func() -> UIScreen: return RewardReveal.new())

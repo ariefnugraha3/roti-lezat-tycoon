@@ -14,6 +14,25 @@ extends RefCounted
 const T: float = GridMath.WORLD_METERS_PER_TILE
 const WALL_THICK: float = 0.10
 const LOW_WALL: float = 0.16
+## Papan nama dan kanopi di atasnya (skin storefront).
+const SIGN_H: float = 0.28
+## Tulisan papan nama (Label3D): ukuran huruf, meter per piksel, garis tepi.
+const SIGN_FONT_SIZE: int = 64
+const SIGN_PIXEL: float = 0.0035
+const SIGN_OUTLINE: int = 8
+## Papan paling sempit, dan jarak tulisan ke ujung papan di tiap sisi (melewati
+## lis, paku, sekrup, dan tulang hiasan di dalam tepi papan).
+const SIGN_MIN_W: float = 1.4
+const SIGN_TEXT_PAD: float = 0.12
+## Hiasan di luar ujung papan (bola emas, cap kaki, kerang, bintang) dan kanopi
+## menjorok sejauh ini; papan berikut hiasannya tetap di dalam muka toko.
+const SIGN_EDGE_ROOM: float = 0.15
+## Lebar pintu di pratinjau perayaan Store (dua ubin).
+const PREVIEW_DOOR_W: float = 1.0
+const AWNING_OVERHANG: float = 0.12
+const AWNING_RISE: float = 0.10
+const AWNING_DROP: float = 0.13
+const AWNING_REACH: float = 0.12
 const PARTITION_H: float = 0.62
 ## Tablet RotiFood di meja dua jalur bergeser sejauh ini ke dalam ubinnya,
 ## memberi tempat hiasan meja di ujung luar (Tier 1-2).
@@ -22,6 +41,8 @@ const WALL_HEIGHTS: Array[float] = [1.80, 2.00, 2.05, 2.30, 2.50]
 ## Lebar bingkai jendela dan tinggi pusatnya (fraksi tinggi dinding). Slot hiasan
 ## dinding (DecorSlots) memakai angka yang sama supaya tidak menutupi jendela.
 const WINDOW_WIDTH: float = 0.78
+## Setengah lebar kusen pintu tangga (_build_portal: tiang di +-0,21 m).
+const PORTAL_HALF_W: float = 0.24
 const WINDOW_HEIGHT_RATIO: float = 0.55
 
 
@@ -85,13 +106,38 @@ static func interior_style(tier: int) -> Dictionary:
 			}
 
 
-## Posisi X pusat jendela di dinding belakang selebar `w` meter.
-static func back_window_xs(w: float) -> Array[float]:
+## Posisi X pusat jendela di dinding belakang selebar `w` meter. Jendela yang
+## akan tertimpa pintu tangga di dinding itu (`portal_x` >= 0) digeser ke sisi
+## yang lebih lapang, tetap di dalam dinding.
+static func back_window_xs(w: float, portal_x: float = -1.0) -> Array[float]:
 	var out: Array[float] = []
 	var n: int = maxi(1, int(w / 2.0))
+	var clear: float = WINDOW_WIDTH * 0.5 + PORTAL_HALF_W + 0.08
 	for i in n:
-		out.append(w * (float(i) + 0.5) / float(n))
+		var x: float = w * (float(i) + 0.5) / float(n)
+		if portal_x >= 0.0 and absf(x - portal_x) < clear:
+			var left: float = portal_x - clear
+			var right: float = portal_x + clear
+			var lo: float = WINDOW_WIDTH * 0.5 + 0.1
+			var hi: float = w - WINDOW_WIDTH * 0.5 - 0.1
+			if left >= lo and (right > hi or portal_x >= w * 0.5):
+				x = left
+			elif right <= hi:
+				x = right
+			else:
+				continue
+		out.append(x)
 	return out
+
+
+## X pusat pintu tangga bila ia ada di dinding belakang lantai `f`, selain itu -1.
+static func portal_back_x(f: FloorDefinition) -> float:
+	if f == null or not f.has_portal():
+		return -1.0
+	var c: Vector2i = f.portal["cell"]
+	if c.y != f.size.y - 1:
+		return -1.0
+	return (float(c.x) + 0.5) * T
 
 
 ## Posisi Z pusat jendela di dinding kanan sepanjang `d` meter.
@@ -125,7 +171,7 @@ static func build_floor(loc: LocationDefinition, f: FloorDefinition, bakery_name
 	if f.has_portal():
 		_build_portal(root, f, h, style)
 	if not f.entrance.is_empty():
-		_build_entrance(root, f, bakery_name, h, skins, style)
+		_build_entrance(root, f, bakery_name, h, skins, style, loc.tier)
 	_lighting(root, w, d, h)
 	return root
 
@@ -226,7 +272,7 @@ static func _build_walls(root: Node3D, f: FloorDefinition, w: float, d: float, h
 			_low_wall(root, "WallFrontR", Vector3((door_x1 + w) * 0.5, 0.0, -WALL_THICK * 0.5), Vector3(w - door_x1, LOW_WALL, WALL_THICK), low)
 	_low_wall(root, "WallLeft", Vector3(-WALL_THICK * 0.5, 0.0, d * 0.5), Vector3(WALL_THICK, LOW_WALL, d), low)
 	# Jendela bertirai dan jam dinding (GDD 4.1 Cozy); kusen dan tirai mengikuti tier.
-	for x: float in back_window_xs(w):
+	for x: float in back_window_xs(w, portal_back_x(f)):
 		_window(root, Vector3(x, h * WINDOW_HEIGHT_RATIO, d - 0.01), 0.0, style)
 	# Muka jendela (-Z lokal) menghadap ke dalam ruangan: yaw +90 di dinding kanan.
 	for z: float in side_window_zs(d):
@@ -391,45 +437,172 @@ static func _build_portal(root: Node3D, f: FloorDefinition, h: float, style: Dic
 	arrow.position = Vector3(0.0, door_h + 0.2, 0.0)
 
 
-static func _build_entrance(root: Node3D, f: FloorDefinition, bakery_name: String, h: float, skins: Dictionary, style: Dictionary) -> void:
+static func _build_entrance(root: Node3D, f: FloorDefinition, bakery_name: String, _h: float, skins: Dictionary, style: Dictionary, tier: int = 1) -> void:
+	var span: Vector2 = _entrance_span(f)
+	var mid: float = (span.x + span.y) * 0.5
+	# Kusen, keset, dan hiasan pintu: gaya tier lokasi, atau skin pintu (GDD idle 22.8).
+	var door: Node3D = DoorFactory.build(tier, door_theme(skins), span.y - span.x, style["frame"])
+	root.add_child(door)
+	door.position = Vector3(mid, 0.0, -WALL_THICK * 0.5)
+	var sign: Node3D = make_sign(bakery_name, skins, tier, sign_room(f))
+	root.add_child(sign)
+	sign.position = Vector3(mid, 1.05, -0.06)
+
+
+## Rentang X pintu masuk lantai `f` dalam meter: Vector2(kiri, kanan).
+static func _entrance_span(f: FloorDefinition) -> Vector2:
 	var x0: float = INF
 	var x1: float = -INF
 	for c: Vector2i in f.entrance:
 		x0 = minf(x0, float(c.x) * T)
 		x1 = maxf(x1, float(c.x + 1) * T)
-	var mid: float = (x0 + x1) * 0.5
-	var mat_node := ProceduralMeshFactory.box(Vector3(x1 - x0 - 0.06, 0.01, 0.4), Palette.GINGHAM_A)
-	mat_node.name = "DoorMat"
-	root.add_child(mat_node)
-	mat_node.position = Vector3(mid, 0.006, 0.22)
-	for s: float in [x0, x1]:
-		var post := ProceduralMeshFactory.box(Vector3(0.07, 0.9, 0.08), style["frame"])
-		root.add_child(post)
-		post.position = Vector3(s, 0.45, -WALL_THICK * 0.5)
+	return Vector2(x0, x1)
+
+
+## Papan nama terlebar yang muat di muka lantai `f` (Seksi 20 no. 103): papan
+## berpusat di pintu masuk, dan hiasan di ujungnya tidak melewati sudut toko.
+static func sign_room(f: FloorDefinition) -> float:
+	if f == null or f.entrance.is_empty():
+		return INF
+	var span: Vector2 = _entrance_span(f)
+	var mid: float = (span.x + span.y) * 0.5
+	var half: float = minf(mid, float(f.size.x) * T - mid)
+	return maxf(SIGN_MIN_W, half * 2.0 - SIGN_EDGE_ROOM * 2.0)
+
+
+## [method sign_room] lantai pintu masuk lokasi Tier `tier`.
+static func sign_room_for_tier(tier: int) -> float:
+	var loc: LocationDefinition = DataRegistry.location_by_tier(tier)
+	if loc == null:
+		return INF
+	return sign_room(loc.floor_def(loc.entrance_floor))
+
+
+## Tema skin pintu yang dipakai (`skins["door"]`), atau &"" = gaya tier.
+static func door_theme(skins: Dictionary) -> StringName:
+	if not skins.has("door"):
+		return &""
+	var d: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(skins["door"])))
+	return d.visual_profile_id if d != null else &""
+
+
+## Papan nama toko "Sign" (papan, tulisan, dan kanopi skin `storefront` bila
+## dipakai) berpusat di titik asalnya; muka menghadap jalan (-Z). Mulai Tier 3
+## papannya berlis: kayu, kuningan (Tier 4), lalu emas (Tier 5).
+##
+## Papan selebar tulisan nama yang diukur dengan hurufnya sendiri, paling lebar
+## `max_w` (lebar muka toko; bawaan: muka lokasi Tier `tier`). Nama yang lebih
+## panjang dari itu tulisannya diperkecil sampai muat, jadi tidak pernah keluar
+## dari papan atau tertutup hiasannya (Seksi 20 no. 103). Meta "board_w" dan
+## "text_scale" mencatat lebar papan dan skala tulisannya.
+static func make_sign(bakery_name: String, skins: Dictionary, tier: int = 1, max_w: float = -1.0) -> Node3D:
 	var sign := Node3D.new()
 	sign.name = "Sign"
-	root.add_child(sign)
-	sign.position = Vector3(mid, 1.05, -0.06)
-	var carved: bool = skins.has("storefront_sign")
-	var board := ProceduralMeshFactory.box(Vector3(maxf(1.4, float(bakery_name.length()) * 0.1 + 0.4), 0.28, 0.05), Palette.DARK_CHOCOLATE if carved else Palette.CARAMEL)
-	sign.add_child(board)
+	var room: float = max_w if max_w > 0.0 else sign_room_for_tier(tier)
+	var board_w: float = sign_width(bakery_name, room)
+	var text_scale: float = sign_text_scale(bakery_name, board_w)
+	sign.set_meta("board_w", board_w)
+	sign.set_meta("text_scale", text_scale)
+	# Papan sepaket dengan pintunya (Seksi 20 no. 101): tema skin pintu, papan
+	# ukir (skin storefront_sign), atau gaya tier.
+	var style: String = DoorFactory.sign_style(tier, door_theme(skins), skins.has("storefront_sign"))
+	var body: Node3D = DoorFactory.build_sign(style, board_w)
+	sign.add_child(body)
+	sign.set_meta("sign_style", style)
+	var ink: Array = DoorFactory.SIGN_TEXT.get(style, DoorFactory.SIGN_TEXT["tier_1"])
 	var label := Label3D.new()
 	label.name = "SignText"
 	label.text = bakery_name
-	label.font_size = 64
-	label.pixel_size = 0.0035
-	label.modulate = Palette.BUTTER_YELLOW if carved else Palette.FLOUR_WHITE
-	label.outline_size = 8
-	label.outline_modulate = Palette.DARK_CHOCOLATE
+	# Huruf yang sama dengan yang diukur sign_text_width.
+	label.font = sign_font()
+	label.font_size = SIGN_FONT_SIZE
+	label.pixel_size = SIGN_PIXEL * text_scale
+	label.modulate = ink[0]
+	label.outline_size = SIGN_OUTLINE
+	label.outline_modulate = ink[1]
 	sign.add_child(label)
 	label.position = Vector3(0.0, 0.0, -0.035)
 	label.rotation_degrees = Vector3(0.0, 180.0, 0.0)
 	if skins.has("storefront"):
-		var awning := EquipmentFactory._checker_plane(float(f.size.x) * T, 0.5, 0.25, Palette.PASTEL_STRAWBERRY, Palette.FLOUR_WHITE, false)
-		awning.name = "Awning"
-		root.add_child(awning)
-		awning.position = Vector3(float(f.size.x) * T * 0.5, 1.45, -0.2)
-		awning.rotation_degrees = Vector3(-35.0, 180.0, 0.0)
+		_build_awning(sign, board_w, skins, float(body.get_meta("top_extra", 0.0)))
+	return sign
+
+
+## Huruf tulisan papan nama: font bawaan Godot (v3.1 111.2).
+static func sign_font() -> Font:
+	return ThemeDB.fallback_font
+
+
+## Lebar tulisan `bakery_name` di papan dalam meter pada ukuran penuh,
+## termasuk garis tepinya.
+static func sign_text_width(bakery_name: String) -> float:
+	var px: float = sign_font().get_string_size(bakery_name, HORIZONTAL_ALIGNMENT_LEFT, -1, SIGN_FONT_SIZE).x
+	return (px + float(SIGN_OUTLINE) * 2.0) * SIGN_PIXEL
+
+
+## Lebar papan untuk `bakery_name`: tulisan ukuran penuh ditambah jarak ke
+## kedua ujungnya, paling sempit SIGN_MIN_W dan paling lebar `max_w`.
+static func sign_width(bakery_name: String, max_w: float = INF) -> float:
+	var want: float = sign_text_width(bakery_name) + SIGN_TEXT_PAD * 2.0
+	return clampf(want, SIGN_MIN_W, maxf(SIGN_MIN_W, max_w))
+
+
+## Skala tulisan (1 = ukuran penuh) supaya `bakery_name` muat di papan
+## selebar `board_w` dengan jarak SIGN_TEXT_PAD di kedua ujungnya.
+static func sign_text_scale(bakery_name: String, board_w: float) -> float:
+	var text_w: float = sign_text_width(bakery_name)
+	var room: float = board_w - SIGN_TEXT_PAD * 2.0
+	if text_w <= room:
+		return 1.0
+	return maxf(room, 0.01) / text_w
+
+
+## Pintu masuk mini untuk perayaan Store (GDD idle 22.11): pintu gaya `tier`
+## (atau skin pintu `skins["door"]`) dan papan nama dengan kanopi `skins`,
+## berpusat di x = 0 dan berdiri di y = 0.
+static func sign_preview(bakery_name: String, skins: Dictionary, tier: int = 1) -> Node3D:
+	var root := Node3D.new()
+	root.name = "SignPreview"
+	var door: Node3D = DoorFactory.build(tier, door_theme(skins), PREVIEW_DOOR_W, interior_style(tier)["frame"])
+	root.add_child(door)
+	var sign: Node3D = make_sign(bakery_name, skins, tier)
+	root.add_child(sign)
+	sign.position = Vector3(0.0, 1.05, -0.06)
+	return root
+
+
+## Kanopi bergaris di atas papan nama (skin `storefront`, GDD 72.1, idle 22.8).
+## Dinding depan dipotong rendah supaya isi toko terlihat, jadi kanopi tidak
+## dipasang selebar dinding (dulu melayang di depan papan nama dan menutupi
+## namanya serta dinding di belakangnya dari sudut kamera). Kanopi selebar papan
+## duduk di atas papan: tepi atas di dinding, tepi bawah menjorok ke jalan, dan
+## sudutnya dipilih supaya dari kamera gameplay (yaw 45°, pitch 35°) tepi
+## bawahnya jatuh tepat di atas tepi atas papan, tidak pernah di depan tulisan.
+static func _build_awning(sign: Node3D, board_w: float, skins: Dictionary, lift: float = 0.0) -> void:
+	var sd: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(skins["storefront"])))
+	var ca: Color = sd.color(0, Palette.PASTEL_STRAWBERRY) if sd != null else Palette.PASTEL_STRAWBERRY
+	var cb: Color = sd.color(1, Palette.FLOUR_WHITE) if sd != null else Palette.FLOUR_WHITE
+	var w: float = board_w + AWNING_OVERHANG * 2.0
+	# Dari tepi atas papan (lokal y = SIGN_H / 2): naik AWNING_RISE, lalu miring
+	# turun ke depan sepanjang AWNING_DROP x AWNING_REACH.
+	# Hiasan di atas papan (telinga, mahkota, lampu sorot) mengangkat kanopinya.
+	var top := Vector3(0.0, SIGN_H * 0.5 + AWNING_RISE + lift + AWNING_DROP, 0.02)
+	var bottom := Vector3(0.0, SIGN_H * 0.5 + AWNING_RISE + lift, 0.02 - AWNING_REACH)
+	var slant: float = top.distance_to(bottom)
+	var awning := EquipmentFactory._checker_plane(w, slant, w / 8.0, ca, cb, false)
+	awning.name = "Awning"
+	sign.add_child(awning)
+	awning.position = (top + bottom) * 0.5
+	awning.rotation = Vector3(-atan2(AWNING_REACH, AWNING_DROP), PI, 0.0)
+	# Batang kayu penahan di tepi atas dan lis tipis di tepi bawah.
+	var rod := ProceduralMeshFactory.box(Vector3(w + 0.04, 0.035, 0.035), Palette.DARK_CHOCOLATE)
+	rod.name = "AwningRod"
+	sign.add_child(rod)
+	rod.position = top
+	var trim := ProceduralMeshFactory.box(Vector3(w, 0.02, 0.012), ca.darkened(0.15))
+	trim.name = "AwningTrim"
+	sign.add_child(trim)
+	trim.position = bottom + Vector3(0.0, -0.01, 0.0)
 
 
 ## Cahaya golden hour (GDD 4.1, 130.3): matahari hangat + pengisi lembut.

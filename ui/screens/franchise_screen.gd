@@ -50,10 +50,13 @@ func build_page(body: VBoxContainer) -> void:
 	map_b.pressed.connect(func() -> void: game.modals.open(&"town_map"))
 	cb.add_child(map_b)
 	# Cabang berikutnya lebih mahal (GDD idle 23.1).
-	var next_mult: float = PrestigeManager.branch_cost_mult_for(p.run_index + 1)
+	var next_mult: float = PrestigeManager.branch_cost_mult_for(p.run_index + 1, p.stars + p.stars_gain())
 	if next_mult > 1.0:
 		var bc: Label = lbl(cb, Tx.t("ui_franchise_branch_costs", {"number": p.run_index + 1, "mult": _num(next_mult)}), 14, Palette.TEXT_MUTED, true)
 		bc.name = "BranchCosts"
+	# Bonus kota (GDD idle §20 no. 91).
+	var tw: Label = lbl(cb, Tx.t("ui_town_bonus", {"percent": _pct(p.town_bonus())}), 14, Palette.MATCHA_DEEP, true)
+	tw.name = "TownBonus"
 	var rs: Label = lbl(cb, Tx.t("ui_franchise_resets"), 14, Palette.TEXT_MUTED, true)
 	rs.name = "Resets"
 	lbl(cb, Tx.t("ui_franchise_keeps"), 14, Palette.TEXT_MUTED, true)
@@ -69,7 +72,20 @@ func build_page(body: VBoxContainer) -> void:
 		var state: Label = lbl(row, Tx.t("ui_franchise_perk_on") if on else stars_text("ui_franchise_perk_need", int(perk.get("stars", 0))),
 			15, Palette.MATCHA if on else Palette.TEXT_MUTED)
 		state.name = "State"
+	# Legacy sesudah perk terakhir: tanpa ujung (GDD idle §20 no. 90).
+	var lv: int = p.legacy_level()
+	var lbadge: PanelContainer = ProceduralUIFactory.badge("star" if lv > 0 else "lock", Palette.GOLD_STAR if lv > 0 else Palette.UI_CREAM_DEEP,
+		Palette.FLOUR_WHITE if lv > 0 else Palette.TEXT_MUTED, 44)
+	var lrow: HBoxContainer = UISheet.row(list, Tx.t("ui_legacy_title", {"level": lv}), Tx.t("ui_legacy_desc", {
+		"every": Tx.big(float(DataRegistry.idlei("prestige.legacy_every_stars"))), "after": Tx.big(float(DataRegistry.idlei("prestige.legacy_after_stars"))),
+		"mult": "×%.2f" % (1.0 + DataRegistry.idlef("prestige.legacy_income")), "next": Tx.big(float(p.next_legacy_stars()))}), lbadge)
+	lrow.get_parent().name = "Legacy"
 	tick_page()
+
+
+## Persen bulat dari bagian `x` (0,12 -> "12").
+static func _pct(x: float) -> String:
+	return str(int(round(x * 100.0)))
 
 
 ## Angka yang ikut berubah selama lembar terbuka: bintang yang didapat, KR untuk

@@ -882,8 +882,18 @@ func _validate_meta() -> void:
 		if dd.placement_type != &"floor_overlay" and dd.overlay_size_tiles != Vector2i.ZERO:
 			_err("decoration %s overlay_size_tiles only allowed for floor_overlay" % dd.id)
 		if dd.has_bonus() and (not ["arrival", "price", "rotifood"].has(str(dd.bonus.get("type", ""))) or not (float(dd.bonus.get("value", 0.0)) > 0.0)
-				or dd.source != &"shop" or dd.placement_type == &"skin"):
-			_err("decoration %s bonus must be a shop decoration with type arrival/price/rotifood and value > 0" % dd.id)
+				or not [&"shop", &"premium", &"offer", &"pass"].has(dd.source) or dd.placement_type == &"skin" or dd.placement_type == &"outfit"):
+			_err("decoration %s bonus must be a shop, premium, offer or pass decoration with type arrival/price/rotifood and value > 0" % dd.id)
+		# Kosmetik premium (GDD idle 22.8).
+		if (dd.source == &"premium") != (dd.price_crumbs > 0):
+			_err("decoration %s: premium decorations (and only they) need price_crumbs > 0" % dd.id)
+		if dd.placement_type == &"outfit" and dd.id != &"outfit_apron_neighborhood" and dd.id != &"outfit_chef_hat_perfect" \
+				and (not Color.html_is_valid(str(dd.look.get("apron", ""))) or str(dd.look.get("hat", "")) == ""):
+			_err("decoration %s outfit needs look.apron (#hex) and look.hat" % dd.id)
+		if dd.colors.has(Color.MAGENTA):
+			_err("decoration %s has a colour that is not #hex" % dd.id)
+		if dd.skin_target == &"door" and (dd.placement_type != &"skin" or not DoorFactory.THEMES.has(dd.visual_profile_id)):
+			_err("decoration %s door skin needs a DoorFactory theme" % dd.id)
 	var seen_a: Dictionary = {}
 	for ae: Variant in _audio:
 		var aed: MiscDefinitions.AudioEventDefinition = ae
@@ -894,6 +904,103 @@ func _validate_meta() -> void:
 			_err("audio %s priority outside P0..P4" % aed.id)
 	for q: Variant in _quality:
 		_check_text((q as MiscDefinitions.QualityPresetDefinition).localization_key, "quality")
+
+
+## Toko, Golden Crumbs, penawaran, dan Bakery Pass (GDD idle 22).
+func _validate_store() -> void:
+	var kinds: Array = ["crumbs", "no_ads", "income", "offline", "club", "pass", "offer"]
+	var seen: Dictionary = {}
+	var offer_decor: Dictionary = {}
+	for x: Variant in DataRegistry.idle("monetization.products"):
+		var p: Dictionary = x
+		var pid: String = str(p.get("id", ""))
+		if pid == "" or seen.has(pid):
+			_err("idle monetization product id missing or duplicated: %s" % pid)
+		seen[pid] = true
+		var kind: String = str(p.get("kind", ""))
+		if not kinds.has(kind):
+			_err("idle monetization product %s unknown kind %s" % [pid, kind])
+		if not (float(p.get("price_usd", 0.0)) > 0.0):
+			_err("idle monetization product %s needs price_usd > 0" % pid)
+		if (kind == "crumbs" or kind == "offer") and int(p.get("crumbs", 0)) < 1:
+			_err("idle monetization product %s needs crumbs >= 1" % pid)
+		if (kind == "income" or kind == "club") and not (float(p.get("income_mult", 0.0)) > 1.0):
+			_err("idle monetization product %s needs income_mult > 1" % pid)
+		if kind == "club" and (int(p.get("days", 0)) < 1 or int(p.get("daily_crumbs", 0)) < 1):
+			_err("idle monetization product %s needs days and daily_crumbs >= 1" % pid)
+		if kind == "offer":
+			var dd: MiscDefinitions.DecorationDefinition = decoration(StringName(str(p.get("decor", ""))))
+			if dd == null or dd.source != &"offer":
+				_err("idle monetization offer %s needs an offer decoration" % pid)
+			else:
+				offer_decor[String(dd.id)] = true
+			var od: Variant = (DataRegistry.idle("monetization.offers") as Dictionary).get(pid)
+			if not (od is Dictionary) or not (float((od as Dictionary).get("hours", 0.0)) > 0.0):
+				_err("idle monetization.offers.%s needs hours > 0" % pid)
+	for k: String in ["no_ads", "income", "offline", "club", "pass"]:
+		var n: int = 0
+		for x2: Variant in DataRegistry.idle("monetization.products"):
+			n += 1 if str((x2 as Dictionary).get("kind", "")) == k else 0
+		if n != 1:
+			_err("idle monetization needs exactly one %s product" % k)
+	if not seen.has(str(DataRegistry.idle("monetization.supporter_product"))):
+		_err("idle monetization.supporter_product must be a product")
+	# Golden Crumbs.
+	if _idle_num("premium.start_crumbs") < 0.0 or not (_idle_num("premium.ad_boost.mult") > 1.0) or not (_idle_num("premium.ad_boost.hours") > 0.0) \
+			or _idle_num("premium.ad_boost.max_hours") < _idle_num("premium.ad_boost.hours") or not (_idle_num("premium.ad_boost.crumbs") >= 1.0):
+		_err("idle premium.start_crumbs >= 0, ad_boost.mult > 1, hours > 0, max_hours >= hours, crumbs >= 1")
+	for e: String in ["goal", "calendar", "calendar_week", "achievement", "series", "franchise_per_star"]:
+		if _idle_num("premium.earn." + e) < 0.0:
+			_err("idle premium.earn.%s must be >= 0" % e)
+	for w: Variant in DataRegistry.idle("premium.warps"):
+		if not (float((w as Dictionary).get("hours", 0.0)) > 0.0) or int((w as Dictionary).get("crumbs", 0)) < 1:
+			_err("idle premium.warps need hours > 0 and crumbs >= 1")
+	if _idle_num("premium.max_offline_hours") < _idle_num("offline.max_cap_hours"):
+		_err("idle premium.max_offline_hours must be >= offline.max_cap_hours")
+	# Bakery Pass.
+	var tiers: int = DataRegistry.idlei("pass.tiers")
+	if tiers < 1 or DataRegistry.idlei("pass.xp_per_tier") < 1 or DataRegistry.idlei("pass.duplicate_crumbs") < 1:
+		_err("idle pass.tiers, xp_per_tier and duplicate_crumbs must be >= 1")
+	for track: String in ["free", "premium"]:
+		var arr: Variant = DataRegistry.idle("pass." + track)
+		if not (arr is Array) or (arr as Array).size() != tiers:
+			_err("idle pass.%s needs one reward per tier" % track)
+			continue
+		for r: Variant in arr:
+			if not _valid_reward(r):
+				_err("idle pass.%s has an unknown reward %s" % [track, str(r)])
+	for xk: String in ["goal", "calendar", "achievement", "series", "franchise", "ad"]:
+		if _idle_num("pass.xp." + xk) < 0.0:
+			_err("idle pass.xp.%s must be >= 0" % xk)
+	var season: Variant = DataRegistry.idle("pass.season_items")
+	if not (season is Array) or (season as Array).is_empty():
+		_err("idle pass.season_items needs at least one season")
+	else:
+		for si: Variant in season:
+			var o: MiscDefinitions.DecorationDefinition = decoration(StringName(str((si as Dictionary).get("outfit", ""))))
+			var dd2: MiscDefinitions.DecorationDefinition = decoration(StringName(str((si as Dictionary).get("decor", ""))))
+			if o == null or o.source != &"pass" or o.placement_type != &"outfit" or dd2 == null or dd2.source != &"pass" or not dd2.is_placeable():
+				_err("idle pass.season_items need a pass outfit and a placeable pass decoration")
+	for x3: Variant in _decorations:
+		var d3: MiscDefinitions.DecorationDefinition = x3
+		if d3.source == &"offer" and not offer_decor.has(String(d3.id)):
+			_err("decoration %s comes from an offer that does not exist" % d3.id)
+
+
+## Hadiah Bakery Pass yang dikenal (GDD idle 22.7).
+static func _valid_reward(r: Variant) -> bool:
+	if not (r is Dictionary) or (r as Dictionary).size() != 1:
+		return false
+	var d: Dictionary = r
+	if d.has("crumbs"):
+		return int(d["crumbs"]) >= 1
+	if d.has("warp_minutes"):
+		return float(d["warp_minutes"]) > 0.0
+	if d.has("boost_hours"):
+		return float(d["boost_hours"]) > 0.0
+	if d.has("season"):
+		return ["outfit", "decor"].has(str(d["season"]))
+	return false
 
 
 ## Nilai balance yang saling bergantung (GDD 18.9, 21.4, 31.6, 31.7).
@@ -1072,7 +1179,7 @@ func _validate_idle() -> void:
 		_err("idle offline.min_away_seconds must not exceed popup_min_seconds")
 	if not (_idle_num("prestige.stars_divisor_kr") > 0.0) or not (_idle_num("prestige.stars_exponent") > 0.0):
 		_err("idle prestige needs a positive divisor and exponent")
-	# Monetisasi (GDD idle 22.3, 22.4).
+	# Monetisasi (GDD idle 22.4, 22.5).
 	var mp: Variant = (_idle.get("monetization", {}) as Dictionary).get("placements")
 	if not (mp is Dictionary):
 		_err("idle monetization.placements missing")
@@ -1085,13 +1192,25 @@ func _validate_idle() -> void:
 			_err("idle monetization offline_double.mult must be > 1")
 		if not (float(((mp as Dictionary).get("golden_double", {}) as Dictionary).get("offer_seconds", 0.0)) > 0.0):
 			_err("idle monetization golden_double.offer_seconds must be > 0")
+		if _idle_num("monetization.offer_delay_seconds") < 0.0 or _idle_num("monetization.dummy_ad_seconds") < 0.0:
+			_err("idle monetization.offer_delay_seconds and dummy_ad_seconds must be >= 0")
+		for pid3: String in ["ad_boost", "ad_warp", "ad_crumbs"]:
+			var pd3: Variant = (mp as Dictionary).get(pid3)
+			if not (pd3 is Dictionary) or int((pd3 as Dictionary).get("per_day", 0)) < 1:
+				_err("idle monetization placement %s needs per_day >= 1" % pid3)
+		if not (float(((mp as Dictionary).get("ad_warp", {}) as Dictionary).get("minutes", 0.0)) > 0.0) \
+				or int(((mp as Dictionary).get("ad_crumbs", {}) as Dictionary).get("crumbs", 0)) < 1:
+			_err("idle monetization ad_warp.minutes and ad_crumbs.crumbs must be > 0")
 	var sb: MiscDefinitions.DecorationDefinition = decoration(StringName(str(DataRegistry.idle("monetization.supporter_badge"))))
 	if sb == null or sb.source != &"supporter":
 		_err("idle monetization.supporter_badge must be a supporter decoration")
 	if str(DataRegistry.idle("monetization.supporter_product")) == "":
 		_err("idle monetization.supporter_product missing")
-	if not (_idle_num("prestige.branch_cost_growth") >= 1.0) or not (_idle_num("prestige.branch_cost_start") >= 2.0):
-		_err("idle prestige.branch_cost_growth must be >= 1 and branch_cost_start >= 2")
+	_validate_store()
+	if not (_idle_num("prestige.branch_cost_base") > 0.0) or not (_idle_num("prestige.branch_cost_power") >= 0.0) or not (_idle_num("prestige.branch_cost_start") >= 2.0):
+		_err("idle prestige.branch_cost_base must be > 0, branch_cost_power >= 0 and branch_cost_start >= 2")
+	if not (_idle_num("prestige.legacy_after_stars") >= 1.0) or not (_idle_num("prestige.legacy_every_stars") >= 1.0) or not (_idle_num("prestige.legacy_income") >= 0.0):
+		_err("idle prestige.legacy_after_stars and legacy_every_stars must be >= 1 and legacy_income >= 0")
 	# Mastery resep (GDD idle 23.3).
 	var mth: Variant = (_idle.get("mastery", {}) as Dictionary).get("thresholds")
 	if not _rising(mth) or (mth as Array).is_empty() or not (float((mth as Array)[0]) > 0.0):
@@ -1122,6 +1241,27 @@ func _validate_idle() -> void:
 			_err("idle global upgrade %s needs cost_base > 0, cost_growth > 1, max_level >= 1, per_level > 0" % gid)
 	if seen_g.size() != GLOBAL_UPGRADES.size():
 		_err("idle global_upgrades must list every global upgrade once")
+	# Tanpa ujung (GDD idle §20 no. 90-92).
+	if not (_idle_num("mastery.endless_factor") > 1.0):
+		_err("idle mastery.endless_factor must be > 1")
+	for sx: Variant in (_idle.get("endless", {}) as Dictionary).get("series", []):
+		var sd: Dictionary = sx
+		if str(sd.get("id", "")) == "" or str(sd.get("stat", "")) == "" or float(sd.get("first", 0)) <= 0.0 or float(sd.get("factor", 0)) <= 1.0:
+			_err("idle endless series needs id, stat, first > 0 and factor > 1")
+	var tb: Variant = (_idle.get("town", {}) as Dictionary).get("bonus_by_tier")
+	if not (tb is Array) or (tb as Array).size() != 5:
+		_err("idle town.bonus_by_tier needs five values")
+	if not (_idle_num("town.max_bonus") >= 0.0):
+		_err("idle town.max_bonus must be >= 0")
+	if not (_idle_num("branch.signature_mult") >= 1.0):
+		_err("idle branch.signature_mult must be >= 1")
+	# Variasi di rak (GDD idle 8.5, §20 no. 83).
+	if not (_idle_num("variety.bonus_per_recipe") >= 0.0):
+		_err("idle variety.bonus_per_recipe must be >= 0")
+	if not (_idle_num("variety.max_recipes") >= 1.0):
+		_err("idle variety.max_recipes must be at least 1")
+	if not (_idle_num("variety.popularity_exponent") >= 0.0):
+		_err("idle variety.popularity_exponent must be >= 0")
 	# Craving dan selera lingkungan (GDD idle 21.1).
 	if not (_idle_num("craving.first_day") >= 1.0):
 		_err("idle craving.first_day must be at least 1")

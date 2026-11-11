@@ -13,6 +13,22 @@ var tier: int = 1:
 		tier = clampi(value, 0, 5)
 		queue_redraw()
 
+## Varian warna cabang (GDD idle §20 no. 92): 0 = warna tier; lainnya memutar
+## warna kanopi dan papan nama di antara VARIANT_AWNINGS.
+var variant: int = 0:
+	set(value):
+		variant = maxi(0, value)
+		queue_redraw()
+const VARIANT_AWNINGS: Array[Color] = [Palette.HONEY, Palette.STRAWBERRY, Palette.MATCHA, Palette.SIGN_BLUE, Palette.APRON_MAROON,
+	Palette.SIGN_PURPLE, Palette.SIGN_ORANGE]
+
+## Tier 0: lencana "+" (profil kosong, kavling cabang berikutnya); false untuk
+## kavling kosong yang belum bisa dipakai di Peta Crumbtown.
+var plus: bool = true:
+	set(value):
+		plus = value
+		queue_redraw()
+
 ## Per tier: [kanopi, dinding, papan nama].
 const LOOKS: Array = [
 	[Color(0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0)],
@@ -43,6 +59,8 @@ func _draw() -> void:
 		return
 	var look: Array = LOOKS[tier]
 	var awning: Color = look[0]
+	if variant > 0:
+		awning = VARIANT_AWNINGS[(tier - 1 + variant) % VARIANT_AWNINGS.size()]
 	var wall: Color = look[1]
 	var board: Color = look[2]
 	# Ubin langit dan trotoar.
@@ -100,6 +118,8 @@ func _empty() -> void:
 		_oval(0.10 + w * (float(i) + 0.5), 0.44, w * 0.5, w * 0.42, col)
 	_rbox(0.21, 0.53, 0.34, 0.26, 0.03, ghost.lightened(0.2))
 	_rbox(0.60, 0.53, 0.18, 0.31, 0.04, deep)
+	if not plus:
+		return
 	_oval(0.80, 0.80, 0.15, 0.15, Palette.HONEY)
 	_rbox(0.735, 0.785, 0.13, 0.03, 0.012, Palette.FLOUR_WHITE)
 	_rbox(0.785, 0.735, 0.03, 0.13, 0.012, Palette.FLOUR_WHITE)

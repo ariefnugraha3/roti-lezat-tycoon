@@ -228,11 +228,15 @@ func cashier_at_post(lane_id: StringName) -> bool:
 	return a != null and lane != null and not a.has_route() and a.floor_id == lane.floor_id and a.cell() == lane.cashier_point
 
 
-## Kasir di posnya tanpa pembeli di depan meja: boleh mengemas RotiFood.
+## Kasir di posnya tanpa pembeli di depan meja (driver RotiFood yang menunggu
+## pesanannya tidak dihitung, GDD idle §20 no. 82): boleh mengemas RotiFood.
 func idle_cashier_lanes() -> Array[QueueLane]:
 	var out: Array[QueueLane] = []
 	for lane: QueueLane in sim.queue.staff_lanes():
-		if cashier_at_post(lane.id) and lane.service_occupant == &"" and sim.cashier.transaction_for(lane.id).is_empty():
+		# Driver RotiFood di depan meja menunggu pesanannya dikemas: kasirnya
+		# boleh mengemas (GDD idle §20 no. 82).
+		var free: bool = lane.service_occupant == &"" or sim.customers.customer(lane.service_occupant) == null
+		if cashier_at_post(lane.id) and free and sim.cashier.transaction_for(lane.id).is_empty():
 			out.append(lane)
 	return out
 

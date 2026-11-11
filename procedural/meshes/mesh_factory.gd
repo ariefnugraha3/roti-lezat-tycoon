@@ -448,7 +448,8 @@ static func tri_count(root: Node) -> int:
 
 ## Membungkus mesh menjadi MeshInstance3D bernama.
 ## Overlay ubin lantai dalam SATU mesh (satu draw call) untuk Decoration Mode.
-## pattern &"stripes": arsiran diagonal (ubin wajib kosong); &"dot": titik di
+## pattern &"frame": isi lembut dan bingkai tipis (ubin wajib kosong, GDD idle §20
+## no. 86); &"stripes": arsiran diagonal; &"dot": titik di
 ## tengah (area yang salah). Pola, bukan warna saja (GDD 44.2).
 static func tile_overlay(cells: Array[Vector2i], fill: Color, mark: Color, pattern: StringName, y: float = 0.012) -> MeshInstance3D:
 	var st := SurfaceTool.new()
@@ -466,6 +467,14 @@ static func tile_overlay(cells: Array[Vector2i], fill: Color, mark: Color, patte
 				var a: Vector2 = o + (seg[0] as Vector2)
 				var b: Vector2 = o + (seg[1] as Vector2)
 				_overlay_quad(st, a + n, b + n, b - n, a - n, y + 0.002, mark)
+		elif pattern == &"frame":
+			# Bingkai tipis di dalam tepi ubin (GDD idle §20 no. 86): ubin wajib
+			# kosong terbaca sebagai petak bertanda, tanpa arsiran ramai.
+			var bw: float = s * 0.09
+			_overlay_quad(st, o, o + Vector2(s, 0.0), o + Vector2(s, bw), o + Vector2(0.0, bw), y + 0.002, mark)
+			_overlay_quad(st, o + Vector2(0.0, s - bw), o + Vector2(s, s - bw), o + Vector2(s, s), o + Vector2(0.0, s), y + 0.002, mark)
+			_overlay_quad(st, o + Vector2(0.0, bw), o + Vector2(bw, bw), o + Vector2(bw, s - bw), o + Vector2(0.0, s - bw), y + 0.002, mark)
+			_overlay_quad(st, o + Vector2(s - bw, bw), o + Vector2(s, bw), o + Vector2(s, s - bw), o + Vector2(s - bw, s - bw), y + 0.002, mark)
 		elif pattern == &"dot":
 			var d: float = s * 0.12
 			var m: Vector2 = o + Vector2(s, s) * 0.5

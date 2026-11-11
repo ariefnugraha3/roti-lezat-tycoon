@@ -16,6 +16,9 @@ const MAX_TICKS_PER_FRAME: int = 16
 const GAME_MODE: String = "idle"
 ## Skema save idle mulai dari 1 (GDD idle 15.3).
 const SCHEMA_VERSION: int = 1
+## Rencana petak Auto menyebar satu resep lagi hanya bila laba per roti ×
+## variasi naik lebih dari bagian ini (GDD idle §20 no. 83).
+const PLAN_MARGIN: float = 0.002
 ## Kunci save milik satu cabang (GDD idle §20 no. 78): semua yang dimulai ulang
 ## oleh Waralaba. Ditambah letak dan bonus dekorasi (DecorationManager.
 ## branch_part), posisi pemilik (`player` tanpa penampilan), penghasilan cabang
@@ -56,6 +59,7 @@ var calendar: CalendarManager
 var events: EventManager
 var golden: GoldenManager
 var regulars: RegularManager
+var premium: PremiumManager
 
 var profile_id: StringName = &""
 var bakery_name: String = "Crumbtown Bakery"
@@ -65,11 +69,12 @@ var tick_seconds: float = 0.05
 var _accumulator: float = 0.0
 var _in_step: bool = false
 var _managers: Array[SimManager] = []
-var _auto_cache: StringName = &""
-var _auto_cache_key: String = "-"
-## Resep Auto tanpa craving (model offline, GDD idle 9.1, 21.1).
-var _auto_plain: StringName = &""
-var _auto_plain_key: String = "-"
+## Rencana petak Auto (GDD idle 4.2, 8.5, §20 no. 83), dengan craving (`live`)
+## dan tanpa craving (model offline, GDD idle 9.1, 21.1): {key, ranked, order,
+## slot ("iid:index" -> resep), variety}. Dihitung ulang hanya bila kuncinya
+## berubah, jadi isinya selalu fungsi murni dari state toko.
+var _plan_live: Dictionary = {}
+var _plan_plain: Dictionary = {}
 
 
 func _init() -> void:
@@ -105,6 +110,7 @@ func _init() -> void:
 	events = _add(EventManager.new(), "EventManager")
 	golden = _add(GoldenManager.new(), "GoldenManager")
 	regulars = _add(RegularManager.new(), "RegularManager")
+	premium = _add(PremiumManager.new(), "PremiumManager")
 	for m: SimManager in _managers:
 		m.setup(self)
 	tick_seconds = DataRegistry.balf("clock.sim_tick_seconds")
@@ -238,6 +244,7 @@ func step(dt: float) -> void:
 	cashier.step(dt)
 	rotifood.step(dt)
 	boosts.step(dt)
+	premium.step(dt)
 	golden.step(dt)
 	regulars.step(dt)
 	tutorial.step(dt)
@@ -285,19 +292,20 @@ func recipe_price(recipe_id: StringName, live: bool = true) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	var p: float = _with_craving(recipe_id, plain_price(recipe_id), live)
+	var p: float = _with_craving(recipe_id, plain_price(recipe_id), live) * variety_mult(live)
 	return p * boost_income_mult() if live else p
 
 
 ## Harga biasa per roti: harga dasar × level resep × selera lingkungan × roti
-## unggulan event × dekorasi × waralaba × mastery (GDD idle 23.3), tanpa boost
-## dan craving.
+## unggulan event × dekorasi × waralaba × mastery (GDD idle 23.3) × pembelian
+## permanen (Golden Oven, Baker's Club, GDD idle 22.5), tanpa boost dan craving.
 func plain_price(recipe_id: StringName) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
 	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * events.featured_mult(recipe_id) \
-		* decoration.bonus_mult(&"price") * prestige.income_mult() * mastery.price_mult(recipe_id)
+		* decoration.bonus_mult(&"price") * prestige.income_mult() * prestige.town_mult() * prestige.signature_mult(recipe_id) * mastery.price_mult(recipe_id) \
+		* premium.income_mult()
 
 
 ## Harga biasa roti termahal yang bisa dijual sekarang (terbuka, alatnya ada).
@@ -321,9 +329,10 @@ func unit_price(recipe_id: StringName, display_iid: int) -> float:
 	return recipe_price(recipe_id) * (1.0 + bonus)
 
 
-## Pengali harga di luar resep dan rak: dekorasi × waralaba × boost.
+## Pengali harga di luar resep dan rak: dekorasi × waralaba × kota × pembelian
+## permanen × variasi rak × boost.
 func price_mult() -> float:
-	return decoration.bonus_mult(&"price") * prestige.income_mult() * boost_income_mult()
+	return decoration.bonus_mult(&"price") * prestige.income_mult() * prestige.town_mult() * premium.income_mult() * variety_mult() * boost_income_mult()
 
 
 ## KR per detik nyata (GDD idle 9.1) untuk HUD, dari model IdleEconomyManager.
@@ -331,9 +340,10 @@ func income_rate() -> float:
 	return idle_economy.rate()
 
 
-## Pengali penghasilan dari boost aktif (GDD idle 11).
+## Pengali penghasilan dari boost aktif (GDD idle 11) dan boost iklan ×2 (GDD
+## idle 22.4).
 func boost_income_mult() -> float:
-	return boosts.income_now()
+	return boosts.income_now() * premium.ad_boost_mult()
 
 
 ## Laba bersih per roti resep `recipe_id` tanpa bonus rak dan boost, dengan
@@ -346,34 +356,228 @@ func net_per_unit(recipe_id: StringName, live: bool = true) -> float:
 	return _with_craving(recipe_id, plain_price(recipe_id), live) - r.unit_cogs_kr()
 
 
-## Resep "Auto" (GDD idle 4.2): resep terbuka yang bisa dibuat dengan laba
-## bersih per roti tertinggi; seri dipecah urutan katalog.
+## Resep "Auto" terbaik (GDD idle 4.2): resep terbuka yang bisa dibuat dengan
+## laba bersih per roti tertinggi; seri dipecah urutan katalog. Petak Auto
+## pertama menjualnya; petak Auto lain bisa menjual resep berikutnya dari
+## rencana Auto (`auto_slot_recipe`, variasi di rak, GDD idle §20 no. 83).
 ## `live` = false: tanpa craving, seperti model penghasilan offline yang juga
 ## mengabaikan craving (GDD idle 9.1), supaya KR/s offline tidak menilai petak
 ## Auto dengan resep craving berharga biasa.
 func auto_recipe(live: bool = true) -> StringName:
-	var key: String = "%s|%s|%s|%s|%s|%s|%d" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"), prestige.stars,
-		cravings.active() if live else &"", world.location.tier, mastery.version]
-	if live and key == _auto_cache_key:
-		return _auto_cache
-	if not live and key == _auto_plain_key:
-		return _auto_plain
-	var best: StringName = &""
-	var best_v: float = -INF
-	for r: RecipeDefinition in DataRegistry.recipes():
-		if not can_make(r.id):
-			continue
-		var v: float = net_per_unit(r.id, live)
-		if v > best_v + 0.000001:
-			best_v = v
-			best = r.id
+	var ranked: Array = _auto_plan(live)["ranked"]
+	return ranked[0] if not ranked.is_empty() else &""
+
+
+## Resep yang dijual petak Auto `index` di rak `iid` (GDD idle §20 no. 83):
+## petak Auto dibagi ke resep `order` rencana Auto sebanding permintaannya dan
+## diselang-seling urut rak lalu petak. Rak yang tidak terpasang memakai resep
+## Auto terbaik.
+func auto_slot_recipe(iid: int, index: int, live: bool = true) -> StringName:
+	var p: Dictionary = _auto_plan(live)
+	var hit: Variant = (p["slot"] as Dictionary).get(_slot_key(iid, index))
+	if hit != null:
+		return hit
+	var ranked: Array = p["ranked"]
+	return ranked[0] if not ranked.is_empty() else &""
+
+
+## Resep Auto yang disebar di petak Auto, urut peringkat (GDD idle §20 no. 83).
+func auto_order(live: bool = true) -> Array:
+	return (_auto_plan(live)["order"] as Array).duplicate()
+
+
+## Jumlah resep berbeda yang dijual petak-petak rak terpasang (pilihan pemain
+## yang bisa dibuat ditambah resep Auto yang disebar), paling sedikit 1.
+func shelf_variety(live: bool = true) -> int:
+	return int(_auto_plan(live)["variety"])
+
+
+## Popularitas resep `options` untuk bobot pilihan pembeli (GDD idle §20 no.
+## 83): pengali harga level resepnya ^ `variety.popularity_exponent`, jadi resep
+## berlevel tinggi lebih sering dipilih dan resep baru yang masih Lv 1 tidak
+## menyeret harga rata-rata turun. String id -> faktor.
+func recipe_popularity(options: Array) -> Dictionary:
+	var ex: float = DataRegistry.idlef("variety.popularity_exponent")
+	var out: Dictionary = {}
+	for rid: Variant in options:
+		out[String(rid)] = pow(upgrades.recipe_price_mult(StringName(str(rid))), ex)
+	return out
+
+
+## Pengali harga variasi di rak sekarang (GDD idle 8.5, §20 no. 83).
+func variety_mult(live: bool = true) -> float:
+	return variety_mult_for(shelf_variety(live))
+
+
+## Pengali harga untuk `d` resep berbeda di rak:
+## 1 + `variety.bonus_per_recipe` × (min(d, `variety.max_recipes`) − 1).
+static func variety_mult_for(d: int) -> float:
+	var n: int = clampi(d, 1, maxi(1, DataRegistry.idlei("variety.max_recipes")))
+	return 1.0 + DataRegistry.idlef("variety.bonus_per_recipe") * float(n - 1)
+
+
+static func _slot_key(iid: int, index: int) -> String:
+	return "%d:%d" % [iid, index]
+
+
+func _auto_plan(live: bool) -> Dictionary:
+	var key: String = "%s|%d|%d|%d|%s|%d|%d|%d|%d|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"),
+		prestige.stars, cravings.active() if live else &"", world.location.tier if world.location != null else 0, mastery.version,
+		equipment.list_version, display.version, events.date, EventManager.enabled, "%s|%d|%s|%s" % [decoration.bonus_mult(&"price"), prestige.branch_no, prestige.town_bonus(), premium.income_mult()]]
+	var cur: Dictionary = _plan_live if live else _plan_plain
+	if not cur.is_empty() and String(cur["key"]) == key:
+		return cur
+	var p: Dictionary = _make_plan(live)
+	p["key"] = key
 	if live:
-		_auto_cache = best
-		_auto_cache_key = key
+		_plan_live = p
 	else:
-		_auto_plain = best
-		_auto_plain_key = key
-	return best
+		_plan_plain = p
+	return p
+
+
+## Rencana petak Auto (GDD idle §20 no. 83):
+## 1. Peringkat resep yang bisa dibuat menurut laba bersih per roti (seri:
+##    urutan katalog), seperti Auto sebelumnya.
+## 2. K resep teratas disebar di petak Auto, K = 1..min(resep, petak Auto) yang
+##    memberi laba rata-rata per roti terjual × pengali variasi terbesar menurut
+##    campuran pembeli (IdleEconomyManager.walk_shares); K yang lebih besar
+##    hanya dipilih bila lebih untung lebih dari `PLAN_MARGIN`.
+## 3. Petak Auto dibagi ke K resep itu sebanding bagian permintaannya (paling
+##    sedikit satu petak per resep; `slot_counts`), lalu diselang-seling urut rak
+##    dan petak (`slot_sequence`), supaya roti yang paling banyak dibeli punya
+##    petak paling banyak dan dapur memasok campuran yang sama dengan permintaan.
+func _make_plan(live: bool) -> Dictionary:
+	var manual: Dictionary = {}
+	var auto_slots: Array[String] = []
+	for e: EquipmentInstance in equipment.placed_list(&"display"):
+		for i in display.slot_count(e.iid):
+			var a: StringName = display.assignment(e.iid, i)
+			if a == &"":
+				auto_slots.append(_slot_key(e.iid, i))
+			elif can_make(a):
+				manual[a] = true
+	# Peringkat: pilih berulang yang terbaik, persis aturan Auto lama (seri <
+	# 0,000001 dimenangkan resep yang lebih dulu di katalog).
+	var cands: Array[StringName] = []
+	var nets: Dictionary = {}
+	for r: RecipeDefinition in DataRegistry.recipes():
+		if can_make(r.id):
+			cands.append(r.id)
+			nets[r.id] = net_per_unit(r.id, live)
+	var ranked: Array[StringName] = []
+	while not cands.is_empty():
+		var bi: int = 0
+		for j in range(1, cands.size()):
+			if float(nets[cands[j]]) > float(nets[cands[bi]]) + 0.000001:
+				bi = j
+		ranked.append(cands[bi])
+		cands.remove_at(bi)
+	var k_best: int = 0
+	if not auto_slots.is_empty() and not ranked.is_empty():
+		k_best = 1
+		var v_best: float = _menu_value(manual, ranked, 1, live)
+		for k in range(2, mini(ranked.size(), auto_slots.size()) + 1):
+			var v: float = _menu_value(manual, ranked, k, live)
+			if v > v_best + absf(v_best) * PLAN_MARGIN + 0.000001:
+				v_best = v
+				k_best = k
+	var order: Array[StringName] = []
+	for j2 in k_best:
+		order.append(ranked[j2])
+	var slot: Dictionary = {}
+	if not order.is_empty():
+		var shares: Dictionary = idle_economy.walk_shares(Ids.sort(order.duplicate()))
+		var weights: Array[float] = []
+		for rid0: StringName in order:
+			weights.append(float(shares.get(rid0, 0.0)))
+		var seq: Array[int] = slot_sequence(slot_counts(weights, auto_slots.size()))
+		for n in auto_slots.size():
+			slot[auto_slots[n]] = order[seq[n]]
+	var distinct: Dictionary = manual.duplicate()
+	for rid: StringName in order:
+		distinct[rid] = true
+	return {"ranked": ranked, "order": order, "slot": slot, "variety": maxi(1, distinct.size())}
+
+
+## Jumlah petak untuk setiap resep dari `n` petak, sebanding `weights` (metode
+## sisa terbesar, seri: urutan peringkat); bila n >= jumlah resep, resep yang
+## kebagian 0 mengambil satu petak dari resep berpetak terbanyak.
+static func slot_counts(weights: Array[float], n: int) -> Array[int]:
+	var k: int = weights.size()
+	var out: Array[int] = []
+	out.resize(k)
+	out.fill(0)
+	if k == 0 or n <= 0:
+		return out
+	var total: float = 0.0
+	for w: float in weights:
+		total += maxf(w, 0.0)
+	var fracs: Array[float] = []
+	var left: int = n
+	for i in k:
+		var exact: float = float(n) * (maxf(weights[i], 0.0) / total if total > 0.0 else 1.0 / float(k))
+		out[i] = int(floor(exact))
+		fracs.append(exact - floor(exact))
+		left -= out[i]
+	while left > 0:
+		var bi: int = 0
+		for j in range(1, k):
+			if fracs[j] > fracs[bi] + 0.000001:
+				bi = j
+		out[bi] += 1
+		fracs[bi] = -1.0
+		left -= 1
+	# Paling sedikit satu petak per resep: ambil dari resep berpetak terbanyak.
+	if n >= k:
+		for i2 in k:
+			if out[i2] == 0:
+				var most: int = 0
+				for j2 in range(1, k):
+					if out[j2] > out[most]:
+						most = j2
+				out[most] -= 1
+				out[i2] = 1
+	return out
+
+
+## Urutan selang-seling petak dari jumlah per resep (weighted round robin yang
+## halus: resep berpetak banyak tersebar, bukan berkelompok). Indeks resep per
+## petak.
+static func slot_sequence(counts: Array[int]) -> Array[int]:
+	var total: int = 0
+	for c: int in counts:
+		total += c
+	var cur: Array[int] = []
+	cur.resize(counts.size())
+	cur.fill(0)
+	var out: Array[int] = []
+	for step in total:
+		var bi: int = -1
+		for i in counts.size():
+			cur[i] += counts[i]
+			if counts[i] > 0 and (bi < 0 or cur[i] > cur[bi]):
+				bi = i
+		out.append(bi)
+		cur[bi] -= total
+	return out
+
+
+## Laba rata-rata per roti terjual × variasi bila petak Auto menjual `k` resep
+## teratas `ranked` di samping pilihan pemain `manual` (tanpa bonus rak dan
+## boost, yang sama untuk semua resep).
+func _menu_value(manual: Dictionary, ranked: Array[StringName], k: int, live: bool) -> float:
+	var menu: Dictionary = manual.duplicate()
+	for j in k:
+		menu[ranked[j]] = true
+	var ids: Array = Ids.sort(menu.keys())
+	var vm: float = variety_mult_for(ids.size())
+	var shares: Dictionary = idle_economy.walk_shares(ids)
+	var v: float = 0.0
+	for rid: Variant in ids:
+		var r: RecipeDefinition = DataRegistry.recipe(StringName(str(rid)))
+		v += float(shares.get(rid, 0.0)) * (_with_craving(r.id, plain_price(r.id), live) * vm - r.unit_cogs_kr())
+	return v
 
 
 ## Resep yang sedang dijual petak-petak rak (menu RotiFood), urut katalog.
@@ -512,6 +716,7 @@ func franchise(now_unix: float = 0.0) -> int:
 	prestige.credit_newest(gained)
 	prestige.stars += gained
 	idle_economy.invalidate()
+	premium.on_franchise(gained)
 	var kept_globals: Dictionary = _kept_globals()
 	_leave_branch(now_unix)
 	prestige.run_index += 1
@@ -567,9 +772,8 @@ func visit_branch(n: int, now_unix: float = 0.0) -> Dictionary:
 		load_from_save(full)
 		GameLogger.important("FRANCHISE", "visiting branch #%d" % n)
 	idle_economy.invalidate()
-	_auto_cache = &""
-	_auto_cache_key = "-"
-	_auto_plain_key = "-"
+	_plan_live = {}
+	_plan_plain = {}
 	# KR/s penghasilan offline aplikasi sekarang milik cabang ini (GDD idle 9.2).
 	offline.rate_kr_per_s = idle_economy.rate(false)
 	var away: Dictionary = offline.settle_branch(now_unix, float(rec.get("left_unix", 0.0)), float(rec.get("rate", 0.0)), n)
@@ -648,9 +852,8 @@ func _open_branch(tier: int, kept_globals: Dictionary) -> void:
 				break
 	decoration.replace_lifted(lifted)
 	statistics.begin_run(world.location.id)
-	_auto_cache = &""
-	_auto_cache_key = "-"
-	_auto_plain_key = "-"
+	_plan_live = {}
+	_plan_plain = {}
 
 
 ## Kosongkan lantai dari aktor sebelum dunia dibangun ulang.
@@ -755,6 +958,7 @@ func capture_save() -> Dictionary:
 		"events": events.capture(),
 		"golden": golden.capture(),
 		"regulars": regulars.capture(),
+		"premium": premium.capture(),
 		"rng_states": rng.capture(),
 	}
 
@@ -813,6 +1017,7 @@ func load_from_save(d: Dictionary) -> void:
 	events.restore(d.get("events", {}))
 	golden.restore(d.get("golden", {}))
 	regulars.restore(d.get("regulars", {}))
+	premium.restore(d.get("premium", {}))
 	goals.restore(d.get("goals", {}))
 	player.restore(d.get("player", {}))
 	# Integritas pasca-load (v3.1 89.5 langkah 9).
@@ -821,8 +1026,8 @@ func load_from_save(d: Dictionary) -> void:
 	staff.reconstruct()
 	customers.reconstruct()
 	rotifood.reconstruct()
-	_auto_cache_key = "-"
-	_auto_plain_key = "-"
+	_plan_live = {}
+	_plan_plain = {}
 	goals.ensure_today()
 	if not world.layout_valid():
 		GameLogger.warn("WORLD", "loaded layout failed protected-path validation")

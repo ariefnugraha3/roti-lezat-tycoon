@@ -47,6 +47,10 @@ extends RefCounted
 ## cukup jauh supaya tidak pernah menutupi isi toko (ACC_32_NEIGHBORHOOD_CLEAR).
 
 const T: float = GridMath.WORLD_METERS_PER_TILE
+## Segmen dan cincin bola daun (pagar tanaman, semak, tajuk pohon): cukup
+## bulat dari dekat, tanpa sisi bersegi yang terlihat (GDD idle §20 no. 86).
+const HEDGE_SEGMENTS: int = 10
+const HEDGE_RINGS: int = 5
 ## Pudar ke warna latar: utuh sampai FADE_START meter dari tengah toko, lalu
 ## menyatu penuh pada FADE_END.
 const FADE_START: float = 11.0
@@ -181,9 +185,10 @@ static var _puddles: Array[Vector4] = []
 ## Lingkungan untuk lokasi `loc` (lantai toko `f`), atau null bila tier itu belum
 ## punya lingkungan. Lokasi bertingkat juga mendapat "OwnBuilding": lantai dasar
 ## ruko sendiri, yang hanya tampil saat kamera di lantai atas.
-static func build(loc: LocationDefinition, f: FloorDefinition, wet: bool = false) -> Node3D:
+static func build(loc: LocationDefinition, f: FloorDefinition, wet: bool = false, variant: int = 0) -> Node3D:
 	if loc == null or f == null or not has_street(loc.tier):
 		return null
+	_variant = maxi(0, variant)
 	var w: float = float(f.size.x) * T
 	var d: float = float(f.size.y) * T
 	var center := Vector3(w * 0.5, 0.0, d * 0.5)
@@ -208,8 +213,10 @@ static func build(loc: LocationDefinition, f: FloorDefinition, wet: bool = false
 			_puddle(mb, pd)
 	var fade: Vector2 = fade_radii(w, d)
 	mb.fade_to(center, fade.x, fade.y, Palette.BG, 1.0)
+	_variant = 0
 	var root := Node3D.new()
 	root.name = "Neighborhood"
+	root.set_meta("variant", variant)
 	root.set_meta("wet", wet)
 	root.set_meta("puddles", _puddles.duplicate())
 	root.add_child(mb.commit("Street"))
@@ -506,7 +513,7 @@ static func _left_neighbor(mb: MeshBuilder) -> void:
 	mb.box(_at(Vector3(-0.6, (0.16 + Y_GROUND) * 0.5, 3.6)), Vector3(0.3, 0.16 - Y_GROUND, 4.8), Palette.CONCRETE_DARK)
 	for i in 8:
 		var hz: float = 1.5 + 0.6 * float(i)
-		mb.ellipsoid(_at(Vector3(-0.6, 0.3, hz)), Vector3(0.2, 0.17, 0.3), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, 7, 4)
+		mb.ellipsoid(_at(Vector3(-0.6, 0.3, hz)), Vector3(0.2, 0.17, 0.3), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 	_clothesline(mb, -2.9, 3.4, 6.2)
 
 
@@ -921,11 +928,11 @@ static func _t3_right(mb: MeshBuilder) -> void:
 	mb.box(_at(Vector3(T3_TERRACE_X + 0.15, 0.2, (T3_YARD_Z + 6.1) * 0.5)), Vector3(0.3, 0.4, 6.1 - T3_YARD_Z), Palette.CONCRETE_DARK)
 	var hx: float = T3_TERRACE_X + 0.35
 	while hx < -0.4:
-		mb.ellipsoid(_at(Vector3(hx, 0.5, T3_YARD_Z + 0.18)), Vector3(0.24, 0.14, 0.16), Palette.LEAF_DEEP, 7, 4)
+		mb.ellipsoid(_at(Vector3(hx, 0.5, T3_YARD_Z + 0.18)), Vector3(0.24, 0.14, 0.16), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 		hx += 0.55
 	var hz: float = T3_YARD_Z + 0.6
 	while hz < 5.9:
-		mb.ellipsoid(_at(Vector3(T3_TERRACE_X + 0.15, 0.5, hz)), Vector3(0.16, 0.14, 0.24), Palette.LEAF if int(hz * 2.0) % 2 == 0 else Palette.LEAF_DEEP, 7, 4)
+		mb.ellipsoid(_at(Vector3(T3_TERRACE_X + 0.15, 0.5, hz)), Vector3(0.16, 0.14, 0.24), Palette.LEAF if int(hz * 2.0) % 2 == 0 else Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 		hz += 0.55
 	_car(mb, Vector3(-7.95, 0.0, 3.2), PI, Palette.SIGN_RED, 0)
 	_car(mb, Vector3(-5.85, 0.0, 3.0), PI, Palette.FLOUR_WHITE.darkened(0.08), 1)
@@ -1099,7 +1106,7 @@ static func _t4_front(mb: MeshBuilder, door_x: float) -> void:
 	var fx: float = 4.7
 	while fx < 7.6:
 		for fz: float in [bed_z - 0.25, bed_z + 0.25]:
-			mb.ellipsoid(_at(Vector3(fx, 0.42, fz)), Vector3(0.19, 0.12, 0.19), Palette.LEAF_DEEP, 6, 3)
+			mb.ellipsoid(_at(Vector3(fx, 0.42, fz)), Vector3(0.19, 0.12, 0.19), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 			mb.ellipsoid(_at(Vector3(fx + 0.04, 0.5, fz - 0.03)), Vector3(0.09, 0.06, 0.09), blooms[k % blooms.size()], 6, 3)
 			k += 1
 		fx += 0.55
@@ -1125,7 +1132,7 @@ static func _t4_left(mb: MeshBuilder, w: float, d: float) -> void:
 	for i in 4:
 		var fz: float = 1.2 + 1.8 * float(i)
 		mb.box(_at(Vector3((w + T4_PASSAGE_X1) * 0.5 + 0.05, 0.2, fz)), Vector3(0.5, 0.4, 0.8), Palette.GRANITE.darkened(0.15))
-		mb.ellipsoid(_at(Vector3((w + T4_PASSAGE_X1) * 0.5 + 0.05, 0.52, fz)), Vector3(0.32, 0.2, 0.46), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, 8, 4)
+		mb.ellipsoid(_at(Vector3((w + T4_PASSAGE_X1) * 0.5 + 0.05, 0.52, fz)), Vector3(0.32, 0.2, 0.46), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 	var x: float = T4_PASSAGE_X1
 	var specs: Array[Dictionary] = [
 		{"w": 5.0, "floors": 2, "wall": Palette.FLOUR_WHITE.darkened(0.03), "awning": Palette.BRASS, "kind": &"jewelry"},
@@ -1151,7 +1158,7 @@ static func _t4_right(mb: MeshBuilder, d: float) -> void:
 	mb.box(_at(Vector3(T4_GARDEN_X + 0.15, 0.2, (d + t) * 0.5)), Vector3(0.3, 0.4, d + t), Palette.GRANITE.darkened(0.15))
 	var hz: float = 0.4
 	while hz < d:
-		mb.ellipsoid(_at(Vector3(T4_GARDEN_X + 0.15, 0.5, hz)), Vector3(0.18, 0.15, 0.26), Palette.LEAF_DEEP if int(hz * 2.0) % 2 == 0 else Palette.LEAF, 7, 4)
+		mb.ellipsoid(_at(Vector3(T4_GARDEN_X + 0.15, 0.5, hz)), Vector3(0.18, 0.15, 0.26), Palette.LEAF_DEEP if int(hz * 2.0) % 2 == 0 else Palette.LEAF, HEDGE_SEGMENTS, HEDGE_RINGS)
 		hz += 0.55
 	_boutique(mb, _at(Vector3(T4_GARDEN_X - 1.0 - 4.0, 0.0, 0.0)), d + t, {"w": 8.0, "floors": 2, "wall": Palette.HOUSE_PEACH, "awning": Palette.ROSY_CHEEK, "kind": &"cafe"})
 
@@ -1169,7 +1176,41 @@ static func _t4_back(mb: MeshBuilder, w: float, d: float) -> void:
 ## Spec: w, floors (1 atau 2), wall (cat atau pelapis muka), awning (warna tenda;
 ## BRASS = tanpa tenda, dengan plakat kuningan), kind (&"fashion" manekin,
 ## &"florist" ember bunga, &"jewelry" etalase perhiasan, &"cafe" kue dan meja).
-static func _boutique(mb: MeshBuilder, xf: Transform3D, dpt: float, s: Dictionary) -> void:
+## Variasi warna lingkungan per cabang (GDD idle §20 no. 92): 0 = warna asli
+## (cabang 1); cabang lain memutar warna dinding, papan nama, dan kanopi
+## bangunan tetangga. Bentuk dan letaknya sama, jadi jalan tetap tidak menutupi
+## toko (ACC_32_NEIGHBORHOOD_CLEAR).
+static var _variant: int = 0
+const VARIANT_WALLS: Array[Color] = [Palette.HOUSE_CREAM, Palette.HOUSE_MINT, Palette.HOUSE_PEACH, Palette.HOUSE_BUTTER,
+	Palette.HOUSE_SKY, Palette.RUKO_GREY, Palette.RUKO_SAND, Palette.RUKO_BLUSH, Palette.RUKO_LILAC, Palette.RUKO_SAGE]
+const VARIANT_SIGNS: Array[Color] = [Palette.SIGN_GREEN, Palette.SIGN_RED, Palette.SIGN_YELLOW, Palette.SIGN_BLUE,
+	Palette.SIGN_PURPLE, Palette.SIGN_ORANGE]
+
+
+## Spesifikasi bangunan `s` dengan warna varian cabang (sekali saja).
+static func _vary(s: Dictionary) -> Dictionary:
+	if _variant == 0 or s.has("_varied"):
+		return s
+	var out: Dictionary = s.duplicate()
+	out["_varied"] = true
+	out["wall"] = _shift(out.get("wall"), VARIANT_WALLS, 3)
+	for key: String in ["sign", "awning"]:
+		if out.has(key):
+			out[key] = _shift(out[key], VARIANT_SIGNS, 1)
+	return out
+
+
+static func _shift(c: Variant, colors: Array[Color], step: int) -> Variant:
+	if not (c is Color):
+		return c
+	var i: int = colors.find(c)
+	if i < 0:
+		return c
+	return colors[(i + _variant * step) % colors.size()]
+
+
+static func _boutique(mb: MeshBuilder, xf: Transform3D, dpt: float, s0: Dictionary) -> void:
+	var s: Dictionary = _vary(s0)
 	var w: float = float(s["w"])
 	var floors: int = int(s.get("floors", 2))
 	var g: float = 3.0
@@ -1361,7 +1402,7 @@ static func _stanchion(mb: MeshBuilder, p: Vector3) -> void:
 static func _topiary(mb: MeshBuilder, p: Vector3) -> void:
 	mb.box(_at(p + Vector3(0.0, 0.22, 0.0)), Vector3(0.44, 0.44, 0.44), Palette.DARK_CHOCOLATE.lightened(0.1))
 	mb.box(_at(p + Vector3(0.0, 0.45, 0.0)), Vector3(0.48, 0.03, 0.48), Palette.BRASS)
-	mb.ellipsoid(_at(p + Vector3(0.0, 0.7, 0.0)), Vector3(0.26, 0.26, 0.26), Palette.LEAF_DEEP, 9, 5)
+	mb.ellipsoid(_at(p + Vector3(0.0, 0.7, 0.0)), Vector3(0.26, 0.26, 0.26), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 
 
 ## Totem penanda toko: pilar ramping cokelat tua dengan lingkaran kuningan berisi
@@ -1439,7 +1480,7 @@ static func _t5_ground(mb: MeshBuilder, w: float, d: float) -> void:
 static func _t5_square(mb: MeshBuilder, door_x: float) -> void:
 	for px: float in [door_x - 1.6, door_x + 1.6, 7.4, 9.2]:
 		mb.cylinder(_at(Vector3(px, 0.25, -1.45)), 0.5, 0.3, 0.24, Palette.TERRACOTTA.darkened(0.1), 10)
-		mb.ellipsoid(_at(Vector3(px, 0.7, -1.45)), Vector3(0.32, 0.26, 0.32), Palette.LEAF_DEEP, 8, 4)
+		mb.ellipsoid(_at(Vector3(px, 0.7, -1.45)), Vector3(0.32, 0.26, 0.32), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 		mb.ellipsoid(_at(Vector3(px + 0.08, 0.86, -1.5)), Vector3(0.12, 0.08, 0.12), Palette.ROSY_CHEEK, 6, 3)
 	for lx: float in [door_x - 2.6, 6.2]:
 		_vintage_lamp(mb, Vector3(lx, 0.0, -3.7), 3.0)
@@ -1502,7 +1543,8 @@ static func _t5_back(mb: MeshBuilder) -> void:
 ## alun-alun. Dinding berlis di kaki batu, pintu utama diapit dua tiang dengan
 ## pediment, jendela tinggi berlengkung dengan daun jendela hijau di muka dan di
 ## sisi -X yang tampak kamera, dan atap genteng.
-static func _heritage(mb: MeshBuilder, xf: Transform3D, w: float, dpt: float, s: Dictionary) -> void:
+static func _heritage(mb: MeshBuilder, xf: Transform3D, w: float, dpt: float, s0: Dictionary) -> void:
+	var s: Dictionary = _vary(s0)
 	var wall: Color = s.get("wall", Palette.COLONIAL_WHITE)
 	var g: float = 3.4
 	var top: float = g + 3.0
@@ -1589,7 +1631,7 @@ static func _banyan(mb: MeshBuilder, p: Vector3) -> void:
 	mb.ellipsoid(_at(p + Vector3(0.0, 3.6, 0.0)), Vector3(2.3, 1.3, 2.3), Palette.LEAF_DEEP, 12, 6)
 	for k in 4:
 		var a: float = TAU * float(k) / 4.0 + 0.4
-		mb.ellipsoid(_at(p + Vector3(cos(a) * 1.5, 3.3, sin(a) * 1.5)), Vector3(1.3, 0.9, 1.3), Palette.LEAF if k % 2 == 0 else Palette.LEAF_DEEP.lightened(0.05), 9, 5)
+		mb.ellipsoid(_at(p + Vector3(cos(a) * 1.5, 3.3, sin(a) * 1.5)), Vector3(1.3, 0.9, 1.3), Palette.LEAF if k % 2 == 0 else Palette.LEAF_DEEP.lightened(0.05), HEDGE_SEGMENTS, HEDGE_RINGS)
 	for k2 in 6:
 		var a2: float = TAU * float(k2) / 6.0
 		var r: float = 1.2 + 0.4 * float(k2 % 2)
@@ -1704,7 +1746,8 @@ static func _long_table(mb: MeshBuilder, p: Vector3, length: float) -> void:
 ##                   sebagai bagian lebar ruko
 ##   front_detail    false: muka tidak tampak kamera (ruko seberang jalan);
 ##                   punggungnya yang diberi jendela dan AC
-static func _ruko(mb: MeshBuilder, xf: Transform3D, s: Dictionary) -> void:
+static func _ruko(mb: MeshBuilder, xf: Transform3D, s0: Dictionary) -> void:
+	var s: Dictionary = _vary(s0)
 	var w: float = float(s["w"])
 	var dpt: float = float(s.get("dpt", T2_ALLEY_Z0))
 	var top: float = RUKO_GROUND + RUKO_UPPER
@@ -1888,7 +1931,8 @@ static func _signboard(mb: MeshBuilder, xf: Transform3D, w: float, s: Dictionary
 
 ## Lantai atas ruko: dua jendela berteralis dengan AC di antaranya, atau balkon
 ## berpagar dengan jemuran.
-static func _ruko_upper(mb: MeshBuilder, xf: Transform3D, w: float, s: Dictionary) -> void:
+static func _ruko_upper(mb: MeshBuilder, xf: Transform3D, w: float, s0: Dictionary) -> void:
+	var s: Dictionary = _vary(s0)
 	var g: float = RUKO_GROUND
 	var nrm: Vector3 = xf.basis * Vector3(0.0, 0.0, -1.0)
 	if s.get("upper", &"windows") == &"balcony":
@@ -2053,7 +2097,8 @@ static func _flat(mb: MeshBuilder, x0: float, x1: float, z0: float, z1: float, y
 ##   chairs, canopy  kursi teras, kanopi kecil di atas pintu
 ##   front_detail    false: muka rumah tidak terlihat kamera, pintu dan jendela
 ##                   depannya tidak dibuat
-static func _house(mb: MeshBuilder, xf: Transform3D, s: Dictionary) -> void:
+static func _house(mb: MeshBuilder, xf: Transform3D, s0: Dictionary) -> void:
+	var s: Dictionary = _vary(s0)
 	var w: float = float(s["w"])
 	var dpt: float = float(s["dpt"])
 	var h: float = float(s["h"])
@@ -2235,10 +2280,10 @@ static func _mango_tree(mb: MeshBuilder, p: Vector3, s: float) -> void:
 	mb.cylinder(_at(p + Vector3(0.0, 0.8 * s + Y_GROUND * 0.5, 0.0)), 1.6 * s - Y_GROUND, 0.12 * s, 0.18 * s, Palette.TRUNK, 7)
 	mb.capsule(p + Vector3(0.0, 1.3 * s, 0.0), p + Vector3(0.5 * s, 1.95 * s, 0.25 * s), 0.08 * s, 0.06 * s, Palette.TRUNK, 5, 1)
 	mb.capsule(p + Vector3(0.0, 1.4 * s, 0.0), p + Vector3(-0.45 * s, 2.0 * s, -0.3 * s), 0.08 * s, 0.06 * s, Palette.TRUNK, 5, 1)
-	mb.ellipsoid(_at(p + Vector3(0.0, 2.45 * s, 0.0)), Vector3(1.35, 1.0, 1.35) * s, Palette.LEAF, 10, 6)
-	mb.ellipsoid(_at(p + Vector3(0.75 * s, 2.2 * s, -0.35 * s)), Vector3(0.8, 0.65, 0.8) * s, Palette.LEAF_DEEP, 8, 5)
-	mb.ellipsoid(_at(p + Vector3(-0.65 * s, 2.3 * s, 0.5 * s)), Vector3(0.85, 0.7, 0.85) * s, Palette.LEAF.darkened(0.06), 8, 5)
-	mb.ellipsoid(_at(p + Vector3(0.1 * s, 3.1 * s, 0.1 * s)), Vector3(0.8, 0.55, 0.8) * s, Palette.LEAF.lightened(0.06), 8, 5)
+	mb.ellipsoid(_at(p + Vector3(0.0, 2.45 * s, 0.0)), Vector3(1.35, 1.0, 1.35) * s, Palette.LEAF, HEDGE_SEGMENTS, HEDGE_RINGS)
+	mb.ellipsoid(_at(p + Vector3(0.75 * s, 2.2 * s, -0.35 * s)), Vector3(0.8, 0.65, 0.8) * s, Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
+	mb.ellipsoid(_at(p + Vector3(-0.65 * s, 2.3 * s, 0.5 * s)), Vector3(0.85, 0.7, 0.85) * s, Palette.LEAF.darkened(0.06), HEDGE_SEGMENTS, HEDGE_RINGS)
+	mb.ellipsoid(_at(p + Vector3(0.1 * s, 3.1 * s, 0.1 * s)), Vector3(0.8, 0.55, 0.8) * s, Palette.LEAF.lightened(0.06), HEDGE_SEGMENTS, HEDGE_RINGS)
 
 
 ## Pohon pisang: batang hijau dan enam pelepah daun lebar yang melengkung keluar.
@@ -2366,7 +2411,7 @@ static func _galon_rack(mb: MeshBuilder, p: Vector3) -> void:
 ## Pot tanaman persegi berbunga di teras toko.
 static func _planter(mb: MeshBuilder, p: Vector3) -> void:
 	mb.box(_at(p + Vector3(0.0, 0.2, 0.0)), Vector3(0.7, 0.4, 0.38), Palette.DARK_CHOCOLATE.lightened(0.2))
-	mb.ellipsoid(_at(p + Vector3(0.0, 0.45, 0.0)), Vector3(0.32, 0.13, 0.15), Palette.LEAF_DEEP, 8, 4)
+	mb.ellipsoid(_at(p + Vector3(0.0, 0.45, 0.0)), Vector3(0.32, 0.13, 0.15), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 	for i in 3:
 		var fx: float = -0.18 + 0.18 * float(i)
 		mb.ellipsoid(_at(p + Vector3(fx, 0.54, 0.0)), Vector3(0.06, 0.05, 0.06), Palette.ROSY_CHEEK if i != 1 else Palette.BUTTER_YELLOW, 6, 3)
@@ -2410,7 +2455,7 @@ static func _umbrella_tree(mb: MeshBuilder, p: Vector3) -> void:
 	var tiers: Array = [[1.45, 1.0], [2.0, 0.85], [2.5, 0.66], [2.9, 0.42]]
 	for i in tiers.size():
 		var tr: Array = tiers[i]
-		mb.ellipsoid(_at(p + Vector3(0.0, float(tr[0]), 0.0)), Vector3(float(tr[1]), 0.13, float(tr[1])), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, 10, 4)
+		mb.ellipsoid(_at(p + Vector3(0.0, float(tr[0]), 0.0)), Vector3(float(tr[1]), 0.13, float(tr[1])), Palette.LEAF if i % 2 == 0 else Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 
 
 ## Gerobak dagangan kaki lima yang diparkir: model yang sama dengan gerobak
@@ -2421,14 +2466,14 @@ static func _cart(mb: MeshBuilder, p: Vector3, yaw: float, body: Color) -> void:
 
 
 static func _shrub(mb: MeshBuilder, p: Vector3, r: float) -> void:
-	mb.ellipsoid(_at(p + Vector3(0.0, r * 0.55, 0.0)), Vector3(r, r * 0.7, r), Palette.LEAF_DEEP, 8, 5)
-	mb.ellipsoid(_at(p + Vector3(r * 0.4, r * 0.75, -r * 0.2)), Vector3(r * 0.6, r * 0.5, r * 0.6), Palette.LEAF, 7, 4)
+	mb.ellipsoid(_at(p + Vector3(0.0, r * 0.55, 0.0)), Vector3(r, r * 0.7, r), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
+	mb.ellipsoid(_at(p + Vector3(r * 0.4, r * 0.75, -r * 0.2)), Vector3(r * 0.6, r * 0.5, r * 0.6), Palette.LEAF, HEDGE_SEGMENTS, HEDGE_RINGS)
 
 
 ## Pot bunga tanah liat dengan tanaman (`leaf` = warna daun atau bunganya).
 static func _pot(mb: MeshBuilder, p: Vector3, clay: Color, leaf: Color) -> void:
 	mb.cylinder(_at(p + Vector3(0.0, 0.16, 0.0)), 0.32, 0.17, 0.12, clay, 8)
-	mb.ellipsoid(_at(p + Vector3(0.0, 0.42, 0.0)), Vector3(0.22, 0.2, 0.22), Palette.LEAF_DEEP, 7, 4)
+	mb.ellipsoid(_at(p + Vector3(0.0, 0.42, 0.0)), Vector3(0.22, 0.2, 0.22), Palette.LEAF_DEEP, HEDGE_SEGMENTS, HEDGE_RINGS)
 	if leaf != Palette.LEAF_DEEP:
 		mb.ellipsoid(_at(p + Vector3(0.05, 0.52, -0.04)), Vector3(0.11, 0.09, 0.11), leaf, 6, 3)
 

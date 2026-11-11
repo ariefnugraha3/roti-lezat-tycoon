@@ -11,6 +11,7 @@ static func clear_all() -> void:
 	EquipmentFactory.clear_caches()
 	MeshBake.clear_caches()
 	FX.clear_caches()
+	StoreFX.clear_caches()
 	ProceduralUIFactory.clear_caches()
 	MeshBuilder.clear_materials()
 	CharacterFactory.clear_caches()

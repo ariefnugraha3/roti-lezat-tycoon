@@ -67,7 +67,8 @@ static func has_model(profile: StringName) -> bool:
 		&"hanging_lamp", &"plaque_bronze", &"plaque_silver", &"plaque_gold", &"photo_frame", &"plaque_infinity",
 		&"cassette_radio", &"coin_jar", &"trophy_small", &"calculator", &"brass_bell",
 		&"potted_plant", &"basket_stack", &"trophy_large", &"umbrella_stand", &"terracotta_rug", &"floor_mat",
-		&"badge_crumb", &"badge_savings", &"badge_supporter", &"stamp_card", &"golden_croissant", &"bunting"]
+		&"badge_crumb", &"badge_savings", &"badge_supporter", &"stamp_card", &"golden_croissant", &"bunting",
+		&"loaf_statue", &"croissant_statue", &"neon_sign"]
 
 
 ## Model utuh satu dekorasi. Dekorasi tak dikenal menghasilkan node kosong.
@@ -88,7 +89,7 @@ static func build(deco_id: StringName) -> Node3D:
 		&"photo_wall":
 			_photo_wall(k)
 		&"hanging_lamp":
-			_hanging_lamp(k)
+			_hanging_lamp(k, def.color(0, EquipmentFactory.METAL_COPPER), def.color(1, Palette.BUTTER_YELLOW))
 		&"plaque_bronze":
 			_plaque_hundred(k)
 		&"plaque_silver":
@@ -118,7 +119,7 @@ static func build(deco_id: StringName) -> Node3D:
 		&"umbrella_stand":
 			_umbrella_stand(k)
 		&"terracotta_rug":
-			_terracotta_rug(k, Vector2(def.overlay_size_tiles) * GridMath.WORLD_METERS_PER_TILE)
+			_terracotta_rug(k, Vector2(def.overlay_size_tiles) * GridMath.WORLD_METERS_PER_TILE, def.colors)
 		&"floor_mat":
 			_floor_mat(k, Vector2(def.overlay_size_tiles) * GridMath.WORLD_METERS_PER_TILE)
 		&"badge_crumb":
@@ -133,6 +134,12 @@ static func build(deco_id: StringName) -> Node3D:
 			_golden_croissant(k)
 		&"bunting":
 			_bunting(k)
+		&"loaf_statue":
+			_statue(k, false)
+		&"croissant_statue":
+			_statue(k, true)
+		&"neon_sign":
+			_neon_sign(k, def.color(0, Palette.STRAWBERRY))
 	var root: Node3D = k.done()
 	root.set_meta("deco_id", deco_id)
 	root.set_meta("placement_type", def.placement_type)
@@ -395,7 +402,9 @@ static func _photo(k: Kit, c: Vector2, size: Vector2, frame_col: Color, back: Co
 
 ## Lampu gantung hangat: siku besi hitam berulir, rantai pendek, kap tembaga, dan
 ## bola lampu yang menyala.
-static func _hanging_lamp(k: Kit) -> void:
+## `shade` = kap lampu (tembaga bawaan), `inner` = sisi dalamnya (GDD idle 22.8:
+## lampu gantung emas dan kristal memakai model yang sama).
+static func _hanging_lamp(k: Kit, shade: Color, inner_col: Color) -> void:
 	var iron: Color = Palette.DARK_CHOCOLATE
 	k.s.box(_xf(Vector3(0.0, 0.23, -0.008)), Vector3(0.07, 0.12, 0.016), iron)
 	k.s.cylinder(_xf(Vector3(0.0, 0.25, -0.14), Vector3(90.0, 0.0, 0.0)), 0.26, 0.01, 0.01, iron, 8)
@@ -410,10 +419,10 @@ static func _hanging_lamp(k: Kit) -> void:
 	k.s.cylinder(_xf(sc + Vector3(0.0, 0.004, 0.0)), 0.02, 0.016, 0.016, GOLD, 10)
 	var outer := PackedVector2Array([Vector2(0.012, 0.0), Vector2(0.03, -0.012), Vector2(0.06, -0.045), Vector2(0.085, -0.08),
 		Vector2(0.095, -0.1), Vector2(0.097, -0.106)])
-	k.s.lathe(_xf(sc), outer, EquipmentFactory.METAL_COPPER, 18)
+	k.s.lathe(_xf(sc), outer, shade, 18)
 	var inner := PackedVector2Array([Vector2(0.093, -0.106), Vector2(0.091, -0.1), Vector2(0.081, -0.08), Vector2(0.056, -0.045),
 		Vector2(0.026, -0.012), Vector2(0.008, -0.002)])
-	k.m.lathe(_xf(sc), inner, Palette.BUTTER_YELLOW, 18)
+	k.m.lathe(_xf(sc), inner, inner_col, 18)
 	k.s.torus(_xf(sc + Vector3(0.0, -0.106, 0.0)), 0.096, 0.004, GOLD, 18, 4)
 	var bulb: MeshInstance3D = ProceduralMeshFactory.sphere(0.03, Palette.WARMER_LAMP.lightened(0.25))
 	EquipmentFactory._set_glow(bulb, Palette.WARMER_LAMP, 1.8)
@@ -855,28 +864,35 @@ static func _umbrella_stand(k: Kit) -> void:
 
 ## Karpet terakota: dasar merah bata, pinggiran krem, garis cokelat, medali
 ## wajik di tengah, segitiga sudut, dan rumbai di kedua ujung pendek.
-static func _terracotta_rug(k: Kit, size: Vector2) -> void:
+## `colors` (GDD idle 22.8, karpet marmer dan karpet bintang): [dasar, pita &
+## motif, garis dalam, tengah]; kosong = terakota bawaan.
+static func _terracotta_rug(k: Kit, size: Vector2, colors: Array[Color] = []) -> void:
+	var base: Color = colors[0] if colors.size() > 0 else BRICK
+	var band_col: Color = colors[1] if colors.size() > 1 else Palette.VANILLA_CREAM
+	var line_col: Color = colors[2] if colors.size() > 2 else Palette.DARK_CHOCOLATE
+	var mid_col: Color = colors[3] if colors.size() > 3 else Palette.FLOUR_WHITE
+	var motif: Color = colors[1] if colors.size() > 1 else Palette.CUSTARD
 	var sx: float = size.x - 0.06
 	var sz: float = size.y - 0.06
-	k.m.box(_xf(Vector3(0.0, 0.003, 0.0)), Vector3(sx, 0.006, sz), BRICK)
+	k.m.box(_xf(Vector3(0.0, 0.003, 0.0)), Vector3(sx, 0.006, sz), base)
 	var band: float = 0.055
-	_floor_frame(k.m, sx, sz, band, 0.0068, Palette.VANILLA_CREAM)
-	_floor_frame(k.m, sx - band * 2.0 - 0.03, sz - band * 2.0 - 0.03, 0.012, 0.0076, Palette.DARK_CHOCOLATE)
+	_floor_frame(k.m, sx, sz, band, 0.0068, band_col)
+	_floor_frame(k.m, sx - band * 2.0 - 0.03, sz - band * 2.0 - 0.03, 0.012, 0.0076, line_col)
 	var m: float = minf(sx, sz)
-	k.m.polygon(_flat(Vector3(0.0, 0.0076, 0.0)), _diamond_pts(m * 0.2), Palette.CUSTARD, Vector3.BACK)
-	k.m.polygon(_flat(Vector3(0.0, 0.0084, 0.0)), _diamond_pts(m * 0.12), BRICK.lightened(0.08), Vector3.BACK)
-	k.m.polygon(_flat(Vector3(0.0, 0.0092, 0.0)), _diamond_pts(m * 0.045), Palette.FLOUR_WHITE, Vector3.BACK)
+	k.m.polygon(_flat(Vector3(0.0, 0.0076, 0.0)), _diamond_pts(m * 0.2), motif, Vector3.BACK)
+	k.m.polygon(_flat(Vector3(0.0, 0.0084, 0.0)), _diamond_pts(m * 0.12), base.lightened(0.08), Vector3.BACK)
+	k.m.polygon(_flat(Vector3(0.0, 0.0092, 0.0)), _diamond_pts(m * 0.045), mid_col, Vector3.BACK)
 	var ix: float = sx * 0.5 - band - 0.05
 	var iz: float = sz * 0.5 - band - 0.05
 	for cx: float in [-1.0, 1.0]:
 		for cz: float in [-1.0, 1.0]:
 			var tri := PackedVector2Array([Vector2(0.0, 0.0), Vector2(-cx * 0.09, 0.0), Vector2(0.0, cz * 0.09)])
-			k.m.polygon(_flat(Vector3(cx * ix, 0.0076, cz * iz)), tri, Palette.CUSTARD, Vector3.BACK)
+			k.m.polygon(_flat(Vector3(cx * ix, 0.0076, cz * iz)), tri, motif, Vector3.BACK)
 	var n: int = int(sz / 0.05)
 	for side: float in [-1.0, 1.0]:
 		for i in n:
 			var z: float = -sz * 0.5 + (float(i) + 0.5) * sz / float(n)
-			k.m.box(_xf(Vector3(side * (sx * 0.5 + 0.016), 0.0015, z)), Vector3(0.032, 0.003, 0.01), Palette.FLOUR_WHITE)
+			k.m.box(_xf(Vector3(side * (sx * 0.5 + 0.016), 0.0015, z)), Vector3(0.032, 0.003, 0.01), mid_col)
 
 
 ## Keset antrean: karet mint berlis hijau dengan tiga panah chevron putih
@@ -1074,3 +1090,61 @@ class Kit:
 		if not s.is_empty():
 			root.add_child(s.commit("Satin", MeshBuilder.SATIN))
 		return root
+
+
+# ===========================================================================
+# KOSMETIK PREMIUM (GDD idle 22.8)
+# ===========================================================================
+
+## Patung roti emas (paket cabang) atau croissant emas (Bakery Pass) di atas
+## alas walnut bertingkat dengan pelat madu di depannya. Lantai, satu ubin.
+static func _statue(k: Kit, croissant: bool) -> void:
+	k.m.cylinder(_xf(Vector3(0.0, 0.05, 0.0)), 0.10, 0.17, 0.18, WALNUT, 20)
+	k.m.cylinder(_xf(Vector3(0.0, 0.16, 0.0)), 0.12, 0.13, 0.14, WALNUT.lightened(0.1), 20)
+	k.m.torus(_xf(Vector3(0.0, 0.10, 0.0)), 0.175, 0.008, WALNUT.lightened(0.2), 20, 4)
+	k.m.cylinder(_xf(Vector3(0.0, 0.225, 0.0)), 0.012, 0.135, 0.135, Palette.CUSTARD, 20)
+	k.s.box(_xf(Vector3(0.0, 0.16, -0.135), Vector3(-6.0, 0.0, 0.0)), Vector3(0.12, 0.05, 0.006), Palette.HONEY)
+	if croissant:
+		# Bidang croissant miring ke arah pembeli seperti hadiah kalender, supaya
+		# bulan sabitnya terbaca dari kamera atas-depan.
+		var base := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-28.0)), Vector3(0.0, 0.29, 0.02))
+		var segs: int = 7
+		var rad: float = 0.10
+		for i in segs:
+			var t: float = float(i) / float(segs - 1) * 2.0 - 1.0
+			var a: float = t * 1.5
+			var r: float = lerpf(0.05, 0.018, pow(absf(t), 1.3))
+			var c := Vector3(sin(a) * rad, 0.0, -cos(a) * rad + 0.04)
+			var col: Color = GOLD if i % 2 == 0 else GOLD.darkened(0.12)
+			k.s.ellipsoid(base * _xf(c, Vector3(0.0, -rad_to_deg(a), 0.0)), Vector3(r * 0.8, r * 0.85, r * 1.05), col, 12, 6)
+	else:
+		# Roti tawar bundar dengan tiga sayatan miring di punggungnya, tertanam di
+		# permukaannya (tinggi elipsoid di x itu).
+		k.s.ellipsoid(_xf(Vector3(0.0, 0.31, 0.0)), Vector3(0.13, 0.075, 0.085), GOLD, 18, 8)
+		for i in 3:
+			var x: float = (float(i) - 1.0) * 0.055
+			var top: float = 0.31 + 0.075 * sqrt(maxf(0.0, 1.0 - pow(x / 0.13, 2.0)))
+			k.s.box(_xf(Vector3(x, top - 0.003, 0.0), Vector3(0.0, 35.0, 0.0)), Vector3(0.008, 0.005, 0.05), GOLD.darkened(0.18))
+	k.s.ellipsoid(_xf(Vector3(-0.04, 0.35, -0.04)), Vector3(0.02, 0.008, 0.012), Palette.BUTTER_YELLOW, 8, 3)
+
+
+## Papan neon roti: papan gelap membulat dan garis roti dari tabung bercahaya
+## berwarna `glow` (bahan cahaya yang sama dengan bola lampu, tanpa shader baru).
+static func _neon_sign(k: Kit, glow: Color) -> void:
+	_rounded_board(k.m, Vector3(0.0, 0.0, -0.012), Vector2(0.40, 0.28), 0.022, 0.05, Palette.DARK_CHOCOLATE)
+	for s: float in [-1.0, 1.0]:
+		k.s.cylinder(_xf(_v(s * 0.15, 0.16, -0.02), Vector3(90.0, 0.0, 0.0)), 0.02, 0.006, 0.006, SILVER, 8)
+	var tube := MeshBuilder.new()
+	# Kubah roti: busur atas, dasar lurus, dan tiga sayatan.
+	tube.torus(_xf(Vector3(0.0, -0.02, -0.03), Vector3(-90.0, 0.0, 0.0)), 0.12, 0.009, glow, 24, 6, PI * 0.5, PI * 1.5)
+	tube.cylinder(_xf(Vector3(0.0, -0.02, -0.03), Vector3(0.0, 0.0, 90.0)), 0.24, 0.009, 0.009, glow, 8)
+	for i in 3:
+		var x: float = (float(i) - 1.0) * 0.06
+		tube.cylinder(_xf(Vector3(x, 0.045, -0.03), Vector3(0.0, 0.0, 25.0)), 0.06, 0.007, 0.007, glow, 8)
+	var mi: MeshInstance3D = tube.commit("Neon")
+	# Material sendiri: material MeshBuilder dipakai bersama semua model, jadi
+	# menyalakannya akan membuat semuanya bercahaya.
+	mi.material_override = ProceduralMeshFactory.material(Color.WHITE)
+	EquipmentFactory._set_glow(mi, glow, 0.7)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	k.root.add_child(mi)

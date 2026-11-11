@@ -29,6 +29,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(_out)
 	PauseManager.lifecycle_enabled = false
 	SaveManager.dir = "user://test_saves_moments"
+	Monetization.use_test_file("moments_probe")
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
 	shell = (load("res://scenes/main.tscn") as PackedScene).instantiate()

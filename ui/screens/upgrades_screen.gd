@@ -5,7 +5,8 @@ extends UISheet
 ## kenaikan KR/s ÷ biaya satu level (IdleEconomyManager.ranked_offers). Setiap
 ## baris punya tombol ×1 / ×10 / Max. Urutan dihitung ulang setelah membeli,
 ## bukan tiap tick, supaya baris tidak meloncat di bawah jari. Promosi
-## (GDD idle 11.2, pengganti Marketing v3.1) ada di atas daftar.
+## (GDD idle 11.2, pengganti Marketing v3.1) ada di bawah daftar (GDD idle
+## §20 no. 84).
 ##
 ## Semua baris berbentuk sama (GDD idle §20 no. 74): kartu dengan ikon, judul,
 ## dan keterangan di atas; di bawahnya pil di kiri (kenaikan KR/s, atau status
@@ -18,7 +19,7 @@ const ICON_PX: float = 44.0
 var _rows: Array[BuyButtons] = []
 ## Promosi: id -> {button, state, pill, skip}.
 var _promos: Dictionary = {}
-## Kopi Pak Lurah lewat iklan (GDD idle 22.3): baris dan tombolnya.
+## Kopi Pak Lurah lewat iklan (GDD idle 22.4): baris dan tombolnya.
 var _coffee: Control = null
 var _coffee_button: Button = null
 
@@ -36,13 +37,15 @@ func build_page(body: VBoxContainer) -> void:
 	_promos.clear()
 	var list: VBoxContainer = scroll_box(body)
 	list.name = "UpgradeList"
+	# Upgrade dulu, promosi di bawahnya (GDD idle §20 no. 84): aksi utama
+	# lembar ini tampil di layar pertama, juga pada teks 150%.
+	section(list, Tx.t("ui_best_value"))
+	for item: Dictionary in sim.idle_economy.ranked_offers():
+		_row(list, item)
 	section(list, Tx.t("ui_promotions"))
 	_coffee_row(list)
 	for id: StringName in BoostManager.promo_ids():
 		_promo_row(list, id)
-	section(list, Tx.t("ui_best_value"))
-	for item: Dictionary in sim.idle_economy.ranked_offers():
-		_row(list, item)
 	_tick_promos()
 
 
@@ -109,7 +112,7 @@ func _promo_row(parent: Control, id: StringName) -> void:
 	state.name = "State"
 	bottom.add_child(pill)
 	_push_right(bottom)
-	# Jeda promosi bisa diselesaikan dengan iklan (GDD idle 22.3).
+	# Jeda promosi bisa diselesaikan dengan iklan (GDD idle 22.4).
 	var skip: Button = AdButton.make(&"promo_skip", Tx.t("ui_promo_skip"), "soft", 18, 15)
 	skip.name = "Skip"
 	skip.custom_minimum_size.y = BuyButtons.HEIGHT

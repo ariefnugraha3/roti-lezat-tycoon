@@ -217,9 +217,9 @@ func _welcome() -> void:
 		"the body says the real time away and the amount")
 	check(body != null and body.text.contains("2 h 15 min"), "the time away reads '2 h 15 min'")
 	check(pop.find_child("Lurah", true, false) is LurahPortrait, "Pak Lurah greets the player")
-	check(pop.find_child("Capped", true, false) != null, "a note explains the 2 h cap")
-	var info: Label = pop.find_child("CapInfo", true, false) as Label
-	check(info != null and info.text == Tx.t("ui_offline_cap", {"hours": "2", "percent": 50}), "the cap and efficiency are shown")
+	var capped: Label = pop.find_child("Capped", true, false) as Label
+	check(capped != null and capped.text == Tx.t("ui_welcome_back_capped", {"hours": "2", "percent": 50}), "one note explains the 2 h cap and the efficiency")
+	check(pop.find_child("CapInfo", true, false) == null, "the cap is not explained twice")
 	var collect: Button = pop.find_child("Collect", true, false) as Button
 	check(collect != null and collect.size.y >= 48.0, "Collect is a full-size button")
 	near(sim.economy.balance, bal0, 0.001, "nothing is credited before Collect")

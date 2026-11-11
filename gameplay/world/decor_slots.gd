@@ -118,7 +118,7 @@ static func wall_spots(loc: LocationDefinition) -> Array[Dictionary]:
 		var found: Array[Dictionary] = []
 		# Dinding belakang (z = d), sepanjang X.
 		var back_blocks: Array[Vector2] = []
-		for x: float in RoomFactory.back_window_xs(w):
+		for x: float in RoomFactory.back_window_xs(w, RoomFactory.portal_back_x(f)):
 			back_blocks.append(Vector2(x - WINDOW_CLEAR, x + WINDOW_CLEAR))
 		if f.has_portal() and Vector2i(f.portal["cell"]).y == f.size.y - 1:
 			var px: float = float(Vector2i(f.portal["cell"]).x) * t

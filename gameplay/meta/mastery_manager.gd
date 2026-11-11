@@ -1,8 +1,9 @@
 class_name MasteryManager
 extends SimManager
 ## Mastery resep (GDD idle 23.3): roti terjual sepanjang masa per resep (semua
-## cabang, toko dan RotiFood) menaikkan bintang mastery 1–5 pada
-## `mastery.thresholds`; setiap bintang menambah harga jual resep itu sebesar
+## cabang, toko dan RotiFood) menaikkan bintang mastery pada `mastery.thresholds`,
+## lalu tanpa ujung: setiap bintang sesudahnya butuh `mastery.endless_factor`
+## kali roti ambang sebelumnya (§20 no. 90); setiap bintang menambah harga jual resep itu sebesar
 ## `mastery.price_bonus_per_level`. Tidak direset Waralaba, jadi menjadi tujuan
 ## jangka panjang dan alasan menjual resep lain. Harga mastery bagian dari harga
 ## biasa (SimulationRoot.plain_price), sehingga ikut model KR/s dan offline.
@@ -47,26 +48,43 @@ func level(recipe_id: StringName) -> int:
 
 
 static func level_for(n: int) -> int:
+	var th: Array = DataRegistry.idle("mastery.thresholds")
 	var lv: int = 0
-	for t: Variant in DataRegistry.idle("mastery.thresholds"):
+	for t: Variant in th:
 		if n >= int(t):
 			lv += 1
+	if lv < th.size() or th.is_empty():
+		return lv
+	# Tanpa ujung (§20 no. 90): ambang berikutnya = ambang terakhir × faktor^k.
+	var f: float = DataRegistry.idlef("mastery.endless_factor")
+	var t2: float = float(th[th.size() - 1]) * f
+	while float(n) >= t2 and lv < 200:
+		lv += 1
+		t2 *= f
 	return lv
 
 
+## Jumlah bintang di katalog (sesudahnya mastery berlanjut tanpa ujung).
 static func max_level() -> int:
 	return (DataRegistry.idle("mastery.thresholds") as Array).size()
+
+
+## Roti terjual yang dibutuhkan untuk bintang ke-(`lv` + 1).
+static func threshold_for(lv: int) -> int:
+	var th: Array = DataRegistry.idle("mastery.thresholds")
+	if lv < th.size():
+		return int(th[lv])
+	var f: float = DataRegistry.idlef("mastery.endless_factor")
+	return int(float(th[th.size() - 1]) * pow(f, float(lv - th.size() + 1)))
 
 
 static func price_bonus() -> float:
 	return DataRegistry.idlef("mastery.price_bonus_per_level")
 
 
-## Roti terjual yang dibutuhkan untuk bintang berikutnya, atau -1 bila sudah penuh.
+## Roti terjual yang dibutuhkan untuk bintang berikutnya (tanpa ujung).
 func next_threshold(recipe_id: StringName) -> int:
-	var lv: int = level(recipe_id)
-	var th: Array = DataRegistry.idle("mastery.thresholds")
-	return int(th[lv]) if lv < th.size() else -1
+	return threshold_for(level(recipe_id))
 
 
 ## Pengali harga dari mastery: 1 + bonus × bintang.

@@ -8,6 +8,9 @@ extends SimManager
 var instances: Dictionary = {}
 var next_iid: int = 1
 var _list_cache: Dictionary = {}
+## Naik setiap kali daftar perabot dibuang (`invalidate_lists`): kunci cache
+## rencana petak Auto (GDD idle §20 no. 83).
+var list_version: int = 0
 
 
 func new_game() -> void:
@@ -41,6 +44,7 @@ func get_inst(iid: int) -> EquipmentInstance:
 ## ulang semua daftar (GDD 109).
 func invalidate_lists() -> void:
 	_list_cache.clear()
+	list_version += 1
 
 
 func _cached(key: String) -> Variant:

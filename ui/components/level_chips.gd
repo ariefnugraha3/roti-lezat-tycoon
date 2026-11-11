@@ -46,6 +46,20 @@ var blockers: Callable = Callable()
 ## rect (kotak pil di layar), tip (puncak stasiun di layar)}
 var _chips: Dictionary = {}
 var _t: float = 0.0
+## Tanda tata letak frame lalu (posisi puncak, ukuran pil, penghalang HUD,
+## ukuran layar): sama = tata letak dan garis tidak dihitung ulang (GDD idle
+## §20 no. 87).
+var _last_sig: PackedFloat32Array = PackedFloat32Array()
+## Hambatan terlihat (GDD idle §20 no. 88): pembeli terakhir yang ditolak karena
+## antrean penuh (statistik dan waktu nyata), dan giliran chip yang dinilai
+## kenaikan KR/s-nya (satu chip per refresh, supaya tidak ada lonjakan kerja).
+var _missed_seen: float = -1.0
+var _missed_at_msec: int = -1000000
+var _gain_turn: int = 0
+## Pembeli yang ditolak dalam sekian detik nyata terakhir menyalakan "Queue full".
+const QUEUE_FULL_SECONDS: float = 10.0
+## Kenaikan KR/s di bawah bagian ini dari KR/s sekarang dianggap nol: panah abu-abu.
+const NO_GAIN_RATIO: float = 0.001
 
 
 func _init() -> void:
@@ -81,13 +95,64 @@ func refresh() -> void:
 		if not want.has(k):
 			((_chips[k] as Dictionary)["button"] as Node).queue_free()
 			_chips.erase(k)
+			_last_sig = PackedFloat32Array()
 	for k2: Variant in want.keys():
 		if not _chips.has(k2):
 			_chips[k2] = _make(want[k2][0], want[k2][1])
+			_last_sig = PackedFloat32Array()
 		var c: Dictionary = _chips[k2]
 		var o: Dictionary = sim.upgrades.offer(c["kind"], c["id"])
 		(c["label"] as Label).text = Tx.t("ui_level_chip", {"level": int(o.get("level", 1))})
 		(c["arrow"] as Control).visible = not o.is_empty() and sim.upgrades.offer_count(o, &"x1") > 0
+	_refresh_queue_full()
+	_refresh_gain_turn()
+
+
+## "Queue full" di chip meja kasir selama ada pembeli yang baru saja ditolak
+## karena antrean penuh (GDD idle §20 no. 88): kasir adalah hambatannya.
+func _refresh_queue_full() -> void:
+	var missed: float = sim.statistics.get_stat("total_customers_missed")
+	if _missed_seen >= 0.0 and missed > _missed_seen:
+		_missed_at_msec = Time.get_ticks_msec()
+	_missed_seen = missed
+	var full: bool = float(Time.get_ticks_msec() - _missed_at_msec) / 1000.0 <= QUEUE_FULL_SECONDS
+	var c: Variant = _chips.get("counter")
+	if c is Dictionary and (c as Dictionary).has("full"):
+		var tag: Control = (c as Dictionary)["full"]
+		if tag.visible != full:
+			tag.visible = full
+			_last_sig = PackedFloat32Array()
+
+
+## Satu chip per refresh: panah hijau bila satu level menaikkan KR/s, abu-abu bila
+## tidak (stasiun itu bukan hambatannya sekarang; GDD idle §20 no. 88).
+func _refresh_gain_turn() -> void:
+	if _chips.is_empty():
+		return
+	var keys: Array = _chips.keys()
+	_gain_turn = (_gain_turn + 1) % keys.size()
+	var c: Dictionary = _chips[keys[_gain_turn]]
+	var arrow: IconCanvas = c["arrow"]
+	if not arrow.visible:
+		return
+	var o: Dictionary = sim.upgrades.offer(c["kind"], c["id"])
+	var gain: float = sim.idle_economy.delta_rate(o, 1)
+	var rate: float = sim.idle_economy.rate(false)
+	var useful: bool = gain > maxf(rate, 0.000001) * NO_GAIN_RATIO
+	c["useful"] = useful
+	arrow.configure("up", ARROW_PX, Palette.MATCHA if useful else Palette.TEXT_MUTED)
+
+
+## Panah chip `key` sedang hijau (naik level menaikkan KR/s) atau abu-abu (tes).
+func arrow_useful(key: String) -> bool:
+	var c: Variant = _chips.get(key)
+	return c is Dictionary and bool((c as Dictionary).get("useful", true))
+
+
+## Tanda "Queue full" chip meja kasir tampil (tes).
+func queue_full_shown() -> bool:
+	var c: Variant = _chips.get("counter")
+	return c is Dictionary and (c as Dictionary).has("full") and ((c as Dictionary)["full"] as Control).visible
 
 
 func _make(kind: StringName, id: Variant) -> Dictionary:
@@ -126,8 +191,16 @@ func _make(kind: StringName, id: Variant) -> Dictionary:
 	var i: Variant = id
 	b.pressed.connect(func() -> void: open_card(k, i))
 	add_child(b)
-	return {"button": b, "label": l, "arrow": arrow, "kind": kind, "id": id, "pill": pill, "key": String(b.name),
+	var out: Dictionary = {"button": b, "label": l, "arrow": arrow, "kind": kind, "id": id, "pill": pill, "key": String(b.name),
 		"rect": Rect2(), "tip": Vector2.ZERO}
+	if kind == &"counter":
+		var full: Label = ProceduralUIFactory.label(Tx.t("ui_chip_queue_full"), 15, Palette.DANGER)
+		full.name = "QueueFull"
+		full.add_theme_font_override("font", ProceduralUIFactory.display_font())
+		full.visible = false
+		row.add_child(full)
+		out["full"] = full
+	return out
 
 
 ## Buka kartu upgrade stasiun itu. Kartu yang sudah terbuka untuk stasiun yang
@@ -150,6 +223,7 @@ func _process(delta: float) -> void:
 	var view: Vector2 = get_viewport_rect().size
 	var pulse: float = 1.0 if SettingsManager.reduced_motion() else 1.0 + 0.12 * sin(_t * TAU * 1.2)
 	var shown: Array[Dictionary] = []
+	var sig := PackedFloat32Array([view.x, view.y])
 	for k: Variant in _chips.keys():
 		var c: Dictionary = _chips[k]
 		var b: Button = c["button"]
@@ -160,10 +234,18 @@ func _process(delta: float) -> void:
 			continue
 		c["tip"] = s
 		shown.append(c)
+		var sz: Vector2 = (c["pill"] as Control).get_combined_minimum_size()
+		sig.append_array(PackedFloat32Array([s.x, s.y, sz.x, sz.y]))
 		var arrow: Control = c["arrow"]
 		if arrow.visible:
 			arrow.pivot_offset = arrow.size * 0.5
 			arrow.scale = Vector2(pulse, pulse)
+	if blockers.is_valid():
+		for r: Rect2 in blockers.call():
+			sig.append_array(PackedFloat32Array([r.position.x, r.position.y, r.size.x, r.size.y]))
+	if sig == _last_sig:
+		return
+	_last_sig = sig
 	_layout(shown, view)
 	queue_redraw()
 

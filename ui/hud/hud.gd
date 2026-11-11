@@ -24,6 +24,8 @@ const TABS: Array = [
 ## Tinggi bar tab bawah dan ruang bar atas (logis), dipakai kamera untuk
 ## menaruh lantai di antara keduanya (GDD idle 12.0.4).
 const TAB_BAR_H: float = 104.0
+## Sisi ikon tab bawah (TabIcon) dalam px logis.
+const TAB_ICON: float = 46.0
 const TOP_BAR_H: float = 120.0
 
 var game: GameRoot = null
@@ -32,6 +34,12 @@ var decoration_active: bool = false
 
 var _root: Control = null
 var _cash_chip: PanelContainer = null
+## KR/s terakhir yang tampil, untuk angka "+X/s" saat naik level.
+var _rate_shown: float = 0.0
+## KR yang sedang tampil di pil KR dan tujuan hitung-naiknya (GDD idle §20 no. 85).
+var _kr_shown: float = 0.0
+var _kr_target: float = 0.0
+var _kr_tween: Tween = null
 var _kr: Label = null
 var _rate: Label = null
 var _stars_chip: PanelContainer = null
@@ -56,6 +64,19 @@ var _promo_boost: PanelContainer = null
 ## Hadiah Roti Emas yang berjalan (GDD idle 21.9): Golden hour dan Rush hour.
 var _frenzy_boost: PanelContainer = null
 var _rush_boost: PanelContainer = null
+## Boost ×2 dari iklan atau Golden Crumbs (GDD idle 22.4); ketuk = tab Boosts.
+var _ad_boost: PanelContainer = null
+## Tombol Store dan saldo Golden Crumbs (GDD idle 22.3, 22.5).
+var _store: Button = null
+var _crumbs_chip: PanelContainer = null
+var _crumbs: Label = null
+## Titik layar tombol beli terakhir (asal crumbs yang terbang); x < 0 = tidak ada.
+var purchase_origin: Vector2 = Vector2(-1.0, -1.0)
+var _fx_root: Control = null
+## Angka crumbs sedang dihitung naik oleh animasi (refresh tidak menimpanya).
+var _crumbs_anim: bool = false
+## Acak kosmetik efek (bukan RNG simulasi).
+var _fx_rng := RandomNumberGenerator.new()
 var golden: GoldenBread = null
 ## Kartu "Special order!" pelanggan langganan di atas bar tab (GDD idle 21.10) dan
 ## hati yang melayang di atas kepalanya.
@@ -79,6 +100,22 @@ var _refresh: float = 0.0
 var _recent_notices: Dictionary = {}
 ## Chip level di atas stasiun (GDD idle 12.1).
 var level_chips: LevelChips = null
+## Lapisan kanvas chip level: di atas dunia dan hujan (2), di bawah balon dialog
+## pemilik, staf, dan pembeli (WorldView.THOUGHT_LAYER), transisi lantai (5), dan
+## HUD (10) (GDD idle §20 no. 79).
+const CHIP_LAYER: int = 3
+const TOAST_LAYER: int = 22
+## Efek perayaan Store (crumbs terbang, GDD idle 22.11): di atas lembar dan toast.
+const FX_LAYER: int = 23
+var _chip_layer: CanvasLayer = null
+## Toast di lapisannya sendiri (TOAST_LAYER), di atas lembar dan popup (20),
+## supaya lembar yang terbuka tidak memotongnya (GDD idle §20 no. 84).
+var _toast_layer: CanvasLayer = null
+## Tepi atas tumpukan toast di bawah kolom KR (mode atas).
+var _toast_top: float = 0.0
+## Toast di bawah, di atas bar tab, selama lembar bawah terbuka, supaya tidak
+## menutupi judul dan tombol tutup lembar (GDD idle §20 no. 84).
+var _toasts_low: bool = false
 ## Kolom kiri, kanan, dan tengah atas: isinya penghalang chip level.
 var _corner_cols: Array[Control] = []
 
@@ -104,12 +141,22 @@ func _ready() -> void:
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(frame)
-	# Chip level lebih dulu: bar atas dan bar tab tergambar di atasnya.
+	# Chip level di lapisannya sendiri (CHIP_LAYER), di bawah balon dialog dan
+	# di bawah HUD: bar atas, bar tab, dan balon tergambar di atasnya.
+	_chip_layer = CanvasLayer.new()
+	_chip_layer.name = "ChipLayer"
+	_chip_layer.layer = CHIP_LAYER
+	add_child(_chip_layer)
+	var chip_root := Control.new()
+	chip_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	chip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ProceduralUIFactory.apply_theme(chip_root)
+	_chip_layer.add_child(chip_root)
 	level_chips = LevelChips.new()
 	level_chips.game = game
 	level_chips.sim = sim
-	_root.add_child(level_chips)
-	_root.move_child(level_chips, 0)
+	chip_root.add_child(level_chips)
+	visibility_changed.connect(_sync_chip_layer)
 	_build_top_left(frame)
 	_build_top_right(frame)
 	_build_top_center(frame)
@@ -122,6 +169,15 @@ func _ready() -> void:
 	_build_hint(frame)
 	_build_regular(frame)
 	_build_toasts(frame)
+	var fx_layer := CanvasLayer.new()
+	fx_layer.name = "FxLayer"
+	fx_layer.layer = FX_LAYER
+	add_child(fx_layer)
+	_fx_root = Control.new()
+	_fx_root.name = "Fx"
+	_fx_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fx_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx_layer.add_child(_fx_root)
 	_caption = ProceduralUIFactory.label("", 16, Palette.TEXT)
 	_caption.name = "Caption"
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -142,6 +198,7 @@ func _ready() -> void:
 	EventBus.feedback.connect(_on_feedback)
 	EventBus.coin_popup.connect(_on_coin)
 	EventBus.tap_boost.connect(_on_tap_boost)
+	EventBus.level_up.connect(_on_level_up)
 	AudioManager.caption_requested.connect(_on_caption)
 	_refresh_all()
 
@@ -190,6 +247,15 @@ func _build_top_left(frame: Control) -> void:
 	_rate.name = "Rate"
 	_rate.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	kv.add_child(_rate)
+	# Golden Crumbs di bawah KR (GDD idle 22.3): kedua mata uang berdampingan, dan
+	# toast yang turun di bawah kolom ini tidak pernah menutupinya. Ketuk = Store.
+	_crumbs_chip = _boost_chip("crumb", Palette.GOLD_STAR, Color(Palette.UI_CREAM, 0.97))
+	_crumbs_chip.name = "GoldenCrumbs"
+	_crumbs_chip.tooltip_text = Tx.t("ui_crumbs_name")
+	_crumbs_chip.custom_minimum_size.y = 44
+	_crumbs = _crumbs_chip.get_meta("value")
+	_tappable(_crumbs_chip, func() -> void: open_store(StoreScreen.TAB_CRUMBS))
+	v.add_child(_crumbs_chip)
 	# Boost aktif dengan sisa waktu (GDD idle 12.1): dibuat sekali, hanya teksnya
 	# yang diperbarui. Satu pil per baris, selebar pil KR (keputusan maintainer
 	# 2026-11-06): pil berdampingan membuat kolom lebih lebar dari pil KR dan
@@ -217,6 +283,12 @@ func _build_top_left(frame: Control) -> void:
 	_rush_boost.name = "RushBoost"
 	_rush_boost.visible = false
 	_boosts.add_child(_rush_boost)
+	_ad_boost = _boost_chip("bolt", Palette.APRON_NAVY, Palette.PASTEL_PERIWINKLE.lightened(0.45))
+	_ad_boost.name = "AdBoost"
+	_ad_boost.tooltip_text = Tx.t("ui_store_boost_title", {"mult": Tx.mult(DataRegistry.idlef("premium.ad_boost.mult"))})
+	_ad_boost.visible = false
+	_tappable(_ad_boost, func() -> void: open_store(StoreScreen.TAB_BOOSTS))
+	_boosts.add_child(_ad_boost)
 
 
 ## Pil boost aktif: muka berwarna lembut, ikon dan sisa waktu tebal. Pil
@@ -247,6 +319,11 @@ func _build_top_right(frame: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
+	_store = _round_button("gift", Tx.t("ui_store_title"))
+	_store.name = "Store"
+	_store.pressed.connect(func() -> void: open_store(-1))
+	_store.add_child(_dot())
+	row.add_child(_store)
 	var pause: Button = _round_button("pause", Tx.t("ui_pause_title"))
 	pause.name = "Pause"
 	pause.pressed.connect(func() -> void: game.modals.open(&"pause"))
@@ -262,6 +339,36 @@ func _build_top_right(frame: Control) -> void:
 	_stars_chip.tooltip_text = Tx.t("ui_franchise_stars")
 	_stars = _stars_chip.get_meta("value")
 	v.add_child(_stars_chip)
+
+
+## Chip yang bisa diketuk (dilepas di atasnya = `cb`), seperti tombol.
+func _tappable(c: Control, cb: Callable) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	c.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed:
+			EventBus.sfx.emit(&"ui_tap_soft", &"")
+			cb.call())
+
+
+## Buka lembar Store di tab `tab` (-1 = tab Offers, atau Pass bila ada hadiah
+## yang bisa diambil).
+func open_store(tab: int) -> void:
+	if game == null or game.modals == null:
+		return
+	var t: int = tab
+	if t < 0:
+		t = StoreScreen.TAB_PASS if sim != null and sim.premium.claimable_count() > 0 and Monetization.live_offers().is_empty() else StoreScreen.TAB_OFFERS
+	var open: StoreScreen = game.modals.screen(&"store") as StoreScreen
+	if open != null:
+		open.show_tab(t)
+		return
+	game.modals.open(&"store", {"tab": t})
+
+
+## Tombol Store (tes).
+func store_button() -> Button:
+	return _store
 
 
 ## Tombol bundar krem tanpa garis tepi, senada chip KR di seberangnya.
@@ -469,8 +576,13 @@ func _tab_button(icon_name: String, key: String, id: StringName) -> Button:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 2)
 	b.add_child(v)
-	var ic: IconCanvas = ProceduralUIFactory.icon(icon_name, 34, Palette.UI_WOOD)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Ilustrasi berwarna di piring pastel (Seksi 20 no. 104); `icon_name` adalah
+	# ikon satu warna padanannya untuk tempat lain.
+	var ic := TabIcon.new()
+	ic.name = "TabIcon"
+	ic.kind = id
+	ic.icon_size = TAB_ICON
+	ic.set_meta("mono_icon", icon_name)
 	v.add_child(ic)
 	var l: Label = ProceduralUIFactory.label(Tx.t(key), 14, Palette.UI_WOOD)
 	l.name = "Caption"
@@ -518,7 +630,7 @@ func _sync_active_tab() -> void:
 		var on: bool = StringName(str(id2)) == want
 		ProceduralUIFactory.apply_kind(b, "primary" if on else "tab")
 		var ink: Color = Palette.FLOUR_WHITE if on else Palette.UI_WOOD
-		(b.get_meta("icon") as IconCanvas).icon_color = ink
+		(b.get_meta("icon") as TabIcon).active = on
 		(b.get_meta("caption") as Label).add_theme_color_override("font_color", ink)
 
 
@@ -646,18 +758,56 @@ func _build_hint(frame: Control) -> void:
 
 
 func _build_toasts(frame: Control) -> void:
+	_toast_layer = CanvasLayer.new()
+	_toast_layer.name = "ToastLayer"
+	_toast_layer.layer = TOAST_LAYER
+	add_child(_toast_layer)
+	var inset: Vector4 = ProceduralUIFactory.safe_area_margin()
+	var toast_root := MarginContainer.new()
+	toast_root.name = "ToastFrame"
+	toast_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	toast_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast_root.add_theme_constant_override("margin_left", int(inset.x) + 12)
+	toast_root.add_theme_constant_override("margin_top", int(inset.y) + 10)
+	toast_root.add_theme_constant_override("margin_right", int(inset.z) + 12)
+	toast_root.add_theme_constant_override("margin_bottom", int(inset.w) + 8)
+	ProceduralUIFactory.apply_theme(toast_root)
+	_toast_layer.add_child(toast_root)
+	var toast_frame := Control.new()
+	toast_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast_root.add_child(toast_frame)
 	_toasts = VBoxContainer.new()
 	_toasts.name = "Toasts"
 	_toasts.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toasts.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast_top = TOP_BAR_H
 	_toasts.offset_top = TOP_BAR_H
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toasts.add_theme_constant_override("separation", 6)
-	frame.add_child(_toasts)
+	toast_frame.add_child(_toasts)
 	# Selalu di bawah kolom KR dan boost, yang ikut meninggi pada skala teks 150%.
 	var top_left: Control = frame.get_node("TopLeft")
 	top_left.minimum_size_changed.connect(func() -> void:
-		_toasts.offset_top = maxf(TOP_BAR_H, top_left.get_combined_minimum_size().y + 12.0))
+		_toast_top = maxf(TOP_BAR_H, top_left.get_combined_minimum_size().y + 12.0)
+		_place_toasts(_toasts_low, true))
+
+
+## Tumpukan toast di atas (di bawah kolom KR, tumbuh ke bawah) atau, selama
+## lembar bawah terbuka, di bawah (di atas bar tab, tumbuh ke atas).
+func _place_toasts(low: bool, force: bool = false) -> void:
+	if _toasts == null or (low == _toasts_low and not force):
+		return
+	_toasts_low = low
+	if low:
+		_toasts.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_toasts.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_toasts.offset_top = -(TAB_BAR_H + 12.0)
+		_toasts.offset_bottom = -(TAB_BAR_H + 12.0)
+	else:
+		_toasts.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_toasts.grow_vertical = Control.GROW_DIRECTION_END
+		_toasts.offset_top = _toast_top
+		_toasts.offset_bottom = _toast_top
 
 
 # ===========================================================================
@@ -679,12 +829,19 @@ func _process(delta: float) -> void:
 
 
 func _refresh_all() -> void:
-	_root.visible = not decoration_active
-	_kr.text = Tx.money(sim.economy.balance)
+	if _root.visible == decoration_active:
+		_root.visible = not decoration_active
+		_sync_chip_layer()
+	_place_toasts(game != null and game.modals != null and game.modals.has_sheet())
+	_set_kr(sim.economy.balance)
 	var rate: float = sim.income_rate()
 	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
+	_rate_shown = rate
 	_stars_chip.visible = sim.prestige.stars > 0
 	_stars.text = Tx.big(float(sim.prestige.stars))
+	if not _crumbs_anim:
+		_crumbs.text = Tx.big(float(sim.premium.crumbs))
+	(_store.get_node("Dot") as Control).visible = sim.premium.claimable_count() > 0 or not Monetization.live_offers().is_empty()
 	_refresh_boosts()
 	_refresh_craving()
 	_refresh_event()
@@ -707,6 +864,10 @@ func _refresh_boosts() -> void:
 	_frenzy_boost.visible = b.frenzy_left > 0.0
 	if _frenzy_boost.visible:
 		(_frenzy_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.frenzy_mult), "time": Tx.timer(b.frenzy_left)})
+	var pr: PremiumManager = sim.premium
+	_ad_boost.visible = pr.ad_boost_left > 0.0
+	if _ad_boost.visible:
+		(_ad_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(pr.ad_boost_mult()), "time": Tx.timer(pr.ad_boost_left)})
 	_rush_boost.visible = b.rush_left > 0.0
 	if _rush_boost.visible:
 		(_rush_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.rush_mult), "time": Tx.timer(b.rush_left)})
@@ -887,6 +1048,83 @@ func _on_feedback(kind: StringName, cell: Vector2i, floor_id: StringName) -> voi
 	tw.tween_callback(pc.queue_free)
 
 
+# ===========================================================================
+# UMPAN BALIK NAIK LEVEL DAN HITUNG-NAIK KR (GDD idle 1.2 pilar 2, §20 no. 85)
+# ===========================================================================
+
+## Lompatan KR yang dihitung naik: lebih besar dari bagian ini dari saldo yang
+## tampil dan dari COUNT_UP_MIN_KR (hadiah, Collect, Roti Emas); penjualan biasa
+## langsung tampil.
+const COUNT_UP_RATIO: float = 0.05
+const COUNT_UP_MIN_KR: float = 1.0
+const COUNT_UP_SECONDS: float = 0.6
+## Kenaikan KR/s yang dirayakan lebih besar (×10, Max, milestone).
+const BIG_GAIN_RATIO: float = 0.1
+
+
+func _set_kr(bal: float) -> void:
+	var counting: bool = _kr_tween != null and _kr_tween.is_valid() and _kr_tween.is_running()
+	if counting and bal >= _kr_target:
+		# Biarkan hitungan selesai; refresh berikutnya menyusul ke saldo sekarang.
+		return
+	if counting:
+		_kr_tween.kill()
+	var jump: float = bal - _kr_shown
+	if _kr_shown > 0.0 and jump > maxf(COUNT_UP_MIN_KR, _kr_shown * COUNT_UP_RATIO) and not SettingsManager.reduced_motion():
+		_kr_target = bal
+		_kr_tween = create_tween()
+		_kr_tween.tween_method(_show_kr, _kr_shown, bal, COUNT_UP_SECONDS).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		return
+	_show_kr(bal)
+
+
+func _show_kr(v: float) -> void:
+	_kr_shown = v
+	_kr.text = Tx.money(v)
+
+
+## Saldo yang sedang tampil di pil KR (tes).
+func shown_kr() -> float:
+	return _kr_shown
+
+
+## Naik level apa pun: KR/s baru dihitung saat itu juga; kenaikannya melayang
+## naik dari KR/s ("+0.36/s") dan pil KR memantul, lebih besar untuk lompatan
+## ≥ BIG_GAIN_RATIO atau milestone. Reduced Motion: angkanya memudar di tempat.
+func _on_level_up(_kind: StringName, _id: Variant, _level: int, milestone: bool) -> void:
+	if sim == null or _rate == null:
+		return
+	var before: float = _rate_shown
+	var after: float = sim.income_rate()
+	if before <= 0.0 or after <= before + 0.000001:
+		return
+	_rate_shown = after
+	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(after)})
+	var big: bool = milestone or (after - before) / before >= BIG_GAIN_RATIO
+	_gain_float(after - before, big)
+	if not SettingsManager.reduced_motion():
+		ProceduralAnimationSystem.squash_pop(_cash_chip, 1.12 if big else 1.06, 0.3 if big else 0.22)
+
+
+func _gain_float(gain: float, big: bool) -> void:
+	if _toast_layer == null or not _rate.is_visible_in_tree():
+		return
+	var l: Label = ProceduralUIFactory.label(Tx.t("ui_upgrade_gain", {"amount": Tx.rate(gain)}), 20 if big else 16, Palette.MATCHA_DEEP)
+	l.name = "GainFloat"
+	l.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast_layer.add_child(l)
+	var r: Rect2 = _rate.get_global_rect()
+	l.position = Vector2(r.end.x + 8.0, r.position.y - 2.0)
+	var tw: Tween = l.create_tween()
+	if not SettingsManager.reduced_motion():
+		tw.tween_property(l, "position:y", l.position.y - (40.0 if big else 28.0), 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(l, "modulate:a", 0.0, 0.45).set_delay(0.45)
+	else:
+		tw.tween_property(l, "modulate:a", 0.0, 0.45).set_delay(0.6)
+	tw.tween_callback(l.queue_free)
+
+
 func _on_coin(amount: float, cell: Vector2i, floor_id: StringName) -> void:
 	if game.world == null or floor_id != game.world.camera_rig.active_floor:
 		return
@@ -905,6 +1143,105 @@ func _on_tap_boost(iid: int, cell: Vector2i, floor_id: StringName) -> void:
 
 
 ## Hujan koin setelah Collect di popup Selamat Datang (GDD idle 9.5).
+## Golden Crumbs yang baru didapat terbang dari `from` (titik layar; x < 0 =
+## tombol beli terakhir, atau tengah layar) ke chip crumbs dalam lengkung acak,
+## lalu chip memantul dan angkanya dihitung naik (GDD idle 22.11). Reduce
+## motion: hanya angkanya yang berganti.
+func fly_crumbs(from: Vector2, amount: int) -> void:
+	if sim == null or _crumbs_chip == null or _fx_root == null or amount <= 0:
+		return
+	var src: Vector2 = from
+	if src.x < 0.0:
+		src = purchase_origin if purchase_origin.x >= 0.0 else _fx_root.get_global_rect().get_center()
+	purchase_origin = Vector2(-1.0, -1.0)
+	var target: Vector2 = _crumbs_chip.get_global_rect().get_center()
+	var end_v: float = float(sim.premium.crumbs)
+	var start_v: float = maxf(0.0, end_v - float(amount))
+	if SettingsManager.reduced_motion():
+		_crumbs.text = Tx.big(end_v)
+		return
+	_crumbs_anim = true
+	_crumbs.text = Tx.big(start_v)
+	var n: int = clampi(3 + amount / 30, 4, 12)
+	var fly_t: float = 0.62
+	var half := Vector2(17.0, 17.0)
+	for i in n:
+		var ic: IconCanvas = ProceduralUIFactory.icon("crumb", 34, Palette.GOLD_STAR)
+		ic.name = "FlyingCrumb"
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fx_root.add_child(ic, true)
+		ic.size = half * 2.0
+		ic.pivot_offset = half
+		var p0: Vector2 = src - half + Vector2(_fx_rng.randf_range(-46.0, 46.0), _fx_rng.randf_range(-28.0, 28.0))
+		var p2: Vector2 = target - half
+		var p1: Vector2 = (p0 + p2) * 0.5 + Vector2(_fx_rng.randf_range(-160.0, 160.0), _fx_rng.randf_range(-220.0, -90.0))
+		ic.global_position = p0
+		ic.scale = Vector2.ZERO
+		var tw := ic.create_tween()
+		tw.tween_interval(float(i) * 0.045)
+		tw.tween_property(ic, "scale", Vector2(1.25, 1.25), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_method(_bezier_to.bind(ic, p0, p1, p2), 0.0, 1.0, fly_t).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(ic, "scale", Vector2(0.55, 0.55), fly_t)
+		tw.parallel().tween_property(ic, "rotation", _fx_rng.randf_range(-3.5, 3.5), fly_t)
+		tw.tween_callback(ic.queue_free)
+	var first: float = 0.14 + fly_t
+	var count_t: float = maxf(0.3, float(n - 1) * 0.045 + 0.1)
+	var tw2 := _crumbs_chip.create_tween()
+	tw2.tween_interval(first)
+	tw2.tween_callback(func() -> void: EventBus.sfx.emit(&"coin_shower", &""))
+	tw2.tween_method(func(v: float) -> void: _crumbs.text = Tx.big(roundf(v)), start_v, end_v, count_t)
+	tw2.tween_callback(func() -> void: _crumbs_anim = false)
+	_pulse(_crumbs_chip, first)
+	StoreFX.sparkle_burst(_fx_root, target, 12, 70.0, Palette.GOLD_STAR)
+
+
+func _bezier_to(t: float, ic: Control, p0: Vector2, p1: Vector2, p2: Vector2) -> void:
+	if is_instance_valid(ic):
+		var u: float = 1.0 - t
+		ic.global_position = p0 * u * u + p1 * 2.0 * u * t + p2 * t * t
+
+
+## Chip boost ×2 muncul dengan pantulan dan kilau (boost baru, GDD idle 22.11).
+func pulse_boost() -> void:
+	if sim == null or _ad_boost == null:
+		return
+	_refresh_boosts()
+	if SettingsManager.reduced_motion():
+		return
+	_pulse(_ad_boost, 0.0)
+	EventBus.sfx.emit(&"level_up", &"")
+	if _fx_root != null:
+		StoreFX.sparkle_burst(_fx_root, _ad_boost.get_global_rect().get_center(), 16, 90.0, Palette.PASTEL_PERIWINKLE)
+
+
+## Pantulan squash & stretch sebuah chip HUD sesudah `delay` detik.
+func _pulse(c: Control, delay: float) -> void:
+	if c == null or SettingsManager.reduced_motion():
+		return
+	c.pivot_offset = c.size * 0.5
+	var tw := c.create_tween()
+	tw.tween_interval(delay)
+	tw.tween_property(c, "scale", Vector2(1.22, 0.86), 0.08).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(c, "scale", Vector2(0.92, 1.1), 0.1).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Lapisan efek (tes).
+func fx_root() -> Control:
+	return _fx_root
+
+
+## Toast disembunyikan selama perayaan Store terbuka (GDD idle 22.11), supaya
+## tidak menimpa pita judulnya. Bertumpuk: setiap `true` dibalas satu `false`.
+var _toast_hold: int = 0
+
+
+func hold_toasts(on: bool) -> void:
+	_toast_hold = maxi(0, _toast_hold + (1 if on else -1))
+	if _toast_layer != null:
+		_toast_layer.visible = _toast_hold == 0
+
+
 func coin_shower() -> void:
 	FX.coin_shower(_root, _root.size)
 	var chip: Control = cash_chip()
@@ -938,3 +1275,19 @@ func tutorial_hint() -> PanelContainer:
 func set_decoration_active(on: bool) -> void:
 	decoration_active = on
 	_root.visible = not on
+	_sync_chip_layer()
+
+
+## Lapisan chip ikut tersembunyi bersama HUD (potret ShareCard) dan isinya
+## (Decoration Mode, Photo mode): CanvasLayer di dalam CanvasLayer tidak ikut
+## tersembunyi dengan sendirinya.
+func _sync_chip_layer() -> void:
+	if _chip_layer != null:
+		_chip_layer.visible = visible and _root.visible
+	if _toast_layer != null:
+		_toast_layer.visible = visible and _root.visible
+
+
+## Lapisan kanvas chip level (CHIP_LAYER).
+func chip_layer() -> CanvasLayer:
+	return _chip_layer

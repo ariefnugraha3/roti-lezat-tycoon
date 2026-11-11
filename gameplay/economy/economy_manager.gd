@@ -13,10 +13,11 @@ const CATEGORIES: Array[StringName] = [
 	&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"OFFLINE_EARNINGS", &"GIFT", &"INGREDIENT_COST",
 	&"UPGRADE_STATION", &"UPGRADE_RECIPE", &"RECIPE_UNLOCK", &"STATION_OPEN", &"STAFF_HIRE",
 	&"STAFF_UPGRADE", &"LOCATION_UPGRADE", &"DECOR_PURCHASE", &"PROMO", &"GLOBAL_UPGRADE",
-	&"FRANCHISE_RESET", &"OTHER_ADJUSTMENT", &"REWARD",
+	&"FRANCHISE_RESET", &"OTHER_ADJUSTMENT", &"REWARD", &"TIME_WARP",
 ]
 ## Pemasukan yang dihitung sebagai penghasilan (GDD idle 7.4).
-const INCOME: Array[StringName] = [&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"OFFLINE_EARNINGS", &"GIFT"]
+## Time warp (GDD idle 22.6) adalah penghasilan offline yang dibayar di muka.
+const INCOME: Array[StringName] = [&"SALE_PHYSICAL", &"SALE_ROTIFOOD", &"OFFLINE_EARNINGS", &"GIFT", &"TIME_WARP"]
 
 var balance: float = 0.0
 var overflowed: bool = false

@@ -46,7 +46,7 @@ func _slot_geometry() -> void:
 				bad.append("spot %d is not on the back wall" % i)
 			if not back and (absf(p.x - w) > 0.01 or absf(float(s["yaw"]) - PI * 0.5) > 0.001):
 				bad.append("spot %d is not on the right wall" % i)
-			for wx: float in (RoomFactory.back_window_xs(w) if back else RoomFactory.side_window_zs(d)):
+			for wx: float in (RoomFactory.back_window_xs(w, RoomFactory.portal_back_x(f)) if back else RoomFactory.side_window_zs(d)):
 				if absf(along - wx) < DecorSlots.WINDOW_CLEAR + half - 0.001:
 					bad.append("spot %d covers a window" % i)
 			if along - half < -0.001 or along + half > (w if back else d) + 0.001:
@@ -411,7 +411,7 @@ func _models() -> void:
 				var fp: Vector2 = Vector2(def.overlay_size_tiles) * T
 				check(absf(b.size.x - fp.x) <= 0.07 and absf(b.size.z - fp.y) <= 0.07 and b.size.y <= 0.012, "%s covers its footprint flat (%s)" % [def.id, b.size])
 		n.free()
-	eq(seen, 29, "all 29 placeable decorations (including the two achievement badges, the Supporter badge and the three calendar gifts) were checked")
+	eq(seen, 36, "all 36 placeable decorations (including the two achievement badges, the Supporter badge, the three calendar gifts and the seven store, offer and pass pieces, GDD idle 22.8) were checked")
 	var clock: Node3D = DecorFactory.build(&"decor_wall_clock_pendulum")
 	check(clock.find_child(DecorFactory.SWING_NODE, true, false) != null, "the pendulum clock has a pendulum to swing")
 	clock.free()

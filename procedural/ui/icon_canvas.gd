@@ -30,6 +30,7 @@ const NAMES: Array[String] = [
 	"gear", "sound", "mute", "skip", "rotate",
 	"back", "up", "lock", "whisk", "flag", "calendar", "camera", "share",
 	"clipboard", "plant", "lamp", "rug", "apron", "bell", "book", "calculator",
+	"crumb", "gift", "ticket", "crown", "warp", "door",
 ]
 
 ## Jumlah ruas per seperempat lingkaran saat membentuk sudut membulat.
@@ -238,6 +239,12 @@ func _paint(id: String, c: Vector2, s: float, col: Color) -> void:
 		"bell": _i_bell(c, s, col)
 		"book": _i_book(c, s, col)
 		"calculator": _i_calculator(c, s, col)
+		"crumb": _i_crumb(c, s, col)
+		"gift": _i_gift(c, s, col)
+		"ticket": _i_ticket(c, s, col)
+		"crown": _i_crown(c, s, col)
+		"warp": _i_warp(c, s, col)
+		"door": _i_door(c, s, col)
 		_: _i_unknown(c, s, col)
 
 
@@ -1000,3 +1007,84 @@ func _i_unknown(c: Vector2, s: float, col: Color) -> void:
 	_arcline(c, s, 0.0, -0.10, 0.14, PI * 0.95, TAU * 0.98, 0.08, col)
 	_bar(c, s, 0.14, -0.08, 0.02, 0.10, 0.08, col)
 	_dot(c, s, 0.0, 0.24, 0.07, col)
+
+
+# ---------------------------------------------------------------------------
+# Toko (GDD idle 22)
+# ---------------------------------------------------------------------------
+
+## Golden Crumb — mata uang premium: remah roti emas bersegi seperti permata,
+## dengan sisi atas yang lebih terang.
+func _i_crumb(c: Vector2, s: float, col: Color) -> void:
+	var lit: Color = _lit(col)
+	var ink: Color = _ink(col)
+	_blob(c, s, [
+		Vector2(-0.30, -0.30), Vector2(0.10, -0.42), Vector2(0.40, -0.12),
+		Vector2(0.34, 0.26), Vector2(-0.02, 0.44), Vector2(-0.40, 0.18),
+	], col)
+	_blob(c, s, [
+		Vector2(-0.30, -0.30), Vector2(0.10, -0.42), Vector2(0.40, -0.12), Vector2(0.02, -0.04),
+	], lit)
+	_bar(c, s, 0.02, -0.04, -0.02, 0.44, 0.04, ink)
+	_bar(c, s, 0.02, -0.04, -0.40, 0.18, 0.04, ink)
+	_bar(c, s, 0.02, -0.04, 0.34, 0.26, 0.04, ink)
+	_glint(c, s, -0.10, -0.24, 0.06)
+
+
+## Kado berpita — toko dan penawaran.
+func _i_gift(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.38, -0.12, 0.76, 0.54, 0.07, col)
+	_round_rect(c, s, -0.44, -0.26, 0.88, 0.18, 0.06, _shade(col, 0.12))
+	_round_rect(c, s, -0.07, -0.26, 0.14, 0.68, 0.03, ink)
+	_arcline(c, s, -0.15, -0.34, 0.11, PI * 0.15, PI * 1.85, 0.06, ink)
+	_arcline(c, s, 0.15, -0.34, 0.11, -PI * 0.85, PI * 0.85, 0.06, ink)
+
+
+## Tiket berlubang — Bakery Pass.
+func _i_ticket(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_round_rect(c, s, -0.46, -0.28, 0.92, 0.56, 0.08, col)
+	_dot(c, s, -0.40, 0.0, 0.07, ink)
+	_dot(c, s, 0.40, 0.0, 0.07, ink)
+	for i in 4:
+		_dot(c, s, 0.16, -0.21 + 0.14 * float(i), 0.03, ink)
+	_blob(c, s, _star_pts(0.16, 0.07, 5).map(func(v: Vector2) -> Vector2: return v + Vector2(-0.12, 0.0)), ink)
+
+
+## Mahkota — Baker's Club.
+func _i_crown(c: Vector2, s: float, col: Color) -> void:
+	var lit: Color = _lit(col)
+	_blob(c, s, [
+		Vector2(-0.42, 0.28), Vector2(-0.46, -0.22), Vector2(-0.20, 0.02), Vector2(0.0, -0.36),
+		Vector2(0.20, 0.02), Vector2(0.46, -0.22), Vector2(0.42, 0.28),
+	], col)
+	_round_rect(c, s, -0.42, 0.22, 0.84, 0.14, 0.05, _shade(col, 0.15))
+	for x: float in [-0.46, 0.0, 0.46]:
+		_dot(c, s, x, -0.28 if x != 0.0 else -0.40, 0.07, lit)
+	_glint(c, s, -0.18, 0.06, 0.05)
+
+
+## Time warp — jam dengan dua panah maju.
+func _i_warp(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	_arcline(c, s, -0.08, 0.0, 0.34, PI * 0.3, PI * 1.85, 0.09, col)
+	_bar(c, s, -0.08, 0.0, -0.08, -0.18, 0.07, ink)
+	_bar(c, s, -0.08, 0.0, 0.06, 0.08, 0.07, ink)
+	for k in 2:
+		var x: float = 0.18 + 0.16 * float(k)
+		_blob(c, s, [Vector2(x, -0.16), Vector2(x + 0.16, 0.0), Vector2(x, 0.16)], col)
+
+
+## Pintu toko melengkung dengan kenop — skin pintu (GDD idle 22.8).
+func _i_door(c: Vector2, s: float, col: Color) -> void:
+	var ink: Color = _ink(col)
+	var pts: Array = [Vector2(-0.3, 0.46), Vector2(-0.3, -0.12)]
+	for i in 9:
+		var a: float = PI + PI * float(i) / 8.0
+		pts.append(Vector2(cos(a) * 0.3, -0.12 + sin(a) * 0.3))
+	pts.append(Vector2(0.3, 0.46))
+	_blob(c, s, pts, col)
+	_round_rect(c, s, -0.2, -0.05, 0.4, 0.04, 0.02, _shade(col, 0.15))
+	_dot(c, s, 0.16, 0.16, 0.05, ink)
+	_bar(c, s, -0.42, 0.46, 0.42, 0.46, 0.06, ink)

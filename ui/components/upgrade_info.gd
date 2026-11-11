@@ -4,6 +4,8 @@ extends RefCounted
 ## 8, 12.2): judul "Oven 2 · Lv 12", efek sekarang -> berikutnya, dan milestone
 ## berikutnya. Dipakai kartu upgrade, layar Upgrades, Menu, Staff, dan Shop.
 
+## Pemisah bagian efek yang berbagian (mis. kapasitas dan harga rak).
+const EFFECT_SEP: String = " · "
 const ICONS: Dictionary = {
 	&"mixer": "whisk", &"oven": "fire", &"display": "bread", &"counter": "bag",
 	&"global_offline_hours": "moon", &"global_offline_efficiency": "hourglass", &"global_tap_power": "bolt",
@@ -62,14 +64,14 @@ static func effect_at(sim: SimulationRoot, o: Dictionary, level: int) -> String:
 			if cat == &"display":
 				var cap: int = UpgradeManager.slot_capacity_for(level)
 				var bonus: float = DataRegistry.idlef("station.display.price_per_level") * float(level - 1)
-				return Tx.t("ui_effect_capacity", {"value": cap}) + " · " + Tx.t("ui_effect_price", {"value": _x(1.0 + bonus)})
+				return Tx.t("ui_effect_capacity", {"value": cap}) + EFFECT_SEP + Tx.t("ui_effect_price", {"value": _x(1.0 + bonus)})
 			return Tx.t("ui_effect_speed", {"value": _x(UpgradeManager.speed_for(cat, level))})
 		&"counter":
 			return Tx.t("ui_effect_checkout", {"value": "%.2f" % DataRegistry.real_seconds(UpgradeManager.checkout_seconds_for(level))})
 		&"recipe":
 			var r: RecipeDefinition = DataRegistry.recipe(StringName(str(o["id"])))
 			var mult: float = UpgradeManager.recipe_price_mult_for(level, sim.upgrades.recipe_milestone_mult())
-			return Tx.t("ui_effect_recipe_price", {"value": Tx.kr(r.base_sell_price_kr * mult * sim.cravings.favorite_mult(r.id) * sim.events.featured_mult(r.id) * sim.price_mult())})
+			return Tx.t("ui_effect_recipe_price", {"value": Tx.kr(r.base_sell_price_kr * mult * sim.cravings.favorite_mult(r.id) * sim.events.featured_mult(r.id) * sim.prestige.signature_mult(r.id) * sim.mastery.price_mult(r.id) * sim.price_mult())})
 		&"staff":
 			return Tx.t("ui_effect_speed", {"value": _x(1.0 + DataRegistry.idlef("staff.speed_per_level") * float(level - 1))})
 		&"global":
@@ -97,7 +99,17 @@ static func effect(sim: SimulationRoot, o: Dictionary) -> String:
 	var now: String = effect_at(sim, o, lv)
 	if lv >= int(o["cap"]):
 		return Tx.t("ui_effect_maxed", {"effect": now})
-	return Tx.t("ui_effect_change", {"now": now, "next": effect_at(sim, o, lv + 1)})
+	var nxt: String = effect_at(sim, o, lv + 1)
+	# Efek berbagian ("Holds 13 per slot · Price ×1.00"): bagian yang tidak
+	# berubah ditulis sekali, hanya yang berubah diberi panah (GDD idle §20 no. 84).
+	var a: PackedStringArray = now.split(EFFECT_SEP)
+	var b: PackedStringArray = nxt.split(EFFECT_SEP)
+	if a.size() > 1 and a.size() == b.size():
+		var parts: PackedStringArray = PackedStringArray()
+		for i in a.size():
+			parts.append(a[i] if a[i] == b[i] else Tx.t("ui_effect_change", {"now": a[i], "next": b[i]}))
+		return EFFECT_SEP.join(parts)
+	return Tx.t("ui_effect_change", {"now": now, "next": nxt})
 
 
 ## Milestone berikutnya: {level, text, from} (`from` = milestone sebelumnya,

@@ -16,7 +16,7 @@ extends Node
 ## Export Save dan Import Save), --ads
 ## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22),
 ## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13),
-## --tier=N (lokasi permainan, bawaan 3), --equip (semua slot stasiun dibuka: chip level
+## --skin=id (skin atau pakaian dipakai dulu, boleh berulang), --floor=2 (lantai atas), --tier=N (lokasi permainan, bawaan 3), --name=teks (nama toko, papan nama), --equip (semua slot stasiun dibuka: chip level
 ## di toko yang penuh).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
@@ -25,7 +25,8 @@ const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2
 const SCALES: Array[int] = [100, 125, 150]
 const MENU_SCREENS: Array[StringName] = [&"new_game", &"settings", &"credits", &"help"]
 const OPEN_SCREENS: Array[StringName] = [&"upgrades", &"menu", &"staff", &"shop", &"franchise", &"stats", &"pause", &"settings",
-	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map", &"regular_order"]
+	&"welcome_back", &"franchise_cutscene", &"tutorial", &"upgrade_card", &"decoration", &"goals", &"calendar", &"share", &"photo_mode", &"town_map", &"regular_order",
+	&"store", &"reward_reveal"]
 
 var game: GameRoot = null
 var shell: PortraitShell = null
@@ -45,6 +46,12 @@ var _tips: bool = false
 ## Lokasi permainan (--tier=N) dan semua slot stasiun dibuka (--equip).
 var _tier: int = 3
 var _equip: bool = false
+## Skin atau pakaian yang dipakai sebelum dipotret (--skin=id, boleh berulang).
+var _skins: Array[StringName] = []
+## Lantai yang dilihat kamera (--floor=2: lantai atas lokasi bertingkat).
+var _floor: int = 1
+## Nama toko (--name=teks), mis. nama panjang untuk papan nama.
+var _name: String = "Sweep Bakery"
 
 
 func _ready() -> void:
@@ -83,6 +90,12 @@ func _ready() -> void:
 			_tier = clampi(int(a.substr(7)), 1, 5)
 		elif a == "--equip":
 			_equip = true
+		elif a.begins_with("--skin="):
+			_skins.append(StringName(a.substr(7)))
+		elif a.begins_with("--floor="):
+			_floor = clampi(int(a.substr(8)), 1, 2)
+		elif a.begins_with("--name="):
+			_name = a.substr(7)
 		elif a.begins_with("--date="):
 			# Tanggal perangkat palsu, mis. untuk event musiman (GDD idle 21.6).
 			BoostManager.date_override = a.substr(7)
@@ -93,6 +106,10 @@ func _ready() -> void:
 	PauseManager.lifecycle_enabled = false
 	# Folder save uji sendiri: jangan pernah menyentuh save pemain.
 	SaveManager.dir = "user://test_saves_sweep"
+	Monetization.use_test_file("ui_resolution_sweep")
+	# Popup penawaran tidak menutupi foto HUD.
+	for op: Dictionary in Monetization.products("offer"):
+		Monetization.mark_offer_shown(StringName(str(op["id"])))
 	# Scene utama sungguhan: bingkai potret dengan taplak di sisinya (GDD idle 12.0).
 	shell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	add_child(shell)
@@ -113,7 +130,7 @@ func _ready() -> void:
 			await _frames(3)
 			for id: StringName in MENU_SCREENS:
 				await _visit(id, {}, r, sc)
-	await game.start_new_game(&"profile_3", "female", "Sweep Bakery")
+	await game.start_new_game(&"profile_3", "female", _name)
 	await _frames(20)
 	PauseManager.lifecycle_enabled = false
 	PauseManager.clear_all()
@@ -136,6 +153,14 @@ func _ready() -> void:
 			&"outfit_apron_neighborhood"]:
 		if not sim.decoration.owns(did):
 			sim.decoration._add(did)
+	for sk: StringName in _skins:
+		sim.decoration.grant(sk)
+		sim.decoration.equip(sk)
+	if not _skins.is_empty():
+		game.world.rebuild_all()
+	if _floor == 2 and sim.world.location.is_multi_floor():
+		game.world.toggle_view_floor()
+		await _frames(30)
 	game.playing = true
 	for r2: Vector2i in _res:
 		await _resize(r2)
@@ -189,7 +214,7 @@ func _menu_pass() -> void:
 				await _frames(2)
 			await _menu_screens(r, sc, "")
 	SettingsManager.set_value("text_scale", was_scale)
-	await game.start_new_game(SaveManager.SAVE_ID, "female", "Sweep Bakery")
+	await game.start_new_game(SaveManager.SAVE_ID, "female", _name)
 	await _frames(10)
 	var sim: SimulationRoot = game.sim
 	sim.tutorial.skip()
@@ -276,6 +301,36 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 	if s != null:
 		_check(s, label, r, sc)
 	await _shot(label, r, sc)
+	# Perayaan Store (GDD idle 22.11): beberapa barang sesudah animasinya tenang,
+	# dan satu foto di tengah ledakan confetti.
+	if s is RewardReveal:
+		await get_tree().create_timer(1.8).timeout
+		await _shot("reward_reveal_settled", r, sc)
+		for rp: Dictionary in [{"deco": &"decor_golden_loaf_statue"}, {"deco": &"skin_awning_gold"}, {"deco": &"decor_neon_bread_sign"},
+				{"deco": &"decor_marble_rug"}, {"deco": &"skin_door_galaxy"}, {"deco": &"skin_door_kitty"},
+				{"product": &"bakers_club"}, {"product": &"starter_pack"}]:
+			game.modals.close_all()
+			await _frames(2)
+			var rv: UIScreen = game.modals.open(&"reward_reveal", rp)
+			var tag: String = str(rp.get("deco", rp.get("product", "")))
+			await get_tree().create_timer(0.55).timeout
+			if tag == "decor_golden_loaf_statue":
+				await _shot("reward_reveal_burst_" + tag, r, sc)
+			await get_tree().create_timer(1.3).timeout
+			_check(rv, "reward_reveal_" + tag, r, sc)
+			await _shot("reward_reveal_" + tag, r, sc)
+		game.modals.close_all()
+		return
+	# Store (GDD idle 22.5): setiap tab.
+	if s is StoreScreen:
+		var store: StoreScreen = s
+		store.sim.premium.ensure_season(BoostManager.today())
+		store.sim.premium.add_xp(450)
+		for t in range(1, StoreScreen.TAB_KEYS.size()):
+			store.show_tab(t)
+			await _frames(4)
+			_check(s, "store_tab%d" % t, r, sc)
+			await _shot("store_tab%d" % t, r, sc)
 	# Katalog Decoration Mode (GDD idle §20 no. 72): setiap tab jenis barang.
 	if s is DecorationScreen:
 		var deco: DecorationScreen = s
@@ -333,6 +388,8 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 ## Collect, dan bintang cutscene Waralaba.
 func _params_for(id: StringName) -> Dictionary:
 	match id:
+		&"reward_reveal":
+			return {"deco": &"outfit_night_owl"}
 		&"welcome_back":
 			game.sim.offline.pending = {"amount": 123456.0, "seconds": 7200.0, "away": 3.0 * 3600.0 + 25.0 * 60.0}
 		&"franchise_cutscene":

@@ -31,6 +31,10 @@ var branches: Array[Dictionary] = []
 var run_started_day: int = 1
 ## Bintang yang sudah didapat cabang yang sedang dimainkan (catatan `stars`).
 var run_stars: int = 0
+## Naik setiap kali daftar catatan cabang berubah (cache bonus kota).
+var version: int = 0
+var _town_key: String = ""
+var _town_cache: float = 0.0
 
 
 func new_game() -> void:
@@ -41,6 +45,7 @@ func new_game() -> void:
 	branches.clear()
 	run_started_day = 1
 	run_stars = 0
+	version += 1
 
 
 ## Cabang yang sedang dimainkan, dalam bentuk catatan cabang (Peta Crumbtown):
@@ -101,6 +106,7 @@ func take(n: int) -> Dictionary:
 		if int(branches[i]["number"]) == n:
 			r = branches[i]
 			branches.remove_at(i)
+			version += 1
 			break
 	branch_no = n
 	run_started_day = maxi(1, int(r.get("opened_day", sim.time.day)))
@@ -130,6 +136,7 @@ static func waiting_kr(r: Dictionary, now: float) -> float:
 
 
 func _put(b: Dictionary) -> void:
+	version += 1
 	var at: int = branches.size()
 	for i in branches.size():
 		if int(branches[i]["number"]) > int(b["number"]):
@@ -192,17 +199,24 @@ func franchise_block() -> StringName:
 	return &""
 
 
-## Pengali biaya pindah lokasi cabang yang sedang dimainkan (GDD idle 23.1): 1 sampai sebelum
-## cabang `branch_cost_start`, lalu branch_cost_growth^(n − start + 1). Level,
-## buka stasiun dan resep, rekrut, dan dekorasi tetap harga katalog, supaya
-## penghasilan tiap putaran tidak turun dan tangganya tanpa tebing.
+## Pengali biaya pindah lokasi cabang yang sedang dimainkan (GDD idle 23.1,
+## §20 no. 89): 1 sebelum cabang `branch_cost_start`; sesudahnya mengikuti
+## pengali penghasilan bintang, max(1, branch_cost_base × star_mult ^
+## branch_cost_power). Dulu ×branch_cost_growth per cabang: harga tumbuh
+## eksponensial sementara bintang hanya menambah penghasilan secara linear,
+## sehingga setiap cabang makin lama dan permainan tanpa ujung lama-lama mentok.
+## Kini lama satu cabang tetap sama selamanya. Level, buka stasiun dan resep,
+## rekrut, dan dekorasi tetap harga katalog, jadi bonus kota dan mastery tetap
+## mempercepat.
 func branch_cost_mult() -> float:
-	return branch_cost_mult_for(branch_no)
+	return branch_cost_mult_for(branch_no, stars)
 
 
-static func branch_cost_mult_for(branch: int) -> float:
-	var steps: int = maxi(0, branch - DataRegistry.idlei("prestige.branch_cost_start") + 1)
-	return pow(DataRegistry.idlef("prestige.branch_cost_growth"), float(steps))
+## Pengali biaya pindah lokasi cabang `branch` dengan `star_count` bintang.
+static func branch_cost_mult_for(branch: int, star_count: int) -> float:
+	if branch < DataRegistry.idlei("prestige.branch_cost_start"):
+		return 1.0
+	return maxf(1.0, DataRegistry.idlef("prestige.branch_cost_base") * pow(star_mult_for(star_count), DataRegistry.idlef("prestige.branch_cost_power")))
 
 
 ## Nilai perk terbesar (`largest`) atau jumlahnya untuk kunci efek `key` dari
@@ -237,9 +251,32 @@ func start_tier() -> int:
 	return clampi(int(_perk_value("start_tier", 1.0)), 1, 5)
 
 
-## Pengali penghasilan dari bintang (GDD idle 10.3).
+## Pengali penghasilan dari bintang (GDD idle 10.3) dan Legacy (§20 no. 90).
 func income_mult() -> float:
-	return 1.0 + DataRegistry.idlef("prestige.income_per_star") * float(stars)
+	return star_mult_for(stars)
+
+
+## (1 + income_per_star × bintang) × (1 + legacy_income)^level Legacy.
+static func star_mult_for(star_count: int) -> float:
+	return (1.0 + DataRegistry.idlef("prestige.income_per_star") * float(maxi(star_count, 0))) \
+		* pow(1.0 + DataRegistry.idlef("prestige.legacy_income"), float(legacy_level_for(star_count)))
+
+
+## Level Legacy (GDD idle 23.2, §20 no. 90): tujuan tanpa ujung sesudah perk
+## terakhir, satu level setiap `legacy_every_stars` bintang di atas
+## `legacy_after_stars`.
+static func legacy_level_for(star_count: int) -> int:
+	var after: int = DataRegistry.idlei("prestige.legacy_after_stars")
+	return maxi(0, (star_count - after) / maxi(1, DataRegistry.idlei("prestige.legacy_every_stars")))
+
+
+func legacy_level() -> int:
+	return legacy_level_for(stars)
+
+
+## Bintang total untuk level Legacy berikutnya.
+func next_legacy_stars() -> int:
+	return DataRegistry.idlei("prestige.legacy_after_stars") + (legacy_level() + 1) * DataRegistry.idlei("prestige.legacy_every_stars")
 
 
 func tap_mult() -> float:
@@ -270,6 +307,74 @@ func offline_efficiency_bonus() -> float:
 	return float(DataRegistry.perk(&"perk_offline_efficiency").get("offline_efficiency", 0.25)) if has_perk(&"perk_offline_efficiency") else 0.0
 
 
+# ===========================================================================
+# BONUS KOTA DAN ROTI KHAS CABANG (GDD idle 21.7, §20 no. 91, 92)
+# ===========================================================================
+
+## Sumbangan satu cabang bertier tertinggi `tier` ke bonus kota.
+static func town_bonus_for_tier(tier: int) -> float:
+	var arr: Array = DataRegistry.idle("town.bonus_by_tier")
+	return float(arr[clampi(tier - 1, 0, arr.size() - 1)])
+
+
+## Bonus kota (§20 no. 91): setiap cabang, termasuk yang sedang dimainkan,
+## menyumbang menurut tier tertinggi yang dicapainya, paling banyak
+## `town.max_bonus`. Bagian dari harga biasa semua cabang, jadi membawa cabang
+## lama ke Tier 5 membuat seluruh kota lebih kaya. Kota baru ada sesudah
+## Waralaba pertama: cabang pertama sendirian tidak mendapat bonus, jadi
+## pacing putaran 1 (GDD idle 1.4) tidak berubah.
+func town_bonus() -> float:
+	var tier: int = sim.world.location.tier if sim.world.location != null else 1
+	var key: String = "%d|%d|%d|%d" % [version, branch_no, tier, run_index]
+	if key == _town_key:
+		return _town_cache
+	_town_key = key
+	if run_index < 2:
+		_town_cache = 0.0
+		return 0.0
+	var sum: float = town_bonus_for_tier(tier)
+	for b: Dictionary in branches:
+		sum += town_bonus_for_tier(int(b.get("tier", 1)))
+	_town_cache = minf(sum, DataRegistry.idlef("town.max_bonus"))
+	return _town_cache
+
+
+func town_mult() -> float:
+	return 1.0 + town_bonus()
+
+
+## Roti khas cabang `n` (§20 no. 92): satu resep dari katalog, tetap per save
+## (benih utama) dan nomor cabang, tidak sama dengan cabang sebelumnya; dijual
+## `branch.signature_mult` kali di cabang itu. Cabang pertama tidak punya (&""):
+## roti khas adalah ciri cabang Waralaba, dan pacing putaran 1 tidak berubah.
+func signature(n: int = -1) -> StringName:
+	var b: int = branch_no if n < 0 else n
+	if b < 2:
+		return &""
+	var pick: StringName = _signature_raw(b)
+	if b > 2 and pick == _signature_raw(b - 1):
+		var all: Array = DataRegistry.recipes()
+		var i: int = 0
+		for k in all.size():
+			if (all[k] as RecipeDefinition).id == pick:
+				i = k
+		pick = (all[(i + 1) % all.size()] as RecipeDefinition).id
+	return pick
+
+
+func _signature_raw(n: int) -> StringName:
+	var all: Array = DataRegistry.recipes()
+	if all.is_empty():
+		return &""
+	var h: int = absi(hash("signature|%d|%d" % [sim.rng.master_seed, n]))
+	return (all[h % all.size()] as RecipeDefinition).id
+
+
+## Pengali harga roti khas cabang yang sedang dimainkan.
+func signature_mult(recipe_id: StringName) -> float:
+	return DataRegistry.idlef("branch.signature_mult") if recipe_id != &"" and recipe_id == signature() else 1.0
+
+
 func note_recipe_unlocked(recipe_id: StringName) -> void:
 	recipes_ever[String(recipe_id)] = true
 
@@ -281,6 +386,7 @@ func capture() -> Dictionary:
 
 func restore(d: Dictionary) -> void:
 	new_game()
+	_town_key = ""
 	stars = maxi(0, int(d.get("stars", 0)))
 	run_index = maxi(1, int(d.get("run_index", 1)))
 	branch_no = clampi(int(d.get("branch_no", run_index)), 1, run_index)

@@ -336,9 +336,11 @@ func buy_offer(o: Dictionary, n: int) -> bool:
 			staff_levels[StringName(str(o["id"]))] = after
 		&"global":
 			global_levels[StringName(str(o["id"]))] = after
+	# Model KR/s dibuang dulu, supaya pendengar level_up (HUD "+x/s") membaca
+	# KR/s yang baru (GDD idle §20 no. 85).
+	sim.idle_economy.invalidate()
 	_note_levels(o, before, after)
 	sim.statistics.add(&"levels_bought", n)
-	sim.idle_economy.invalidate()
 	sim.achievements.check_all()
 	SaveManager.request_autosave("upgrade")
 	return true

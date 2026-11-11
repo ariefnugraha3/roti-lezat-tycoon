@@ -46,6 +46,29 @@
   "milestones": [25, 50, 100, 150, 200, 300, 400, 500],
   "milestone_mult": 2
  },
+ "variety": {
+  "_gdd": "8.5, 20 no. 83",
+  "bonus_per_recipe": 0.15,
+  "max_recipes": 5,
+  "popularity_exponent": 2.0
+ },
+ "endless": {
+  "_gdd": "23.4, 20 no. 90: milestone series that never run out, each level gives an achievement boost",
+  "series": [
+   {"id": "earn", "stat": "alltime_earned_kr", "first": 1.0e15, "factor": 1000.0},
+   {"id": "bread", "stat": "total_bread_sold", "first": 100000, "factor": 10.0},
+   {"id": "branches", "stat": "franchise_count", "first": 25, "factor": 2.0}
+  ]
+ },
+ "town": {
+  "_gdd": "23.5, 20 no. 91: every branch adds bonus_by_tier[its highest tier] to all income, up to max_bonus",
+  "bonus_by_tier": [0.0, 0.0, 0.01, 0.02, 0.04],
+  "max_bonus": 0.6
+ },
+ "branch": {
+  "_gdd": "23.6, 20 no. 92: every branch has a signature bread that sells for signature_mult there",
+  "signature_mult": 1.3
+ },
  "staff": {
   "_gdd": "5.5, 8.6",
   "hire_cost": [291, 6460, 129000, 646000],
@@ -55,7 +78,7 @@
  },
  "location": {
   "_gdd": "6.1, 6.5, 8.7",
-  "upgrade_cost": [0, 32500, 360000, 1120000, 1900000],
+  "upgrade_cost": [0, 50000, 950000, 1500000, 2550000],
   "base_arrivals_per_hour": [23, 51, 67, 86, 112],
   "rotifood_orders_per_hour": [3, 4, 6, 8, 10]
  },
@@ -88,9 +111,14 @@
   "stars_exponent": 0.5,
   "income_per_star": 0.07,
   "keep_global_levels_above": 5,
-  "_branch": "GDD idle 23.1: moving to a bigger location in branch n >= branch_cost_start costs x branch_cost_growth^(n - branch_cost_start + 1)",
-  "branch_cost_growth": 1.5,
-  "branch_cost_start": 3
+  "_branch": "GDD idle 23.1, 20 no. 89: from branch_cost_start, moving to a bigger location costs x max(1, branch_cost_base * star_mult^branch_cost_power); star_mult = (1 + income_per_star * stars) * legacy",
+  "branch_cost_base": 0.6,
+  "branch_cost_power": 1.0,
+  "branch_cost_start": 3,
+  "_legacy": "GDD idle 23.2, 20 no. 90: every legacy_every_stars above legacy_after_stars (the last perk) multiplies income by (1 + legacy_income)",
+  "legacy_after_stars": 5000,
+  "legacy_every_stars": 1000,
+  "legacy_income": 0.1
  },
  "perks": [
   {"id": "perk_offline_plus", "stars": 1, "offline_hours": 1},
@@ -109,19 +137,76 @@
  ],
  "monetization": {
   "_gdd": "22",
+  "_doc": "Rewarded ads (placements, per device day) and the store. dummy_store: until the Play Billing and AdMob plugins exist, every build without a portal SDK uses the test store (ads and purchases are simulated, no money is charged). price_usd is the test store's price; the real store shows its own.",
+  "dummy_store": true,
+  "dummy_ad_seconds": 5,
+  "offer_delay_seconds": 60,
   "placements": {
    "offline_double": {"per_day": 10, "mult": 2},
    "coffee_refill": {"per_day": 2},
    "promo_skip": {"per_day": 5},
-   "golden_double": {"per_day": 10, "offer_seconds": 8}
+   "golden_double": {"per_day": 10, "offer_seconds": 8},
+   "ad_boost": {"per_day": 8},
+   "ad_warp": {"per_day": 3, "minutes": 30},
+   "ad_crumbs": {"per_day": 5, "crumbs": 5}
   },
-  "supporter_product": "supporter_pack",
-  "supporter_badge": "badge_supporter"
+  "supporter_product": "no_ads",
+  "legacy_products": {"supporter_pack": "no_ads"},
+  "supporter_badge": "badge_supporter",
+  "products": [
+   {"id": "crumbs_80", "kind": "crumbs", "price_usd": 0.99, "crumbs": 80},
+   {"id": "crumbs_500", "kind": "crumbs", "price_usd": 4.99, "crumbs": 500},
+   {"id": "crumbs_1200", "kind": "crumbs", "price_usd": 9.99, "crumbs": 1200, "tag": "popular"},
+   {"id": "crumbs_2600", "kind": "crumbs", "price_usd": 19.99, "crumbs": 2600},
+   {"id": "crumbs_7000", "kind": "crumbs", "price_usd": 49.99, "crumbs": 7000, "tag": "best"},
+   {"id": "no_ads", "kind": "no_ads", "price_usd": 4.99},
+   {"id": "golden_oven", "kind": "income", "price_usd": 9.99, "income_mult": 2.0},
+   {"id": "night_manager", "kind": "offline", "price_usd": 4.99, "offline_hours": 8, "offline_full": true},
+   {"id": "bakers_club", "kind": "club", "price_usd": 6.99, "days": 30, "income_mult": 1.5, "offline_hours": 4, "daily_crumbs": 50},
+   {"id": "bakery_pass", "kind": "pass", "price_usd": 4.99},
+   {"id": "starter_pack", "kind": "offer", "price_usd": 1.99, "crumbs": 300, "boost_hours": 4, "decor": "outfit_golden_apron", "value_mult": 5},
+   {"id": "branch_pack", "kind": "offer", "price_usd": 4.99, "crumbs": 800, "warp_hours": 4, "decor": "decor_golden_loaf_statue", "value_mult": 4}
+  ],
+  "_offers": "Limited offers: start once their condition holds (min_tier location tier, or min_franchises branches opened), pop up once, then wait in the Store for `hours` real hours; gone once bought or expired.",
+  "offers": {
+   "starter_pack": {"min_tier": 2, "min_franchises": 0, "hours": 48},
+   "branch_pack": {"min_tier": 1, "min_franchises": 1, "hours": 48}
+  }
+ },
+ "premium": {
+  "_gdd": "22.3, 22.6",
+  "_doc": "Golden Crumbs: the premium currency, kept in the save across franchises and branches. earn = free crumbs per event; ad_boost = the x2 income boost from ads or crumbs, counting down in real time (also while away); warps = instant income for hours of the no-boost model KR/s.",
+  "start_crumbs": 50,
+  "earn": {"goal": 5, "calendar": 5, "calendar_week": 20, "achievement": 10, "series": 15, "franchise_per_star": 2},
+  "ad_boost": {"mult": 2.0, "hours": 4, "max_hours": 12, "crumbs": 40},
+  "warps": [
+   {"id": "warp_1h", "hours": 1, "crumbs": 30},
+   {"id": "warp_4h", "hours": 4, "crumbs": 100},
+   {"id": "warp_24h", "hours": 24, "crumbs": 480}
+  ],
+  "max_offline_hours": 24
+ },
+ "pass": {
+  "_gdd": "22.7",
+  "_doc": "Bakery Pass: one season per device calendar month. XP from daily goals, calendar stamps, achievements, endless milestones, franchises and watched ads. Rewards: crumbs, warp_minutes, boost_hours (ad boost), season = the season's outfit or decoration from season_items (by month).",
+  "tiers": 30,
+  "xp_per_tier": 100,
+  "duplicate_crumbs": 150,
+  "xp": {"goal": 40, "calendar": 30, "achievement": 40, "series": 40, "franchise": 150, "ad": 10},
+  "free": [{"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"warp_minutes": 30}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"boost_hours": 1}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"warp_minutes": 30}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"boost_hours": 1}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"warp_minutes": 30}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 10}, {"crumbs": 100}],
+  "premium": [{"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"warp_minutes": 60}, {"crumbs": 30}, {"crumbs": 30}, {"boost_hours": 4}, {"crumbs": 30}, {"warp_minutes": 60}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"season": "outfit"}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"warp_minutes": 60}, {"crumbs": 30}, {"boost_hours": 4}, {"crumbs": 30}, {"crumbs": 30}, {"warp_minutes": 60}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"crumbs": 30}, {"season": "decor"}],
+  "season_items": [
+   {"outfit": "outfit_pass_royal", "decor": "decor_pass_star_rug"},
+   {"outfit": "outfit_pass_sunny", "decor": "decor_pass_crystal_lamp"},
+   {"outfit": "outfit_pass_mint", "decor": "decor_pass_croissant_statue"}
+  ]
  },
  "mastery": {
   "_gdd": "23.3",
   "thresholds": [10000, 50000, 150000, 400000, 1000000],
-  "price_bonus_per_level": 0.05
+  "price_bonus_per_level": 0.05,
+  "_endless": "GDD idle 23.3, 20 no. 90: after the last threshold every further star needs endless_factor times as many breads",
+  "endless_factor": 2.5
  },
  "boosts": {
   "_gdd": "11",

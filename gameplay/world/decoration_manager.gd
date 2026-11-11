@@ -19,9 +19,12 @@ var equipped: Dictionary = {}
 ## deco_id -> true: dekorasi berbonus yang dibeli di putaran ini. Setiap jenis
 ## memberi bonusnya sekali; Waralaba mengosongkannya.
 var bonus_active: Dictionary = {}
+## Cache Σ bonus dekorasi yang selalu aktif per jenis (dihapus saat koleksi berubah).
+var _always: Dictionary = {}
 
 
 func new_game() -> void:
+	_always.clear()
 	owned.clear()
 	next_uid = 1
 	equipped.clear()
@@ -50,6 +53,7 @@ func _add(deco_id: StringName) -> Dictionary:
 	var o: Dictionary = {"uid": next_uid, "deco_id": String(deco_id), "placed": false, "floor_id": "floor_1", "cell": [-1, -1], "slot": -1, "rot": 0}
 	next_uid += 1
 	owned.append(o)
+	_always.clear()
 	return o
 
 
@@ -60,6 +64,8 @@ func grant(deco_id: StringName) -> void:
 	if def == null or owns(deco_id):
 		return
 	_add(deco_id)
+	if def.has_bonus():
+		sim.idle_economy.invalidate()
 	if def.placement_type == &"outfit" or def.placement_type == &"skin":
 		equip(deco_id)
 
@@ -74,13 +80,21 @@ func price(deco_id: StringName) -> float:
 
 
 func is_bonus_active(deco_id: StringName) -> bool:
+	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	if def != null and def.bonus_always():
+		return owns(deco_id)
 	return bonus_active.has(String(deco_id))
 
 
-## &"" bila boleh dibeli; selain itu invalid, owned (skin), active (bonusnya
-## sudah aktif di putaran ini), kr.
+## &"" bila boleh dibeli; selain itu invalid, owned (skin, atau barang premium
+## yang sudah dimiliki), active (bonusnya sudah aktif di putaran ini), kr,
+## crumbs (Golden Crumbs kurang, GDD idle 22.8).
 func can_buy(deco_id: StringName) -> StringName:
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	if def != null and def.source == &"premium":
+		if owns(deco_id):
+			return &"owned"
+		return &"" if sim.premium.can_spend(def.price_crumbs) else &"crumbs"
 	if def == null or def.source != &"shop":
 		return &"invalid"
 	if (def.placement_type == &"skin") and owns(deco_id):
@@ -99,6 +113,18 @@ func buy(deco_id: StringName) -> StringName:
 	if reason != &"":
 		return reason
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	if def.source == &"premium":
+		# Kosmetik premium (GDD idle 22.8): Golden Crumbs, satu salinan, bonusnya
+		# berlaku selama dimiliki.
+		if not sim.premium.spend(def.price_crumbs, deco_id):
+			return &"crumbs"
+		_add(deco_id)
+		if def.has_bonus():
+			sim.idle_economy.invalidate()
+		if def.placement_type == &"skin" or def.placement_type == &"outfit":
+			equip(deco_id)
+		SaveManager.request_autosave("decor_purchase")
+		return &""
 	sim.economy.spend(price(deco_id), &"DECOR_PURCHASE", deco_id, {})
 	if not (def.has_bonus() and owns(deco_id)):
 		_add(deco_id)
@@ -112,14 +138,24 @@ func buy(deco_id: StringName) -> StringName:
 
 
 ## Pengali bonus dekorasi sejenis (GDD idle 8.8): 1 + Σ nilai bonus `kind`
-## (arrival, price, rotifood) dari dekorasi berbonus yang dibeli putaran ini.
+## (arrival, price, rotifood) dari dekorasi berbonus yang dibeli putaran ini,
+## ditambah dekorasi premium, penawaran, dan Pass yang dimiliki (GDD idle 22.8).
 func bonus_mult(kind: StringName) -> float:
 	var m: float = 1.0
 	for k: Variant in bonus_active.keys():
 		var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(StringName(str(k)))
-		if def != null and str(def.bonus.get("type", "")) == String(kind):
+		if def != null and not def.bonus_always() and str(def.bonus.get("type", "")) == String(kind):
 			m += float(def.bonus.get("value", 0.0))
-	return m
+	if not _always.has(kind):
+		var sum: float = 0.0
+		var seen: Dictionary = {}
+		for o: Dictionary in owned:
+			var d2: MiscDefinitions.DecorationDefinition = def_of(o)
+			if d2 != null and d2.bonus_always() and not seen.has(d2.id) and str(d2.bonus.get("type", "")) == String(kind):
+				seen[d2.id] = true
+				sum += float(d2.bonus.get("value", 0.0))
+		_always[kind] = sum
+	return m + float(_always[kind])
 
 
 ## Waralaba (GDD idle 10.5): dekorasi berbonus kembali ke inventaris dan
@@ -436,11 +472,13 @@ func capture() -> Dictionary:
 
 func restore(d: Dictionary) -> void:
 	new_game()
+	_always.clear()
 	for o: Variant in d.get("owned", []):
 		var od: Dictionary = (o as Dictionary).duplicate()
 		if DataRegistry.decoration(StringName(str(od.get("deco_id", "")))) == null:
 			continue
 		owned.append(od)
+	_always.clear()
 	next_uid = int(d.get("next_uid", 1))
 	equipped = (d.get("equipped", {}) as Dictionary).duplicate()
 	# Save sebelum 2026-10-01 masih mencatat badge sebagai barang "dipakai".

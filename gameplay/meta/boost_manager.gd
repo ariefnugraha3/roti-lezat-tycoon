@@ -160,7 +160,7 @@ func pour_coffee() -> void:
 	add_income(DataRegistry.idlef("boosts.daily_gift.mult"), DataRegistry.idlef("boosts.daily_gift.minutes") * 60.0 * sim.prestige.coffee_mult())
 
 
-## Selesaikan jeda promosi `id` (hadiah iklan `promo_skip`, GDD idle 22.3).
+## Selesaikan jeda promosi `id` (hadiah iklan `promo_skip`, GDD idle 22.4).
 ## false bila promosi itu tidak sedang jeda.
 func skip_cooldown(id: StringName) -> bool:
 	if float(cooldowns.get(String(id), 0.0)) <= 0.0:

@@ -12,6 +12,10 @@ extends UISheet
 ## "Visit Branch #n" (GameRoot.visit_branch).
 
 const LOTS_PER_STREET: int = 3
+## Peta selalu menampilkan paling sedikit sekian jalan; kavling yang belum
+## dipakai tampil pudar sebagai kavling kosong untuk cabang-cabang berikutnya
+## (GDD idle §20 no. 84), jadi peta tidak berhenti di separuh lembar.
+const MIN_STREETS: int = 4
 
 
 func sheet_title() -> String:
@@ -35,11 +39,20 @@ func build_page(body: VBoxContainer) -> void:
 	t.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	t.name = "SummaryText"
 	lbl(hv, Tx.t("ui_map_hint"), 14, Palette.TEXT_MUTED, true)
+	# Bonus kota (GDD idle §20 no. 91).
+	var tb: Label = lbl(hv, Tx.t("ui_town_bonus", {"percent": FranchiseScreen._pct(sim.prestige.town_bonus())}), 15, Palette.MATCHA_DEEP, true)
+	tb.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	tb.name = "TownBonus"
+	var arr: Array = DataRegistry.idle("town.bonus_by_tier")
+	lbl(hv, Tx.t("ui_town_bonus_hint", {"t3": FranchiseScreen._pct(float(arr[2])), "t4": FranchiseScreen._pct(float(arr[3])),
+		"t5": FranchiseScreen._pct(float(arr[4])), "max": FranchiseScreen._pct(DataRegistry.idlef("town.max_bonus"))}), 13, Palette.TEXT_MUTED, true)
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
 	list.add_child(gap)
 	var lots: Array[Dictionary] = branches(sim)
 	lots.append({"next": true})
+	while lots.size() < MIN_STREETS * LOTS_PER_STREET or lots.size() % LOTS_PER_STREET != 0:
+		lots.append({"future": true})
 	var street: StreetRow = null
 	for i in lots.size():
 		if i % LOTS_PER_STREET == 0:
@@ -101,10 +114,20 @@ func _lot(b: Dictionary) -> Button:
 		cap_text = Tx.t("ui_map_next")
 		btn.disabled = true
 		ink = Palette.TEXT_MUTED
+	elif b.has("future"):
+		btn.name = "FutureLot"
+		art.tier = 0
+		art.plus = false
+		art.modulate = Color(1.0, 1.0, 1.0, 0.35)
+		cap_text = Tx.t("ui_map_future")
+		btn.disabled = true
+		ink = Palette.TEXT_MUTED
+		face = Color(Palette.CARD, 0.6)
 	else:
 		var n: int = int(b["number"])
 		btn.name = "Branch%d" % n
 		art.tier = clampi(int(b.get("tier", 1)), 1, 5)
+		art.variant = n - 1
 		cap_text = Tx.t("ui_branch_number", {"number": n})
 		if bool(b.get("current", false)):
 			face = Palette.HONEY
@@ -168,6 +191,7 @@ func _branch_page(body: VBoxContainer, b: Dictionary) -> void:
 	var art := ShopFrontArt.new()
 	art.custom_minimum_size = Vector2(200, 200)
 	art.tier = clampi(int(b.get("tier", 1)), 1, 5)
+	art.variant = int(b["number"]) - 1
 	c.add_child(art)
 	var loc: LocationDefinition = DataRegistry.location_by_tier(art.tier)
 	var title: Label = ProceduralUIFactory.title("%s · %s" % [sim.bakery_name, Tx.t(String(loc.localization_key))], 22)
@@ -197,6 +221,14 @@ func _branch_page(body: VBoxContainer, b: Dictionary) -> void:
 	rows.append(["coin", Tx.t("ui_map_earned"), Tx.kr(float(b.get("earned", 0.0)))])
 	rows.append(["bolt", Tx.t("ui_map_rate"), Tx.t("ui_kr_per_second", {"amount": Tx.rate(float(b.get("rate", 0.0)))})])
 	rows.append(["sun", Tx.t("ui_map_days"), Tx.t("ui_map_days_value", {"from": maxi(1, int(b.get("opened_day", 1)))})])
+	# Sumbangan ke bonus kota dan roti khas cabang (GDD idle §20 no. 91, 92).
+	var sig: StringName = sim.prestige.signature(int(b["number"]))
+	var extra_text: String = Tx.t("ui_town_lot_bonus", {"percent": FranchiseScreen._pct(PrestigeManager.town_bonus_for_tier(art.tier))})
+	if sig != &"":
+		extra_text += "\n" + Tx.t("ui_signature_line", {"recipe": Tx.recipe_name(sig), "mult": "%.1f" % DataRegistry.idlef("branch.signature_mult")})
+	var extra: Label = lbl(list, extra_text, 15, Palette.MATCHA_DEEP, true)
+	extra.name = "BranchExtras"
+	extra.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	for r: Array in rows:
 		var row: HBoxContainer = UISheet.row(list, str(r[1]), "", ProceduralUIFactory.badge(str(r[0]), Palette.HONEY_SOFT, Palette.HONEY_DEEP, 44))
 		var val: Label = lbl(row, str(r[2]), 18, Palette.UI_WOOD_DEEP)

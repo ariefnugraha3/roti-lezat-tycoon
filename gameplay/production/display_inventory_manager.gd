@@ -4,8 +4,9 @@ extends SimManager
 ## (GDD idle 4.2, 4.6, 8.2; v3.1 19, 85, 98).
 ##
 ## Setiap petak menjual satu resep: resep yang dipilih pemain di layar Menu,
-## atau "Auto" = resep terbuka yang paling menguntungkan
-## (`SimulationRoot.auto_recipe`). Mengganti resep petak tidak membuang roti:
+## atau "Auto" = resep dari rencana Auto (`SimulationRoot.auto_slot_recipe`:
+## resep paling menguntungkan, disebar ke beberapa resep bila variasi di rak
+## lebih untung, GDD idle §20 no. 83). Mengganti resep petak tidak membuang roti:
 ## petak menjual habis roti lama, baru kemudian diisi resep baru. Roti tidak
 ## menua dan tidak basi. Pengambilan selalu FIFO.
 ##
@@ -16,10 +17,14 @@ extends SimManager
 ## `recipe` = resep roti yang sedang ada di petak; `assign` = resep pilihan
 ## pemain, atau &"" untuk Auto.
 var displays: Dictionary = {}
+## Naik setiap kali rak, jumlah petak, atau pilihan resep petak berubah: kunci
+## cache rencana petak Auto (`SimulationRoot.auto_slot_recipe`, GDD idle §20 no. 83).
+var version: int = 0
 
 
 func new_game() -> void:
 	displays.clear()
+	version += 1
 
 
 ## Rak `iid` dengan model tier `tier`: jumlah petaknya mengikuti model itu
@@ -32,15 +37,18 @@ func ensure_display(iid: int, tier: int) -> void:
 		var slots_a: Array = d["slots"]
 		while slots_a.size() < def.slot_count:
 			slots_a.append({"recipe": &"", "stacks": [], "assign": &""})
+			version += 1
 		return
 	var new_slots: Array = []
 	for i in def.slot_count:
 		new_slots.append({"recipe": &"", "stacks": [], "assign": &""})
 	displays[iid] = {"tier": tier, "slots": new_slots}
+	version += 1
 
 
 func remove_display(iid: int) -> void:
 	displays.erase(iid)
+	version += 1
 
 
 func has_display(iid: int) -> bool:
@@ -131,20 +139,21 @@ func set_assignment(iid: int, index: int, recipe_id: StringName) -> bool:
 	if recipe_id != &"" and not sim.can_make(recipe_id):
 		return false
 	(sl[index] as Dictionary)["assign"] = recipe_id
+	version += 1
 	EventBus.slot_recipes_changed.emit(iid)
 	return true
 
 
-## Resep yang sedang dijual petak itu: pilihan pemain, atau resep Auto. &"" bila
-## tidak ada resep yang bisa dibuat. `live` = false: Auto tanpa craving (model
-## offline).
+## Resep yang sedang dijual petak itu: pilihan pemain, atau resep rencana Auto
+## untuk petak itu (variasi di rak, GDD idle §20 no. 83). &"" bila tidak ada
+## resep yang bisa dibuat. `live` = false: Auto tanpa craving (model offline).
 func effective_recipe(iid: int, index: int, live: bool = true) -> StringName:
 	var a: StringName = assignment(iid, index)
 	if a != &"" and sim.can_make(a):
 		return a
 	if a != &"":
 		return &""
-	return sim.auto_recipe(live)
+	return sim.auto_slot_recipe(iid, index, live)
 
 
 ## Berapa unit `recipe` yang masih bisa masuk ke petak itu. Petak yang masih
@@ -351,6 +360,7 @@ func capture() -> Dictionary:
 
 func restore(d: Dictionary) -> void:
 	displays.clear()
+	version += 1
 	for k: Variant in d.keys():
 		var dd: Dictionary = d[k]
 		var sl: Array = []

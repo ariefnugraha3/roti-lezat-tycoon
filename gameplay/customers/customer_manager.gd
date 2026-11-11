@@ -483,7 +483,7 @@ func _choose_target(c: Customer, at_door: bool = false) -> void:
 			_leave_no_stock(c)
 		return
 	c.checking_shelf = false
-	var recipe_id: StringName = pick_recipe(def, avail.keys(), sim.rng.stream(&"customer_choice_rng"))
+	var recipe_id: StringName = pick_recipe(def, avail.keys(), sim.rng.stream(&"customer_choice_rng"), sim.recipe_popularity(avail.keys()))
 	if recipe_id == &"":
 		_leave_no_stock(c)
 		return
@@ -499,7 +499,7 @@ func _choose_target(c: Customer, at_door: bool = false) -> void:
 		others.erase(recipe_id)
 		if not others.is_empty():
 			c.substitution_used = true
-			recipe_id = pick_recipe(def, others, sim.rng.stream(&"customer_choice_rng"))
+			recipe_id = pick_recipe(def, others, sim.rng.stream(&"customer_choice_rng"), sim.recipe_popularity(others))
 			display_iid = _nearest_display_with(c, recipe_id)
 			if display_iid < 0:
 				_leave_no_stock(c)
@@ -514,9 +514,11 @@ func _choose_target(c: Customer, at_door: bool = false) -> void:
 
 ## Bobot pilihan resep (GDD idle 6.2): preferensi tag arketipe (paling kecil
 ## PREFERENCE_FLOOR) × harga relatif = (harga dasar termurah di antara pilihan
-## ÷ harga dasar resep)^`customers.price_weight_exponent`. Harga dasar dipakai
+## ÷ harga dasar resep)^`customers.price_weight_exponent` × popularitas resep
+## (`popularity`, String id -> faktor; SimulationRoot.recipe_popularity: resep
+## berlevel tinggi lebih terkenal, GDD idle §20 no. 83). Harga dasar dipakai
 ## supaya menaikkan level resep tidak pernah menurunkan permintaannya.
-static func recipe_weights(def: CustomerArchetypeDefinition, options: Array) -> Dictionary:
+static func recipe_weights(def: CustomerArchetypeDefinition, options: Array, popularity: Dictionary = {}) -> Dictionary:
 	var cheapest: float = INF
 	for rid: Variant in options:
 		cheapest = minf(cheapest, DataRegistry.recipe(StringName(str(rid))).base_sell_price_kr)
@@ -525,14 +527,14 @@ static func recipe_weights(def: CustomerArchetypeDefinition, options: Array) -> 
 	for rid2: Variant in options:
 		var r: RecipeDefinition = DataRegistry.recipe(StringName(str(rid2)))
 		var pref: float = maxf(def.preference_for(r), PREFERENCE_FLOOR)
-		out[String(r.id)] = pref * pow(cheapest / maxf(r.base_sell_price_kr, 0.0001), ex)
+		out[String(r.id)] = pref * pow(cheapest / maxf(r.base_sell_price_kr, 0.0001), ex) * float(popularity.get(String(r.id), 1.0))
 	return out
 
 
-static func pick_recipe(def: CustomerArchetypeDefinition, options: Array, r: RandomNumberGenerator) -> StringName:
+static func pick_recipe(def: CustomerArchetypeDefinition, options: Array, r: RandomNumberGenerator, popularity: Dictionary = {}) -> StringName:
 	if options.is_empty():
 		return &""
-	var pick: Variant = RNGManager.weighted_pick(r, recipe_weights(def, options))
+	var pick: Variant = RNGManager.weighted_pick(r, recipe_weights(def, options, popularity))
 	return StringName(str(pick)) if pick != null else &""
 
 
@@ -880,9 +882,13 @@ func _wait(c: Customer, dt: float) -> void:
 ## Dipanggil tiap tick sebelum admission (SimulationRoot.step), supaya pembeli
 ## yang sudah di dalam toko mendapat slot lebih dulu daripada kedatangan baru.
 ## - Jalur yang tutup melepas pembeli yang belum dilayani ke jalur terbuka yang
-##   masih punya slot.
+##   masih punya slot. Jalur A yang tidak dijaga pemilik tutup selama ada kasir
+##   dengan ruang, jadi antreannya pindah ke kasir yang aktif (GDD idle §20 no. 82).
 ## - Jalur terbuka yang bebannya lebih besar 2 atau lebih dari jalur terbuka lain
 ##   melepas pembeli terdepannya yang masih antre ke jalur itu, sampai seimbang.
+##   Jalur A yang belum dijaga pemilik (luapan) tidak menerima pindahan: hanya
+##   pembeli baru yang masuk ke sana, supaya pembeli yang sudah antre tidak
+##   bolak-balik sebelum pemilik datang (GDD idle §20 no. 80).
 ## Pembeli yang transaksinya sudah dimulai tidak pernah dipindah, dan driver
 ## RotiFood tetap di jalurnya.
 func rebalance_lanes() -> void:
@@ -911,7 +917,7 @@ func rebalance_lanes() -> void:
 		for l: QueueLane in open:
 			if heavy == null or sim.queue.load_of(l) > sim.queue.load_of(heavy):
 				heavy = l
-		var light: QueueLane = _lightest(open)
+		var light: QueueLane = _lightest(open, true)
 		if heavy == null or light == null or heavy == light:
 			return
 		if sim.queue.load_of(heavy) - sim.queue.load_of(light) < 2:
@@ -922,10 +928,14 @@ func rebalance_lanes() -> void:
 		_move_customer(customer(cand[0]), heavy, light)
 
 
-func _lightest(open: Array[QueueLane]) -> QueueLane:
+## Jalur terbuka dengan beban terkecil yang masih punya slot. `manned_only`:
+## jalur A hanya ikut bila pemilik sedang menjaganya.
+func _lightest(open: Array[QueueLane], manned_only: bool = false) -> QueueLane:
 	var best: QueueLane = null
 	for l: QueueLane in open:
 		if l.free_capacity() <= 0:
+			continue
+		if manned_only and ((l.main and not sim.player.attends(l.id)) or not sim.queue.accepts_new(l)):
 			continue
 		if best == null or sim.queue.load_of(l) < sim.queue.load_of(best):
 			best = l

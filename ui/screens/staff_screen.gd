@@ -4,6 +4,15 @@ extends UISheet
 ## lembar bawah; detail sebagai halaman berikutnya. Merekrut dibayar sekali
 ## (`staff.hire_cost[n]`), tanpa gaji dan tanpa tombol bertugas (GDD idle 5.5).
 ## Roster tetap 5 kasir + 5 koki (v3.1 3.5).
+##
+## Semua kandidat satu peran bekerja sama persis; bedanya hanya wajah. Halaman
+## utama karena itu menampilkan per peran satu kandidat berikutnya (dengan
+## wajahnya) dan baris "Other candidates" ke halaman pilihan semua kandidat,
+## atau satu catatan bila peran itu sudah penuh di lokasi ini (GDD idle §20
+## no. 84).
+
+## Ukuran wajah kandidat di baris daftar (px logis).
+const FACE_PX: float = 64.0
 
 ## Tombol Hire yang tampil: sid -> Button, diperbarui tiap tick saat KR berubah.
 var _hire_buttons: Dictionary = {}
@@ -36,14 +45,62 @@ func build_page(body: VBoxContainer) -> void:
 		for id: StringName in team:
 			_staff_row(list, DataRegistry.staff(id))
 	for role: StringName in [&"cashier", &"baker"]:
+		var cands: Array[StaffDefinition] = candidates(role)
+		if cands.is_empty():
+			continue
 		section(list, Tx.t("ui_staff_candidates_" + String(role)))
-		for def: StaffDefinition in DataRegistry.staff_list():
-			if def.role_id == role and not sim.staff.is_employed(def.id):
-				_staff_row(list, def)
+		if sim.staff.hire_block(cands[0].id) == &"full":
+			var note: Label = lbl(list, Tx.t("ui_staff_full_" + String(role), {"max": loc.staff_capacity(role)}), 15, Palette.TEXT_MUTED, true)
+			note.name = "Full_" + String(role)
+			continue
+		_staff_row(list, cands[0])
+		if cands.size() > 1:
+			_more_row(list, role, cands.size() - 1)
+
+
+## Kandidat peran `role` yang belum direkrut, urut roster.
+func candidates(role: StringName) -> Array[StaffDefinition]:
+	var out: Array[StaffDefinition] = []
+	for def: StaffDefinition in DataRegistry.staff_list():
+		if def.role_id == role and not sim.staff.is_employed(def.id):
+			out.append(def)
+	return out
+
+
+## Baris "Other candidates (n)": membuka halaman semua kandidat peran itu.
+func _more_row(parent: Control, role: StringName, count: int) -> void:
+	var icon: Control = ProceduralUIFactory.badge("people", Palette.UI_CREAM_DEEP, Palette.UI_WOOD_DEEP, 44)
+	var h: HBoxContainer = UISheet.row(parent, Tx.t("ui_staff_more", {"count": count}), Tx.t("ui_staff_more_desc"), icon)
+	h.get_parent().name = "More_" + String(role)
+	var open: Button = ProceduralUIFactory.icon_button("play", Tx.t("ui_staff_more", {"count": count}), "plain", 22, Palette.UI_WOOD_DEEP)
+	open.name = "Choose"
+	open.pressed.connect(func() -> void: push_page(Tx.t("ui_staff_candidates_" + String(role)), _candidates_page.bind(role)))
+	h.add_child(open)
+
+
+## Halaman pilihan: semua kandidat peran `role` dengan wajah dan tombol Hire.
+func _candidates_page(body: VBoxContainer, role: StringName) -> void:
+	_hire_buttons.clear()
+	_level_buttons = null
+	var list: VBoxContainer = scroll_box(body)
+	list.name = "CandidateList"
+	for def: StaffDefinition in candidates(role):
+		_staff_row(list, def)
+
+
+## Wajah staf `def` (ChibiPortrait) seukuran `px`.
+static func face(def: StaffDefinition, px: float) -> Control:
+	var f := ProceduralUIFactory.ChibiPortrait.new()
+	f.name = "Face"
+	f.configure(def.visual, String(def.role_id), 1)
+	f.custom_minimum_size = Vector2(px, px)
+	f.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return f
 
 
 func _staff_row(parent: Control, def: StaffDefinition) -> void:
-	var icon: Control = ProceduralUIFactory.badge("chef" if def.is_baker() else "coin", Palette.HONEY if def.is_baker() else Palette.MATCHA, Palette.FLOUR_WHITE, 44)
+	var icon: Control = face(def, FACE_PX)
 	var hired: bool = sim.staff.is_employed(def.id)
 	var sub: String = Tx.t(def.title_key())
 	if hired:

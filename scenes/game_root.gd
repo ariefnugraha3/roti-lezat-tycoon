@@ -280,6 +280,8 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	add_child(hud)
 	SaveManager.simulation = sim
 	SaveManager.active_profile = profile_id
+	# Hak beli perangkat ini (GDD idle 22.5) sebelum penghasilan offline dihitung.
+	sim.premium.set_perks(Monetization.perks())
 	AudioManager.rng_source = sim.rng.stream(&"audio_rng")
 	PauseManager.clear_all()
 	PauseManager.lifecycle_enabled = true
@@ -297,18 +299,109 @@ func _enter_gameplay(profile_id: StringName) -> void:
 	playing = true
 	_end_loading(false)
 	EventBus.profile_loaded.emit(profile_id)
-	_connect_bus(Monetization.changed, _grant_supporter_badge)
+	_connect_bus(Monetization.changed, _on_monetization_changed)
+	_connect_bus(Monetization.purchased, _on_purchased)
+	_connect_bus(Monetization.ad_watched, _on_ad_watched)
+	_connect_bus(Monetization.dummy_ad_requested, _on_dummy_ad)
+	_connect_bus(Monetization.dummy_purchase_requested, _on_dummy_purchase)
 	_grant_supporter_badge()
 	_update_music()
 	_prewarm_day_music()
 	_autosave_timer = DataRegistry.idlef("clock.autosave_interval_seconds")
+	# Penawaran tidak pernah menyambut pemain tepat saat game dibuka (GDD idle 22.9).
+	_offer_timer = DataRegistry.idlef("monetization.offer_delay_seconds")
 	_show_tutorial_prompt()
 	check_offline()
 	check_daily_gift()
 	await get_tree().process_frame
 
 
-## Badge Supporter (GDD idle 22.4) masuk koleksi dekorasi profil ini sekali.
+## Hak beli perangkat berubah (beli, pulihkan, Club habis): salin ke simulasi.
+func _on_monetization_changed() -> void:
+	if sim == null:
+		return
+	sim.premium.set_perks(Monetization.perks())
+	_grant_supporter_badge()
+
+
+## Produk dibeli (GDD idle 22.5): isinya masuk save ini lewat PremiumManager.
+func _on_purchased(id: StringName) -> void:
+	if sim == null:
+		return
+	sim.premium.set_perks(Monetization.perks())
+	var p: Dictionary = PremiumManager.product(id)
+	if str(p.get("kind", "")) == "pass":
+		sim.premium.ensure_season(BoostManager.today())
+	sim.premium.deliver(id)
+	if str(p.get("kind", "")) == "club":
+		var n: int = sim.premium.claim_club(BoostManager.today())
+		if n > 0:
+			EventBus.notify.emit(1, "ui_club_daily_got", {"n": n}, &"crown")
+	# Perayaan (GDD idle 22.11): Golden Crumbs terbang ke saldo dari tombol
+	# belinya; produk lain dibuka di panggung perayaan.
+	if str(p.get("kind", "")) == "crumbs":
+		if hud != null:
+			hud.fly_crumbs(Vector2(-1.0, -1.0), int(p.get("crumbs", 0)))
+		EventBus.notify.emit(1, "ui_store_thanks", {"name": TestPurchaseScreen.product_title(p)}, &"gift")
+	elif modals.open(&"reward_reveal", {"product": id}) == null:
+		EventBus.notify.emit(1, "ui_store_thanks", {"name": TestPurchaseScreen.product_title(p)}, &"gift")
+	# Paket membawa pakaian atau dekorasi yang langsung terlihat.
+	if world != null and str(p.get("kind", "")) == "offer":
+		world.rebuild_all()
+	SaveManager.request_autosave("purchase", true)
+
+
+## "Place it" dari perayaan Store (GDD idle 22.11): Decoration Mode terbuka
+## dengan dekorasi `deco_id` di tangan, bila jenisnya masih punya tempat.
+func place_decoration(deco_id: StringName) -> void:
+	if sim == null:
+		return
+	modals.close_id(&"store")
+	var scr: DecorationScreen = modals.screen(&"decoration") as DecorationScreen
+	if scr == null:
+		scr = modals.open(&"decoration") as DecorationScreen
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if scr == null or not is_instance_valid(scr) or sim == null:
+		return
+	for o: Dictionary in sim.decoration.owned:
+		if StringName(str(o["deco_id"])) == deco_id and not bool(o["placed"]):
+			if not sim.decoration.type_full(int(o["uid"])):
+				scr._pick_decor_card(int(o["uid"]))
+			return
+
+
+## Hadiah iklan diberikan: XP Bakery Pass (GDD idle 22.7).
+func _on_ad_watched(_placement: StringName) -> void:
+	if sim != null:
+		sim.premium.on_ad()
+
+
+## Toko uji (GDD idle 22.2): iklan dan pembelian tiruan di atas permainan.
+func _on_dummy_ad(done: Callable) -> void:
+	if modals.open(&"dummy_ad", {"done": done}) == null:
+		done.call(true)
+
+
+func _on_dummy_purchase(product: StringName, done: Callable) -> void:
+	if modals.open(&"test_purchase", {"product": product, "done": done}) == null:
+		done.call(true)
+
+
+## Penawaran berbatas waktu (GDD idle 22.9): mulai bila syaratnya terpenuhi,
+## popupnya tampil sekali, hanya saat tidak ada layar lain dan tidak ada petunjuk
+## tutorial.
+func _maybe_offer() -> void:
+	if sim == null or not playing or _loader != null:
+		return
+	var id: StringName = Monetization.update_offers(sim.world.location.tier, int(sim.statistics.get_stat("franchise_count")))
+	if id == &"" or modals.top() != null or not sim.tutorial.prompt.is_empty() or (hud != null and hud.decoration_active):
+		return
+	Monetization.mark_offer_shown(id)
+	modals.open(&"offer", {"id": id})
+
+
+## Badge Supporter (No Ads, GDD idle 22.5) masuk koleksi dekorasi profil ini sekali.
 func _grant_supporter_badge() -> void:
 	if sim == null or not Monetization.supporter:
 		return
@@ -424,6 +517,10 @@ func _process(delta: float) -> void:
 	if _music_timer <= 0.0:
 		_music_timer = 1.0
 		_update_music()
+	_offer_timer -= delta
+	if _offer_timer <= 0.0:
+		_offer_timer = 2.0
+		_maybe_offer()
 	if world != null and hud != null:
 		var top: UIScreen = modals.top()
 		commands.enabled = top == null or top.world_input or not modals.has_blocking()
@@ -665,6 +762,14 @@ func check_daily_gift() -> void:
 		EventBus.notify.emit(1, "ui_daily_gift", {"mult": Tx.mult(DataRegistry.idlef("boosts.daily_gift.mult")),
 			"minutes": int(DataRegistry.idlef("boosts.daily_gift.minutes"))}, &"heart")
 		EventBus.sfx.emit(&"welcome_back_chime", &"")
+	# Bakery Pass: musim mengikuti bulan perangkat; hadiah musim lalu yang belum
+	# diambil langsung masuk. Baker's Club: Golden Crumbs harian (GDD idle 22.7, 22.9).
+	var old: Array[Dictionary] = sim.premium.ensure_season(today)
+	if not old.is_empty():
+		EventBus.notify.emit(1, "ui_pass_season_end", {"n": old.size()}, &"ticket")
+	var club: int = sim.premium.claim_club(today)
+	if club > 0:
+		EventBus.notify.emit(1, "ui_club_daily_got", {"n": club}, &"crown")
 	sim.calendar.note_date(today)
 	if sim.calendar.available(today) and not modals.is_open(&"calendar"):
 		var wb: UIScreen = modals.screen(&"welcome_back")
@@ -679,6 +784,8 @@ func check_daily_gift() -> void:
 ## tengah malam) = kopi, cap, dan event hari baru (GDD idle 11.1, 21.3, 21.6).
 var _date_seen: String = ""
 var _date_check: float = 0.0
+## Detik sampai pemeriksaan penawaran berikutnya (GDD idle 22.9).
+var _offer_timer: float = 2.0
 
 
 func _check_date_change(delta: float) -> void:

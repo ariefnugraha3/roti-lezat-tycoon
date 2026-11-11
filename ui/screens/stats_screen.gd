@@ -48,6 +48,18 @@ func build_page(body: VBoxContainer) -> void:
 				var day: Variant = sim.statistics.tier_reached_day.get(String(loc.id))
 				_pair(list, Tx.t("ui_record_fastest_tier", {"location": Tx.t(String(loc.localization_key))}), str(day) if day != null else Tx.t("ui_record_none"))
 		2:
+			# Seri tanpa ujung lebih dulu (GDD idle §20 no. 90).
+			section(list, Tx.t("ui_stats_series"))
+			for sx: Variant in DataRegistry.idle("endless.series"):
+				var sd: Dictionary = sx
+				var lv: int = sim.achievements.series_level(str(sd["id"]))
+				var sic: Control = ProceduralUIFactory.badge("trophy" if lv > 0 else "hourglass", Palette.GOLD_STAR if lv > 0 else Palette.UI_CREAM_DEEP,
+					Palette.FLOUR_WHITE if lv > 0 else Palette.TEXT_MUTED, 40)
+				var srow: HBoxContainer = UISheet.row(list, AchievementManager.series_text(sd, lv),
+					Tx.t("ui_stats_series_row", {"level": lv, "mult": DataRegistry.idlei("boosts.achievement.mult"),
+						"minutes": DataRegistry.idlei("boosts.achievement.minutes")}), sic)
+				srow.get_parent().name = "Series_" + str(sd["id"])
+			section(list, Tx.t("ui_tab_achievements_list"))
 			for x: Variant in DataRegistry.achievements():
 				var a: MiscDefinitions.AchievementDefinition = x
 				var done: bool = sim.achievements.is_unlocked(a.id)

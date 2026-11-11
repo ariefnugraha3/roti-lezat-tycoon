@@ -25,8 +25,8 @@ static func row(h: Dictionary, art_size: float) -> HBoxContainer:
 	var nm: Label = UIScreen.lbl(info, str(h.get("bakery_name", "")), 22, Palette.UI_WOOD_DEEP)
 	nm.name = "BakeryName"
 	nm.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	nm.clip_text = true
+	# Nama utuh, turun ke baris kedua bila panjang (Seksi 20 no. 103).
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size = Vector2(100.0, 0.0)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var loc: String = str(h.get("location_id", ""))

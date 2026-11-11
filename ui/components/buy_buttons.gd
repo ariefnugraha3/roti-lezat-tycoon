@@ -17,6 +17,13 @@ const MODES: Array[StringName] = [&"x1", &"x10", &"max"]
 ## Ukuran tombol beli dua baris (px logis).
 const WIDTH: float = 104.0
 const HEIGHT: float = 58.0
+## Ukuran dasar huruf baris aksi dan baris biaya.
+const TOP_SIZE: int = 15
+const COST_SIZE: int = 12
+## Jarak teks dari tepi kiri dan kanan tombol, dan ukuran huruf terkecil yang
+## boleh dipakai agar teks muat (bagian dari ukuran penuhnya).
+const FIT_PAD: float = 8.0
+const FIT_MIN: float = 0.6
 
 var sim: SimulationRoot = null
 var kind: StringName = &""
@@ -57,14 +64,16 @@ static func make_button(kind: String, width: float = WIDTH) -> Button:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 0)
 	b.add_child(v)
-	var top: Label = ProceduralUIFactory.label("", 15, Palette.UI_WOOD_DEEP)
+	var top: Label = ProceduralUIFactory.label("", TOP_SIZE, Palette.UI_WOOD_DEEP)
 	top.name = "Count"
 	top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_theme_font_override("font", ProceduralUIFactory.display_font())
+	top.set_meta("base_size", TOP_SIZE)
 	v.add_child(top)
-	var cost: Label = ProceduralUIFactory.label("", 12, Palette.UI_WOOD)
+	var cost: Label = ProceduralUIFactory.label("", COST_SIZE, Palette.UI_WOOD)
 	cost.name = "Cost"
 	cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost.set_meta("base_size", COST_SIZE)
 	v.add_child(cost)
 	b.set_meta("top", top)
 	b.set_meta("cost", cost)
@@ -72,16 +81,35 @@ static func make_button(kind: String, width: float = WIDTH) -> Button:
 
 
 ## Isi tombol `make_button`: teks atas dan bawah, tooltip, dan warna tinta yang
-## mengikuti `disabled` (setel `disabled` dulu).
+## mengikuti `disabled` (setel `disabled` dulu). Teks yang lebih lebar dari
+## tombol mengecil sampai muat (mis. "Max (+250)" di teks 150%), karena tombol
+## berukuran tetap memotong isinya (GDD idle §20 no. 84).
 static func set_texts(b: Button, top_text: String, cost_text: String, tooltip: String = "") -> void:
 	var top: Label = b.get_meta("top")
 	var cost: Label = b.get_meta("cost")
 	top.text = top_text
 	cost.text = cost_text
 	b.tooltip_text = tooltip
+	var room: float = b.custom_minimum_size.x - 2.0 * FIT_PAD
+	fit_label(top, room)
+	fit_label(cost, room)
 	var ink: Color = ProceduralUIFactory.disabled_ink() if b.disabled else Palette.UI_WOOD_DEEP
 	top.add_theme_color_override("font_color", ink)
 	cost.add_theme_color_override("font_color", ink)
+
+
+## Ukuran huruf label `l` = ukuran dasarnya (meta `base_size`, diskalakan teks)
+## atau lebih kecil sampai teksnya selebar paling banyak `room` px, tidak di
+## bawah `FIT_MIN` ukuran penuhnya.
+static func fit_label(l: Label, room: float) -> void:
+	var full: int = ProceduralUIFactory.scaled(int(l.get_meta("base_size", 15)))
+	var f: Font = l.get_theme_font("font")
+	var lo: int = maxi(8, int(floor(float(full) * FIT_MIN)))
+	var sz: int = full
+	while sz > lo and f.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > room:
+		sz -= 1
+	if l.get_theme_font_size("font_size") != sz:
+		l.add_theme_font_size_override("font_size", sz)
 
 
 ## [atas, bawah] tombol `make_button` (tes).

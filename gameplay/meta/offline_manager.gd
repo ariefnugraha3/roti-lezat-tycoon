@@ -34,16 +34,20 @@ func now_unix() -> float:
 
 
 ## Batas lama pergi yang dihitung (detik nyata): 2 jam + upgrade global + perk,
-## paling lama 12 jam (GDD idle 9.2).
+## paling lama 12 jam (GDD idle 9.2), ditambah jam pembelian (Night Manager,
+## Baker's Club, GDD idle 22.5) sampai `premium.max_offline_hours`.
 func cap_seconds() -> float:
 	var hours: float = DataRegistry.idlef("offline.base_cap_hours") + sim.upgrades.global_bonus(&"global_offline_hours") \
 		+ sim.prestige.offline_hours_bonus()
-	return minf(hours, DataRegistry.idlef("offline.max_cap_hours")) * 3600.0
+	hours = minf(hours, DataRegistry.idlef("offline.max_cap_hours")) + sim.premium.offline_hours()
+	return minf(hours, DataRegistry.idlef("premium.max_offline_hours")) * 3600.0
 
 
 ## Bagian KR/s yang didapat saat pergi: 50% + upgrade global + perk, paling
 ## tinggi 100% (GDD idle 9.2).
 func efficiency() -> float:
+	if sim.premium.offline_full():
+		return DataRegistry.idlef("offline.max_efficiency")
 	var e: float = DataRegistry.idlef("offline.base_efficiency") + sim.upgrades.global_bonus(&"global_offline_efficiency") \
 		+ sim.prestige.offline_efficiency_bonus()
 	return minf(e, DataRegistry.idlef("offline.max_efficiency"))
@@ -109,10 +113,12 @@ func settle_branch(now: float, left: float, rate: float, branch: int) -> Diction
 
 
 ## Hitung waktu sejak acuan terakhir (GDD idle 9.3, 9.4) lalu perbarui acuan.
-## Hasil: {} bila tidak ada apa-apa; selain itu {amount, seconds, away, popup}.
-## Pergi < min_away diabaikan. Pergi >= popup_min menumpuk ke `pending` untuk
-## popup Selamat Datang (dikreditkan lewat `collect`); di antaranya KR langsung
-## dikreditkan dan cukup diberi toast. Jam mundur: away = 0, acuan direset.
+## Hasil: {} bila tidak ada apa-apa; selain itu {amount, seconds, away, popup,
+## boosted}. Pergi < min_away diabaikan. Pergi >= popup_min menumpuk ke
+## `pending` untuk popup Selamat Datang (dikreditkan lewat `collect`); di
+## antaranya KR langsung dikreditkan dan cukup diberi toast. Jam mundur: away =
+## 0, acuan direset. Boost iklan ×2 (GDD idle 22.4) berjalan dengan jam nyata:
+## detik pergi selama boost masih ada ikut dikali, lalu boostnya dipotong.
 func settle() -> Dictionary:
 	var now: float = now_unix()
 	var last: float = last_active_unix
@@ -121,7 +127,9 @@ func settle() -> Dictionary:
 		var away: float = now - last
 		if away >= DataRegistry.idlef("offline.min_away_seconds"):
 			var e: Dictionary = earnings_for(away)
-			out = {"amount": float(e["amount"]), "seconds": float(e["seconds"]), "away": away,
+			var boosted: float = sim.premium.boosted_seconds(float(e["seconds"]))
+			var extra: float = Money.round_cents(maxf(rate_kr_per_s, 0.0) * boosted * efficiency() * (sim.premium.ad_boost_mult() - 1.0))
+			out = {"amount": float(e["amount"]) + extra, "seconds": float(e["seconds"]), "away": away, "boosted": boosted,
 				"popup": away >= DataRegistry.idlef("offline.popup_min_seconds") or not pending.is_empty()}
 			if bool(out["popup"]):
 				pending = {"amount": float(pending.get("amount", 0.0)) + float(out["amount"]),
@@ -129,6 +137,7 @@ func settle() -> Dictionary:
 					"away": float(pending.get("away", 0.0)) + away}
 			else:
 				_credit(float(out["amount"]), float(out["seconds"]))
+		sim.premium.consume_away(away)
 	elif last > 0.0:
 		GameLogger.warn("OFFLINE", "device clock went backwards by %.0f s; reference reset" % (last - now))
 	last_active_unix = now

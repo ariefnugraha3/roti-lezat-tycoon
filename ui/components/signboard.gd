@@ -24,12 +24,27 @@ func _ready() -> void:
 	_title.name = "Title"
 	_title.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Nama satu baris yang mengecil bila panjang (Seksi 20 no. 103); baris
+	# kedua hanya cadangan untuk nama yang tetap tidak muat di ukuran terkecil.
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_title)
 	_sub = ProceduralUIFactory.label(sub_text, 20, Palette.GOLD_STAR)
 	_sub.name = "Sub"
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_sub)
+	_fit_title()
+	resized.connect(_fit_title)
+
+
+## Ukuran huruf nama supaya muat satu baris di papan (lebar isi = 76% papan).
+func _fit_title() -> void:
+	if _title == null:
+		return
+	var w: float = maxf(size.x, custom_minimum_size.x) * 0.76
+	var f: Font = ProceduralUIFactory.display_font()
+	var sz: int = ProceduralUIFactory.fit_font_size(f, _title.text, ProceduralUIFactory.scaled(30), w - 4.0, 16)
+	if _title.get_theme_font_size("font_size") != sz:
+		_title.add_theme_font_size_override("font_size", sz)
 
 
 func _draw() -> void:

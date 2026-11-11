@@ -111,9 +111,12 @@ static func build(game: GameRoot, photo: Image) -> Image:
 	pic.custom_minimum_size = Vector2(float(SIZE.x) - 148.0, (float(SIZE.x) - 148.0) / PHOTO_ASPECT)
 	pic.clip_contents = true
 	frame.add_child(pic)
-	var name_l: Label = _fixed(ProceduralUIFactory.title(sim.bakery_name, 54), 54)
+	# Nama panjang mengecil sampai muat satu baris, tidak terpotong (Seksi 20
+	# no. 103); di ukuran terkecil pun tidak muat, ia turun ke baris kedua.
+	var name_size: int = ProceduralUIFactory.fit_font_size(ProceduralUIFactory.display_font(), sim.bakery_name, 54, float(SIZE.x) - 128.0, 30)
+	var name_l: Label = _fixed(ProceduralUIFactory.title(sim.bakery_name, 54), name_size)
 	name_l.name = "BakeryName"
-	name_l.clip_text = true
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(name_l)
 	var where: String = Tx.t(String(sim.world.location.localization_key))
 	if sim.prestige.run_index > 1:

@@ -74,18 +74,36 @@ func staff_lanes() -> Array[QueueLane]:
 ## selama ada Asisten Kasirnya; jalur A milik pemilik terbuka selama pemilik
 ## melayaninya, bila tidak ada jalur kasir lain yang terbuka, atau bila semua
 ## jalur kasir yang terbuka sudah penuh (pemilik ikut melayani). Antrean hanya
-## terbentuk di jalur terbuka.
+## terbentuk di jalur terbuka; jalur A yang tidak dijaga pemilik tertutup selama
+## ada kasir dengan ruang, jadi pembeli dan driver yang menunggu di sana pindah
+## ke kasir yang aktif (GDD idle §20 no. 82).
 func is_open(l: QueueLane) -> bool:
 	if l.kind == QueueLane.KIND_ROTIFOOD:
 		return true
 	if not l.main:
 		return sim.staff.cashier_for_lane(l.id) != null
-	if sim.player.manning_lane == l.id:
+	if sim.player.attends(l.id):
 		return true
+	return not cashier_lane_with_room()
+
+
+## Ada jalur kasir terbuka (berAsisten Kasir) yang masih punya slot.
+func cashier_lane_with_room() -> bool:
 	for o: QueueLane in lanes:
 		if not o.main and sim.staff.cashier_for_lane(o.id) != null and o.free_capacity() > 0:
-			return false
-	return true
+			return true
+	return false
+
+
+## Jalur kasir terbuka dengan ruang terbanyak (seri: urutan template), atau null.
+func roomiest_cashier_lane() -> QueueLane:
+	var best: QueueLane = null
+	for o: QueueLane in lanes:
+		if o.main or sim.staff.cashier_for_lane(o.id) == null or o.free_capacity() <= 0:
+			continue
+		if best == null or o.free_capacity() > best.free_capacity():
+			best = o
+	return best
 
 
 ## Beban jalur: pembeli yang memegang slot plus yang sedang dilayani.
@@ -107,6 +125,18 @@ func move_actor(actor_id: StringName, from: QueueLane, to: QueueLane) -> bool:
 	return true
 
 
+## Jalur menerima pembeli baru (pilihan jalur dan penyeimbangan): jalur yang
+## terbuka, kecuali jalur A selama pemilik ingin kembali ke dapur (ada roti yang
+## sedang dibuat atau pekerjaan) sementara jalur kasir lain masih punya ruang:
+## antrean jalur A habis lalu pemilik pergi (GDD idle §20 no. 81).
+func accepts_new(l: QueueLane) -> bool:
+	if not is_open(l):
+		return false
+	if l.main and sim.player.manning_lane == l.id and cashier_lane_with_room() and sim.player.wants_kitchen():
+		return false
+	return true
+
+
 func open_physical_lanes() -> Array[QueueLane]:
 	var out: Array[QueueLane] = []
 	for l: QueueLane in lanes:
@@ -115,11 +145,19 @@ func open_physical_lanes() -> Array[QueueLane]:
 	return out
 
 
-## Lane tujuan driver: meja RotiFood Tier 3+ (selalu aktif), atau lane utama.
+## Lane tujuan driver: meja RotiFood Tier 3+ (selalu aktif); selain itu jalur
+## kasir yang aktif (GDD idle §20 no. 82): jalur A bila pemilik menjaganya, masih
+## ada ruang, dan pemilik tidak sedang bersiap kembali ke dapur (`accepts_new`);
+## bila tidak jalur kasir terbuka dengan ruang terbanyak; dan jalur A bila tidak
+## ada kasir yang berruang.
 func driver_lane() -> QueueLane:
 	if rotifood_lane != null:
 		return rotifood_lane
-	return main_lane()
+	var a: QueueLane = main_lane()
+	if a != null and sim.player.attends(a.id) and a.free_capacity() > 0 and accepts_new(a):
+		return a
+	var b: QueueLane = roomiest_cashier_lane()
+	return b if b != null else a
 
 
 func physical_free_capacity() -> int:
@@ -150,7 +188,7 @@ func choose_physical_lane(from_cell: Vector2i, speed_mps: float) -> QueueLane:
 	var best: QueueLane = null
 	var best_key: Array = []
 	for l: QueueLane in open_physical_lanes():
-		if l.free_capacity() <= 0:
+		if l.free_capacity() <= 0 or not accepts_new(l):
 			continue
 		var tail: Vector2i = l.slots[mini(l.reservations.size(), l.slots.size() - 1)]
 		var dist_m: float = GridMath.tiles_to_meters(float(GridMath.manhattan(from_cell, tail)))

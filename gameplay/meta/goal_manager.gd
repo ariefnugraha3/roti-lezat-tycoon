@@ -140,6 +140,8 @@ func claim(i: int) -> bool:
 	g["claimed"] = true
 	sim.economy.credit(float(g["reward"]), &"REWARD", StringName(str(g["id"])), {})
 	sim.statistics.add(&"goals_completed", 1)
+	# Golden Crumbs dan XP Bakery Pass (GDD idle 22.3, 22.7).
+	sim.premium.on_goal()
 	EventBus.sfx.emit(&"level_up", &"")
 	SaveManager.request_autosave("goal")
 	return true

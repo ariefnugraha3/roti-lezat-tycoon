@@ -454,12 +454,12 @@ func _render_catalog() -> void:
 ## Baris katalog seperti baris Staff: lencana ikon, nama, keterangan, dan satu
 ## tombol aksi di kanan. Mengembalikan tombolnya.
 func _item_row(icon: Array, title_text: String, sub: String, action: String, kind: String, disabled: bool, cb: Callable,
-		row_name: String, coin: bool = false) -> Button:
+		row_name: String, coin: bool = false, crumb: bool = false) -> Button:
 	var h: HBoxContainer = UISheet.row(_list, title_text, sub, DecorIcons.badge(icon))
 	h.get_parent().name = row_name
 	var b: Button
-	if coin:
-		b = ProceduralUIFactory.icon_text_button("coin", action, kind, 20, 16)
+	if coin or crumb:
+		b = ProceduralUIFactory.icon_text_button("crumb" if crumb else "coin", action, kind, 20, 16)
 		b.custom_minimum_size = Vector2(maxf(140.0, ProceduralUIFactory._text_width(action, 16, true) + 64.0), 52)
 	else:
 		b = ProceduralUIFactory.button(action, kind)
@@ -552,6 +552,23 @@ func _list_decor(types: Array) -> void:
 		var coin: bool = reason == &"" or reason == &"kr"
 		_item_row(DecorIcons.of_decor(d2), Tx.t(String(d2.localization_key)), shop_sub(sim, d2), action, "primary",
 			reason != &"", _buy.bind(d2.id), "Shop_" + String(d2.id), coin)
+	_list_premium(types)
+
+
+## Kosmetik Golden Crumbs jenis tab ini yang belum dimiliki (GDD idle 22.8).
+func _list_premium(types: Array) -> void:
+	var items: Array[MiscDefinitions.DecorationDefinition] = []
+	for x: Variant in DataRegistry.decorations():
+		var d: MiscDefinitions.DecorationDefinition = x
+		if d.source == &"premium" and types.has(d.placement_type) and not sim.decoration.owns(d.id):
+			items.append(d)
+	if items.is_empty():
+		return
+	UISheet.section(_list, Tx.t("ui_decor_premium", {"n": Tx.big(float(sim.premium.crumbs))}))
+	for d2: MiscDefinitions.DecorationDefinition in items:
+		var sub: String = shop_sub(sim, d2) if d2.has_bonus() else Tx.t("decor_type_" + String(d2.placement_type))
+		_item_row(DecorIcons.of_decor(d2), Tx.t(String(d2.localization_key)), sub, Tx.big(float(d2.price_crumbs)), "primary",
+			false, _buy.bind(d2.id), "Premium_" + String(d2.id), false, true)
 
 
 static func _bonus_text(d: MiscDefinitions.DecorationDefinition) -> String:
@@ -596,9 +613,15 @@ func _buy(deco_id: StringName) -> void:
 	if r != &"":
 		if r == &"kr":
 			EventBus.notify.emit(1, "ui_feedback_not_enough_kr", {}, &"coin")
+		elif r == &"crumbs":
+			EventBus.notify.emit(1, "ui_feedback_not_enough_crumbs", {}, &"crumb")
 		return
 	game.world.rebuild_all()
 	var def: MiscDefinitions.DecorationDefinition = DataRegistry.decoration(deco_id)
+	# Barang Golden Crumbs dirayakan (GDD idle 22.11); barang yang bisa dipasang
+	# tetap langsung diangkat di belakang perayaannya.
+	if def != null and def.source == &"premium":
+		game.modals.open(&"reward_reveal", {"deco": deco_id, "in_decor": true})
 	if not had and def != null and def.is_placeable():
 		var uid: int = -1
 		for o: Dictionary in sim.decoration.owned:

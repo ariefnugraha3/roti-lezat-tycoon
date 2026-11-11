@@ -1703,6 +1703,11 @@ static func fit_to_footprint(node: Node3D, kind: String, tier: int) -> float:
 
 
 ## Kotak pembatas seluruh mesh keturunan `node`, dalam koordinat lokal node.
+## Mesh bermeta ini (bayangan lantai perabot, GDD idle §20 no. 86) tidak ikut
+## kotak batas perabot: kotak pilih, penanda, dan jejak tetap seukuran modelnya.
+const META_NO_BOUNDS: String = "no_bounds"
+
+
 static func _mesh_bounds(node: Node3D) -> AABB:
 	var box := AABB()
 	var ada: bool = false
@@ -1712,7 +1717,7 @@ static func _mesh_bounds(node: Node3D) -> AABB:
 		for c in n.get_children():
 			antrean.append(c)
 		var mi := n as MeshInstance3D
-		if mi == null or mi.mesh == null:
+		if mi == null or mi.mesh == null or mi.has_meta(META_NO_BOUNDS):
 			continue
 		var rel: Transform3D = node.transform.affine_inverse() * _rel_transform(node, mi)
 		var dunia: AABB = rel * mi.get_aabb()
