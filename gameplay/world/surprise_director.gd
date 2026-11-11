@@ -273,6 +273,9 @@ func _kid_chase() -> void:
 		{"do": "wait", "t": 2.2},
 		{"do": "enter", "cell": _neighbor(ring[0], ring)},
 		{"do": "say", "key": "surprise_mom_call", "t": 2.4},
+		# Panggilannya selesai dulu: anak yang sudah berhenti berlari menunggu
+		# kalimat ini, dan maaf si ibu baru menyusul sesudah maaf si anak.
+		{"do": "hush"},
 		{"do": "until", "name": "kid_done"},
 		{"do": "signal", "name": "mom_here"},
 		{"do": "face", "member": kid},
@@ -600,6 +603,9 @@ func _advance(m: Dictionary, act: Dictionary, delta: float) -> bool:
 			return float(act["el"]) >= float(act["t"])
 		"until":
 			return _flags.has(str(act["name"]))
+		"hush":
+			# Tunggu sampai kalimat pemeran ini sendiri habis.
+			return float(m["say_left"]) <= 0.0
 		"signal":
 			_flags[str(act["name"])] = true
 			return true

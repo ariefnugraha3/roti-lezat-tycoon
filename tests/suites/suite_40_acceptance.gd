@@ -16,6 +16,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_MOVE_BUSY", "name": "idle 20 no. 75 furniture in use still moves: a mixer holding a batch keeps it, the owner walking to it goes to its new access tile and carries on there; a buyer browsing a shelf that moves walks to its new spot and still buys, leaving no reservation behind", "fn": _move_busy},
 		{"id": "ACC_72_STOCKED_SHELF_MOVE", "name": "72 a shelf holding bread moves and turns with its bread", "fn": _stocked_shelf},
 		{"id": "ACC_DECOR_KEEP_CLEAR", "name": "17.4 decoration tile marks match placement validation", "fn": _keep_clear},
+		{"id": "ACC_IDLE_FACE_AISLE", "name": "idle 20 no. 111 on kitchen floors (upstairs at Tier 2 and 3) auto placement puts every piece's back to a wall and its access tile on or next to a protected walkway, so no free tile turns keep-clear because of furniture, while floors with a shop keep the old order; a save from before the rule turns wall-facing kitchen pieces in place once on load, and a rotation the player picks afterwards stays", "fn": _face_aisle},
 		{"id": "ACC_129_LIMITS", "name": "129 transient effects stop at the cap", "fn": _effect_limit},
 		{"id": "ACC_129_FX_TEARDOWN", "name": "129 one-shot effects freed early leave no errors behind", "fn": _effect_teardown},
 	]
@@ -483,3 +484,98 @@ func _keep_clear() -> void:
 	eq(s.check_invariants(), "", "analysis leaves the layout untouched")
 	check(s.world.layout_valid(), "layout still valid")
 	free_sim(s)
+
+
+## Perabot menghadap lorong (GDD idle 20 no. 111).
+func _face_aisle() -> void:
+	var s: SimulationRoot = new_sim(1711)
+	s.tutorial.skip()
+	for tier in range(1, 6):
+		if tier > 1:
+			jump_to_tier(s, tier)
+		equip_shop(s, 1)
+		var bad: Array[String] = []
+		for e: EquipmentInstance in s.equipment.placed_list():
+			if not s.world.faces_aisle_floor(s.world.grid(e.floor_id)):
+				continue
+			var acc: Vector2i = s.world.access_of(e.iid).get("cell", Vector2i(-1, -1))
+			if s.world.facing_cost(s.world.grid(e.floor_id), acc) > 1:
+				bad.append("%s@%s r%d acc %s" % [e.def_id, str(e.anchor), e.rotation, str(acc)])
+		eq(bad, [], "T%d every kitchen-floor piece faces the aisle" % tier)
+		for fid: StringName in s.world.floor_ids():
+			if not s.world.faces_aisle_floor(s.world.grid(fid)):
+				continue
+			var kc: Dictionary = s.world.keep_clear_cells(fid)
+			var fg: FloorGrid = s.world.grid(fid)
+			var furniture_cuts: Array[String] = []
+			for c: Vector2i in kc.keys():
+				if kc[c] != &"chokepoint":
+					continue
+				# Leher botol karena bentuk ruangan sendiri tetap ada tanpa perabot.
+				var saved_fp: Dictionary = fg.furniture_at.duplicate()
+				var saved_acc: Dictionary = fg.access_at.duplicate()
+				fg.furniture_at = {}
+				fg.access_at = {}
+				var bare: Dictionary = s.world.keep_clear_cells(fid)
+				fg.furniture_at = saved_fp
+				fg.access_at = saved_acc
+				if bare.get(c, &"") != &"chokepoint":
+					furniture_cuts.append(str(c))
+			eq(furniture_cuts, [], "T%d %s furniture turns no free tile into a chokepoint" % [tier, fid])
+		eq(s.check_invariants(), "", "T%d layout consistent" % tier)
+	free_sim(s)
+	# Save lama: satu perabot diputar menghadap dinding di sel yang sama.
+	var t: SimulationRoot = new_sim(1712)
+	t.tutorial.skip()
+	jump_to_tier(t, 3)
+	equip_shop(t, 1)
+	var turned: EquipmentInstance = null
+	var lost_good: int = 0
+	for e2: EquipmentInstance in t.equipment.placed_list():
+		if not t.world.faces_aisle_floor(t.world.grid(e2.floor_id)):
+			continue
+		var before: int = t.world.lost_tiles(e2.floor_id)
+		for r in 4:
+			if r == e2.rotation:
+				continue
+			var cells_r: Array[Vector2i] = GridMath.footprint_cells(e2.anchor, e2.def().footprint_tiles, r)
+			var cells: Array[Vector2i] = e2.footprint_cells()
+			if cells_r.any(func(c2: Vector2i) -> bool: return not cells.has(c2)):
+				continue
+			if t.world.validate_placement(e2, e2.floor_id, e2.anchor, r) != &"":
+				continue
+			var was: int = e2.rotation
+			e2.rotation = r
+			t.world.rebuild_occupancy()
+			if t.world.lost_tiles(e2.floor_id) > before:
+				turned = e2
+				lost_good = before
+				break
+			e2.rotation = was
+			t.world.rebuild_occupancy()
+		if turned != null:
+			break
+	check(turned != null, "found a kitchen piece that can face the wall")
+	eq(t.world.faces_aisle_floor(t.world.grid(t.world.store_floor())), false, "the shop floor keeps the old placement order")
+	if turned == null:
+		free_sim(t)
+		return
+	var wall_rot: int = turned.rotation
+	var d: Dictionary = t.capture_save()
+	eq(int((d["equipment_states"] as Dictionary).get("layout_rev", 0)), EquipmentManager.LAYOUT_REV, "saves carry the layout revision")
+	var old: Dictionary = d.duplicate(true)
+	(old["equipment_states"] as Dictionary).erase("layout_rev")
+	var u: SimulationRoot = new_sim(1)
+	u.load_from_save(old)
+	var e3: EquipmentInstance = u.equipment.get_inst(turned.iid)
+	check(e3.rotation != wall_rot and e3.anchor == turned.anchor, "an old save turns it to face the aisle in place (r%d -> r%d)" % [wall_rot, e3.rotation])
+	check(u.world.lost_tiles(e3.floor_id) <= lost_good, "and frees the tiles it took (%d <= %d)" % [u.world.lost_tiles(e3.floor_id), lost_good])
+	eq(u.check_invariants(), "", "the turned layout is consistent")
+	check(u.world.layout_valid(), "and valid")
+	eq(int(u.capture_save()["equipment_states"]["layout_rev"]), EquipmentManager.LAYOUT_REV, "it saves as the new revision")
+	var w: SimulationRoot = new_sim(1)
+	w.load_from_save(d)
+	eq(w.equipment.get_inst(turned.iid).rotation, wall_rot, "a rotation the player picked under the new rule stays")
+	free_sim(t)
+	free_sim(u)
+	free_sim(w)

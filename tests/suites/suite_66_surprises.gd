@@ -21,6 +21,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_31_SURPRISE_PLAN", "name": "31.9 every day plans 2-3 different surprises at random daytime hours; none comes back the next day and all eight come round within any four days", "fn": _plan},
 		{"id": "ACC_31_SURPRISE_SKITS", "name": "31.9 each of the eight surprises plays out in the shop, says its English lines one at a time, and leaves nothing behind", "fn": _skits},
+		{"id": "ACC_31_SKIT_SHORT_RING", "name": "31.9, idle 20 no. 111 the kid chase keeps its lines in order (kid says sorry before mom) when the shelf stands against a wall and the kid's laps are short, so the mom is still calling when the kid stops", "fn": _short_ring},
 		{"id": "ACC_31_SURPRISE_WHEN", "name": "31.9 a surprise starts at its time only while unpaused, outside Decoration Mode and on screen; pause freezes it, Decoration Mode hides it, a late one is dropped", "fn": _when},
 		{"id": "ACC_31_SURPRISE_COSMETIC", "name": "31.9/116 surprises are only a show: a day with one always playing plays out exactly like a day without", "fn": _cosmetic},
 	]
@@ -138,6 +139,43 @@ func _skits() -> void:
 				left += 1
 		eq(left, 0, "%s leaves no bubble behind" % kind)
 	eq(fingerprint(s), before, "the simulation is untouched")
+	world.queue_free()
+	await runner.get_tree().process_frame
+	free_sim(s)
+
+
+## Rak menempel dinding: lintasan lari anak pendek, ia selesai saat ibunya
+## masih memanggil. Dulu maaf si ibu keluar duluan.
+func _short_ring() -> void:
+	PauseManager.clear_all()
+	var s: SimulationRoot = _open_store(6613)
+	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	var moved: bool = false
+	for spot: Array in [[Vector2i(5, 1), 1], [Vector2i(5, 2), 1], [Vector2i(0, 1), 3]]:
+		if s.equipment.place(disp.iid, disp.floor_id, spot[0], int(spot[1])) == &"":
+			moved = true
+			break
+	check(moved, "the shelf moves against a wall")
+	var world := WorldView.new()
+	runner.add_child(world)
+	world.setup(s)
+	world._process(0.016)
+	var director: SurpriseDirector = world.surprises
+	check(director.start(&"kid_chase"), "the kid chase starts")
+	var said: Array[String] = []
+	var together: int = 0
+	var t: float = 0.0
+	while director.running() != &"" and t < SurpriseDirector.MAX_SECONDS + 1.0:
+		world._process(0.05)
+		t += 0.05
+		var showing: Array[ThoughtBubble] = director.bubbles_showing()
+		together = maxi(together, showing.size())
+		for bub: ThoughtBubble in showing:
+			if not said.has(bub.current_key()):
+				said.append(bub.current_key())
+	eq(director.running(), &"", "it ends on its own")
+	eq(said, LINES["kid_chase"] as Array[String], "the lines stay in order")
+	check(together <= 1, "one speaker at a time")
 	world.queue_free()
 	await runner.get_tree().process_frame
 	free_sim(s)

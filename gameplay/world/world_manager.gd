@@ -487,10 +487,17 @@ func spot_near(e: EquipmentInstance, floor_id: StringName, anchor: Vector2i, rot
 	return {}
 
 
-## Kandidat: zona anjuran lebih dulu, lalu sel yang menempel tepi ruangan.
+## Kandidat: zona anjuran lebih dulu; di lantai dapur (GDD idle 20 no. 111)
+## lalu punggung menempel dinding (atau perabot lain) dan muka menghadap lorong:
+## tile akses di jalur terlindung paling baik, lalu tile akses yang bersebelahan
+## dengan jalur itu; tile akses yang jauh dari jalur membuat ubin kosong di
+## antaranya jadi leher botol (keep clear). Terakhir sel yang menempel tepi
+## ruangan. Lantai yang punya toko memakai urutan lama, karena rute di sana
+## menentukan KR/s awal (1 KR/s, Seksi 7.1) dan pacing.
 func _candidates(fg: FloorGrid, e: EquipmentInstance) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var pref: Variant = fg.def.preferred_zones.get(e.category())
+	var facing: bool = faces_aisle_floor(fg)
 	for z in fg.size.y:
 		for x in fg.size.x:
 			for rot in 4:
@@ -500,14 +507,102 @@ func _candidates(fg: FloorGrid, e: EquipmentInstance) -> Array[Dictionary]:
 				if pref is Rect2i:
 					inside_pref = (pref as Rect2i).encloses(Rect2i(a, fp))
 				var edge: int = mini(mini(a.x, fg.size.x - (a.x + fp.x)), mini(a.y, fg.size.y - (a.y + fp.y)))
-				# Hadap menjauhi tepi terdekat supaya pintu/ruang akses mengarah ke lorong.
-				var score: int = (0 if inside_pref else 1000) + edge * 10 + rot
+				var back: int = 0
+				var face: int = 0
+				if facing:
+					back = 0 if _back_blocked(fg, e, a, rot) else 1
+					face = facing_cost(fg, _pick_access(fg, e, a, rot, e.iid))
+				var score: int = (0 if inside_pref else 100000) + back * 10000 + face * 1000 + edge * 10 + rot
 				out.append({"anchor": a, "rot": rot, "score": score, "order": out.size()})
 	out.sort_custom(func(p: Dictionary, q: Dictionary) -> bool:
 		if int(p["score"]) != int(q["score"]):
 			return int(p["score"]) < int(q["score"])
 		return int(p["order"]) < int(q["order"]))
 	return out
+
+
+## Aturan menghadap lorong berlaku di lantai ini (GDD idle 20 no. 111): lantai
+## dapur tanpa zona toko, yaitu lantai atas Tier 2 dan 3.
+func faces_aisle_floor(fg: FloorGrid) -> bool:
+	return fg != null and fg.def.has_zone(&"kitchen") and not fg.def.has_zone(&"store")
+
+
+## Seberapa buruk tile akses `acc` bagi ruang di sekitarnya (GDD idle 20 no.
+## 111): 0 di jalur terlindung (tidak ada ubin yang hilang), 1 bersebelahan
+## dengan jalur itu (hanya tile aksesnya), 2 jauh dari jalur (ubin kosong di
+## antaranya ikut jadi leher botol), 3 tidak ada tile akses.
+func facing_cost(fg: FloorGrid, acc: Vector2i) -> int:
+	if acc.x < 0 or not fg.in_bounds(acc):
+		return 3
+	if fg.flag(acc) == FloorGrid.Flag.WALKABLE_NO_BUILD:
+		return 0
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = acc + d
+		if fg.in_bounds(n) and fg.flag(n) == FloorGrid.Flag.WALKABLE_NO_BUILD and fg.is_walkable(n):
+			return 1
+	return 2
+
+
+## Sisi belakang perabot menempel dinding atau struktur (bukan ubin kosong yang
+## terbuang di belakangnya, dan bukan perabot lain: perabot di depan pintu
+## kulkas atau oven tampak aneh walau ubin aksesnya masih kosong).
+func _back_blocked(fg: FloorGrid, e: EquipmentInstance, anchor: Vector2i, rot: int) -> bool:
+	for c: Vector2i in GridMath.front_cells(anchor, e.def().footprint_tiles, posmod(rot + 2, 4), e.def().interaction_face):
+		if not fg.in_bounds(c):
+			continue
+		var f: int = fg.flag(c)
+		if f == FloorGrid.Flag.FIXED_STRUCTURE or f == FloorGrid.Flag.NON_WALKABLE:
+			continue
+		return false
+	return true
+
+
+## Ubin yang hilang karena perabot di satu lantai: tile akses di luar jalur
+## terlindung ditambah ubin leher botol (keep_clear_cells).
+func lost_tiles(floor_id: StringName) -> int:
+	var n: int = 0
+	for kind: Variant in keep_clear_cells(floor_id).values():
+		if kind == &"access" or kind == &"chokepoint":
+			n += 1
+	return n
+
+
+## Save dari sebelum aturan arah (GDD idle 20 no. 111): perabot di lantai dapur
+## yang menghadap dinding atau sudut diputar di tempat (sel yang sama) bila
+## putaran itu sah dan mengurangi ubin yang hilang di lantainya. Urutan iid,
+## jadi hasilnya pasti. Jumlah perabot yang diputar.
+func face_the_aisle() -> int:
+	var turned: int = 0
+	var list: Array[EquipmentInstance] = sim.equipment.placed_list().duplicate()
+	list.sort_custom(func(p: EquipmentInstance, q: EquipmentInstance) -> bool: return p.iid < q.iid)
+	for e: EquipmentInstance in list:
+		if not faces_aisle_floor(grid(e.floor_id)):
+			continue
+		var cells: Array[Vector2i] = e.footprint_cells()
+		var start_rot: int = e.rotation
+		var best_rot: int = start_rot
+		var best: int = lost_tiles(e.floor_id)
+		for r in 4:
+			if r == start_rot or not e.def().rotations_allowed.has(r * 90):
+				continue
+			var cells_r: Array[Vector2i] = GridMath.footprint_cells(e.anchor, e.def().footprint_tiles, r)
+			if cells_r.size() != cells.size() or cells_r.any(func(c: Vector2i) -> bool: return not cells.has(c)):
+				continue
+			if validate_placement(e, e.floor_id, e.anchor, r) != &"":
+				continue
+			e.rotation = r
+			rebuild_occupancy()
+			var n: int = lost_tiles(e.floor_id)
+			e.rotation = start_rot
+			rebuild_occupancy()
+			if n < best:
+				best = n
+				best_rot = r
+		if best_rot != start_rot:
+			e.rotation = best_rot
+			rebuild_occupancy()
+			turned += 1
+	return turned
 
 
 # ===========================================================================

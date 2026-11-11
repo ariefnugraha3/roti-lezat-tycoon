@@ -11,12 +11,17 @@ var _list_cache: Dictionary = {}
 ## Naik setiap kali daftar perabot dibuang (`invalidate_lists`): kunci cache
 ## rencana petak Auto (GDD idle §20 no. 83).
 var list_version: int = 0
+## Revisi aturan arah perabot (GDD idle 20 no. 111). Save dengan revisi lebih
+## rendah diputar sekali saat dimuat (WorldManager.face_the_aisle).
+const LAYOUT_REV: int = 2
+var layout_rev: int = LAYOUT_REV
 
 
 func new_game() -> void:
 	instances.clear()
 	invalidate_lists()
 	next_iid = 1
+	layout_rev = LAYOUT_REV
 
 
 func create_instance(def_id: StringName) -> EquipmentInstance:
@@ -188,13 +193,14 @@ func capture() -> Dictionary:
 	var list: Array = []
 	for e: EquipmentInstance in all_sorted():
 		list.append(e.to_dict())
-	return {"next_iid": next_iid, "items": list}
+	return {"next_iid": next_iid, "items": list, "layout_rev": layout_rev}
 
 
 func restore(d: Dictionary) -> void:
 	instances.clear()
 	invalidate_lists()
 	next_iid = int(d.get("next_iid", 1))
+	layout_rev = int(d.get("layout_rev", 1))
 	for item: Variant in d.get("items", []):
 		var e: EquipmentInstance = EquipmentInstance.from_dict(item as Dictionary)
 		if e.def() == null:

@@ -997,6 +997,12 @@ func load_from_save(d: Dictionary) -> void:
 			GameLogger.warn("WORLD", "%s %d left unplaced after the layout check" % [e2.def_id, e2.iid])
 	_ensure_table()
 	_ensure_chairs()
+	# Sekali per save dari sebelum aturan arah (GDD idle 20 no. 111).
+	if equipment.layout_rev < EquipmentManager.LAYOUT_REV:
+		var turned: int = world.face_the_aisle()
+		if turned > 0:
+			GameLogger.info("WORLD", "%d pieces turned to face the aisle" % turned)
+		equipment.layout_rev = EquipmentManager.LAYOUT_REV
 	production.restore(d.get("production_jobs", {}))
 	queue.restore(d.get("queues", {}))
 	cashier.restore(d.get("cashier", {}))
