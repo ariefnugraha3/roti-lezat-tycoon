@@ -32,7 +32,7 @@ func build_page(body: VBoxContainer) -> void:
 	h.add_child(ProceduralUIFactory.icon("star", 40, Palette.SIGN_PURPLE))
 	var have: Label = lbl(h, stars_text("ui_franchise_have", p.stars), 22, Palette.UI_WOOD_DEEP, true)
 	have.name = "Have"
-	var mult: Label = lbl(cb, Tx.t("ui_franchise_mult", {"mult": "%.2f" % p.income_mult()}), 17, Palette.TEXT, true)
+	var mult: Label = lbl(cb, Tx.t("ui_franchise_mult", {"mult": Tx.dec(p.income_mult(), 2)}), 17, Palette.TEXT, true)
 	mult.name = "Mult"
 	lbl(cb, Tx.t("ui_franchise_bonus", {"percent": _num(DataRegistry.idlef("prestige.income_per_star") * 100.0)}), 15, Palette.TEXT_MUTED, true)
 	_gain = lbl(cb, "", 20, Palette.UI_WOOD_DEEP, true)
@@ -78,7 +78,7 @@ func build_page(body: VBoxContainer) -> void:
 		Palette.FLOUR_WHITE if lv > 0 else Palette.TEXT_MUTED, 44)
 	var lrow: HBoxContainer = UISheet.row(list, Tx.t("ui_legacy_title", {"level": lv}), Tx.t("ui_legacy_desc", {
 		"every": Tx.big(float(DataRegistry.idlei("prestige.legacy_every_stars"))), "after": Tx.big(float(DataRegistry.idlei("prestige.legacy_after_stars"))),
-		"mult": "×%.2f" % (1.0 + DataRegistry.idlef("prestige.legacy_income")), "next": Tx.big(float(p.next_legacy_stars()))}), lbadge)
+		"mult": "×" + Tx.dec(1.0 + DataRegistry.idlef("prestige.legacy_income"), 2), "next": Tx.big(float(p.next_legacy_stars()))}), lbadge)
 	lrow.get_parent().name = "Legacy"
 	tick_page()
 
@@ -142,7 +142,7 @@ static func perk_params(perk: Dictionary) -> Dictionary:
 
 
 static func _num(v: float) -> String:
-	return str(int(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else Tx.dec(v, 1)
 
 
 func _confirm() -> void:

@@ -5,15 +5,26 @@ extends RefCounted
 ##
 ## Proyek ini TIDAK memuat satu pun berkas audio (.ogg/.wav/.mp3). Seluruh bunyi
 ## dihitung sebagai sampel PCM di dalam GDScript lalu dibungkus menjadi
-## AudioStreamWAV 16-bit mono 22050 Hz (GDD 33.5, 111.1). Skrip inilah
-## provenance-nya: setiap event di data/catalog/audio_events.json menunjuk satu
-## resep di `build()`.
+## AudioStreamWAV 16-bit mono (GDD 33.5, 111.1). Skrip inilah provenance-nya:
+## setiap event di data/catalog/audio_events.json menunjuk satu resep di
+## `build()`. Hasilnya boleh disimpan di cache disk (AudioCache, v3.1 111.1).
+##
+## Hemat CPU untuk HP kentang (Seksi 20 no. 108): osilator, amplop, dan derau
+## dihitung tanpa pemanggilan fungsi atau `match` per sampel; ambience yang
+## isinya rendah (jalan, ruang, oven, mixer, lonceng menara) dirakit di 11025 Hz
+## (separuh biaya dan memori); bunyi UI dan lonceng tetap 22050 Hz supaya jernih.
 ##
 ## Semua fungsi bersifat static dan tidak bergantung pada autoload mana pun.
 
-## Laju cuplik seluruh bunyi. 22050 Hz sudah lebih dari cukup untuk palet foley
-## hangat ala lo-fi 2000-an dan menekan biaya hitung di ponsel maupun browser.
+## Laju cuplik bunyi UI, lonceng, dan efek. 22050 Hz cukup untuk palet foley
+## hangat dan menekan biaya hitung di ponsel maupun browser.
 const SAMPLE_RATE: int = 22050
+## Laju cuplik ambience yang isinya di bawah ~5 kHz (lihat AMBIENT_RECIPES).
+const AMBIENT_RATE: int = 11025
+const AMBIENT_RECIPES: Array[String] = [
+	"street_t1", "street_t2", "street_t3", "street_t4", "street_t5", "room_tone", "sunny_ambience",
+	"oven_loop", "mixer_loop", "clock_chime",
+]
 ## Sampel cadangan setelah ujung setiap stream. Interpolasi mixer Godot membaca
 ## beberapa sampel melewati titik loop atau akhir bunyi; di Android buffer besar
 ## berakhir tepat sebelum halaman memori pelindung, jadi tanpa cadangan ini
@@ -26,15 +37,16 @@ const TAIL_PAD: int = 16
 ## memakai randf() global sesuai aturan proyek).
 const NOISE_SEED: int = 20260418
 
-## Tabel sinus untuk jalur panas (render musik). Pencarian tabel jauh lebih
-## murah daripada memanggil sin() jutaan kali dari GDScript.
+## Tabel sinus untuk jalur panas. Pencarian tabel jauh lebih murah daripada
+## memanggil sin() jutaan kali dari GDScript.
 const SINE_TABLE_SIZE: int = 4096
 const SINE_TABLE_MASK: int = 4095
 
 ## Nada acuan bass musik: F3 (174.614 Hz), nada dasar hangat sesuai GDD 4.1.
 const MUSIC_ROOT_HZ: float = 174.614
 
-## Progresi bossa nova ii - V - I - VI (di F mayor: Gm7 - C7 - Fmaj7 - Dm7).
+## Progresi bossa nova ii - V - I - VI (di F mayor: Gm7 - C7 - Fmaj7 - Dm7),
+## dipakai lagu trailer. Bed musik game memakai SongBuild.CHORDS/MOODS.
 ## "deg" = jarak semitone akar akor dari nada dasar; "ivals" = interval akor.
 const PROGRESSION: Array = [
 	{"deg": 2, "ivals": [0, 3, 7, 10]},
@@ -43,37 +55,12 @@ const PROGRESSION: Array = [
 	{"deg": 9, "ivals": [0, 3, 7, 10]},
 ]
 
-## Varian suasana musik. "pluck" = posisi petikan gitar nilon dalam satuan ketuk
-## pada tiap akor (satu akor = 2 ketuk); "tone" = cutoff lowpass lo-fi.
-const MUSIC_MOODS: Dictionary = {
-	"cozy": {
-		"root": 0, "bpm": 72.0, "rhodes": 0.80, "guitar": 0.55, "tone": 3200.0,
-		"pluck": [0.0, 0.75, 1.5],
-	},
-	"busy": {
-		"root": 2, "bpm": 92.0, "rhodes": 0.70, "guitar": 0.72, "tone": 4200.0,
-		"pluck": [0.0, 0.5, 1.0, 1.5, 1.75],
-	},
-	"rain": {
-		"root": -2, "bpm": 64.0, "rhodes": 0.92, "guitar": 0.28, "tone": 2100.0,
-		"pluck": [0.0, 1.5],
-	},
-	"summary": {
-		"root": 0, "bpm": 68.0, "rhodes": 0.86, "guitar": 0.42, "tone": 2700.0,
-		"pluck": [0.0, 1.0],
-	},
-	"menu": {
-		"root": 5, "bpm": 76.0, "rhodes": 0.78, "guitar": 0.60, "tone": 3400.0,
-		"pluck": [0.0, 0.75, 1.5],
-	},
-	"morning": {
-		"root": 3, "bpm": 70.0, "rhodes": 0.52, "guitar": 0.78, "tone": 3600.0,
-		"pluck": [0.0, 0.5, 1.0, 1.5],
-	},
-}
+const WAVES: Dictionary = {"sine": 0, "triangle": 1, "square": 2, "saw": 3, "noise": 4}
 
 static var _sine_cache: PackedFloat32Array = PackedFloat32Array()
 static var _rng: RandomNumberGenerator = null
+## Laju cuplik resep yang sedang dirakit (SAMPLE_RATE di luar `build()`).
+static var _rate: int = SAMPLE_RATE
 
 
 # ---------------------------------------------------------------------------
@@ -101,13 +88,18 @@ static func _noise_rng() -> RandomNumberGenerator:
 	return _rng
 
 
+## Laju cuplik resep `generator_id`.
+static func rate_for(generator_id: String) -> int:
+	return AMBIENT_RATE if AMBIENT_RECIPES.has(generator_id) else SAMPLE_RATE
+
+
 # ---------------------------------------------------------------------------
 # Utilitas buffer
 # ---------------------------------------------------------------------------
 
 ## Buffer sampel float kosong sepanjang dur detik.
 static func _new_buffer(dur: float) -> PackedFloat32Array:
-	var n: int = maxi(1, int(round(dur * float(SAMPLE_RATE))))
+	var n: int = maxi(1, int(round(dur * float(_rate))))
 	var buf: PackedFloat32Array = PackedFloat32Array()
 	buf.resize(n)
 	buf.fill(0.0)
@@ -120,12 +112,11 @@ static func _to_stream(buf: PackedFloat32Array, looping: bool) -> AudioStreamWAV
 	var data: PackedByteArray = PackedByteArray()
 	data.resize((n + TAIL_PAD) * 2)
 	for i in n:
-		var v: float = clampf(buf[i], -1.0, 1.0)
-		data.encode_s16(i * 2, int(round(v * 32767.0)))
+		data.encode_s16(i * 2, int(clampf(buf[i], -1.0, 1.0) * 32767.0))
 	pad_tail(data, n, looping)
 	var stream: AudioStreamWAV = AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = SAMPLE_RATE
+	stream.mix_rate = _rate
 	stream.stereo = false
 	stream.data = data
 	if looping:
@@ -148,7 +139,7 @@ static func pad_tail(data: PackedByteArray, n: int, looping: bool) -> void:
 static func _mix_into(dst: PackedFloat32Array, src: PackedFloat32Array,
 		start_sec: float) -> PackedFloat32Array:
 	var n: int = dst.size()
-	var i0: int = int(round(start_sec * float(SAMPLE_RATE)))
+	var i0: int = int(round(start_sec * float(_rate)))
 	for k in src.size():
 		var idx: int = i0 + k
 		if idx < 0:
@@ -160,16 +151,18 @@ static func _mix_into(dst: PackedFloat32Array, src: PackedFloat32Array,
 
 
 ## Seperti _mix_into, tetapi ekor nada dibungkus kembali ke awal buffer. Inilah
-## kunci agar bed musik dapat berulang tanpa sambungan yang terdengar.
+## kunci agar loop dapat berulang tanpa sambungan yang terdengar.
 static func _add_wrapped(dst: PackedFloat32Array, src: PackedFloat32Array,
 		start_sec: float) -> PackedFloat32Array:
 	var n: int = dst.size()
 	if n <= 0:
 		return dst
-	var i0: int = int(round(start_sec * float(SAMPLE_RATE)))
+	var idx: int = posmod(int(round(start_sec * float(_rate))), n)
 	for k in src.size():
-		var idx: int = posmod(i0 + k, n)
 		dst[idx] += src[k]
+		idx += 1
+		if idx >= n:
+			idx = 0
 	return dst
 
 
@@ -190,7 +183,7 @@ static func _normalize(buf: PackedFloat32Array, peak: float) -> PackedFloat32Arr
 static func _lowpass(buf: PackedFloat32Array, cutoff: float) -> PackedFloat32Array:
 	if cutoff <= 0.0:
 		return buf
-	var dt: float = 1.0 / float(SAMPLE_RATE)
+	var dt: float = 1.0 / float(_rate)
 	var rc: float = 1.0 / (TAU * cutoff)
 	var a: float = dt / (rc + dt)
 	var y: float = 0.0
@@ -204,7 +197,7 @@ static func _lowpass(buf: PackedFloat32Array, cutoff: float) -> PackedFloat32Arr
 static func _highpass(buf: PackedFloat32Array, cutoff: float) -> PackedFloat32Array:
 	if cutoff <= 0.0:
 		return buf
-	var dt: float = 1.0 / float(SAMPLE_RATE)
+	var dt: float = 1.0 / float(_rate)
 	var rc: float = 1.0 / (TAU * cutoff)
 	var a: float = rc / (rc + dt)
 	var prev_in: float = 0.0
@@ -215,6 +208,25 @@ static func _highpass(buf: PackedFloat32Array, cutoff: float) -> PackedFloat32Ar
 		buf[i] = y
 		prev_in = x
 		prev_out = y
+	return buf
+
+
+## Ruang kecil yang hangat: empat pantulan awal (17-61 ms) yang makin pelan,
+## supaya bunyi UI dan lonceng terasa terdengar di dalam toko, bukan di ruang
+## hampa. Buffer diperpanjang 70 ms untuk pantulan terakhir.
+static func _room(buf: PackedFloat32Array, amount: float) -> PackedFloat32Array:
+	var sr: float = float(_rate)
+	var n: int = buf.size()
+	var dry: PackedFloat32Array = buf.duplicate()
+	var extra: int = int(0.07 * sr)
+	buf.resize(n + extra)
+	for i in range(n, n + extra):
+		buf[i] = 0.0
+	for tap: Array in [[0.017, 0.24], [0.029, 0.16], [0.043, 0.11], [0.061, 0.07]]:
+		var d: int = int(float(tap[0]) * sr)
+		var g: float = float(tap[1]) * amount
+		for k in n:
+			buf[k + d] += dry[k] * g
 	return buf
 
 
@@ -246,7 +258,7 @@ static func _env_norm(dur: float, env: Dictionary) -> PackedFloat32Array:
 	return out
 
 
-## Nilai amplop pada detik t.
+## Nilai amplop pada detik t (untuk resep yang menghitung sendiri per sampel).
 static func _env_at(e: PackedFloat32Array, t: float) -> float:
 	var atk: float = e[0]
 	var dec: float = e[1]
@@ -264,24 +276,26 @@ static func _env_at(e: PackedFloat32Array, t: float) -> float:
 	return 0.0
 
 
-## Nilai gelombang pada fase (dalam satuan putaran penuh). Bentuk di luar daftar
-## diperlakukan sebagai "sine". Sinus, segitiga, dan gigi gergaji sama-sama
-## dimulai dari nol supaya tidak ada letupan di awal nada.
-static func _wave_at(wave: String, phase: float) -> float:
-	var p: float = fposmod(phase, 1.0)
-	var v: float = 0.0
-	match wave:
-		"triangle":
-			v = 1.0 - 4.0 * absf(fposmod(p + 0.25, 1.0) - 0.5)
-		"square":
-			v = 1.0 if p < 0.5 else -1.0
-		"saw":
-			v = 2.0 * fposmod(p + 0.5, 1.0) - 1.0
-		"noise":
-			v = _noise_rng().randf_range(-1.0, 1.0)
-		_:
-			v = sin(TAU * p)
-	return v
+## Kalikan `buf` dengan amplop ADSR sepanjang `dur` detik dan `amp`, dihitung
+## langsung di loop (tanpa pemanggilan fungsi per sampel).
+static func _apply_env(buf: PackedFloat32Array, dur: float, env: Dictionary, amp: float) -> void:
+	var sr: float = float(_rate)
+	var e: PackedFloat32Array = _env_norm(dur, env)
+	var atk: float = e[0] * sr
+	var dec: float = e[1] * sr
+	var sus: float = e[2]
+	var rel: float = e[3] * sr
+	var rel_start: float = e[4] * sr
+	for i in buf.size():
+		var t: float = float(i)
+		var g: float = sus
+		if t < atk:
+			g = t / atk
+		elif t < atk + dec:
+			g = 1.0 + (sus - 1.0) * (t - atk) / dec
+		elif t >= rel_start:
+			g = sus * maxf(0.0, 1.0 - (t - rel_start) / rel) if rel > 0.0 else 0.0
+		buf[i] *= g * amp
 
 
 # ---------------------------------------------------------------------------
@@ -289,59 +303,114 @@ static func _wave_at(wave: String, phase: float) -> float:
 # ---------------------------------------------------------------------------
 
 ## Menambahkan satu osilator (boleh menyapu frekuensi f0 menuju f1) ke buffer.
+## wave: "sine" | "triangle" | "square" | "saw" | "noise".
 static func _add_osc(buf: PackedFloat32Array, start_sec: float, dur: float, f0: float,
 		f1: float, wave: String, amp: float, env: Dictionary) -> PackedFloat32Array:
+	var sr: float = float(_rate)
 	var n: int = buf.size()
-	var count: int = int(round(dur * float(SAMPLE_RATE)))
+	var count: int = int(round(dur * sr))
 	if n <= 0 or count <= 0:
 		return buf
-	var i0: int = int(round(start_sec * float(SAMPLE_RATE)))
-	var inv: float = 1.0 / float(SAMPLE_RATE)
+	var i0: int = int(round(start_sec * sr))
 	var e: PackedFloat32Array = _env_norm(dur, env)
+	var atk: float = e[0] * sr
+	var dec: float = e[1] * sr
+	var sus: float = e[2]
+	var rel: float = e[3] * sr
+	var rel_start: float = e[4] * sr
+	var code: int = int(WAVES.get(wave, 0))
+	var tbl: PackedFloat32Array = _sine_table()
+	var rng: RandomNumberGenerator = _noise_rng()
+	var inv: float = 1.0 / sr
+	var df: float = (f1 - f0) / float(count)
+	var f: float = f0
 	var phase: float = 0.0
 	for k in count:
 		var idx: int = i0 + k
 		if idx >= n:
 			break
-		var t: float = float(k) * inv
 		if idx >= 0:
-			buf[idx] += _wave_at(wave, phase) * _env_at(e, t) * amp
-		phase += lerpf(f0, f1, float(k) / float(count)) * inv
+			var t: float = float(k)
+			var g: float = sus
+			if t < atk:
+				g = t / atk
+			elif t < atk + dec:
+				g = 1.0 + (sus - 1.0) * (t - atk) / dec
+			elif t >= rel_start:
+				g = sus * maxf(0.0, 1.0 - (t - rel_start) / rel) if rel > 0.0 else 0.0
+			var p: float = phase - floorf(phase)
+			var w: float = 0.0
+			if code == 0:
+				w = tbl[int(p * 4096.0) & SINE_TABLE_MASK]
+			elif code == 1:
+				var q: float = p + 0.25
+				q -= floorf(q)
+				w = 1.0 - 4.0 * absf(q - 0.5)
+			elif code == 2:
+				w = 1.0 if p < 0.5 else -1.0
+			elif code == 3:
+				var q2: float = p + 0.5
+				q2 -= floorf(q2)
+				w = 2.0 * q2 - 1.0
+			else:
+				w = rng.randf_range(-1.0, 1.0)
+			buf[idx] += w * g * amp
+		phase += f * inv
+		f += df
 	return buf
 
 
 ## Menambahkan satu partial lonceng: sinus murni berpeluruhan eksponensial.
 static func _add_bell(buf: PackedFloat32Array, start_sec: float, dur: float, freq: float,
 		amp: float, decay_rate: float) -> PackedFloat32Array:
+	var sr: float = float(_rate)
 	var n: int = buf.size()
-	var count: int = int(round(dur * float(SAMPLE_RATE)))
+	var count: int = int(round(dur * sr))
 	if n <= 0 or count <= 0:
 		return buf
-	var i0: int = int(round(start_sec * float(SAMPLE_RATE)))
-	var inv: float = 1.0 / float(SAMPLE_RATE)
+	var i0: int = int(round(start_sec * sr))
+	var inv: float = 1.0 / sr
 	var tbl: PackedFloat32Array = _sine_table()
 	var phase: float = 0.0
 	var step: float = freq * inv
-	var env: float = 1.0
+	var env: float = amp
 	var env_mul: float = exp(-decay_rate * inv)
-	var attack: float = 0.0025
-	var fade_len: float = 0.05
-	var fade_start: float = maxf(0.0, dur - fade_len)
+	var attack: int = maxi(1, int(0.0025 * sr))
+	var fade_len: int = maxi(1, int(0.05 * sr))
+	var fade_start: int = maxi(0, count - fade_len)
 	for k in count:
 		var idx: int = i0 + k
 		if idx >= n:
 			break
-		var t: float = float(k) * inv
-		var a: float = env * amp
-		if t < attack:
-			a *= t / attack
-		if t > fade_start:
-			a *= maxf(0.0, 1.0 - (t - fade_start) / fade_len)
+		var a: float = env
+		if k < attack:
+			a *= float(k) / float(attack)
+		elif k > fade_start:
+			a *= maxf(0.0, float(count - k) / float(fade_len))
 		if idx >= 0:
-			buf[idx] += a * tbl[int(phase * float(SINE_TABLE_SIZE)) & SINE_TABLE_MASK]
+			buf[idx] += a * tbl[int(phase * 4096.0) & SINE_TABLE_MASK]
 		phase += step
 		env *= env_mul
 	return buf
+
+
+## Benda bergetar: beberapa partial [rasio frekuensi, amplitudo, peluruhan/detik]
+## dari nada `freq` (lonceng, bilah marimba, kayu).
+static func _add_modal(buf: PackedFloat32Array, start_sec: float, dur: float, freq: float,
+		amp: float, partials: Array) -> PackedFloat32Array:
+	for pt: Array in partials:
+		var f: float = freq * float(pt[0])
+		if f < float(_rate) * 0.45:
+			buf = _add_bell(buf, start_sec, dur, f, amp * float(pt[1]), float(pt[2]))
+	return buf
+
+
+## Bilah marimba kayu: dasar hangat, parsial 4x dan 10x yang cepat hilang.
+const MARIMBA: Array = [[1.0, 1.0, 7.0], [3.93, 0.16, 26.0], [9.2, 0.04, 60.0]]
+## Glockenspiel / lonceng kecil: parsial tak harmonis yang berkilau.
+const GLOCK: Array = [[1.0, 1.0, 4.5], [2.76, 0.28, 8.0], [5.4, 0.09, 14.0]]
+## Bel toko di pintu: tiga parsial lonceng kecil.
+const SHOP_BELL: Array = [[1.0, 1.0, 5.5], [2.32, 0.3, 10.0], [4.1, 0.12, 18.0]]
 
 
 ## Derau putih sepanjang dur yang disaring menjadi pita hp..lp lalu diberi amplop.
@@ -351,16 +420,22 @@ static func _noise_buffer(dur: float, amp: float, env: Dictionary, hp: float,
 	var buf: PackedFloat32Array = _new_buffer(dur)
 	if rng == null:
 		rng = _noise_rng()
-	var n: int = buf.size()
-	for i in n:
+	for i in buf.size():
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _highpass(buf, hp)
 	buf = _lowpass(buf, lp)
-	var inv: float = 1.0 / float(SAMPLE_RATE)
-	var e: PackedFloat32Array = _env_norm(dur, env)
-	for i in n:
-		buf[i] *= _env_at(e, float(i) * inv) * amp
+	_apply_env(buf, dur, env, amp)
 	return buf
+
+
+## Ketukan kayu pendek (badan "tok" + klik), dipakai bunyi UI.
+static func _wood(buf: PackedFloat32Array, at: float, freq: float, amp: float) -> PackedFloat32Array:
+	buf = _add_bell(buf, at, 0.09, freq, 0.55 * amp, 45.0)
+	buf = _add_bell(buf, at, 0.05, freq * 3.9, 0.15 * amp, 120.0)
+	buf = _add_bell(buf, at, 0.07, freq * 0.3, 0.3 * amp, 55.0)
+	var click: PackedFloat32Array = _noise_buffer(0.006, 0.26 * amp,
+			{"attack": 0.0004, "decay": 0.003, "sustain": 0.0, "release": 0.002}, 600.0, 3500.0)
+	return _mix_into(buf, click, at)
 
 
 # ---------------------------------------------------------------------------
@@ -382,20 +457,16 @@ static func tone(freq: float, dur: float, wave: String, env: Dictionary) -> Audi
 # API publik: bunyi bernama (GDD 3.6.A, 4.1, 7)
 # ---------------------------------------------------------------------------
 
-## "Soft wooden tap" (GDD 7) — bunyi baku setiap tombol UI.
-## Semburan derau tersaring (badan kayu) + dentuman segitiga rendah, ~70 ms.
-## Sengaja di-lowpass supaya terasa hangat, bukan klik plastik yang cempreng.
+## "Soft wooden tap" (GDD 7) — bunyi baku setiap tombol UI: "tok" bilah kayu
+## yang hangat (dasar 640 Hz, parsial 3,9x yang cepat hilang, dentum badan
+## rendah, klik halus) di ruang kecil. AudioManager menggeser nadanya sedikit
+## tiap kali dibunyikan supaya ketukan beruntun tidak terdengar seperti mesin.
 static func wooden_tap() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.07)
-	var body: PackedFloat32Array = _noise_buffer(0.042, 0.60,
-			{"attack": 0.0012, "decay": 0.026, "sustain": 0.0, "release": 0.014},
-			320.0, 2300.0)
-	buf = _mix_into(buf, body, 0.0)
-	buf = _add_osc(buf, 0.0, 0.07, 196.0, 152.0, "triangle", 0.58,
-			{"attack": 0.002, "decay": 0.034, "sustain": 0.14, "release": 0.03})
-	buf = _lowpass(buf, 3800.0)
-	buf = _normalize(buf, 0.82)
-	return _to_stream(buf, false)
+	var buf: PackedFloat32Array = _new_buffer(0.09)
+	buf = _wood(buf, 0.0, 640.0, 1.0)
+	buf = _lowpass(buf, 5200.0)
+	buf = _room(buf, 0.5)
+	return _to_stream(_normalize(buf, 0.8), false)
 
 
 ## "Sweet bubble pop" (GDD 7) — konfirmasi manis.
@@ -410,34 +481,42 @@ static func bubble_pop() -> AudioStreamWAV:
 	return _to_stream(buf, false)
 
 
-## "Ting! mekanis oven tua" (GDD 4.1) — penanda roti matang.
-## Lonceng dua partial: dasar 932.33 Hz + partial 2.76x, peluruhan eksponensial
-## panjang, ditambah klik pegas mekanis agar terasa oven jadul.
+## "Ting! mekanis oven tua" (GDD 4.1) — penanda roti matang: lonceng pengatur
+## waktu dapur dengan parsial tak harmonis (2,76x dan 5,4x), kembaran dasar yang
+## sedikit fals sehingga dentingnya berkilau, dan klik pegas mekanis.
 static func oven_ting() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(1.10)
-	buf = _add_bell(buf, 0.0, 1.10, 932.33, 0.80, 4.0)
-	buf = _add_bell(buf, 0.0, 0.70, 932.33 * 2.76, 0.30, 7.0)
+	var f: float = 932.33
+	var buf: PackedFloat32Array = _new_buffer(1.2)
+	buf = _add_bell(buf, 0.0, 1.2, f, 0.7, 3.4)
+	buf = _add_bell(buf, 0.0, 1.2, f * 1.0045, 0.25, 3.6)
+	buf = _add_bell(buf, 0.0, 0.8, f * 2.76, 0.28, 6.0)
+	buf = _add_bell(buf, 0.0, 0.5, f * 5.4, 0.1, 10.0)
 	var klik: PackedFloat32Array = _noise_buffer(0.014, 0.30,
 			{"attack": 0.0005, "decay": 0.007, "sustain": 0.0, "release": 0.005},
 			900.0, 5200.0)
 	buf = _mix_into(buf, klik, 0.0)
-	buf = _normalize(buf, 0.78)
-	return _to_stream(buf, false)
+	buf = _room(buf, 0.35)
+	return _to_stream(_normalize(buf, 0.78), false)
 
 
-## Gemerincing koin masuk kas — arpeggio segitiga tiga nada menaik (C6-E6-G6).
+## Gemerincing koin masuk kas: dua koin logam beradu ("cling-cling") dengan
+## parsial tak harmonis yang pendek dan klik halus. Nadanya digeser sedikit
+## tiap kali dibunyikan (AudioManager) supaya kasir yang ramai tidak monoton.
 static func coin_chime() -> AudioStreamWAV:
-	const NOTES: Array = [1046.502, 1318.510, 1567.982]
-	var gap: float = 0.055
-	var note_dur: float = 0.24
-	var buf: PackedFloat32Array = _new_buffer(gap * 2.0 + note_dur)
-	for i in NOTES.size():
-		var f: float = float(NOTES[i])
-		buf = _add_osc(buf, gap * float(i), note_dur, f, f, "triangle", 0.45,
-				{"attack": 0.003, "decay": 0.09, "sustain": 0.22, "release": 0.14})
-	buf = _lowpass(buf, 7000.0)
-	buf = _normalize(buf, 0.85)
-	return _to_stream(buf, false)
+	var buf: PackedFloat32Array = _new_buffer(0.32)
+	for hit: Array in [[0.0, 1.0, 1.0], [0.05, 1.122, 0.7]]:
+		var at: float = float(hit[0])
+		var f: float = 2320.0 * float(hit[1])
+		var a: float = float(hit[2])
+		buf = _add_bell(buf, at, 0.27, f, 0.45 * a, 18.0)
+		buf = _add_bell(buf, at, 0.2, f * 1.58, 0.25 * a, 24.0)
+		buf = _add_bell(buf, at, 0.12, f * 2.51, 0.12 * a, 38.0)
+		var tick: PackedFloat32Array = _noise_buffer(0.004, 0.2 * a,
+				{"attack": 0.0003, "decay": 0.002, "sustain": 0.0, "release": 0.001}, 3000.0, 9000.0)
+		buf = _mix_into(buf, tick, at)
+	buf = _lowpass(buf, 9000.0)
+	buf = _room(buf, 0.35)
+	return _to_stream(_normalize(buf, 0.8), false)
 
 
 ## "Gemerisik bungkus kertas roti" (GDD 4.1) — dipakai saat mengemas paper bag.
@@ -451,16 +530,14 @@ static func paper_rustle() -> AudioStreamWAV:
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _highpass(buf, 1300.0)
 	buf = _lowpass(buf, 6200.0)
-	var inv: float = 1.0 / float(SAMPLE_RATE)
-	var e: PackedFloat32Array = _env_norm(dur,
-			{"attack": 0.03, "decay": 0.06, "sustain": 0.70, "release": 0.10})
+	_apply_env(buf, dur, {"attack": 0.03, "decay": 0.06, "sustain": 0.70, "release": 0.10}, 1.0)
+	var tbl: PackedFloat32Array = _sine_table()
+	var inv: float = 1.0 / float(_rate)
 	for i in n:
 		var t: float = float(i) * inv
 		# Dua goyangan (17 Hz dan 6 Hz) meniru kertas yang diremas pelan-pelan.
-		var wobble: float = 0.55 + 0.30 * sin(TAU * 17.0 * t) + 0.15 * sin(TAU * 6.0 * t + 1.1)
-		buf[i] *= _env_at(e, t) * wobble
-	buf = _normalize(buf, 0.55)
-	return _to_stream(buf, false)
+		buf[i] *= 0.55 + 0.30 * tbl[int(17.0 * t * 4096.0) & SINE_TABLE_MASK] + 0.15 * tbl[int((6.0 * t + 0.175) * 4096.0) & SINE_TABLE_MASK]
+	return _to_stream(_normalize(buf, 0.55), false)
 
 
 ## Klik pintu/laci: sangat pendek dan kering, dengan dentum mid-rendah yang
@@ -474,8 +551,7 @@ static func door_click() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.002, 0.05, 236.0, 168.0, "sine", 0.70,
 			{"attack": 0.0015, "decay": 0.022, "sustain": 0.08, "release": 0.026})
 	buf = _lowpass(buf, 5200.0)
-	buf = _normalize(buf, 0.80)
-	return _to_stream(buf, false)
+	return _to_stream(_normalize(buf, 0.80), false)
 
 
 ## Notifikasi RotiFood (GDD 3.6.A) — "ting-ting-ting!".
@@ -489,8 +565,8 @@ static func chime_alert() -> AudioStreamWAV:
 		var t0: float = gap * float(i)
 		buf = _add_bell(buf, t0, one, base, 0.62, 9.0)
 		buf = _add_bell(buf, t0, one * 0.6, base * 2.76, 0.20, 13.0)
-	buf = _normalize(buf, 0.82)
-	return _to_stream(buf, false)
+	buf = _room(buf, 0.3)
+	return _to_stream(_normalize(buf, 0.82), false)
 
 
 ## Nada sedih lembut (pelanggan pergi marah / pesanan RotiFood batal).
@@ -504,8 +580,7 @@ static func sad_soft() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.30, 0.42, 440.0, 440.0, "sine", 0.62, soft)
 	buf = _add_osc(buf, 0.30, 0.42, 220.0, 220.0, "sine", 0.18, soft)
 	buf = _lowpass(buf, 2400.0)
-	buf = _normalize(buf, 0.62)
-	return _to_stream(buf, false)
+	return _to_stream(_normalize(buf, 0.62), false)
 
 
 # ---------------------------------------------------------------------------
@@ -513,12 +588,11 @@ static func sad_soft() -> AudioStreamWAV:
 # ---------------------------------------------------------------------------
 
 ## Bed musik yang siap diulang tanpa sambungan. Resep dan renderingnya ada di
-## MusicBuild, yang juga bisa membangunnya sedikit demi sedikit di sela frame
+## SongBuild, yang juga bisa membangunnya sedikit demi sedikit di sela frame
 ## (AudioManager, layar loading); jalur ini menyelesaikannya sekaligus.
 static func music_bed(mood: String) -> AudioStreamWAV:
-	var key: String = mood if MUSIC_MOODS.has(mood) else "cozy"
-	var b := MusicBuild.new()
-	b.setup_bed(key)
+	var b := SongBuild.new()
+	b.setup_song(mood if SongBuild.MOODS.has(mood) else "cozy")
 	return b.finish_now()
 
 
@@ -549,10 +623,17 @@ static func has_recipe(generator_id: String) -> bool:
 ## hasilnya identik berapa pun urutan pembangkitannya (reproducible provenance).
 static func build(generator_id: String) -> AudioStreamWAV:
 	_noise_rng().seed = NOISE_SEED + generator_id.hash()
-	# Musik (bed & lapisan busy) dirakit MusicBuild; lihat music_build.gd.
+	# Musik (bed & lapisan busy) dirakit SongBuild; lihat song_build.gd.
 	var music: MusicBuild = MusicBuild.for_generator(generator_id)
 	if music != null:
 		return music.finish_now()
+	_rate = rate_for(generator_id)
+	var s: AudioStreamWAV = _build_recipe(generator_id)
+	_rate = SAMPLE_RATE
+	return s
+
+
+static func _build_recipe(generator_id: String) -> AudioStreamWAV:
 	match generator_id:
 		"tap_soft":
 			return wooden_tap()
@@ -654,21 +735,24 @@ static func build(generator_id: String) -> AudioStreamWAV:
 	return _to_stream(_new_buffer(0.05), false)
 
 
+## Konfirmasi: ketukan kayu lalu dua denting lonceng naik (G6 -> C7).
 static func _confirm() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.32)
-	var knock: PackedFloat32Array = _noise_buffer(0.04, 0.5,
-			{"attack": 0.001, "decay": 0.02, "sustain": 0.0, "release": 0.015}, 300.0, 2400.0)
-	buf = _mix_into(buf, knock, 0.0)
-	buf = _add_osc(buf, 0.0, 0.07, 210.0, 170.0, "triangle", 0.5,
-			{"attack": 0.002, "decay": 0.03, "sustain": 0.1, "release": 0.03})
-	buf = _add_bell(buf, 0.045, 0.27, 1760.0, 0.32, 11.0)
-	buf = _lowpass(buf, 6000.0)
-	return _to_stream(_normalize(buf, 0.8), false)
+	var buf: PackedFloat32Array = _new_buffer(0.36)
+	buf = _wood(buf, 0.0, 600.0, 0.7)
+	buf = _add_modal(buf, 0.03, 0.3, 1567.98, 0.34, [[1.0, 1.0, 9.0], [2.0, 0.18, 16.0]])
+	buf = _add_modal(buf, 0.09, 0.27, 2093.0, 0.3, [[1.0, 1.0, 10.0], [2.0, 0.15, 18.0]])
+	buf = _lowpass(buf, 7000.0)
+	buf = _room(buf, 0.6)
+	return _to_stream(_normalize(buf, 0.78), false)
 
 
+## Batal: dua ketukan kayu yang turun, pelan.
 static func _cancel() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _noise_buffer(0.06, 0.6,
-			{"attack": 0.002, "decay": 0.03, "sustain": 0.0, "release": 0.02}, 200.0, 1500.0)
+	var buf: PackedFloat32Array = _new_buffer(0.16)
+	buf = _wood(buf, 0.0, 470.0, 0.8)
+	buf = _wood(buf, 0.07, 350.0, 0.65)
+	buf = _lowpass(buf, 4200.0)
+	buf = _room(buf, 0.4)
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
@@ -678,6 +762,7 @@ static func _error() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.0, 0.16, 392.0, 392.0, "triangle", 0.6, soft)
 	buf = _add_osc(buf, 0.15, 0.2, 311.13, 311.13, "triangle", 0.6, soft)
 	buf = _lowpass(buf, 1800.0)
+	buf = _room(buf, 0.4)
 	return _to_stream(_normalize(buf, 0.65), false)
 
 
@@ -687,11 +772,15 @@ static func _cloth_muffle() -> AudioStreamWAV:
 	return _to_stream(_normalize(buf, 0.5), false)
 
 
+## Bel pintu toko: lonceng kecil yang berayun, dipukul empat kali dengan jarak
+## tak rata dan makin pelan ("kling-kling-ling").
 static func _door_bell(pitch: float, amp: float) -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.9)
-	buf = _add_bell(buf, 0.0, 0.85, 1318.51 * pitch, 0.6 * amp, 5.5)
-	buf = _add_bell(buf, 0.0, 0.6, 1318.51 * pitch * 2.41, 0.18 * amp, 9.0)
-	buf = _add_bell(buf, 0.11, 0.75, 1567.98 * pitch, 0.45 * amp, 6.0)
+	var buf: PackedFloat32Array = _new_buffer(0.95)
+	var base: float = 1318.51 * pitch
+	for hit: Array in [[0.0, 1.0, 1.0], [0.075, 1.19, 0.7], [0.16, 1.0, 0.5], [0.27, 1.19, 0.3]]:
+		var at: float = float(hit[0])
+		buf = _add_modal(buf, at, 0.9 - at, base * float(hit[1]), 0.5 * amp * float(hit[2]), SHOP_BELL)
+	buf = _room(buf, 0.4)
 	return _to_stream(_normalize(buf, 0.7 * amp + 0.1), false)
 
 
@@ -730,21 +819,23 @@ static func _mixer_loop() -> AudioStreamWAV:
 	var dur: float = 1.0
 	var buf: PackedFloat32Array = _new_buffer(dur)
 	var n: int = buf.size()
-	var inv: float = 1.0 / float(SAMPLE_RATE)
+	var inv: float = 1.0 / float(_rate)
 	var rng: RandomNumberGenerator = _noise_rng()
+	var tbl: PackedFloat32Array = _sine_table()
 	for i in n:
 		var t: float = float(i) * inv
 		# Adukan berirama 4 kali per detik: gesekan whisk di mangkuk.
-		var scrape: float = 0.5 + 0.5 * sin(TAU * 4.0 * t)
-		buf[i] = rng.randf_range(-1.0, 1.0) * scrape * 0.4 + sin(TAU * 110.0 * t) * 0.15
+		var scrape: float = 0.5 + 0.5 * tbl[int(4.0 * t * 4096.0) & SINE_TABLE_MASK]
+		buf[i] = rng.randf_range(-1.0, 1.0) * scrape * 0.4 + tbl[int(110.0 * t * 4096.0) & SINE_TABLE_MASK] * 0.15
 	buf = _lowpass(buf, 1500.0)
 	return _to_stream(_normalize(buf, 0.45), true)
 
 
+## Adonan jadi: denting lonceng kecil (D6) di ruang kecil.
 static func _mixer_done() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(0.6)
-	buf = _add_bell(buf, 0.0, 0.55, 1174.66, 0.6, 6.0)
-	buf = _add_bell(buf, 0.0, 0.3, 1174.66 * 2.76, 0.15, 12.0)
+	buf = _add_modal(buf, 0.0, 0.55, 1174.66, 0.6, GLOCK)
+	buf = _room(buf, 0.35)
 	return _to_stream(_normalize(buf, 0.7), false)
 
 
@@ -765,9 +856,8 @@ static func _oven_door(opening: bool) -> AudioStreamWAV:
 static func _oven_loop() -> AudioStreamWAV:
 	var dur: float = 1.5
 	var buf: PackedFloat32Array = _new_buffer(dur)
-	var n: int = buf.size()
 	var rng: RandomNumberGenerator = _noise_rng()
-	for i in n:
+	for i in buf.size():
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _lowpass(buf, 420.0)
 	return _to_stream(_normalize(buf, 0.35), true)
@@ -792,6 +882,7 @@ static func _tap_pop() -> AudioStreamWAV:
 			{"attack": 0.002, "decay": 0.03, "sustain": 0.3, "release": 0.03})
 	buf = _add_osc(buf, 0.045, 0.08, 1568.0, 2093.0, "triangle", 0.25,
 			{"attack": 0.003, "decay": 0.03, "sustain": 0.2, "release": 0.04})
+	buf = _room(buf, 0.3)
 	return _to_stream(_normalize(buf, 0.55), false)
 
 
@@ -805,29 +896,46 @@ static func _truck_horn() -> AudioStreamWAV:
 		buf = _add_osc(buf, t0, 0.15, 415.3, 411.0, "square", 0.22, env)
 		buf = _add_osc(buf, t0, 0.15, 523.25, 518.0, "square", 0.18, env)
 		buf = _add_osc(buf, t0, 0.15, 415.3, 411.0, "triangle", 0.35, env)
+	buf = _lowpass(buf, 3200.0)
 	return _to_stream(_normalize(buf, 0.5), false)
 
 
-## Naik level (GDD idle 14): dua nada bel naik yang cerah dan pendek.
+## Naik level (GDD idle 14): arpeggio marimba naik C6-E6-G6-C7 yang ceria,
+## nada terakhir berkilau glockenspiel.
 static func _level_up() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.6)
-	buf = _add_bell(buf, 0.0, 0.45, 987.77, 0.35, 5.0)
-	buf = _add_bell(buf, 0.07, 0.5, 1318.51, 0.35, 4.5)
-	return _to_stream(_normalize(buf, 0.55), false)
+	var buf: PackedFloat32Array = _new_buffer(0.75)
+	var notes: Array[float] = [1046.5, 1318.51, 1567.98, 2093.0]
+	for i in notes.size():
+		var last: bool = i == notes.size() - 1
+		buf = _add_modal(buf, 0.055 * float(i), 0.6 if last else 0.4, notes[i], 0.42 if last else 0.34, MARIMBA)
+	buf = _add_modal(buf, 0.165, 0.5, 2093.0, 0.1, GLOCK)
+	buf = _room(buf, 0.5)
+	return _to_stream(_normalize(buf, 0.6), false)
 
 
-## Milestone (GDD idle 14): arpeggio fanfare empat nada dengan dasar hangat.
+## Pad hangat di bawah fanfare: dua sinus lembut yang masuk pelan.
+static func _warm_pad(buf: PackedFloat32Array, at: float, dur: float, freqs: Array, amp: float) -> PackedFloat32Array:
+	for f: float in freqs:
+		buf = _add_osc(buf, at, dur, f, f, "sine", amp,
+				{"attack": 0.15, "decay": 0.2, "sustain": 0.7, "release": minf(0.6, dur * 0.4)})
+	return buf
+
+
+## Milestone (GDD idle 14): arpeggio marimba lima nada, akor lonceng di puncak,
+## dan pad hangat di bawahnya.
 static func _milestone_fanfare() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(1.6)
-	var notes: Array = [523.25, 659.25, 783.99, 1046.5]
+	var notes: Array[float] = [523.25, 659.25, 783.99, 1046.5, 1318.51]
 	for i in notes.size():
-		buf = _add_bell(buf, 0.11 * float(i), 1.1, float(notes[i]), 0.4, 3.2)
-	buf = _add_osc(buf, 0.33, 1.1, 523.25, 523.25, "triangle", 0.2,
-			{"attack": 0.02, "decay": 0.2, "sustain": 0.5, "release": 0.5})
-	return _to_stream(_normalize(buf, 0.65), false)
+		buf = _add_modal(buf, 0.085 * float(i), 0.5, notes[i], 0.32, MARIMBA)
+	for f: float in [1046.5, 1318.51, 1567.98]:
+		buf = _add_modal(buf, 0.42, 1.15, f, 0.2, [[1.0, 1.0, 3.2], [2.0, 0.08, 6.0]])
+	buf = _warm_pad(buf, 0.0, 1.5, [261.63, 392.0], 0.12)
+	buf = _room(buf, 0.4)
+	return _to_stream(_normalize(buf, 0.66), false)
 
 
-## Hujan koin (GDD idle 9.5, Collect): denting koin kecil yang makin rapat lalu
+## Hujan koin (GDD idle 9.5, Collect): denting koin logam yang makin rapat lalu
 ## mereda, nadanya berganti dalam tangga nada pentatonik supaya tetap manis.
 static func _coin_shower() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(1.5)
@@ -835,38 +943,41 @@ static func _coin_shower() -> AudioStreamWAV:
 	var t: float = 0.0
 	for i in 22:
 		var f: float = float(notes[(i * 3 + i / 4) % notes.size()])
-		buf = _add_osc(buf, t, 0.14, f, f, "triangle", 0.35 - 0.008 * float(i),
-				{"attack": 0.002, "decay": 0.05, "sustain": 0.15, "release": 0.07})
+		var a: float = 0.35 - 0.008 * float(i)
+		buf = _add_bell(buf, t, 0.16, f, a, 20.0)
+		buf = _add_bell(buf, t, 0.1, f * 1.58, a * 0.45, 30.0)
 		t += 0.035 + 0.025 * absf(sin(float(i) * 1.7))
-	buf = _lowpass(buf, 8000.0)
+	buf = _lowpass(buf, 9000.0)
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
-## Selamat datang kembali (GDD idle 9.5): lonceng pintu hangat tiga nada naik.
+## Selamat datang kembali (GDD idle 9.5): bel pintu toko lalu tiga nada marimba
+## naik yang hangat di atas pad lembut.
 static func _welcome_back_chime() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(1.3)
-	var notes: Array = [783.99, 987.77, 1174.66]
+	buf = _add_modal(buf, 0.0, 0.6, 1318.51, 0.18, SHOP_BELL)
+	var notes: Array[float] = [783.99, 987.77, 1174.66]
 	for i in notes.size():
-		buf = _add_bell(buf, 0.16 * float(i), 0.95, float(notes[i]), 0.4, 3.8)
-	buf = _add_osc(buf, 0.0, 0.9, 392.0, 392.0, "sine", 0.18,
-			{"attack": 0.03, "decay": 0.2, "sustain": 0.4, "release": 0.4})
+		buf = _add_modal(buf, 0.12 + 0.15 * float(i), 0.7, notes[i], 0.36, MARIMBA)
+	buf = _warm_pad(buf, 0.1, 1.1, [392.0, 587.33], 0.1)
+	buf = _room(buf, 0.4)
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
-## Waralaba (GDD idle 10.6): jingle riang enam nada dengan bas hangat dan
-## kilau penutup, seperti pembukaan toko baru.
+## Waralaba (GDD idle 10.6): jingle riang enam nada marimba dengan bas hangat
+## dan kilau glockenspiel penutup, seperti pembukaan toko baru.
 static func _franchise_jingle() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(2.4)
 	var notes: Array = [[0.0, 523.25], [0.16, 659.25], [0.32, 783.99], [0.56, 659.25], [0.72, 783.99], [0.9, 1046.5]]
 	for n: Array in notes:
-		buf = _add_bell(buf, float(n[0]), 1.2, float(n[1]), 0.38, 3.0)
+		buf = _add_modal(buf, float(n[0]), 0.7 if float(n[0]) < 0.9 else 1.3, float(n[1]), 0.38, MARIMBA)
 	for b: Array in [[0.0, 130.81], [0.56, 196.0], [0.9, 261.63]]:
 		buf = _add_osc(buf, float(b[0]), 0.5 if float(b[0]) < 0.9 else 1.2, float(b[1]), float(b[1]), "triangle", 0.3,
 				{"attack": 0.01, "decay": 0.15, "sustain": 0.4, "release": 0.3})
 	for i in 5:
 		var f: float = 2093.0 * pow(1.12246, float(i))
-		buf = _add_osc(buf, 1.05 + 0.05 * float(i), 0.25, f, f, "sine", 0.12,
-				{"attack": 0.003, "decay": 0.08, "sustain": 0.2, "release": 0.12})
+		buf = _add_modal(buf, 1.05 + 0.05 * float(i), 0.3, f, 0.1, GLOCK)
+	buf = _warm_pad(buf, 0.9, 1.4, [261.63, 329.63, 392.0], 0.08)
 	return _to_stream(_normalize(buf, 0.65), false)
 
 
@@ -876,6 +987,7 @@ static func _happy_chirp() -> AudioStreamWAV:
 			{"attack": 0.005, "decay": 0.04, "sustain": 0.4, "release": 0.04})
 	buf = _add_osc(buf, 0.09, 0.12, 1175.0, 1760.0, "sine", 0.5,
 			{"attack": 0.005, "decay": 0.04, "sustain": 0.4, "release": 0.05})
+	buf = _room(buf, 0.25)
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
@@ -888,13 +1000,17 @@ static func _impatient_tap() -> AudioStreamWAV:
 	return _to_stream(_normalize(buf, 0.45), false)
 
 
+## Penjualan: lonceng meja kasir kecil ("ding") didahului klak laci kas. Lebih
+## lembut dari dulu karena berbunyi di setiap penjualan.
 static func _register_ding() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(0.7)
-	var clk: PackedFloat32Array = _noise_buffer(0.03, 0.6,
-			{"attack": 0.001, "decay": 0.015, "sustain": 0.0, "release": 0.01}, 700.0, 4500.0)
+	var buf: PackedFloat32Array = _new_buffer(0.8)
+	var clk: PackedFloat32Array = _noise_buffer(0.025, 0.35,
+			{"attack": 0.001, "decay": 0.012, "sustain": 0.0, "release": 0.01}, 900.0, 3500.0)
 	buf = _mix_into(buf, clk, 0.0)
-	buf = _add_bell(buf, 0.04, 0.6, 2093.0, 0.55, 5.0)
-	buf = _add_bell(buf, 0.04, 0.3, 4186.0, 0.12, 12.0)
+	var f: float = 1975.53
+	buf = _add_modal(buf, 0.03, 0.75, f, 0.5, [[1.0, 1.0, 4.5], [2.0, 0.28, 8.0], [2.76, 0.24, 9.0], [5.4, 0.1, 15.0]])
+	buf = _add_bell(buf, 0.03, 0.75, f * 1.003, 0.09, 4.5)
+	buf = _room(buf, 0.5)
 	return _to_stream(_normalize(buf, 0.7), false)
 
 
@@ -914,8 +1030,9 @@ static func _handover_ping() -> AudioStreamWAV:
 	var rustle: PackedFloat32Array = _noise_buffer(0.12, 0.35,
 			{"attack": 0.01, "decay": 0.04, "sustain": 0.4, "release": 0.04}, 1200.0, 5000.0)
 	buf = _mix_into(buf, rustle, 0.0)
-	buf = _add_bell(buf, 0.12, 0.35, 1567.98, 0.5, 8.0)
-	buf = _add_bell(buf, 0.2, 0.3, 2093.0, 0.4, 9.0)
+	buf = _add_modal(buf, 0.12, 0.35, 1567.98, 0.5, [[1.0, 1.0, 8.0], [2.0, 0.15, 14.0]])
+	buf = _add_modal(buf, 0.2, 0.3, 2093.0, 0.4, [[1.0, 1.0, 9.0], [2.0, 0.12, 16.0]])
+	buf = _room(buf, 0.35)
 	return _to_stream(_normalize(buf, 0.65), false)
 
 
@@ -926,6 +1043,7 @@ static func _tablet_cancel() -> AudioStreamWAV:
 	buf = _add_osc(buf, 0.17, 0.3, 739.99, 739.99, "sine", 0.5,
 			{"attack": 0.005, "decay": 0.05, "sustain": 0.5, "release": 0.12})
 	buf = _lowpass(buf, 3000.0)
+	buf = _room(buf, 0.3)
 	return _to_stream(_normalize(buf, 0.6), false)
 
 
@@ -933,7 +1051,8 @@ static func _sparkle_chime() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(0.8)
 	var notes: Array = [2093.0, 2637.02, 3135.96, 4186.01]
 	for i in notes.size():
-		buf = _add_bell(buf, 0.06 * float(i), 0.5, float(notes[i]), 0.3, 9.0)
+		buf = _add_modal(buf, 0.06 * float(i), 0.5, float(notes[i]), 0.3, [[1.0, 1.0, 9.0], [2.76, 0.12, 16.0]])
+	buf = _room(buf, 0.3)
 	return _to_stream(_normalize(buf, 0.55), false)
 
 
@@ -943,32 +1062,36 @@ static func _whoosh() -> AudioStreamWAV:
 	return _to_stream(_normalize(buf, 0.45), false)
 
 
+## Achievement: arpeggio glockenspiel naik, denting panjang di puncak, pad lembut.
 static func _flourish() -> AudioStreamWAV:
-	var buf: PackedFloat32Array = _new_buffer(2.2)
-	var notes: Array = [1046.5, 1318.51, 1567.98, 2093.0, 2637.02]
+	var buf: PackedFloat32Array = _new_buffer(2.0)
+	var notes: Array[float] = [1046.5, 1318.51, 1567.98, 2093.0, 2637.02]
 	for i in notes.size():
-		buf = _add_bell(buf, 0.09 * float(i), 1.6, float(notes[i]), 0.35, 3.5)
-	buf = _add_bell(buf, 0.55, 1.5, 2093.0, 0.3, 2.8)
+		buf = _add_modal(buf, 0.07 * float(i), 0.9, notes[i], 0.3, GLOCK)
+	buf = _add_modal(buf, 0.42, 1.5, 2093.0, 0.24, [[1.0, 1.0, 2.8], [2.76, 0.18, 6.0]])
+	buf = _warm_pad(buf, 0.0, 1.8, [523.25, 659.25], 0.08)
+	buf = _room(buf, 0.35)
 	return _to_stream(_normalize(buf, 0.65), false)
 
 
+## Pindah lokasi: arpeggio marimba dua oktaf, akor lonceng yang bergema, dan pad
+## hangat (C mayor) — perayaan terbesar.
 static func _upgrade_sting() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _new_buffer(2.6)
-	var notes: Array = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0]
+	var notes: Array[float] = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0]
 	for i in notes.size():
-		buf = _add_bell(buf, 0.1 * float(i), 1.8, float(notes[i]), 0.35, 2.8)
-	var soft: Dictionary = {"attack": 0.2, "decay": 0.3, "sustain": 0.6, "release": 0.8}
-	buf = _add_osc(buf, 0.0, 2.4, 261.63, 261.63, "sine", 0.25, soft)
-	buf = _add_osc(buf, 0.0, 2.4, 392.0, 392.0, "sine", 0.18, soft)
+		buf = _add_modal(buf, 0.09 * float(i), 0.55, notes[i], 0.32, MARIMBA)
+	for f: float in [1046.5, 1318.51, 1567.98]:
+		buf = _add_modal(buf, 0.6, 1.9, f, 0.2, [[1.0, 1.0, 2.6], [2.0, 0.1, 5.0]])
+	buf = _warm_pad(buf, 0.0, 2.4, [261.63, 392.0], 0.16)
 	return _to_stream(_normalize(buf, 0.7), false)
 
 
 static func _rain_loop() -> AudioStreamWAV:
 	var dur: float = 4.0
 	var buf: PackedFloat32Array = _new_buffer(dur)
-	var n: int = buf.size()
 	var rng: RandomNumberGenerator = _noise_rng()
-	for i in n:
+	for i in buf.size():
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _highpass(buf, 700.0)
 	buf = _lowpass(buf, 5200.0)
@@ -983,35 +1106,29 @@ static func _rain_loop() -> AudioStreamWAV:
 static func _sunny_ambience() -> AudioStreamWAV:
 	var dur: float = 6.0
 	var buf: PackedFloat32Array = _new_buffer(dur)
-	var n: int = buf.size()
 	var rng: RandomNumberGenerator = _noise_rng()
-	for i in n:
+	for i in buf.size():
 		buf[i] = rng.randf_range(-1.0, 1.0) * 0.3
 	buf = _lowpass(buf, 600.0)
 	# Kicau burung sesekali.
 	for k in 5:
 		var t0: float = rng.randf_range(0.0, dur - 0.5)
 		var f: float = rng.randf_range(2600.0, 3600.0)
-		for c in 3:
-			var chirp: PackedFloat32Array = _new_buffer(0.08)
-			chirp = _add_osc(chirp, 0.0, 0.08, f, f * 1.25, "sine", 0.25,
-					{"attack": 0.005, "decay": 0.03, "sustain": 0.3, "release": 0.03})
-			buf = _add_wrapped(buf, chirp, t0 + 0.11 * float(c))
+		buf = _chirps(buf, t0, f, 0.25)
 	return _to_stream(_normalize(buf, 0.35), true)
 
 
 static func _room_tone() -> AudioStreamWAV:
 	var dur: float = 4.0
 	var buf: PackedFloat32Array = _new_buffer(dur)
-	var n: int = buf.size()
 	var rng: RandomNumberGenerator = _noise_rng()
-	for i in n:
+	for i in buf.size():
 		buf[i] = rng.randf_range(-1.0, 1.0)
 	buf = _lowpass(buf, 300.0)
 	# Detak jam dinding, satu per detik.
 	for k in 4:
 		var tick: PackedFloat32Array = _noise_buffer(0.01, 0.8,
-				{"attack": 0.0005, "decay": 0.005, "sustain": 0.0, "release": 0.003}, 1800.0, 6000.0)
+				{"attack": 0.0005, "decay": 0.005, "sustain": 0.0, "release": 0.003}, 1800.0, 5000.0)
 		buf = _add_wrapped(buf, tick, float(k))
 	return _to_stream(_normalize(buf, 0.3), true)
 
@@ -1020,6 +1137,7 @@ static func _room_tone() -> AudioStreamWAV:
 # Suara jalan per tier lokasi (GDD 32.9): lapisan ambience dari luar toko.
 # Loop pendek (STREET_SECONDS) supaya murah dirakit di layar loading; peristiwa
 # dibungkus (_add_wrapped) dan modulasi pas satu putaran agar sambungannya mulus.
+# Dirakit di AMBIENT_RATE (isinya di bawah 5 kHz).
 # ---------------------------------------------------------------------------
 
 const STREET_SECONDS: float = 4.0
@@ -1087,7 +1205,7 @@ static func _street_avenue() -> AudioStreamWAV:
 	for at: float in [0.2, 1.9]:
 		var swell: PackedFloat32Array = _noise_buffer(1.6, 0.35, {"attack": 0.7, "decay": 0.2, "sustain": 0.6, "release": 0.7}, 180.0, 1400.0)
 		buf = _add_wrapped(buf, swell, at)
-	var hiss: PackedFloat32Array = _noise_buffer(0.35, 0.18, {"attack": 0.01, "decay": 0.1, "sustain": 0.5, "release": 0.2}, 2500.0, 7000.0)
+	var hiss: PackedFloat32Array = _noise_buffer(0.35, 0.18, {"attack": 0.01, "decay": 0.1, "sustain": 0.5, "release": 0.2}, 2500.0, 5000.0)
 	buf = _add_wrapped(buf, hiss, 3.2)
 	return _to_stream(_normalize(buf, 0.4), true)
 
@@ -1097,9 +1215,10 @@ static func _street_avenue() -> AudioStreamWAV:
 static func _street_premium() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _street_bed(0.5, 3600.0, 700.0)
 	var n: int = buf.size()
-	var inv: float = 1.0 / float(SAMPLE_RATE)
+	var inv: float = 1.0 / float(_rate)
+	var tbl: PackedFloat32Array = _sine_table()
 	for i in n:
-		buf[i] *= 0.82 + 0.18 * sin(TAU * 0.5 * float(i) * inv)
+		buf[i] *= 0.82 + 0.18 * tbl[int(0.5 * float(i) * inv * 4096.0) & SINE_TABLE_MASK]
 	var hum: PackedFloat32Array = _street_bed(0.15, 260.0)
 	for j in n:
 		buf[j] += hum[j]
@@ -1111,14 +1230,15 @@ static func _street_premium() -> AudioStreamWAV:
 static func _street_square() -> AudioStreamWAV:
 	var buf: PackedFloat32Array = _street_bed(0.55, 900.0, 250.0)
 	var n: int = buf.size()
-	var inv: float = 1.0 / float(SAMPLE_RATE)
+	var inv: float = 1.0 / float(_rate)
+	var tbl: PackedFloat32Array = _sine_table()
 	for i in n:
 		var t: float = float(i) * inv
-		buf[i] *= 0.7 + 0.2 * sin(TAU * 1.5 * t) + 0.1 * sin(TAU * 0.75 * t)
+		buf[i] *= 0.7 + 0.2 * tbl[int(1.5 * t * 4096.0) & SINE_TABLE_MASK] + 0.1 * tbl[int(0.75 * t * 4096.0) & SINE_TABLE_MASK]
 	for k in 2:
 		var ring: PackedFloat32Array = _new_buffer(0.45)
 		ring = _add_bell(ring, 0.0, 0.45, 2093.0, 0.14, 9.0)
-		ring = _add_bell(ring, 0.0, 0.3, 5280.0, 0.05, 16.0)
+		ring = _add_bell(ring, 0.0, 0.3, 4400.0, 0.05, 16.0)
 		buf = _add_wrapped(buf, ring, 1.4 + 0.18 * float(k))
 	return _to_stream(_normalize(buf, 0.38), true)
 
@@ -1132,5 +1252,5 @@ static func _clock_chime() -> AudioStreamWAV:
 		buf = _add_bell(buf, 0.55 * float(i), 1.2, notes[i] * 2.76, 0.12, 4.0)
 	buf = _add_bell(buf, 2.6, 1.6, 196.0, 0.55, 1.2)
 	buf = _add_bell(buf, 2.6, 1.2, 392.0, 0.2, 2.0)
-	buf = _lowpass(buf, 5000.0)
+	buf = _lowpass(buf, 4500.0)
 	return _to_stream(_normalize(buf, 0.6), false)

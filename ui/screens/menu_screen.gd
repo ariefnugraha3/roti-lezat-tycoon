@@ -86,7 +86,7 @@ func _craving_card(parent: Control) -> void:
 	# Roti khas cabang ini (GDD idle §20 no. 92; cabang pertama tidak punya).
 	if sim.prestige.signature() != &"":
 		var sig: Label = lbl(v, Tx.t("ui_signature_line", {"recipe": Tx.recipe_name(sim.prestige.signature()),
-			"mult": "%.1f" % DataRegistry.idlef("branch.signature_mult")}), 14, Palette.UI_WOOD, true)
+			"mult": Tx.dec(DataRegistry.idlef("branch.signature_mult"), 1)}), 14, Palette.UI_WOOD, true)
 		sig.name = "SignatureLine"
 	# Event musiman (GDD idle 21.6).
 	if not sim.events.active().is_empty():
@@ -137,7 +137,7 @@ func _variety_card(parent: Control) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	pc.add_child(v)
-	var t: Label = lbl(v, Tx.t("ui_variety_title", {"mult": "%.2f" % sim.variety_mult()}), 18, Palette.UI_WOOD_DEEP, true)
+	var t: Label = lbl(v, Tx.t("ui_variety_title", {"mult": Tx.dec(sim.variety_mult(), 2)}), 18, Palette.UI_WOOD_DEEP, true)
 	t.add_theme_font_override("font", ProceduralUIFactory.display_font())
 	t.name = "VarietyTitle"
 	var rule: Label = lbl(v, Tx.t("ui_variety_desc_one" if sim.shelf_variety() == 1 else "ui_variety_desc", {"count": sim.shelf_variety(),

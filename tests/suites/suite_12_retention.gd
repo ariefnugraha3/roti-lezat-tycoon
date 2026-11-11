@@ -23,6 +23,9 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_GOLDEN", "name": "idle 21.9 golden bread flies during play only (real seconds), can be missed, and gives a seeded reward: KR (not income), Golden hour on top of other boosts (live KR/s only) or Rush hour; saved mid-flight, reset by a franchise", "fn": _golden},
 		{"id": "ACC_IDLE_GOLDEN_UI", "name": "idle 21.9 the golden bread flies across the frame as a big touch target with a first-time tip, hides under blocking popups and in Decoration Mode, and one tap catches it with a toast and a boost chip", "fn": _golden_ui},
 		{"id": "ACC_IDLE_REGULARS", "name": "idle 21.10 named regulars visit during play only with a seeded order of makeable breads, wait in the shop as their own figure, pay by stars (not income), fill friendship hearts with gifts, order more as friends, leave when ignored or failed; saved mid-visit", "fn": _regulars},
+		{"id": "ACC_IDLE_REGULAR_GAMES", "name": "idle 20 no. 110 the first special order is always Pack the Order, later ones draw Pack, Golden Bake or Remember the Order from the seed without repeating the previous one, an order of one kind of bread never plays Remember the Order, every game turns up, the draw does not change who visits or what they order, and the game survives save and load", "fn": _regular_games},
+		{"id": "ACC_IDLE_REGULAR_BAKE", "name": "idle 20 no. 110 Golden Bake: each ordered bread browns from raw to burnt; Take Out in the gold zone packs it, too early or too late costs time and restarts that bread, a bread left in burns by itself, later breads brown faster in a narrower zone, and every bread packed pays by stars", "fn": _regular_bake},
+		{"id": "ACC_IDLE_REGULAR_MEMORY", "name": "idle 20 no. 110 Remember the Order: the order shows while the clock waits and the tray is locked, then hides; the breads must be tapped in order, a wrong one costs time and shows the right one for a moment, and the whole order pays by stars", "fn": _regular_memory},
 		{"id": "ACC_IDLE_REGULARS_UI", "name": "idle 21.10 a visit shows a Special order card with a tip; the pack-the-order minigame pauses the shop, penalises wrong breads, pays by stars and unlocks a memory; the Goals sheet keeps the friend album; running out of time fails", "fn": _regulars_ui},
 	]
 
@@ -1235,6 +1238,8 @@ func _regulars_ui() -> void:
 	game.open_regular_order()
 	await _frames(2)
 	var scr2: RegularOrderScreen = game.modals.screen(&"regular_order") as RegularOrderScreen
+	if scr2.minigame == "memory":
+		scr2.end_memory_show()
 	scr2.time_left = 0.01
 	await _frames(3)
 	check(scr2.finished and bool(scr2.result.get("failed", false)), "running out of time fails the order")
@@ -1254,3 +1259,160 @@ static func _has_pill(row: Node, text: String) -> bool:
 func _frames(n: int) -> void:
 	for i in n:
 		await runner.get_tree().process_frame
+
+
+func _regular_games() -> void:
+	var s: SimulationRoot = new_sim(6101)
+	s.tutorial.skip()
+	var rm: RegularManager = s.regulars
+	eq(rm.game_for(1), "pack", "the first special order is always Pack the Order")
+	var seen: Dictionary = {}
+	var repeats: int = 0
+	var prev: String = rm.game_for(1)
+	for n in range(2, 41):
+		var g: String = rm.game_for(n)
+		seen[g] = true
+		if g == prev:
+			repeats += 1
+		prev = g
+	eq(repeats, 0, "a visit never plays the same minigame as the one before")
+	check(seen.has("pack") and seen.has("bake") and seen.has("memory"), "all three minigames turn up (%s)" % str(seen.keys()))
+	var t: SimulationRoot = new_sim(6101)
+	t.tutorial.skip()
+	var same: bool = true
+	for n2 in range(1, 21):
+		same = same and t.regulars.game_for(n2) == rm.game_for(n2)
+	check(same, "the same seed draws the same minigames")
+	var mem_n: int = -1
+	for n3 in range(2, 41):
+		if rm.game_for(n3) == "memory":
+			mem_n = n3
+			break
+	check(mem_n > 0, "some visit draws Remember the Order")
+	eq(rm.game_for_order(mem_n, ["bread_a", "bread_b", "bread_a"]), "memory", "an order of two kinds plays Remember the Order")
+	var alt: String = rm.game_for_order(mem_n, ["bread_a", "bread_a", "bread_a"])
+	check(alt != "memory" and alt != rm.game_for(mem_n - 1), "an order of one kind plays another game, not the previous one (%s)" % alt)
+	_start_regular(s)
+	eq(str(rm.visit.get("game", "")), "pack", "the first visit carries its minigame")
+	var d: Dictionary = s.capture_save()
+	var u: SimulationRoot = new_sim(1)
+	u.load_from_save(d)
+	eq(str(u.regulars.visit.get("game", "")), "pack", "and keeps it through save and load")
+	var old: Dictionary = d.duplicate(true)
+	(old["regulars"]["visit"] as Dictionary).erase("game")
+	var w: SimulationRoot = new_sim(1)
+	w.load_from_save(old)
+	eq(str(w.regulars.visit.get("game", "")), "pack", "a save from before the new games plays Pack the Order")
+	free_sim(s)
+	free_sim(t)
+	free_sim(u)
+	free_sim(w)
+
+
+## Toko dengan regular yang menunggu, minigame `kind` dipaksa, popup terbuka.
+func _open_regular_game(kind: String) -> Array:
+	var game: GameRoot = await _boot_share("Minigame Bakery")
+	var sim: SimulationRoot = game.sim
+	game.modals.close_all()
+	game.playing = false
+	_start_regular(sim)
+	sim.regulars.visit["game"] = kind
+	game.open_regular_order()
+	await _frames(2)
+	return [game, game.modals.screen(&"regular_order") as RegularOrderScreen]
+
+
+func _regular_bake() -> void:
+	var pair: Array = await _open_regular_game("bake")
+	var game: GameRoot = pair[0]
+	var scr: RegularOrderScreen = pair[1]
+	check(scr != null and scr.minigame == "bake", "the order opens as Golden Bake")
+	if scr == null:
+		await _end_share(game)
+		return
+	check(scr.find_child("Oven", true, false) != null and scr.find_child("TakeOut", true, false) != null and scr.find_child("Tray", true, false) == null,
+		"with an oven, a Take Out button and no tray")
+	var penalty: float = DataRegistry.idlef("regulars.wrong_tap_seconds")
+	var z: Vector2 = scr.bake_zone(0)
+	scr.doneness = z.x * 0.5
+	var t0: float = scr.time_left
+	scr.take_out()
+	check(not scr.packed[0] and scr.time_left <= t0 - penalty + 0.01 and scr.doneness == 0.0, "too early: still raw, it costs time and the bread starts again")
+	scr.doneness = (z.y + 1.0) * 0.5
+	t0 = scr.time_left
+	scr.take_out()
+	check(not scr.packed[0] and scr.time_left <= t0 - penalty + 0.01, "too late: burnt, it costs time too")
+	t0 = scr.time_left
+	scr._advance_bake(scr.brown_seconds(0) * 1.2)
+	check(not scr.packed[0] and scr.time_left <= t0 - penalty + 0.01 and scr.doneness == 0.0, "a bread left in the oven burns by itself")
+	scr.time_left = scr.time_total
+	scr.doneness = (z.x + z.y) * 0.5
+	scr.take_out()
+	check(scr.packed[0] and scr.bake_index == 1, "in the gold zone it comes out perfect and the next bread goes in")
+	if scr.order.size() > 1:
+		var z1: Vector2 = scr.bake_zone(1)
+		check(z1.y - z1.x < z.y - z.x and scr.brown_seconds(1) < scr.brown_seconds(0), "the next bread browns faster in a narrower zone")
+	var before: float = game.sim.economy.balance
+	while not scr.finished and scr.bake_index < scr.order.size():
+		var zi: Vector2 = scr.bake_zone(scr.bake_index)
+		scr.doneness = (zi.x + zi.y) * 0.5
+		scr.take_out()
+	await _frames(2)
+	check(scr.finished and not bool(scr.result.get("failed", false)), "every bread out = the order is done")
+	eq(int(scr.result.get("stars", 0)), 3, "quickly, for three stars")
+	check(game.sim.economy.balance > before, "and it pays")
+	game.modals.close_all()
+	await _end_share(game)
+
+
+func _regular_memory() -> void:
+	var pair: Array = await _open_regular_game("memory")
+	var game: GameRoot = pair[0]
+	var scr: RegularOrderScreen = pair[1]
+	check(scr != null and scr.minigame == "memory", "the order opens as Remember the Order")
+	if scr == null:
+		await _end_share(game)
+		return
+	check(scr.memory_showing and scr.memory_left > 0.0, "it starts by showing the order")
+	var t0: float = scr.time_left
+	scr._process(0.5)
+	near(scr.time_left, t0, 0.0001, "while the clock waits")
+	var tiles: Array = scr.find_child("Tray", true, false).get_children()
+	var first: Button = null
+	for tl: Node in tiles:
+		if StringName((tl as Button).get_meta("recipe")) == scr.order[0]:
+			first = tl
+			break
+	scr.tap_tile(first)
+	check(not scr.packed[0], "and the tray is locked")
+	scr.end_memory_show()
+	var covered: int = 0
+	for i in scr.order.size():
+		if scr.find_child("Ticket", true, false).get_child(0).get_child(i).get_node_or_null("Cover") != null:
+			covered += 1
+	eq(covered, scr.order.size(), "then every bread on the ticket hides")
+	var wrong: Button = null
+	for tl2: Node in tiles:
+		if StringName((tl2 as Button).get_meta("recipe")) != scr.order[0]:
+			wrong = tl2
+			break
+	t0 = scr.time_left
+	scr.tap_tile(wrong)
+	var slot0: Node = scr.find_child("Ticket", true, false).get_child(0).get_child(0)
+	check(scr.time_left <= t0 - DataRegistry.idlef("regulars.wrong_tap_seconds") + 0.01 and slot0.get_node_or_null("Cover") == null,
+		"a wrong bread costs time and shows the right one")
+	scr._process(DataRegistry.idlef("regulars.memory_peek_seconds") + 0.1)
+	await _frames(1)
+	check(slot0.get_node_or_null("Cover") != null, "for a moment only")
+	scr.time_left = scr.time_total
+	for k in scr.order.size():
+		for tl3: Node in tiles:
+			var b: Button = tl3
+			if not b.disabled and StringName(b.get_meta("recipe")) == scr.order[k]:
+				scr.tap_tile(b)
+				break
+	await _frames(2)
+	check(scr.finished and not bool(scr.result.get("failed", false)), "tapping the breads in order finishes it")
+	eq(int(scr.result.get("stars", 0)), 3, "quickly, for three stars")
+	game.modals.close_all()
+	await _end_share(game)

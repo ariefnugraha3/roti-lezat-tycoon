@@ -3,17 +3,21 @@ extends UIScreen
 ## Settings & Accessibility (v3.1 44, 75; GDD idle 7.5). Disimpan di user://settings.json,
 ## terpisah dari profil karier.
 
+## Tab terakhir dibuka (tetap sama setelah ganti bahasa membuka ulang layar ini).
+static var _last_tab: int = 0
 var _tab: int = 0
 var _body: VBoxContainer = null
 
 
 func build() -> void:
+	_tab = _last_tab
 	var body: VBoxContainer = make_popup(Tx.t("ui_main_settings"), Vector2(640, 900))
 	var labels: Array = []
 	for key: String in ["ui_settings_audio", "ui_settings_display", "ui_settings_gameplay", "ui_settings_accessibility"]:
 		labels.append(Tx.t(key))
 	body.add_child(ProceduralUIFactory.tab_bar(labels, _tab, func(idx: int) -> void:
 		_tab = idx
+		_last_tab = idx
 		_render()))
 	_body = scroll_box(body)
 	_render()
@@ -40,6 +44,7 @@ func _render() -> void:
 			_choice("quality", "ui_settings_quality", ["auto", "quality_low", "quality_medium", "quality_high"],
 				[Tx.t("ui_quality_auto"), Tx.t("ui_quality_low"), Tx.t("ui_quality_medium"), Tx.t("ui_quality_high")])
 		2:
+			_language()
 			_choice("number_format", "ui_number_format", ["short", "scientific"],
 				[Tx.t("ui_number_format_short"), Tx.t("ui_number_format_scientific")])
 			_toggle("tutorial_hints", "ui_settings_tutorial_hints")
@@ -54,6 +59,25 @@ func _render() -> void:
 			_choice("text_scale", "ui_settings_text_scale", [100, 125, 150], ["100%", "125%", "150%"])
 			_toggle("hold_to_confirm", "ui_settings_hold_confirm")
 			_toggle("sound_captions", "ui_settings_captions")
+
+
+## Bahasa (Seksi 19 no. 25): nama tiap bahasa ditulis dalam bahasanya sendiri,
+## supaya pemain yang salah pilih tetap bisa menemukan bahasanya. Menggantinya
+## menyusun ulang layar (GameRoot.relocalize).
+func _language() -> void:
+	var row: HBoxContainer = _row("ui_settings_language", true)
+	row.name = "LanguageRow"
+	var now: String = SettingsManager.language()
+	for opt: Array in [["en", "English"], ["id", "Bahasa Indonesia"]]:
+		var code: String = opt[0]
+		var b: Button = ProceduralUIFactory.button(str(opt[1]), "primary" if now == code else "secondary")
+		b.name = "Lang_" + code
+		b.custom_minimum_size = Vector2(150, 48)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func() -> void:
+			if SettingsManager.language() != code:
+				SettingsManager.set_value("language", code))
+		row.add_child(b)
 
 
 ## Save tunggal (GDD idle 19 no. 21, 20 no. 57, 68): Export Save (kode teks

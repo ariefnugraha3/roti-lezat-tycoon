@@ -119,14 +119,21 @@ func has_profile(profile_id: StringName) -> bool:
 
 ## Profil dengan last_played_at terbaru untuk tombol Continue (GDD 89.2).
 func latest_profile() -> StringName:
-	var best: StringName = &""
+	var h: Dictionary = latest_header()
+	return StringName(str(h["profile_id"])) if not h.is_empty() else &""
+
+
+## Header save yang bisa dimainkan dengan last_played_at terbaru (yang dimuat
+## sesudah Tap to Start, lihat adopt_latest_save), atau {} bila tidak ada.
+func latest_header() -> Dictionary:
+	var best: Dictionary = {}
 	var best_time: Array = []
 	for h: Dictionary in scan_headers():
 		if not bool(h.get("exists", false)) or bool(h.get("corrupt", false)) or bool(h.get("classic", false)):
 			continue
 		var t: Array = [str(h.get("last_played_at", "")), float(h.get("last_played_unix", 0.0))]
-		if best == &"" or t[0] > best_time[0] or (t[0] == best_time[0] and t[1] > best_time[1]):
-			best = h["profile_id"]
+		if best.is_empty() or t[0] > best_time[0] or (t[0] == best_time[0] and t[1] > best_time[1]):
+			best = h
 			best_time = t
 	return best
 

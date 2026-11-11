@@ -65,8 +65,10 @@ const CATALOG_FILES: Array[String] = [
 	"ingredients.json", "recipes.json", "equipment.json", "customers.json", "staff.json",
 	"locations.json", "weather.json", "balance.json",
 	"achievements.json", "decorations.json", "audio_events.json", "quality_presets.json",
-	"strings_en.json", "idle.json",
+	"strings_en.json", "strings_id.json", "idle.json",
 ]
+## Bahasa teks pemain (Seksi 19 no. 25, 20 no. 109): Inggris dan Indonesia.
+const LANGUAGES: Array[String] = ["en", "id"]
 ## Upgrade global yang dikenal (GDD idle 8.9).
 const GLOBAL_UPGRADES: Array[String] = ["global_offline_hours", "global_offline_efficiency", "global_tap_power",
 	"global_walk_speed", "global_fast_checkout"]
@@ -158,6 +160,32 @@ func is_valid() -> bool:
 
 ## Kunci yang diminta tetapi tidak ada (TEST_UI_001 memeriksanya kosong).
 var missing_keys: Dictionary = {}
+## Bahasa teks yang sedang dipakai ("en" atau "id").
+var language: String = "en"
+var _strings_en: Dictionary = {}
+var _strings_id: Dictionary = {}
+
+
+## Pakai bahasa `code` untuk semua teks berikutnya. Kunci yang belum diterjemahkan
+## jatuh ke bahasa Inggris, jadi pemain tidak pernah melihat nama kunci.
+func set_language(code: String) -> void:
+	language = code if LANGUAGES.has(code) else "en"
+	_apply_language()
+
+
+func _apply_language() -> void:
+	if language == "id":
+		var merged: Dictionary = _strings_en.duplicate()
+		merged.merge(_strings_id, true)
+		_strings = merged
+	else:
+		_strings = _strings_en
+	Tx.set_language(language)
+
+
+## Tabel teks satu bahasa apa adanya (tes kelengkapan terjemahan).
+func strings_of(code: String) -> Dictionary:
+	return _strings_id if code == "id" else _strings_en
 
 
 func text(key: String, params: Dictionary = {}) -> String:
@@ -491,7 +519,9 @@ func _build() -> void:
 		"catalog_schema_version": int(ing_raw.get("catalog_schema_version", 1)),
 		"content_version": int(ing_raw.get("content_version", 1)),
 	}
-	_strings = (_raw["strings_en.json"] as Dictionary).get("strings", {})
+	_strings_en = (_raw["strings_en.json"] as Dictionary).get("strings", {})
+	_strings_id = (_raw["strings_id.json"] as Dictionary).get("strings", {})
+	_apply_language()
 	_balance = _raw["balance.json"]
 	_idle = _raw["idle.json"]
 	_sci_threshold = float(_balance["economy"]["hud_scientific_threshold_kr"])
@@ -902,6 +932,8 @@ func _validate_meta() -> void:
 			_err("audio %s unknown bus %s" % [aed.id, aed.bus])
 		if aed.priority < 0 or aed.priority > 4:
 			_err("audio %s priority outside P0..P4" % aed.id)
+		if aed.pitch_jitter < 0.0 or aed.pitch_jitter > 0.15:
+			_err("audio %s pitch_jitter outside 0..0.15" % aed.id)
 	for q: Variant in _quality:
 		_check_text((q as MiscDefinitions.QualityPresetDefinition).localization_key, "quality")
 
@@ -1308,6 +1340,15 @@ func _validate_idle() -> void:
 			"regulars.minigame_seconds", "regulars.reward_income_minutes", "regulars.min_kr", "regulars.level_gift_income_minutes"]:
 		if not (_idle_num(rk) > 0.0):
 			_err("idle %s must be > 0" % rk)
+	# Minigame pesanan (Seksi 20 no. 110): daftar yang dikenal, zona panggang di 0..1.
+	var games: Variant = (_idle.get("regulars", {}) as Dictionary).get("games")
+	if not (games is Array) or (games as Array).is_empty() or str((games as Array)[0]) != "pack":
+		_err("idle regulars.games must start with pack")
+	elif (games as Array).any(func(g: Variant) -> bool: return not RegularManager.GAMES.has(str(g))):
+		_err("idle regulars.games has an unknown minigame")
+	var zone: Variant = (_idle.get("regulars", {}) as Dictionary).get("bake_zone")
+	if not (zone is Array) or (zone as Array).size() != 2 or float(zone[0]) <= 0.0 or float(zone[1]) >= 1.0 or float(zone[0]) >= float(zone[1]):
+		_err("idle regulars.bake_zone needs [lo, hi] inside 0..1")
 	var sb2: Variant = (_idle.get("regulars", {}) as Dictionary).get("star_bonus")
 	if not (sb2 is Array) or (sb2 as Array).size() != 3:
 		_err("idle regulars.star_bonus needs three values")

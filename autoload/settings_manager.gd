@@ -29,6 +29,9 @@ const DEFAULTS: Dictionary = {
 	"text_scale": 100,
 	"hold_to_confirm": false,
 	"sound_captions": false,
+	# Bahasa teks (Seksi 19 no. 25): "auto" = bahasa perangkat (Indonesia bila
+	# perangkatnya berbahasa Indonesia, selain itu Inggris), atau "en" / "id".
+	"language": "auto",
 }
 
 ## Batas nilai untuk validasi (GDD 75). Edge scroll, Screen shake, dan Confirm
@@ -45,6 +48,7 @@ const CHOICES: Dictionary = {
 	"fps_cap": [30, 60, 0],
 	"quality": ["auto", "quality_low", "quality_medium", "quality_high"],
 	"number_format": ["short", "scientific"],
+	"language": ["auto", "en", "id"],
 	"resolution_scale": [70, 85, 100],
 	"text_scale": [100, 125, 150],
 }
@@ -134,6 +138,26 @@ func text_scale() -> float:
 	return TEXT_BASE + (s - 1.0) * (TEXT_MAX - TEXT_BASE) / 0.5
 
 
+## Bahasa yang dipakai sekarang: "en" atau "id" ("auto" diterjemahkan dari bahasa
+## perangkat; Android lama melaporkan bahasa Indonesia sebagai "in").
+func language() -> String:
+	var v: String = str(get_value("language"))
+	if v == "en" or v == "id":
+		return v
+	return device_language()
+
+
+static func device_language() -> String:
+	return language_for_locale(OS.get_locale_language())
+
+
+## Bahasa game untuk kode bahasa perangkat: Indonesia untuk "id" (dan "in" di
+## Android lama), selain itu Inggris.
+static func language_for_locale(code: String) -> String:
+	var c: String = code.to_lower()
+	return "id" if c == "id" or c == "in" else "en"
+
+
 func reduced_motion() -> bool:
 	return get_bool("reduced_motion")
 
@@ -193,6 +217,8 @@ func _apply(key: String) -> void:
 			var mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_FULLSCREEN if get_bool(key) else DisplayServer.WINDOW_MODE_WINDOWED
 			if DisplayServer.window_get_mode() != mode:
 				DisplayServer.window_set_mode(mode)
+		"language":
+			DataRegistry.set_language(language())
 		"fps_cap":
 			Engine.max_fps = get_int(key)
 		"resolution_scale":

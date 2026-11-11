@@ -1722,7 +1722,7 @@ static func _set_margins(m: MarginContainer, left: int, right: int, top: int, bo
 static func _fmt_value(v: float, step: float) -> String:
 	if step >= 1.0:
 		return str(int(round(v)))
-	return "%.1f" % v
+	return Tx.dec(v, 1)
 
 
 static func _style_slider(sl: Range) -> void:

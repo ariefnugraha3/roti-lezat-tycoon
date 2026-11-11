@@ -118,7 +118,7 @@ func _collect_double() -> void:
 
 static func _hours_text(seconds: float) -> String:
 	var hours: float = seconds / 3600.0
-	return str(int(hours)) if is_equal_approx(hours, roundf(hours)) else "%.1f" % hours
+	return str(int(hours)) if is_equal_approx(hours, roundf(hours)) else Tx.dec(hours, 1)
 
 
 func _collect(mult: float = 1.0) -> void:

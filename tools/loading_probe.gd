@@ -5,7 +5,7 @@ extends Node
 ## menunggu N detik di popup itu dulu (pemain mengisi nama toko sementara musik
 ## dan bunyi dirakit di latar); bawaannya 0, kasus terburuk.
 ## Save ditulis ke user://probe_saves, bukan slot pemain.
-## Desktop: godot --path . res://tools/loading_probe.tscn [-- --menu=5]
+## Desktop: godot --path . res://tools/loading_probe.tscn [-- --menu=5] [--cold]
 ## Browser: arahkan run/main_scene ke scene ini sementara, ekspor Web (lihat CLAUDE.md).
 
 const PROBE_DIR: String = "user://probe_saves"
@@ -37,6 +37,10 @@ func _ready() -> void:
 	print("LOADING_PROBE start (engine up %d ms)" % Time.get_ticks_msec())
 	SaveManager.dir = PROBE_DIR
 	Monetization.use_test_file("loading_probe")
+	# Cache bunyi sendiri (Seksi 20 no. 108); --cold = peluncuran pertama (cache kosong).
+	AudioCache.dir = "user://probe_audio_cache"
+	if OS.get_cmdline_user_args().has("--cold"):
+		AudioCache.clear()
 	for pid: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid)
 	for ab: String in OS.get_cmdline_user_args():
@@ -107,6 +111,7 @@ func _ready() -> void:
 	for pid2: StringName in SaveManager.PROFILE_IDS:
 		SaveManager.delete_profile(pid2)
 	SaveManager.dir = "user://saves"
+	AudioCache.flush_all()
 	print("LOADING_PROBE done")
 	get_tree().quit(0)
 

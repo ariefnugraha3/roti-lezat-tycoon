@@ -67,7 +67,7 @@ static func effect_at(sim: SimulationRoot, o: Dictionary, level: int) -> String:
 				return Tx.t("ui_effect_capacity", {"value": cap}) + EFFECT_SEP + Tx.t("ui_effect_price", {"value": _x(1.0 + bonus)})
 			return Tx.t("ui_effect_speed", {"value": _x(UpgradeManager.speed_for(cat, level))})
 		&"counter":
-			return Tx.t("ui_effect_checkout", {"value": "%.2f" % DataRegistry.real_seconds(UpgradeManager.checkout_seconds_for(level))})
+			return Tx.t("ui_effect_checkout", {"value": Tx.dec(DataRegistry.real_seconds(UpgradeManager.checkout_seconds_for(level)), 2)})
 		&"recipe":
 			var r: RecipeDefinition = DataRegistry.recipe(StringName(str(o["id"])))
 			var mult: float = UpgradeManager.recipe_price_mult_for(level, sim.upgrades.recipe_milestone_mult())
@@ -168,4 +168,4 @@ static func icon(sim: SimulationRoot, o: Dictionary, px: float) -> Control:
 
 
 static func _x(v: float) -> String:
-	return "%.2f" % v
+	return Tx.dec(v, 2)

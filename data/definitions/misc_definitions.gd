@@ -30,6 +30,8 @@ class AudioEventDefinition:
 	var loop: bool = false
 	var cooldown: float = 0.0
 	var volume_db: float = 0.0
+	## Variasi nada acak tiap kali dibunyikan (0,04 = +/-4%), Seksi 20 no. 108.
+	var pitch_jitter: float = 0.0
 
 	static func from_dict(d: Dictionary) -> AudioEventDefinition:
 		var a := AudioEventDefinition.new()
@@ -40,6 +42,7 @@ class AudioEventDefinition:
 		a.loop = bool(d.get("loop", false))
 		a.cooldown = float(d.get("cooldown", 0.0))
 		a.volume_db = float(d.get("volume_db", 0.0))
+		a.pitch_jitter = float(d.get("pitch_jitter", 0.0))
 		return a
 
 

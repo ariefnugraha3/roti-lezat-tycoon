@@ -8,8 +8,11 @@ extends Node
 ##
 ## Musik tidak pernah dibangun sekaligus di tengah permainan: satu bed musik
 ## menahan layar hampir satu detik di PC dan beberapa detik di browser HP. Bed
-## dirakit MusicBuild sedikit demi sedikit di sela frame (GDD 91, 114). Selama bed
+## dirakit SongBuild sedikit demi sedikit di sela frame (GDD 91, 114). Selama bed
 ## baru belum jadi, bed lama terus berputar, lalu berpindah dengan crossfade.
+##
+## Setiap bunyi yang selesai dirakit disimpan di AudioCache (Seksi 20 no. 108):
+## peluncuran berikutnya membaca berkasnya alih-alih menyintesis ulang.
 
 signal caption_requested(key: String)
 
@@ -35,6 +38,9 @@ const MUSIC_FADE: float = 1.2
 ## yang sedang ditunggu pemain.
 const JOB_BUDGET_USEC: int = 4000
 const JOB_URGENT_BUDGET_USEC: int = 10000
+## Anggaran perakitan bunyi pendek di latar menu per frame: bunyi yang sudah
+## ada di cache dibaca beberapa sekaligus, yang harus dirakit satu per frame.
+const SFX_PREWARM_BUDGET_USEC: int = 6000
 
 ## Stream audio_rng milik RNGManager profil aktif (GDD 116). Null di menu.
 var rng_source: RandomNumberGenerator = null
@@ -71,12 +77,19 @@ var _pending_music: bool = false
 ## musik yang ditunggu siap (GDD 33.6). Kosong selama gameplay.
 var _sfx_backlog: Array[StringName] = []
 var _pending_busy: bool = false
+## Volume dasar bus Music (dB) dan apakah sedang di-duck; bus hanya disetel
+## saat salah satunya berubah, bukan setiap frame.
+var _music_base_db: float = 0.0
+var _music_bus_db: float = 999.0
+## Bed dari cache yang dibaca di latar, satu berkas per frame: [kunci, event].
+var _cache_loads: Array[Array] = []
 
 
 func _ready() -> void:
 	_local_rng.seed = 7331
 	background_prewarm = DisplayServer.get_name() != "headless"
 	_ensure_buses()
+	_music_base_db = linear_to_db(maxf(0.001, float(SettingsManager.get_int("music_volume")) / 100.0))
 	var voices: int = int(DataRegistry.bal("limits.sfx_voices")) if DataRegistry.is_valid() else 24
 	for i in voices:
 		var p := AudioStreamPlayer.new()
@@ -145,6 +158,8 @@ func _set_bus(bus_name: String, percent: int) -> void:
 
 func _on_settings_changed(_key: String) -> void:
 	apply_volumes()
+	_music_base_db = linear_to_db(maxf(0.001, float(SettingsManager.get_int("music_volume")) / 100.0))
+	_music_bus_db = 999.0
 
 
 ## Dipanggil sekali dari gestur pertama (GDD 12.1, 33.4).
@@ -167,6 +182,11 @@ func stream_for(event_id: StringName) -> AudioStream:
 		return null
 	var key: String = MusicBuild.cache_key(String(def.generator))
 	if not _streams.has(key):
+		var cached: AudioStreamWAV = AudioCache.fetch(key)
+		if cached != null:
+			_drop_job(key)
+			_streams[key] = cached
+			return cached
 		var job: MusicBuild = _jobs.get(key)
 		var s: AudioStreamWAV = job.finish_now() if job != null else AudioGenerator.build(String(def.generator))
 		_drop_job(key)
@@ -174,6 +194,7 @@ func stream_for(event_id: StringName) -> AudioStream:
 			GameLogger.warn_once("audiogen_" + key, "AUDIO", "generator %s failed" % def.generator)
 			return null
 		_streams[key] = s
+		AudioCache.store(key, s)
 	return _streams[key]
 
 
@@ -233,6 +254,22 @@ func request_stream(event_id: StringName, urgent: bool = false) -> void:
 		return
 	var key: String = MusicBuild.cache_key(String(def.generator))
 	if not _jobs.has(key):
+		# Sudah dirakit di sesi sebelumnya: dari cache. Yang mendesak dibaca
+		# sekarang; prewarm di latar dibaca satu berkas per frame (beberapa bed
+		# 1 MB sekaligus bisa menahan frame di HP).
+		if AudioCache.has(key):
+			if not urgent:
+				for q: Array in _cache_loads:
+					if q[0] == key:
+						return
+				_cache_loads.append([key, event_id])
+				return
+			var cached: AudioStreamWAV = AudioCache.fetch(key)
+			if cached != null:
+				_streams[key] = cached
+				_on_stream_ready()
+				return
+			AudioCache.drop(key)
 		var job: MusicBuild = MusicBuild.for_generator(String(def.generator))
 		if job == null:
 			stream_for(event_id)
@@ -254,7 +291,7 @@ func prewarm_music(event_ids: Array) -> void:
 
 
 func has_pending_jobs() -> bool:
-	return not _job_order.is_empty()
+	return not _job_order.is_empty() or not _cache_loads.is_empty()
 
 
 ## Kerjakan antrean perakitan sampai `budget_usec` habis (juga dipakai layar loading).
@@ -269,6 +306,7 @@ func step_jobs(budget_usec: int) -> void:
 		if not job.step(left):
 			return
 		_streams[key] = job.result
+		AudioCache.store(key, job.result)
 		_drop_job(key)
 		_on_stream_ready()
 
@@ -315,10 +353,12 @@ func play(event_id: StringName) -> void:
 	p.stream = stream
 	p.bus = String(def.bus) if def.bus != &"Music" else "SFX"
 	p.volume_db = def.volume_db
+	# Variasi nada kecil untuk bunyi yang sering berulang (katalog pitch_jitter),
+	# supaya kasir dan langkah kaki yang ramai tidak terdengar seperti mesin.
 	var pitch: float = 1.0
-	if event_id == &"footstep_tile" or event_id == &"cashier_coin":
+	if def.pitch_jitter > 0.0:
 		var r: RandomNumberGenerator = rng_source if rng_source != null else _local_rng
-		pitch = r.randf_range(0.97, 1.03)
+		pitch = r.randf_range(1.0 - def.pitch_jitter, 1.0 + def.pitch_jitter)
 	p.pitch_scale = pitch
 	p.play()
 	_sfx_meta[slot] = {"priority": def.priority, "event": event_id}
@@ -399,11 +439,13 @@ func set_music_state(state: StringName) -> void:
 	if new_music == _music_playing and _music[_music_active].playing:
 		_pending_music = false
 		return
-	# Bed baru belum jadi: bed lama terus berputar sampai MusicBuild selesai.
+	# Bed baru belum jadi: bed lama terus berputar sampai SongBuild selesai
+	# (bed dari cache langsung siap).
 	if new_music != &"" and not is_stream_ready(new_music):
 		request_stream(new_music, true)
-		_pending_music = true
-		return
+		if not is_stream_ready(new_music):
+			_pending_music = true
+			return
 	_pending_music = false
 	_crossfade_to(new_music)
 
@@ -443,8 +485,9 @@ func _set_busy_layer(on: bool) -> void:
 	if on and not _busy_layer.playing:
 		if not is_stream_ready(&"shop_music_busy_layer"):
 			request_stream(&"shop_music_busy_layer", true)
-			_pending_busy = true
-			return
+			if not is_stream_ready(&"shop_music_busy_layer"):
+				_pending_busy = true
+				return
 		_busy_layer.stream = stream_for(&"shop_music_busy_layer")
 		_busy_layer.volume_db = -60.0
 		# Sejajarkan ketuk dengan bed musik day yang sedang berputar.
@@ -493,19 +536,53 @@ func set_ambience(event_ids: Array) -> void:
 
 
 func _process(delta: float) -> void:
-	if not _job_order.is_empty() and (background_prewarm or not _urgent.is_empty()):
+	if not _cache_loads.is_empty():
+		_cache_load_step()
+	elif not _job_order.is_empty() and (background_prewarm or not _urgent.is_empty()):
 		step_jobs(JOB_URGENT_BUDGET_USEC if not _urgent.is_empty() else JOB_BUDGET_USEC)
 	elif not _sfx_backlog.is_empty():
-		stream_for(_sfx_backlog.pop_front())
-	var idx: int = AudioServer.get_bus_index("Music")
-	if idx < 0:
-		return
-	var base: float = linear_to_db(maxf(0.001, float(SettingsManager.get_int("music_volume")) / 100.0))
+		_prewarm_step()
+	# Cache disk ditulis sedikit demi sedikit (tidak pernah menahan frame).
+	AudioCache.flush_step()
+	# Ducking (GDD 131.3): bus Music hanya disetel saat nilainya berubah.
 	if _duck_left > 0.0:
 		_duck_left = maxf(0.0, _duck_left - delta)
-		AudioServer.set_bus_volume_db(idx, base + DUCK_DB)
-	elif SettingsManager.get_int("music_volume") > 0:
-		AudioServer.set_bus_volume_db(idx, base)
+	var want: float = _music_base_db + (DUCK_DB if _duck_left > 0.0 else 0.0)
+	if want != _music_bus_db and SettingsManager.get_int("music_volume") > 0:
+		var idx: int = AudioServer.get_bus_index("Music")
+		if idx >= 0:
+			AudioServer.set_bus_volume_db(idx, want)
+			_music_bus_db = want
+
+
+## Satu bed dari cache per frame; berkas yang ternyata rusak dibuang lalu bed
+## itu dirakit seperti biasa.
+func _cache_load_step() -> void:
+	var q: Array = _cache_loads.pop_front()
+	var key: String = str(q[0])
+	if _streams.has(key):
+		return
+	var cached: AudioStreamWAV = AudioCache.fetch(key)
+	if cached != null:
+		_streams[key] = cached
+		_on_stream_ready()
+		return
+	AudioCache.drop(key)
+	request_stream(StringName(q[1]), false)
+
+
+## Bunyi pendek berikutnya dari antrean menu: yang ada di cache dibaca beberapa
+## sekaligus sampai anggaran habis; yang harus dirakit satu saja per frame.
+func _prewarm_step() -> void:
+	var t0: int = Time.get_ticks_usec()
+	while not _sfx_backlog.is_empty() and Time.get_ticks_usec() - t0 < SFX_PREWARM_BUDGET_USEC:
+		var id: StringName = _sfx_backlog.pop_front()
+		var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(id)
+		var key: String = MusicBuild.cache_key(String(def.generator)) if def != null else ""
+		var built: bool = def != null and not _streams.has(key) and not AudioCache.has(key)
+		stream_for(id)
+		if built:
+			return
 
 
 func _notification(what: int) -> void:

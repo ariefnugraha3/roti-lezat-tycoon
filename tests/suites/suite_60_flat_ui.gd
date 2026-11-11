@@ -10,6 +10,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_BRANDING", "name": "idle 19 no. 1, 20 no. 49 the game is Crumbtown: Idle Bakery Tycoon: title, logo (Crumbtown + IDLE BAKERY TYCOON ribbon and crumbs), project name, user dir Crumbtown, Android name and package, default bakery name, and no player-facing text says Roti Lezat", "fn": _branding},
 		{"id": "ACC_130_UI_ART", "name": "12.3.3, 89.3 2D art: Pak Lurah's portrait wears the same safari as his 3D model, the New Game portraits match the owner models (chef hat / bandana, apron colours, lashes) on their own pastel backdrops, and the save summary (Export and Import Save) shows the bakery of the save's tier", "fn": _art},
 		{"id": "ACC_IDLE_MENU_LOOK", "name": "idle 20 no. 54, 19 no. 21 the opening screens: the logo bread is the loaf mascot, the backdrop has an awning and breads on the tablecloth, and the new bakery popup sits on that backdrop with no close button and step dots: choosing the baker has only Next, naming the bakery has Back and Start, and its storefront sign follows the typed name", "fn": _menu_look},
+		{"id": "ACC_IDLE_START_PAGE", "name": "idle 20 no. 105 the start page is a flat street scene: the logo sits in the sky above the bakery, Tap to Start on the pavement, the bakery sign shows the name of the bakery Tap to Start loads (just Bakery without a save) and fits even a long name, at 9:16 and 9:20; the new bakery popup and the loading screen use the same scene without logo and button; by the device clock it is day (06:00-17:59, lamps off) or night (lamps on, light title and loading text), and nothing overlaps the awning", "fn": _start_page},
 		{"id": "ACC_130_UI_POLISH", "name": "130.6, idle 12.1 flat polish: sheet rows are near-white cards on a deeper cream sheet under small-caps section titles, disabled buttons of every kind turn one readable cream, the open sheet's tab is honey, every bottom tab draws its own illustrated icon on its own pastel plate (only the open sheet's icon is active), and the KR/s rate sits inside the KR chip", "fn": _polish},
 	]
 
@@ -265,7 +266,7 @@ func _menu_look() -> void:
 	if ng == null:
 		game.queue_free()
 		return
-	check(ng.get_child(0) is ProceduralUIFactory.CozyBackdrop, "on the opening backdrop")
+	check(ng.get_child(0) is StartScene and not (ng.get_child(0) as StartScene).show_front, "on the start page scene, without its logo and button")
 	check(ng.find_child(Tx.t("ui_close"), true, false) == null and ng.find_child("Close", true, false) == null, "with no close button")
 	check(ng.find_child("Steps", true, false) != null, "and its step dots")
 	var nav_buttons: Array = ng.find_children("*", "Button", true, false).filter(func(b: Node) -> bool: return (b as Button).text == Tx.t("ui_back"))
@@ -289,3 +290,98 @@ func _menu_look() -> void:
 		SaveManager.delete_profile(pid2)
 	SaveManager.dir = "user://saves"
 	PauseManager.clear_all()
+
+
+func _start_page() -> void:
+	SaveManager.dir = "user://test_saves_start_page"
+	SaveManager.delete_all_profiles()
+	eq(GameRoot._splash_name(), "", "without a save the start page has no name of its own")
+	var s: SimulationRoot = new_sim(5150)
+	s.bakery_name = "Sunny Crumbs"
+	check(SaveManager.write_profile(SaveManager.SAVE_ID, s.capture_save()), "a save to read")
+	eq(GameRoot._splash_name(), "Sunny Crumbs", "the start page reads the bakery name from the save")
+	# Save dari versi tiga profil yang dimainkan paling akhir (ditulis belakangan):
+	# namanya yang tampil, karena toko itulah yang dimuat sesudah Tap to Start.
+	var older: SimulationRoot = new_sim(5151)
+	older.bakery_name = "Moonlight Rolls"
+	check(SaveManager.write_profile(&"profile_2", older.capture_save()), "a bakery played later in an old slot")
+	eq(GameRoot._splash_name(), "Moonlight Rolls", "the start page shows the bakery that Tap to Start will load")
+	SaveManager.delete_profile(&"profile_2")
+	free_sim(older)
+	free_sim(s)
+	var font: Font = ProceduralUIFactory.display_font()
+	for hgt: float in [1280.0, 1600.0]:
+		for nm: String in ["", "Sunny Crumbs", "WWWWWWWWWWWWWWWWWWWWWWWW"]:
+			var sc := StartScene.new()
+			sc.bakery_name = nm
+			runner.add_child(sc)
+			sc.set_anchors_preset(Control.PRESET_TOP_LEFT)
+			sc.position = Vector2.ZERO
+			sc.size = Vector2(720.0, hgt)
+			await runner.get_tree().process_frame
+			var tag: String = "%d tall, %s" % [int(hgt), nm if nm != "" else "no save"]
+			var sign: Label = sc.sign_label()
+			eq(sign.text, nm if nm != "" else "Bakery", "%s: the sign shows the bakery name (just Bakery without a save)" % tag)
+			var tw: float = font.get_string_size(sign.text, HORIZONTAL_ALIGNMENT_LEFT, -1, sign.get_theme_font_size("font_size")).x
+			check(tw <= sc.sign_rect().size.x, "%s: the name fits the sign (%.0f of %.0f px)" % [tag, tw, sc.sign_rect().size.x])
+			var lock: Control = sc.logo().get_child(0) as Control
+			var logo_bottom: float = sc.logo().position.y + lock.position.y + lock.size.y
+			check(sc.logo().position.y >= 0.0 and logo_bottom <= sc.shop_top() + 1.0,
+				"%s: the logo sits in the sky above the bakery (%.0f <= %.0f)" % [tag, logo_bottom, sc.shop_top()])
+			var pill: Control = sc.tap_pill()
+			var pill_mid: float = pill.get_parent().position.y + pill.position.y + pill.size.y * 0.5
+			var pave: Rect2 = sc.pavement_rect()
+			check(pill_mid > pave.position.y and pill_mid < pave.end.y and pill.size.y < pave.size.y,
+				"%s: Tap to Start stands on the pavement" % tag)
+			check(sc.shop_top() > 0.0 and pave.end.y < hgt, "%s: the bakery and pavement fit the frame" % tag)
+			eq(sc.get_children().filter(func(n: Node) -> bool: return n is BreadArt).size(), 4, "%s: four breads on the tablecloth" % tag)
+			sc.queue_free()
+			await runner.get_tree().process_frame
+	# Siang (lampu mati) dan malam (lampu menyala) mengikuti jam perangkat (Seksi 20 no. 106).
+	for hour: int in [12, 21, 3, 6, 17, 18]:
+		StartScene.hour_override = hour
+		var sc2 := StartScene.new()
+		runner.add_child(sc2)
+		sc2.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		sc2.position = Vector2.ZERO
+		sc2.size = Vector2(720.0, 1280.0)
+		await runner.get_tree().process_frame
+		var want_night: bool = hour >= 18 or hour < 6
+		eq(sc2.night, want_night, "%02d:00 is %s on the start page" % [hour, "night" if want_night else "day"])
+		eq(sc2.lamps_on(), want_night, "%02d:00: the lamps are %s" % [hour, "on" if want_night else "off"])
+		var ink: Color = sc2.logo_title().get_theme_color("font_color")
+		check(ink.get_luminance() > 0.8 if want_night else ink.get_luminance() < 0.3,
+			"%02d:00: the Crumbtown title is %s on its sky" % [hour, "light" if want_night else "dark"])
+		var aw: Rect2 = sc2.awning_rect()
+		check(not aw.intersects(sc2.door_rect()) and not aw.intersects(sc2.lantern_rect()) and not aw.intersects(sc2.sign_rect()),
+			"%02d:00: nothing overlaps the awning (door, lantern, sign)" % hour)
+		sc2.queue_free()
+		await runner.get_tree().process_frame
+	StartScene.hour_override = 22
+	var ld2 := LoadingScreen.new()
+	runner.add_child(ld2)
+	await runner.get_tree().process_frame
+	check(ld2.scene().night and ld2.stage_label().get_theme_color("font_color").get_luminance() > 0.8, "at night the loading text is light on the dark sky")
+	ld2.queue_free()
+	await runner.get_tree().process_frame
+	StartScene.hour_override = -1
+	var bare := StartScene.new()
+	bare.show_front = false
+	runner.add_child(bare)
+	await runner.get_tree().process_frame
+	check(bare.logo() == null and bare.tap_pill() == null, "as a backdrop it has no logo and no button")
+	bare.queue_free()
+	await runner.get_tree().process_frame
+	var ld := LoadingScreen.new()
+	ld.bakery_name = "Sunny Crumbs"
+	runner.add_child(ld)
+	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
+	check(ld.scene() != null and ld.scene().sign_label().text == "Sunny Crumbs", "the loading screen shows the same street with the bakery's name")
+	var content_bottom: float = ld.content().position.y + ld.content().size.y
+	check(ld.scene() != null and content_bottom <= ld.scene().shop_top() + 1.0,
+		"its bread, stage text and bar sit in the sky above the bakery (%.0f <= %.0f)" % [content_bottom, ld.scene().shop_top() if ld.scene() != null else 0.0])
+	ld.queue_free()
+	await runner.get_tree().process_frame
+	SaveManager.delete_all_profiles()
+	SaveManager.dir = "user://saves"

@@ -12,6 +12,9 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_33_MUSIC_BUILD", "name": "33 music beds are built in small slices with exactly the same result as building at once", "fn": _music_build},
 		{"id": "ACC_33_MUSIC_NO_STALL", "name": "33 a music change never builds a bed on the spot: the old music plays until the new bed is ready", "fn": _music_no_stall},
+		{"id": "ACC_33_MUSIC_SONGS", "name": "idle 20 no. 108 every music bed is a 16-bar bossa song (8 chords played as part A then part B, about 50 s at 11025 Hz) with a pentatonic melody that differs between A and B, the mood's percussion, loudness matched to the old beds and no clipping; the busy layer is exactly as long as the day bed so it stays on the beat", "fn": _music_songs},
+		{"id": "ACC_33_AUDIO_CACHE", "name": "idle 20 no. 108 built sounds are kept in a disk cache stamped with the generator source hash: written a little per frame through a temp file, read back bit for bit, a damaged or old-stamp file is ignored and pruned, a cached bed starts at once without a build job (a background prewarm reads one cached file per frame), and SOURCE_HASH matches the generator sources", "fn": _audio_cache},
+		{"id": "ACC_33_PITCH_JITTER", "name": "idle 20 no. 108 sounds that repeat often (taps, coins, footsteps, the door bell) play at a slightly different pitch each time, within the catalog's pitch_jitter; other sounds keep their pitch", "fn": _pitch_jitter},
 		{"id": "ACC_33_AUDIO_TAIL_PAD", "name": "idle 20 no. 66 every sound carries spare samples past its end (a copy of its start when it loops, silence otherwise), so the Android mixer never reads past the buffer", "fn": _audio_tail_pad},
 		{"id": "TEST_UI_LOADING_STAGES", "name": "89.5/114 new game and load show staged text and a forward-only bar, keep the clock still, and fade after the world is drawn", "fn": _loading_stages},
 		{"id": "ACC_12_ORIENTATION_HINT", "name": "idle 12.0.6 a phone browser held sideways gets a one-time 'Turn your phone upright' hint that blocks and pauses nothing and goes away after 4 s; upright phones and desktops get none", "fn": _orientation_hint},
@@ -286,3 +289,146 @@ func _splash_tap() -> void:
 	AudioManager.set_music_state(&"")
 	AudioManager.unlocked = was_unlocked
 	SaveManager.dir = "user://saves"
+
+
+func _music_songs() -> void:
+	var day_len: int = -1
+	for mood: String in SongBuild.MOODS.keys():
+		var cfg: Dictionary = SongBuild.MOODS[mood]
+		var b := SongBuild.new()
+		b.setup_song(mood)
+		var lead: int = int(cfg["lead"])
+		var melody_a: Array = []
+		var melody_b: Array = []
+		var root: int = int(cfg["root"])
+		var off_scale: int = 0
+		for pl: Dictionary in b._top_places:
+			var r: Dictionary = b._renders[int(pl["slot"])]
+			if int(r["inst"]) != lead:
+				continue
+			var semi: int = int(round(12.0 * log(float(r["freq"]) / AudioGenerator.MUSIC_ROOT_HZ) / log(2.0)))
+			var deg: int = posmod(semi - root, 12)
+			if not SongBuild.PENTATONIC.has(deg):
+				# Nada akor di luar pentatonik hanya boleh di ketukan kuat (pendaratan).
+				off_scale += 1
+			if int(pl["at"]) < b._n / 2:
+				melody_a.append([int(pl["at"]), semi])
+			else:
+				melody_b.append([int(pl["at"]) - b._n / 2, semi])
+		check(melody_a.size() >= 8 and melody_b.size() >= 8, "%s has a melody in both parts (%d + %d notes)" % [mood, melody_a.size(), melody_b.size()])
+		check(melody_a != melody_b, "%s: part B's melody is not a copy of part A" % mood)
+		check(off_scale * 4 <= melody_a.size() + melody_b.size(), "%s: the melody stays mostly pentatonic (%d off-scale landings)" % [mood, off_scale])
+		var s2: AudioStreamWAV = b.finish_now()
+		var n: int = s2.loop_end
+		var secs: float = float(n) / float(s2.mix_rate)
+		eq(s2.mix_rate, SongBuild.RATE, "%s renders at %d Hz" % [mood, SongBuild.RATE])
+		check(secs > 40.0 and secs < 70.0, "%s is a long loop (%.1f s; the old beds were ~7 s)" % [mood, secs])
+		var d: PackedByteArray = s2.data
+		var sq: float = 0.0
+		var pk: float = 0.0
+		for i in n:
+			var v: float = float(d.decode_s16(i * 2)) / 32767.0
+			sq += v * v
+			pk = maxf(pk, absf(v))
+		var rms: float = sqrt(sq / float(n))
+		near(rms, float(cfg["rms"]), float(cfg["rms"]) * 0.25, "%s keeps the old loudness (RMS %.3f)" % [mood, rms])
+		check(pk <= 0.96, "%s never clips (peak %.3f)" % [mood, pk])
+		if mood == "cozy":
+			day_len = n
+	var busy: AudioStreamWAV = AudioGenerator.build("music_busy_layer")
+	eq(busy.loop_end, day_len, "the busy layer is exactly as long as the day bed")
+	eq(busy.mix_rate, SongBuild.RATE, "and plays at the same rate")
+
+
+func _audio_cache() -> void:
+	eq(AudioCache.SOURCE_HASH, AudioCache.source_hash(),
+		"AudioCache.SOURCE_HASH matches the generator sources (update it whenever a recipe changes, so old caches are dropped)")
+	var was_enabled: bool = AudioCache.enabled
+	var was_dir: String = AudioCache.dir
+	AudioCache.dir = "user://test_audio_cache"
+	AudioCache.enabled = true
+	AudioCache.clear()
+	# Satu bunyi UI (22050 Hz), satu ambience (11025 Hz, loop), satu bed musik.
+	for gen: String in ["tap_soft", "room_tone", "music_busy_layer"]:
+		var built: AudioStreamWAV = AudioGenerator.build(gen)
+		var key: String = MusicBuild.cache_key(gen)
+		AudioCache.store(key, built)
+		var steps: int = 0
+		while AudioCache.flush_step(4096):
+			steps += 1
+			if steps == 1:
+				check(not FileAccess.file_exists(AudioCache.path_for(key)), "%s: nothing final before the last write" % gen)
+		check(gen != "music_busy_layer" or steps > 10, "%s is written over many frames (%d)" % [gen, steps])
+		var back: AudioStreamWAV = AudioCache.fetch(key)
+		check(back != null and back.data == built.data, "%s reads back bit for bit" % gen)
+		if back != null:
+			eq([back.mix_rate, back.loop_mode, back.loop_end], [built.mix_rate, built.loop_mode, built.loop_end], "%s keeps rate and loop" % gen)
+	# Berkas rusak diabaikan.
+	var bad: String = AudioCache.path_for("tap_soft")
+	var f: FileAccess = FileAccess.open(bad, FileAccess.WRITE)
+	f.store_buffer(PackedByteArray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]))
+	f.close()
+	check(AudioCache.fetch("tap_soft") == null, "a damaged file is ignored")
+	# Berkas cap lama dibuang saat cache pertama dipakai.
+	var old: String = AudioCache.dir.path_join("room_tone.oldstamp_1.pcm")
+	var f2: FileAccess = FileAccess.open(old, FileAccess.WRITE)
+	f2.store_buffer(PackedByteArray([0]))
+	f2.close()
+	AudioCache._pruned = false
+	AudioCache.fetch("room_tone")
+	check(not FileAccess.file_exists(old), "files with an old stamp are pruned")
+	check(AudioCache.fetch("room_tone") != null, "current files stay")
+	# AudioManager: bed dari cache langsung siap, tanpa pekerjaan perakitan.
+	var was_unlocked: bool = AudioManager.unlocked
+	AudioManager.unlocked = true
+	AudioManager.set_music_state(&"")
+	AudioManager._streams.erase(MusicBuild.cache_key("music_busy_layer"))
+	AudioManager.request_stream(&"shop_music_busy_layer", true)
+	check(AudioManager.is_stream_ready(&"shop_music_busy_layer") and not AudioManager.has_pending_jobs(), "a cached bed is ready at once, with no build job")
+	AudioManager._streams.erase(MusicBuild.cache_key("music_busy_layer"))
+	# Prewarm di latar: dibaca dari cache satu berkas per frame, bukan semua sekaligus.
+	AudioManager.request_stream(&"shop_music_busy_layer", false)
+	check(not AudioManager.is_stream_ready(&"shop_music_busy_layer") and AudioManager._cache_loads.size() == 1, "a background prewarm queues the cached bed")
+	AudioManager._cache_load_step()
+	check(AudioManager.is_stream_ready(&"shop_music_busy_layer") and not AudioManager.has_pending_jobs(), "and reads it on a later frame, still without building")
+	AudioManager._streams.erase(MusicBuild.cache_key("music_busy_layer"))
+	AudioManager.set_music_state(&"")
+	AudioManager.unlocked = was_unlocked
+	AudioCache.clear()
+	AudioCache.enabled = was_enabled
+	AudioCache.dir = was_dir
+
+
+func _pitch_jitter() -> void:
+	var was_unlocked: bool = AudioManager.unlocked
+	AudioManager.unlocked = true
+	var jit: Array[StringName] = []
+	for x: Variant in DataRegistry.audio_events():
+		var d: MiscDefinitions.AudioEventDefinition = x
+		if d.pitch_jitter > 0.0:
+			jit.append(d.id)
+	for must: StringName in [&"ui_tap_soft", &"cashier_coin", &"footstep_tile", &"door_bell_enter"]:
+		check(jit.has(must), "%s varies its pitch" % must)
+	var pitches: Dictionary = {}
+	var inside: bool = true
+	var def: MiscDefinitions.AudioEventDefinition = DataRegistry.audio_event(&"cashier_coin")
+	for i in 12:
+		AudioManager._last_played.erase(&"cashier_coin")
+		AudioManager.play(&"cashier_coin")
+		for k in AudioManager._sfx.size():
+			if AudioManager._sfx_meta[k]["event"] == &"cashier_coin" and AudioManager._sfx[k].playing:
+				var ps: float = AudioManager._sfx[k].pitch_scale
+				pitches[snappedf(ps, 0.0001)] = true
+				inside = inside and absf(ps - 1.0) <= def.pitch_jitter + 0.0001
+		AudioManager.stop_all_sounds()
+	check(pitches.size() >= 3, "the coin sound comes at different pitches (%d)" % pitches.size())
+	check(inside, "always within +/-%.0f%%" % (def.pitch_jitter * 100.0))
+	AudioManager._last_played.erase(&"ui_error")
+	AudioManager.play(&"ui_error")
+	var steady: bool = true
+	for k2 in AudioManager._sfx.size():
+		if AudioManager._sfx_meta[k2]["event"] == &"ui_error":
+			steady = steady and AudioManager._sfx[k2].pitch_scale == 1.0
+	check(steady, "a sound without pitch_jitter keeps its pitch")
+	AudioManager.stop_all_sounds()
+	AudioManager.unlocked = was_unlocked

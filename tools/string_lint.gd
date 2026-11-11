@@ -16,7 +16,9 @@ const INDONESIAN_WORDS: Array[String] = [
 ## Hasil: {files, missing: {key: sumber}, empty: [key], bad: {key: alasan}}.
 ## include_runtime: sertakan kunci hilang yang tercatat DataRegistry saat runtime.
 static func run(include_runtime: bool) -> Dictionary:
-	var table: Dictionary = DataRegistry.strings_table()
+	# Tabel bahasa Inggris, apa pun bahasa yang sedang dipakai (Seksi 19 no. 25):
+	# tabel Indonesia diperiksa ACC_IDLE_LANGUAGE_STRINGS.
+	var table: Dictionary = DataRegistry.strings_of("en")
 	var missing: Dictionary = {}
 	# 1. Kunci literal di skrip.
 	var call_re := RegEx.create_from_string("(?:Tx\\.t|DataRegistry\\.text|notify\\.emit\\(\\s*\\d+\\s*,)\\(?\\s*\"([a-z0-9_]+)\"")

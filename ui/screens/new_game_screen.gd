@@ -31,7 +31,11 @@ func _init() -> void:
 
 
 func build() -> void:
-	add_child(ProceduralUIFactory.backdrop())
+	# Latar = adegan halaman start tanpa logo dan tombol (Seksi 20 no. 105),
+	# jadi "Tap to Start" bersambung mulus ke popup ini.
+	var scene := StartScene.new()
+	scene.show_front = false
+	add_child(scene)
 	_name = Tx.t("ui_bakery_name_default")
 	_body = make_popup(Tx.t("ui_new_bakery_title"), POPUP, false)
 	_render()

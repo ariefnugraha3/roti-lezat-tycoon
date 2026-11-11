@@ -49,7 +49,7 @@ func build() -> void:
 	snip.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	snip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	snip.custom_minimum_size = Vector2(80.0, 0.0)
-	lbl(row, Tx.t("ui_save_code_size", {"size": "%.1f" % (float(code.length()) / 1024.0)}), 16, Palette.TEXT_MUTED)
+	lbl(row, Tx.t("ui_save_code_size", {"size": Tx.dec(float(code.length()) / 1024.0, 1)}), 16, Palette.TEXT_MUTED)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 12)

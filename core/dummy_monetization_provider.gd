@@ -30,7 +30,7 @@ func store_ready() -> bool:
 ## Harga tiruan dari katalog (`price_usd`).
 func product_price(product: StringName) -> String:
 	var p: Dictionary = PremiumManager.product(product)
-	return "$%.2f" % float(p.get("price_usd", 0.0)) if not p.is_empty() else ""
+	return "$" + Tx.dec(float(p.get("price_usd", 0.0)), 2) if not p.is_empty() else ""
 
 
 func buy(product: StringName, done: Callable) -> void:

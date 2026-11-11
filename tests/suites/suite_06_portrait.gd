@@ -6,6 +6,7 @@ func tests() -> Array:
 	return [
 		{"id": "ACC_IDLE_PORTRAIT_FRAME", "name": "idle 12.0.2 the frame box is right for every screen shape (720 logical px wide, ratio clamped 9:16-9:21, centred) and taps outside it never reach the game", "fn": _frame},
 		{"id": "ACC_IDLE_TABLECLOTH_SIDES", "name": "idle 12.0.3 outside the frame lies the gingham tablecloth with lace on the side touching the frame and faint floating icons; no game control is there; 9:16-9:21 phones show no tablecloth", "fn": _tablecloth},
+		{"id": "ACC_IDLE_PORTRAIT_UI_ID", "name": "idle 20 no. 109 in Indonesian, whose words run longer, the HUD and every screen still fit the 9:16 and 9:20 frames at 100/125/150% text with nothing cut off and no sideways scrolling", "fn": _portrait_ui_id},
 		{"id": "ACC_IDLE_PORTRAIT_UI", "name": "idle 12.0.7 on every size of the portrait matrix (phones, tablets, laptops) at 100/125/150% text, the HUD and every screen open with no visible control outside the frame and no sideways scrolling", "fn": _portrait_ui},
 		{"id": "ACC_IDLE_WHEEL_OVER_SHEET", "name": "idle 12.0.5 the mouse wheel over an open sheet (or any screen) scrolls its list and never zooms the camera, also at the top and bottom of the list; over the world it still zooms", "fn": _wheel_over_sheet},
 		{"id": "ACC_IDLE_PORTRAIT_CAMERA", "name": "idle 12.0.4 the camera keeps the world width (KEEP_WIDTH); Tier 1-3 floors show whole across the screen between the HUD bars on 9:16 and 9:21; bigger floors follow the owner", "fn": _camera},
@@ -349,6 +350,18 @@ static func _ui_issues(root: Node, vis: Rect2) -> Array[String]:
 
 
 func _portrait_ui() -> void:
+	await _portrait_ui_in("en", UI_SIZES)
+
+
+## Bahasa Indonesia (Seksi 20 no. 109): bingkai selalu 720 lebar, jadi cukup
+## dua rasio layar.
+func _portrait_ui_id() -> void:
+	await _portrait_ui_in("id", [Vector2(720, 1280), Vector2(1080, 2400)])
+	DataRegistry.set_language("en")
+
+
+func _portrait_ui_in(lang: String, sizes: Array) -> void:
+	DataRegistry.set_language(lang)
 	# Store dengan toko yang tersedia, supaya semua kartunya ikut diperiksa.
 	Monetization.use_provider(TestMonetizationProvider.new())
 	SaveManager.dir = "user://test_saves_portrait_ui"
@@ -375,7 +388,7 @@ func _portrait_ui() -> void:
 	var code: String = SaveManager.export_code(&"profile_1")
 	var bad: int = 0
 	var shown: int = 0
-	for sz: Vector2 in UI_SIZES:
+	for sz: Vector2 in sizes:
 		shell.layout_for(_root_size(sz.x, sz.y), 1.0)
 		for sc: int in [100, 125, 150]:
 			SettingsManager.set_value("text_scale", sc)
@@ -418,7 +431,7 @@ func _portrait_ui() -> void:
 				game.modals.close_all()
 				game.sim.offline.pending = {}
 				await runner.get_tree().process_frame
-	print("      %d screens checked across %d sizes x 3 text scales, %d with issues" % [shown, UI_SIZES.size(), bad])
+	print("      %d screens checked across %d sizes x 3 text scales (%s), %d with issues" % [shown, sizes.size(), lang, bad])
 	SettingsManager.set_value("text_scale", was_scale)
 	game.modals.close_all()
 	game.playing = true

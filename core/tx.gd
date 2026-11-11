@@ -1,8 +1,35 @@
 class_name Tx
 extends RefCounted
 ## Pintu tunggal teks yang terlihat pemain (GDD 43, 127). Semua string berasal
-## dari data/catalog/strings_en.json lewat DataRegistry; skrip tidak boleh
+## dari data/catalog/strings_<bahasa>.json lewat DataRegistry; skrip tidak boleh
 ## menulis kalimat panjang secara langsung.
+##
+## Bahasa Indonesia (Seksi 19 no. 25, 20 no. 109) juga memakai angka cara
+## Indonesia: koma desimal, titik ribuan ("12,5", "9.850"), dan akhiran rb, jt,
+## M, T ("12,4rb", "3,07jt", "1,5M" = miliar), supaya "M" tidak terbaca sejuta.
+
+static var _id: bool = false
+
+
+## Dipanggil DataRegistry setiap bahasa berganti.
+static func set_language(code: String) -> void:
+	_id = code == "id"
+
+
+static func is_indonesian() -> bool:
+	return _id
+
+
+## Pemisah angka bahasa yang dipakai: di bahasa Indonesia "." dan "," bertukar.
+static func num(s: String) -> String:
+	if not _id:
+		return s
+	return s.replace(",", "\u0001").replace(".", ",").replace("\u0001", ".")
+
+
+## Desimal dengan `digits` angka di belakang koma, dengan pemisah bahasa.
+static func dec(v: float, digits: int = 1) -> String:
+	return num(("%." + str(digits) + "f") % v)
 
 
 ## Teks untuk `key`, dengan placeholder {nama} diganti dari `params`.
@@ -27,7 +54,7 @@ static func money(v: float) -> String:
 		return "-" + money(-v)
 	var t: float = Money.round_half_up(v * 10.0) / 10.0
 	if t < 100.0 and not is_equal_approx(t, roundf(t)):
-		return "%.1f" % t
+		return num("%.1f" % t)
 	return big(v)
 
 
@@ -51,7 +78,7 @@ static func big(v: float, scientific: int = -1) -> String:
 	if v < 0.0:
 		return "-" + big(-v, scientific)
 	if v < 9999.5:
-		return Money.group_int(int(Money.round_half_up(v)))
+		return num(Money.group_int(int(Money.round_half_up(v))))
 	var sci: bool = scientific == 1 or (scientific < 0 and str(SettingsManager.get_value("number_format")) == "scientific")
 	var e: int = int(floor(log(v) / log(10.0) + 1e-9))
 	if sci:
@@ -59,14 +86,14 @@ static func big(v: float, scientific: int = -1) -> String:
 		if snappedf(m, 0.01) >= 10.0:
 			m /= 10.0
 			e += 1
-		return "%.2fe%d" % [m, e]
+		return num("%.2fe%d" % [m, e])
 	var g: int = e / 3
 	var mant: float = v / pow(10.0, g * 3)
 	# Pembulatan ke 3 angka penting bisa menyentuh 1000: naik satu akhiran.
 	if _round3(mant) >= 1000.0:
 		g += 1
 		mant = v / pow(10.0, g * 3)
-	return _fmt3(mant) + _suffix(g)
+	return num(_fmt3(mant)) + _suffix(g)
 
 
 ## Laju KR/s (GDD idle 12.1): tiga angka penting di bawah 100 ("0.36", "4.25",
@@ -75,8 +102,8 @@ static func rate(v: float) -> String:
 	if is_nan(v) or is_inf(v) or v >= 100.0 or v < 0.0:
 		return big(v)
 	if v < 10.0:
-		return "%.2f" % v
-	return "%.1f" % v
+		return num("%.2f" % v)
+	return num("%.1f" % v)
 
 
 static func _round3(m: float) -> float:
@@ -96,16 +123,17 @@ static func _fmt3(m: float) -> String:
 
 
 ## Akhiran kelompok ribuan ke-g: 1 K, 2 M, 3 B, 4 T, lalu aa, ab, … (10^15 ke atas).
+## Bahasa Indonesia: rb (ribu), jt (juta), M (miliar), T (triliun).
 static func _suffix(g: int) -> String:
 	match g:
 		0:
 			return ""
 		1:
-			return "K"
+			return "rb" if _id else "K"
 		2:
-			return "M"
+			return "jt" if _id else "M"
 		3:
-			return "B"
+			return "M" if _id else "B"
 		4:
 			return "T"
 	var idx: int = g - 5
@@ -144,7 +172,7 @@ static func timer(seconds: float) -> String:
 
 ## Pengali tanpa nol yang tidak perlu: 2 -> "2", 1.5 -> "1.5".
 static func mult(v: float) -> String:
-	return str(int(v)) if is_equal_approx(v, roundf(v)) else ("%.2f" % v).rstrip("0").rstrip(".")
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else num(("%.2f" % v).rstrip("0").rstrip("."))
 
 
 static func percent(v: float) -> String:

@@ -11,12 +11,12 @@ extends Node
 ## --screens=welcome_back,franchise (menu utama dilewati bila --screens diisi)
 ## --full (potret ukuran penuh, bukan setengah), --date=YYYY-MM-DD (tanggal
 ## perangkat palsu, mis. untuk event musiman), --golden (Roti Emas terbang), --regular (pelanggan
-## langganan berkunjung; juga membuka minigame pesanannya), --menus (hanya splash dan
+## langganan berkunjung; juga memotret ketiga minigame pesanannya), --menus (hanya splash dan
 ## layar di luar permainan: popup toko baru kedua langkahnya, lalu dengan save
 ## Export Save dan Import Save), --ads
 ## (penyedia iklan dan toko palsu: tombol Ad dan kartu Supporter Pack, GDD idle 22),
 ## --tips (kartu tip, sorotan, dan panduan berkedip ke tab dan stasiun, GDD idle 13),
-## --skin=id (skin atau pakaian dipakai dulu, boleh berulang), --floor=2 (lantai atas), --tier=N (lokasi permainan, bawaan 3), --name=teks (nama toko, papan nama), --equip (semua slot stasiun dibuka: chip level
+## --skin=id (skin atau pakaian dipakai dulu, boleh berulang), --floor=2 (lantai atas), --tier=N (lokasi permainan, bawaan 3), --name=teks (nama toko, papan nama), --hour=N (jam perangkat palsu untuk halaman start: 0-23), --lang=id (bahasa teks), --equip (semua slot stasiun dibuka: chip level
 ## di toko yang penuh).
 
 const RES: Array[Vector2i] = [Vector2i(720, 1280), Vector2i(1080, 1920), Vector2i(1080, 2340), Vector2i(1080, 2400),
@@ -96,6 +96,13 @@ func _ready() -> void:
 			_floor = clampi(int(a.substr(8)), 1, 2)
 		elif a.begins_with("--name="):
 			_name = a.substr(7)
+		elif a.begins_with("--lang="):
+			# Bahasa teks (GDD idle 20 no. 109), tanpa menyimpan pilihan pemain.
+			SettingsManager.values["language"] = a.substr(7)
+			DataRegistry.set_language(a.substr(7))
+		elif a.begins_with("--hour="):
+			# Halaman start siang/malam (GDD idle 20 no. 106).
+			StartScene.hour_override = clampi(int(a.substr(7)), 0, 23)
 		elif a.begins_with("--date="):
 			# Tanggal perangkat palsu, mis. untuk event musiman (GDD idle 21.6).
 			BoostManager.date_override = a.substr(7)
@@ -301,6 +308,29 @@ func _visit(id: StringName, params: Dictionary, r: Vector2i, sc: int) -> void:
 	if s != null:
 		_check(s, label, r, sc)
 	await _shot(label, r, sc)
+	# Minigame pesanan regular (GDD idle 20 no. 110): ketiganya, Ingat Pesanan juga
+	# sesudah pesanannya ditutup, Panggang Pas dengan jarum di zona emas.
+	if s is RegularOrderScreen and not game.sim.regulars.visit.is_empty():
+		for g: String in RegularManager.GAMES:
+			game.modals.close_all()
+			await _frames(1)
+			game.sim.regulars.visit["game"] = g
+			var ro: RegularOrderScreen = game.modals.open(&"regular_order", params) as RegularOrderScreen
+			await _frames(4)
+			if g == "bake":
+				var z: Vector2 = ro.bake_zone(0)
+				ro.doneness = (z.x + z.y) * 0.5
+				await _frames(2)
+			_check(ro, "regular_order_" + g, r, sc)
+			await _shot("regular_order_" + g, r, sc)
+			if g == "memory":
+				ro.end_memory_show()
+				await _frames(2)
+				_check(ro, "regular_order_memory_go", r, sc)
+				await _shot("regular_order_memory_go", r, sc)
+		game.sim.regulars.visit["game"] = "pack"
+		game.modals.close_all()
+		return
 	# Perayaan Store (GDD idle 22.11): beberapa barang sesudah animasinya tenang,
 	# dan satu foto di tengah ledakan confetti.
 	if s is RewardReveal:

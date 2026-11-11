@@ -14,10 +14,13 @@ extends SimManager
 
 static var enabled: bool = true
 
+## Minigame pesanan (Seksi 20 no. 110): kemas pesanan, panggang pas, ingat pesanan.
+const GAMES: Array[String] = ["pack", "bake", "memory"]
+
 ## Detik nyata sampai kunjungan berikutnya.
 var next_in: float = 0.0
-## Kunjungan berjalan: {id, order: [recipe ids], reward, wait_left, customer}
-## atau {}.
+## Kunjungan berjalan: {id, order: [recipe ids], reward, wait_left, customer,
+## game} atau {}.
 var visit: Dictionary = {}
 ## Nomor kunjungan (naik setiap kunjungan).
 var visits: int = 0
@@ -114,10 +117,46 @@ func _start_visit() -> void:
 		order.append(String(makeable[rng.randi_range(0, makeable.size() - 1)]))
 	var reward: float = GoalManager.nice(maxf(DataRegistry.idlef("regulars.min_kr"),
 		sim.idle_economy.rate(false) * 60.0 * DataRegistry.idlef("regulars.reward_income_minutes")))
-	visit = {"id": id, "order": order, "reward": reward, "wait_left": DataRegistry.idlef("regulars.wait_seconds"), "customer": ""}
+	visit = {"id": id, "order": order, "reward": reward, "wait_left": DataRegistry.idlef("regulars.wait_seconds"), "customer": "",
+		"game": game_for_order(visits, order)}
 	_keep_customer()
 	EventBus.notify.emit(1, "ui_regular_arrived", {"name": Tx.t(id)}, &"heart")
 	EventBus.sfx.emit(&"door_bell_enter", &"")
+
+
+## Minigame kunjungan ke-`n` (Seksi 20 no. 110): kunjungan pertama selalu
+## "pack" (yang dijelaskan tip onb_regular), selanjutnya diacak dari seed master
+## dan nomor kunjungan dan tidak pernah sama dengan kunjungan sebelumnya. Undian
+## memakai salt sendiri, jadi siapa yang datang dan isi pesanannya tidak berubah.
+func game_for(n: int) -> String:
+	var games: Array = DataRegistry.idle("regulars.games")
+	if games.is_empty():
+		return "pack"
+	var g: int = 0
+	for k in range(2, n + 1):
+		if games.size() < 2:
+			break
+		var rng := RandomNumberGenerator.new()
+		rng.seed = RNGManager._derive(sim.rng.master_seed, "regular_game_%d" % k)
+		g = (g + 1 + rng.randi_range(0, games.size() - 2)) % games.size()
+	return str(games[g])
+
+
+## Minigame yang dimainkan untuk pesanan `order`: Ingat Pesanan butuh minimal
+## dua jenis roti (pesanan satu jenis cukup dilihat sekilas), jadi pesanan
+## seperti itu memainkan minigame lain yang bukan undian kunjungan sebelumnya.
+func game_for_order(n: int, order: Array) -> String:
+	var g: String = game_for(n)
+	var kinds: Dictionary = {}
+	for rid: Variant in order:
+		kinds[str(rid)] = true
+	if g != "memory" or kinds.size() >= 2:
+		return g
+	var prev: String = game_for(n - 1) if n > 1 else ""
+	for alt: Variant in DataRegistry.idle("regulars.games"):
+		if str(alt) != "memory" and str(alt) != prev:
+			return str(alt)
+	return "pack"
 
 
 ## Sosok regular di toko: masuk sekali ada tempat, menunggu selama kunjungan.
@@ -200,5 +239,7 @@ func restore(d: Dictionary) -> void:
 				order.append(str(rid))
 		if not order.is_empty():
 			# Sosoknya ikut tersimpan sebagai pengunjung; bila tidak ada, ia masuk lagi.
+			var g: String = str(v.get("game", "pack"))
 			visit = {"id": str(v["id"]), "order": order, "reward": maxf(0.0, float(v.get("reward", 0.0))),
-				"wait_left": float(v.get("wait_left", 1.0)), "customer": str(v.get("customer", ""))}
+				"wait_left": float(v.get("wait_left", 1.0)), "customer": str(v.get("customer", "")),
+				"game": g if GAMES.has(g) else "pack"}

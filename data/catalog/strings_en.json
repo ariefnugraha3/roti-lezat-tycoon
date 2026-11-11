@@ -1173,6 +1173,21 @@
   "skin_door_garden": "Blossom Arch",
   "skin_door_galaxy": "Galaxy Gate",
   "skin_door_candy": "Candy Door",
-  "skin_door_ocean": "Seaside Door"
+  "skin_door_ocean": "Seaside Door",
+  "ui_start_sign_default": "Bakery",
+  "ui_settings_language": "Language",
+  "ui_loading_language": "Changing the language...",
+  "ui_regular_game_pack": "Pack the Order",
+  "ui_regular_game_bake": "Golden Bake",
+  "ui_regular_game_memory": "Remember the Order",
+  "ui_regular_hint_bake": "Each bread browns in the oven. Tap Take Out when the needle is in the gold zone: too early is raw, too late is burnt, and both cost time!",
+  "ui_regular_bake_take": "Take Out!",
+  "ui_regular_bake_raw": "Still raw!",
+  "ui_regular_bake_burnt": "Burnt!",
+  "ui_regular_bake_perfect": "Perfect!",
+  "ui_regular_bake_count": "Bread {n} of {total}: {name}",
+  "ui_regular_hint_memory": "Remember the order. Then tap the breads in the same order. A wrong bread shows the right one for a moment, but costs time!",
+  "ui_regular_memory_watch": "Remember the order! {seconds}",
+  "ui_regular_memory_go": "Now tap them in order!"
  }
 }

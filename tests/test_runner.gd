@@ -15,6 +15,8 @@ var _only: String = ""
 var _exact: String = ""
 var _skip_long: bool = false
 var _errors := _ErrorCounter.new()
+## Pilihan bahasa pemain di settings.json, dikembalikan sebelum keluar.
+var _player_language: Variant = "auto"
 
 
 ## Menghitung error engine/skrip selama test berjalan: SCRIPT ERROR tidak
@@ -63,9 +65,21 @@ func _ready() -> void:
 	# lain tidak boleh bergantung pada hari tes dijalankan.
 	CravingManager.enabled = false
 	EventManager.enabled = false
+	# Bunyi selalu dirakit dari resepnya (Seksi 20 no. 108): cache disk dari sesi
+	# lain tidak boleh mengubah hasil tes. Tes cache menyalakannya sendiri.
+	AudioCache.enabled = false
+	# Tes memeriksa teks bahasa Inggris (Seksi 19 no. 25): bahasa perangkat atau
+	# pilihan pemain di settings.json tidak boleh mengubahnya. Pilihan pemain
+	# dikembalikan sebelum keluar.
+	_player_language = SettingsManager.values.get("language", "auto")
+	SettingsManager.values["language"] = "en"
+	DataRegistry.set_language("en")
 	# Menunggu satu frame agar semua autoload selesai _ready.
 	await get_tree().process_frame
 	var code: int = await _run_all()
+	if SettingsManager.values.get("language", "auto") != _player_language:
+		SettingsManager.values["language"] = _player_language
+		SettingsManager.save_settings()
 	Monetization.reset_for_tests()
 	Monetization.path = "user://monetization.json"
 	ProceduralCaches.clear_all()
@@ -99,6 +113,12 @@ func _run_all() -> int:
 			suite.checks = 0
 			CravingManager.enabled = false
 			EventManager.enabled = false
+			# Bahasa Inggris untuk setiap tes; tes bahasa memasang bahasanya sendiri.
+			if DataRegistry.language != "en" or SettingsManager.values.get("language") != "en":
+				SettingsManager.values["language"] = "en"
+				DataRegistry.set_language("en")
+			# Halaman start mengikuti jam perangkat (siang/malam); tes menyetel jamnya sendiri.
+			StartScene.hour_override = -1
 			# Monetisasi (GDD idle 22): setiap tes mulai tanpa toko, tanpa iklan, dan
 			# tanpa hak beli, di berkas perangkatnya sendiri (toko uji tidak pernah
 			# menyentuh berkas pemain). Tes monetisasi memasang penyedianya sendiri.

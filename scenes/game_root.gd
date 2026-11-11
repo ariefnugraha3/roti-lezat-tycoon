@@ -22,13 +22,17 @@ extends Node
 const BUSY_CUSTOMERS: int = 4
 ## Anggaran perakitan musik per frame selama layar loading (mikrodetik).
 const LOADING_AUDIO_BUDGET_USEC: int = 30000
+## Waktu per frame untuk menyiapkan bunyi pendek di layar loading.
+const WARM_AUDIO_FRAME_USEC: int = 12000
 ## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
 const STABLE_FRAME_MS: float = 80.0
 const MAX_SETTLE_FRAMES: int = 12
-## Puncak logo layar pembuka, sebagai bagian tinggi bingkai.
-const LOGO_TOP: float = 0.075
-
 var sim: SimulationRoot = null
+## Nama toko di save yang dibaca halaman start; papan layar loading memakainya
+## saat save itu dimuat.
+var _known_name: String = ""
+## Bahasa yang dipakai layar yang sedang tersusun (Seksi 19 no. 25).
+var _language_built: String = ""
 var world: WorldView = null
 var hud: HUD = null
 var modals: ModalHost = null
@@ -58,6 +62,7 @@ func _ready() -> void:
 	ProceduralUIFactory.text_scale = SettingsManager.text_scale()
 	SettingsManager.settings_changed.connect(_on_settings_changed)
 	_on_settings_changed("resolution_scale")
+	_language_built = SettingsManager.language()
 	modals = ModalHost.new()
 	modals.game = self
 	add_child(modals)
@@ -91,57 +96,16 @@ func _show_splash() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 50
 	add_child(layer)
-	_splash = Control.new()
-	_splash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_splash.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(_splash)
+	# Halaman start bergambar (Seksi 20 no. 105): toko roti di sore hari dengan
+	# nama toko di save pada papannya, logo di langit, "Tap to Start" di trotoar.
+	_language_built = SettingsManager.language()
+	var scene := StartScene.new()
+	_known_name = _splash_name()
+	scene.bakery_name = _known_name
+	scene.mouse_filter = Control.MOUSE_FILTER_STOP
+	_splash = scene
 	ProceduralUIFactory.apply_theme(_splash)
-	_splash.add_child(ProceduralUIFactory.backdrop())
-	# Potret (GDD idle 12.0.5): logo di bawah tenda, "Tap to Start" di tengah
-	# sisa layar, slogan kecil di bawahnya.
-	var box := VBoxContainer.new()
-	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.anchor_top = LOGO_TOP
-	box.offset_bottom = -110.0
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 18)
-	_splash.add_child(box)
-	var logo_box := CenterContainer.new()
-	logo_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(logo_box)
-	var lockup: VBoxContainer = ProceduralUIFactory.logo_lockup(Tx.t("game_title"), 84, 164)
-	logo_box.add_child(lockup)
-	ProceduralAnimationSystem.idle_wobble(lockup.get_meta("bread"))
-	box.add_child(_spacer(1.0))
-	# "Tap to Start": pil madu besar yang membesar-mengecil pelan.
-	var tap_row := CenterContainer.new()
-	tap_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(tap_row)
-	var tap := PanelContainer.new()
-	tap.name = "TapToStart"
-	tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tsb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.HONEY, 40, false)
-	tsb.content_margin_left = 40.0
-	tsb.content_margin_right = 44.0
-	tsb.content_margin_top = 14.0
-	tsb.content_margin_bottom = 14.0
-	tap.add_theme_stylebox_override("panel", tsb)
-	var tap_h := HBoxContainer.new()
-	tap_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tap_h.add_theme_constant_override("separation", 12)
-	tap.add_child(tap_h)
-	tap_h.add_child(ProceduralUIFactory.icon("play", 34, Palette.FLOUR_WHITE))
-	var tap_l: Label = ProceduralUIFactory.label(Tx.t("ui_tap_to_start"), 30, Palette.FLOUR_WHITE)
-	tap_l.add_theme_font_override("font", ProceduralUIFactory.display_font())
-	tap_h.add_child(tap_l)
-	tap_row.add_child(tap)
-	if not SettingsManager.reduced_motion():
-		tap.resized.connect(func() -> void: tap.pivot_offset = tap.size * 0.5)
-		var pulse := tap.create_tween().set_loops()
-		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		pulse.tween_property(tap, "scale", Vector2(1.07, 1.07), 0.8)
-		pulse.tween_property(tap, "scale", Vector2.ONE, 0.8)
-	box.add_child(_spacer(1.4))
+	layer.add_child(_splash)
 	_splash.gui_input.connect(_on_splash_input.bind(layer))
 	# Musik menu dirakit di latar selagi pemain membaca layar ini, lalu bunyi
 	# pendek (GDD 33.6), supaya tidak ada yang perlu dirakit saat bermain.
@@ -149,12 +113,35 @@ func _show_splash() -> void:
 	AudioManager.prewarm_short_sounds()
 
 
-static func _spacer(weight: float) -> Control:
-	var s := Control.new()
-	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	s.size_flags_stretch_ratio = weight
-	return s
+## Bahasa berganti (Settings atau tombol EN/ID halaman start): teks yang sudah
+## tersusun memakai bahasa lama, jadi layar disusun ulang. Di dalam toko, dunia
+## dan HUD dibangun ulang di balik layar loading (jalur yang sama dengan
+## Waralaba) lalu Settings dibuka lagi di tab yang sama; di halaman start dan
+## popup toko baru, layar itu dibuat ulang.
+func relocalize() -> void:
+	_language_built = SettingsManager.language()
+	if _splash != null:
+		var layer: Node = _splash.get_parent()
+		_splash = null
+		layer.queue_free()
+		_show_splash()
+		return
+	if sim != null and hud != null:
+		var pid: StringName = sim.profile_id
+		modals.close_all()
+		await _begin_loading("ui_loading_language", 0.05)
+		await _reenter_branch(pid)
+		modals.open(&"settings")
+		return
+	if modals.is_open(&"new_game"):
+		open_new_game()
+
+
+## Nama toko di save (untuk papan halaman start), atau "" bila belum ada save.
+static func _splash_name() -> String:
+	# Toko terakhir yang dimainkan = toko yang dimuat sesudah Tap to Start
+	# (juga save dari versi tiga profil yang baru digabung di begin()).
+	return str(SaveManager.latest_header().get("bakery_name", ""))
 
 
 ## Ketukan dihitung saat jari/klik DILEPAS: browser baru mengizinkan layar penuh
@@ -216,7 +203,7 @@ func skip_splash_for_tests() -> void:
 
 ## Game baru di `profile_id` (selalu SaveManager.SAVE_ID di luar tes).
 func start_new_game(profile_id: StringName, gender: String, bakery_name: String) -> void:
-	await _begin_loading("ui_loading", 0.05)
+	await _begin_loading("ui_loading", 0.05, bakery_name)
 	_teardown()
 	sim = SimulationRoot.new()
 	add_child(sim)
@@ -255,6 +242,7 @@ func load_profile(profile_id: StringName) -> void:
 ## (`playing`) setelah overlay mulai memudar, jadi jam tidak maju selama loading.
 func _enter_gameplay(profile_id: StringName) -> void:
 	modals.close_all()
+	_language_built = SettingsManager.language()
 	# Tip modal dari sesi sebelumnya harus bisa tampil lagi setelah load.
 	_tutorial_modal_shown = ""
 	# Sisa bunyi pendek dirakit di layar loading; selama gameplay tidak ada
@@ -824,6 +812,8 @@ func _show_offline(r: Dictionary) -> void:
 func _on_settings_changed(key: String) -> void:
 	if key == "text_scale" or key == "":
 		ProceduralUIFactory.text_scale = SettingsManager.text_scale()
+	if (key == "language" or key == "") and SettingsManager.language() != _language_built:
+		relocalize()
 	if key == "resolution_scale" or key == "":
 		get_viewport().scaling_3d_scale = float(SettingsManager.get_int("resolution_scale")) / 100.0
 
@@ -863,9 +853,14 @@ func _show_tutorial_prompt() -> void:
 		hud.show_tutorial_hint(key)
 
 
-func _begin_loading(stage_key: String, progress_value: float) -> void:
+func _begin_loading(stage_key: String, progress_value: float, bakery_name: String = "") -> void:
 	_end_loading(true)
 	_loader = LoadingScreen.new()
+	# Papan toko di latar loading: nama toko baru, toko yang sedang dimainkan,
+	# atau nama di save yang dibaca halaman start.
+	if bakery_name == "":
+		bakery_name = sim.bakery_name if sim != null else _known_name
+	_loader.bakery_name = bakery_name
 	add_child(_loader)
 	_load_started_usec = Time.get_ticks_usec()
 	_stage_started_usec = _load_started_usec
@@ -928,11 +923,17 @@ func _warm_audio(p_from: float, p_to: float) -> void:
 	for id: StringName in AudioManager.short_sound_ids():
 		if not others.has(id) and not AudioManager.is_stream_ready(id):
 			others.append(id)
+	# Bunyi dari cache dibaca beberapa sekaligus per frame; yang harus dirakit
+	# tetap memberi frame di antaranya supaya bar loading terus bergerak.
+	var t0: int = Time.get_ticks_usec()
 	for i in others.size():
 		AudioManager.stream_for(others[i])
 		if _loader != null:
 			_loader.set_progress(lerpf(p_mid, p_to, float(i + 1) / float(others.size())))
-		await get_tree().process_frame
+		if Time.get_ticks_usec() - t0 > WARM_AUDIO_FRAME_USEC:
+			await get_tree().process_frame
+			t0 = Time.get_ticks_usec()
+	await get_tree().process_frame
 
 
 ## GDD 89.5 no. 10: overlay baru memudar setelah frame dunia yang stabil. Frame

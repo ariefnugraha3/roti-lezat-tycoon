@@ -12,6 +12,9 @@ extends RefCounted
 ## = e^(-laju × t)), jadi hasilnya sama persis berapa pun ukuran potongannya.
 ## Derau shaker memakai RNG milik pekerjaan ini sendiri, supaya bunyi lain yang
 ## dibangun di tengah jalan tidak mengubahnya.
+##
+## Bed musik dan lapisan ramai dirakit SongBuild (subkelas ini, Seksi 20 no.
+## 108); mesin daftar-nada di sini dipakai lagu trailer (tools/trailer.gd).
 
 ## Sampel per potongan kerja; anggaran waktu diperiksa di antara potongan.
 const CHUNK: int = 2048
@@ -44,6 +47,8 @@ var _work_total: int = 1
 var _work_done: int = 0
 var _rng: RandomNumberGenerator = null
 var _tbl: PackedFloat32Array = PackedFloat32Array()
+## Laju cuplik hasil (SongBuild memakai lajunya sendiri).
+var _rate: int = AudioGenerator.SAMPLE_RATE
 
 
 ## Pekerjaan untuk satu resep musik, atau null bila resep itu bukan musik.
@@ -51,11 +56,11 @@ static func for_generator(generator_id: String) -> MusicBuild:
 	var mood: String = mood_of(generator_id)
 	if mood == "":
 		return null
-	var b := MusicBuild.new()
+	var b := SongBuild.new()
 	if mood == "busy_layer":
-		b._setup_busy_layer(generator_id)
+		b.setup_busy(generator_id)
 	else:
-		b.setup_bed(mood)
+		b.setup_song(mood)
 	return b
 
 
@@ -113,69 +118,6 @@ func finish_now() -> AudioStreamWAV:
 # ===========================================================================
 # SUSUNAN NADA
 # ===========================================================================
-
-## Bed bossa nova lo-fi: progresi ii-V-I-VI (2 ketuk per akor) oleh Rhodes dan
-## gitar nilon; ekor setiap nada dibungkus ke awal buffer agar loop mulus.
-func setup_bed(mood: String) -> void:
-	key = "bed:" + mood
-	var cfg: Dictionary = AudioGenerator.MUSIC_MOODS[mood]
-	var beat: float = 60.0 / float(cfg["bpm"])
-	var chord_beats: float = 2.0
-	_alloc(chord_beats * float(AudioGenerator.PROGRESSION.size()) * beat)
-	var root_hz: float = AudioGenerator.MUSIC_ROOT_HZ * pow(2.0, float(cfg["root"]) / 12.0)
-	var rhodes_amp: float = float(cfg["rhodes"])
-	var guitar_amp: float = float(cfg["guitar"])
-	var pluck: Array = cfg["pluck"]
-	var hold: float = chord_beats * beat + beat * 1.1
-	for ci in AudioGenerator.PROGRESSION.size():
-		var chord: Dictionary = AudioGenerator.PROGRESSION[ci]
-		var ivals: Array = chord["ivals"]
-		var chord_root: float = root_hz * pow(2.0, float(chord["deg"]) / 12.0)
-		var t0: float = float(ci) * chord_beats * beat
-		# Rhodes: akar di bass ditambah tiga nada akor satu oktaf di atasnya,
-		# onsetnya digeser sedikit seperti jari manusia.
-		_add_note(KIND_BASS, chord_root, hold, rhodes_amp * 0.85, t0)
-		for vi in range(1, ivals.size()):
-			var f: float = chord_root * 2.0 * pow(2.0, float(ivals[vi]) / 12.0)
-			_add_note(KIND_RHODES, f, hold, rhodes_amp * 0.42, t0 + 0.012 * float(vi))
-		# Gitar nilon: pola petikan sinkopasi khas bossa nova.
-		for pi in pluck.size():
-			var ival: int = int(ivals[1 + (pi % 3)])
-			var gf: float = chord_root * 2.0 * pow(2.0, float(ival) / 12.0)
-			if pi % 2 == 1:
-				gf *= 2.0
-			_add_note(KIND_NYLON, gf, beat * 1.15, guitar_amp * 0.50, t0 + float(pluck[pi]) * beat)
-	# Lowpass lembut memberi karakter lo-fi kaset era 2000-an (GDD 4.1).
-	_tone = float(cfg["tone"])
-	_peak_target = 0.58
-	_finish_setup()
-
-
-## Lapisan "busy" di atas music_day: tempo dan panjang loop SAMA dengan mood
-## "cozy" supaya keduanya sejajar ketuk (GDD 33.2).
-func _setup_busy_layer(generator_id: String) -> void:
-	key = generator_id
-	_rng = RandomNumberGenerator.new()
-	_rng.seed = AudioGenerator.NOISE_SEED + generator_id.hash()
-	var cfg: Dictionary = AudioGenerator.MUSIC_MOODS["cozy"]
-	var beat: float = 60.0 / float(cfg["bpm"])
-	_alloc(2.0 * float(AudioGenerator.PROGRESSION.size()) * beat)
-	var root_hz: float = AudioGenerator.MUSIC_ROOT_HZ * pow(2.0, float(cfg["root"]) / 12.0)
-	for ci in AudioGenerator.PROGRESSION.size():
-		var chord: Dictionary = AudioGenerator.PROGRESSION[ci]
-		var ivals: Array = chord["ivals"]
-		var chord_root: float = root_hz * pow(2.0, float(chord["deg"]) / 12.0)
-		var t0: float = float(ci) * 2.0 * beat
-		for step_i in 4:
-			var ival: int = int(ivals[(step_i + 1) % ivals.size()])
-			var gf: float = chord_root * 4.0 * pow(2.0, float(ival) / 12.0)
-			_add_note(KIND_NYLON, gf, beat * 0.6, 0.35, t0 + float(step_i) * beat * 0.5 + beat * 0.25)
-		for h in 4:
-			_add_note(KIND_SHAKER, 0.0, 0.05, 0.25, t0 + float(h) * beat * 0.5)
-	_tone = float(cfg["tone"])
-	_peak_target = 0.45
-	_finish_setup()
-
 
 func _alloc(total_sec: float) -> void:
 	_n = maxi(1, int(round(total_sec * float(AudioGenerator.SAMPLE_RATE))))
@@ -389,7 +331,7 @@ func _lowpass_range(from: int, to: int) -> void:
 func _make_stream() -> void:
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = AudioGenerator.SAMPLE_RATE
+	stream.mix_rate = _rate
 	stream.stereo = false
 	stream.data = _data
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD

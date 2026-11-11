@@ -225,7 +225,7 @@ func _branch_page(body: VBoxContainer, b: Dictionary) -> void:
 	var sig: StringName = sim.prestige.signature(int(b["number"]))
 	var extra_text: String = Tx.t("ui_town_lot_bonus", {"percent": FranchiseScreen._pct(PrestigeManager.town_bonus_for_tier(art.tier))})
 	if sig != &"":
-		extra_text += "\n" + Tx.t("ui_signature_line", {"recipe": Tx.recipe_name(sig), "mult": "%.1f" % DataRegistry.idlef("branch.signature_mult")})
+		extra_text += "\n" + Tx.t("ui_signature_line", {"recipe": Tx.recipe_name(sig), "mult": Tx.dec(DataRegistry.idlef("branch.signature_mult"), 1)})
 	var extra: Label = lbl(list, extra_text, 15, Palette.MATCHA_DEEP, true)
 	extra.name = "BranchExtras"
 	extra.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
