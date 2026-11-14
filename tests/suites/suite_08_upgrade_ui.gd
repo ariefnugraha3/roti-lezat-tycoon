@@ -44,10 +44,29 @@ func _bottleneck() -> void:
 	check(not chips.queue_full_shown(), "no 'Queue full' while nobody was turned away")
 	sim.statistics.add(&"total_customers_missed", 1)
 	game.hud._refresh_all()
-	check(chips.queue_full_shown(), "a buyer turned away by a full queue lights 'Queue full' on the counter chip")
+	check(not chips.queue_full_shown(), "no 'Queue full' when the cashier queue is empty")
+	var filler_ids: Array[StringName] = []
+	for l: QueueLane in sim.queue.open_physical_lanes():
+		for slot_i: int in l.slots.size():
+			var fid: StringName = StringName("test_q_%s_%d" % [l.id, slot_i])
+			sim.queue.reserve(l, fid)
+			sim.queue.join_line(l, fid)
+			filler_ids.append(fid)
+	sim.statistics.add(&"total_customers_missed", 1)
+	game.hud._refresh_all()
+	check(chips.queue_full_shown(), "a buyer turned away while the cashier queue is full lights 'Queue full' on the counter chip")
+	if not filler_ids.is_empty():
+		sim.queue.release(filler_ids[0])
+		game.hud._refresh_all()
+		check(not chips.queue_full_shown(), "'Queue full' goes out at once when a queue slot frees up")
+		var first_lane: QueueLane = sim.queue.open_physical_lanes()[0]
+		sim.queue.reserve(first_lane, filler_ids[0])
+		sim.queue.join_line(first_lane, filler_ids[0])
 	chips._missed_at_msec = Time.get_ticks_msec() - int((LevelChips.QUEUE_FULL_SECONDS + 1.0) * 1000.0)
 	game.hud._refresh_all()
 	check(not chips.queue_full_shown(), "it goes out once nobody was turned away for a while")
+	for fid: StringName in filler_ids:
+		sim.queue.release(fid)
 	# Panah: hijau bila naik level menaikkan KR/s, abu-abu bila tidak.
 	var n: int = chips._chips.size()
 	for i in n * 2:

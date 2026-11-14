@@ -109,19 +109,36 @@ func refresh() -> void:
 
 
 ## "Queue full" di chip meja kasir selama ada pembeli yang baru saja ditolak
-## karena antrean penuh (GDD idle §20 no. 88): kasir adalah hambatannya.
+## karena antrean penuh DAN antrean kasir saat ini memang masih penuh terisi
+## (tidak menyala saat kasir kosong atau slot baru saja terbuka).
 func _refresh_queue_full() -> void:
 	var missed: float = sim.statistics.get_stat("total_customers_missed")
-	if _missed_seen >= 0.0 and missed > _missed_seen:
+	var currently_full: bool = _queue_currently_full()
+	if _missed_seen >= 0.0 and missed > _missed_seen and currently_full:
 		_missed_at_msec = Time.get_ticks_msec()
 	_missed_seen = missed
-	var full: bool = float(Time.get_ticks_msec() - _missed_at_msec) / 1000.0 <= QUEUE_FULL_SECONDS
+	var full: bool = currently_full and float(Time.get_ticks_msec() - _missed_at_msec) / 1000.0 <= QUEUE_FULL_SECONDS
 	var c: Variant = _chips.get("counter")
 	if c is Dictionary and (c as Dictionary).has("full"):
 		var tag: Control = (c as Dictionary)["full"]
 		if tag.visible != full:
 			tag.visible = full
 			_last_sig = PackedFloat32Array()
+
+
+func _queue_currently_full() -> bool:
+	if sim == null or sim.queue == null:
+		return false
+	var lanes: Array[QueueLane] = sim.queue.open_physical_lanes()
+	if lanes.is_empty():
+		return false
+	var any_in_line: bool = false
+	for l: QueueLane in lanes:
+		if l.free_capacity() > 0:
+			return false
+		if not l.line.is_empty():
+			any_in_line = true
+	return any_in_line
 
 
 ## Satu chip per refresh: panah hijau bila satu level menaikkan KR/s, abu-abu bila
