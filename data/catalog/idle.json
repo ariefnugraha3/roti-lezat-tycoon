@@ -138,7 +138,7 @@
  "monetization": {
   "_gdd": "22",
   "_doc": "Rewarded ads (placements, per device day) and the store. dummy_store: until the Play Billing and AdMob plugins exist, every build without a portal SDK uses the test store (ads and purchases are simulated, no money is charged). price_usd is the test store's price; the real store shows its own.",
-  "dummy_store": true,
+  "dummy_store": false,
   "dummy_ad_seconds": 5,
   "offer_delay_seconds": 60,
   "placements": {

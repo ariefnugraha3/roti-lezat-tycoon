@@ -79,7 +79,7 @@ func _settings_used() -> void:
 static func _scripts(dir: String) -> Array[String]:
 	var out: Array[String] = []
 	for d: String in DirAccess.get_directories_at(dir):
-		if d.begins_with(".") or d in ["tests", "tools", "build", "docs", "addons"]:
+		if d.begins_with(".") or d in ["tests", "tools", "build", "android", "dist", "docs", "addons"]:
 			continue
 		out.append_array(_scripts(dir.path_join(d)))
 	for f: String in DirAccess.get_files_at(dir):

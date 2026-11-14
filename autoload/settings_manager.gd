@@ -162,13 +162,17 @@ func reduced_motion() -> bool:
 	return get_bool("reduced_motion")
 
 
-## MSAA tepi 3D dari preset kualitas (Auto: 4x di desktop, 2x di HP dan browser
-## HP). Tepi 2D dihaluskan di kode gambarnya (ProceduralUIFactory.fill_aa),
-## karena renderer Compatibility tidak punya MSAA 2D.
+## MSAA tepi 3D dari preset kualitas (Auto: 4x di desktop; nonaktif di HP dan
+## browser HP karena bug Godot 4.7 GLES3 RenderSceneBuffersGLES3::_check_render_buffers
+## yang membocorkan FBO setiap frame saat GL_EXT_multisampled_render_to_texture
+## aktif bersama internal3d buffer / adjustment_enabled). Tepi 2D dihaluskan di
+## kode gambarnya (ProceduralUIFactory.fill_aa).
 func msaa_3d() -> Viewport.MSAA:
+	if OS.has_feature("mobile") or WebPlatform.is_mobile_web():
+		return Viewport.MSAA_DISABLED
 	var q: String = str(get_value("quality"))
 	if q == "auto":
-		return Viewport.MSAA_2X if OS.has_feature("mobile") or WebPlatform.is_mobile_web() else Viewport.MSAA_4X
+		return Viewport.MSAA_4X
 	for x: Variant in DataRegistry.quality_presets():
 		var p: MiscDefinitions.QualityPresetDefinition = x
 		if String(p.id) == q:

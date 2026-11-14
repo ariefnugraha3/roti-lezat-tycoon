@@ -160,7 +160,7 @@ func _scan_assets(path: String, out: Array[String]) -> void:
 		if FORBIDDEN_EXTENSIONS.has(f.get_extension().to_lower()):
 			out.append(path.path_join(f))
 	for sub: String in d.get_directories():
-		if sub.begins_with(".") or sub == "build":
+		if sub.begins_with(".") or sub in ["build", "android", "dist"]:
 			continue
 		_scan_assets(path.path_join(sub), out)
 
