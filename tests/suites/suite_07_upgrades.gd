@@ -8,6 +8,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_COSTS", "name": "idle 8.1-8.9 cost formulas, x1/x10/Max (also at the level cap), extra-instance, open-station, unlock, hire, location and global costs", "fn": _costs},
 		{"id": "ACC_IDLE_MILESTONES", "name": "idle 8.2, 8.5 milestone multipliers and model evolution (more shelf slots, bread kept, nearest legal spot when the new footprint does not fit, waits when there is none)", "fn": _milestones},
 		{"id": "ACC_IDLE_FAST_CHECKOUT", "name": "idle 8.9 Faster Checkout (replacing Queue Patience) speeds every checkout and RotiFood packing by 5% a level, shows its effect, never lowers the KR/s model of a busy shop, and takes over Queue Patience levels from old saves", "fn": _fast_checkout},
+		{"id": "ACC_IDLE_ALL_UPGRADES_RAISE_INCOME", "name": "upgrading any station (mixer, oven, display, counter), recipe or staff raises both unit price and KR/s", "fn": _all_upgrades_raise_income},
 	]
 
 
@@ -221,4 +222,34 @@ func _milestones() -> void:
 	eq(UpgradeManager.model_tier_for_level(25), 3, "Tier 1 (cap 25) tops out at Tier 3 models")
 	EventBus.level_up.disconnect(cb)
 	EventBus.station_evolved.disconnect(cb2)
+	free_sim(s)
+
+
+func _all_upgrades_raise_income() -> void:
+	var s: SimulationRoot = new_sim(7109)
+	s.tutorial.skip()
+	s.debug_add_kr(1.0e8)
+	var disp: EquipmentInstance = s.equipment.placed_list(&"display")[0]
+	var mixer: EquipmentInstance = s.equipment.placed_list(&"mixer")[0]
+	var oven: EquipmentInstance = s.equipment.placed_list(&"oven")[0]
+	s.staff.hire(&"staff_baker_joko")
+	var targets: Array = [
+		["mixer", &"station", mixer.iid],
+		["oven", &"station", oven.iid],
+		["display", &"station", disp.iid],
+		["counter", &"counter", &"counter"],
+		["recipe", &"recipe", &"recipe_plain_loaf"],
+		["staff", &"staff", &"staff_baker_joko"],
+	]
+	for t: Array in targets:
+		s.idle_economy.invalidate()
+		var r0: float = s.idle_economy.rate(false)
+		var p0: float = s.unit_price(&"recipe_plain_loaf", disp.iid)
+		var bought: int = s.upgrades.buy(t[1], t[2], &"x1")
+		eq(bought, 1, "%s x1 bought" % t[0])
+		s.idle_economy.invalidate()
+		var r1: float = s.idle_economy.rate(false)
+		var p1: float = s.unit_price(&"recipe_plain_loaf", disp.iid)
+		check(p1 > p0, "%s upgrade raises sale price (%.4f -> %.4f)" % [t[0], p0, p1])
+		check(r1 > r0, "%s upgrade raises KR/s (%.4f -> %.4f)" % [t[0], r0, r1])
 	free_sim(s)

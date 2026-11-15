@@ -207,7 +207,7 @@ func _card() -> void:
 	var title: Label = card.find_child("Title", true, false) as Label
 	eq(title.text, Tx.t("ui_title_level", {"name": Tx.t("ui_station_oven"), "level": 1}), "titled 'Oven · Lv 1'")
 	var effect: Label = card.find_child("Effect", true, false) as Label
-	check(effect.text.contains("→"), "the effect reads now -> next (%s)" % effect.text)
+	eq(effect.text, Tx.t("ui_effect_speed_income"), "the effect describes the upgrade benefit (%s)" % effect.text)
 	var mile: Label = card.find_child("Milestone", true, false) as Label
 	check(mile.visible and mile.text.begins_with(Tx.t("ui_next_milestone", {"level": 10, "effect": ""}).strip_edges().left(5)), "the next milestone is Lv 10 (%s)" % mile.text)
 	check(not card.is_docked(), "the card floats above the oven it belongs to")

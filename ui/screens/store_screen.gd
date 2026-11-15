@@ -631,6 +631,10 @@ func _style(list: VBoxContainer) -> void:
 			var d: MiscDefinitions.DecorationDefinition = x
 			if d.source == &"premium" and (g[1] as Array).has(d.placement_type):
 				_style_row(list, d)
+	section(list, Tx.t("ui_store_style_frames"))
+	for fd: Variant in PremiumManager.photo_frame_defs():
+		if fd is Dictionary and int((fd as Dictionary).get("price_crumbs", 0)) > 0:
+			_photo_frame_row(list, fd as Dictionary)
 	var note: Label = lbl(list, Tx.t("ui_store_style_note"), 13, Palette.TEXT_MUTED, true)
 	note.name = "StyleNote"
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -664,4 +668,20 @@ func _style_row(list: VBoxContainer, d: MiscDefinitions.DecorationDefinition) ->
 			if game != null and game.world != null:
 				game.world.rebuild_all()
 			_reveal({"deco": d.id})
+		refresh()))
+
+
+func _photo_frame_row(list: VBoxContainer, fd: Dictionary) -> void:
+	var fid: StringName = StringName(str(fd["id"]))
+	var cost: int = int(fd.get("price_crumbs", 0))
+	var bg: Color = Palette.STRAWBERRY if fid == &"gingham" else (Palette.CHALKBOARD if fid == &"lights" else Palette.HONEY)
+	var row: HBoxContainer = UISheet.row(list, Tx.t("ui_photo_frame_" + String(fid)), Tx.t("ui_photo_frame_store_sub"),
+		ProceduralUIFactory.badge("frame", bg, Palette.FLOUR_WHITE, 48))
+	row.get_parent().name = "PhotoFrame_" + String(fid)
+	if sim.premium.owns_photo_frame(fid):
+		row.add_child(_owned_pill())
+		return
+	row.add_child(_crumb_button(cost, "", func() -> void:
+		if sim.premium.buy_photo_frame(fid):
+			EventBus.sfx.emit(&"ui_confirm", &"")
 		refresh()))

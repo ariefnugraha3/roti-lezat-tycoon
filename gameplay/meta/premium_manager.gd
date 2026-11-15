@@ -29,6 +29,8 @@ var pass_claimed_premium: Array[int] = []
 var club_claim_date: String = ""
 ## Paket sekali beli yang isinya sudah masuk save ini.
 var delivered: Array[String] = []
+## Bingkai mode foto berbayar yang sudah dibeli.
+var photo_frames: Array[String] = []
 ## Hak beli perangkat ini (tidak disimpan): {income_mult, offline_hours,
 ## offline_full, club}.
 var perks: Dictionary = no_perks()
@@ -46,6 +48,7 @@ func new_game() -> void:
 	pass_claimed_premium.clear()
 	club_claim_date = ""
 	delivered.clear()
+	photo_frames.clear()
 
 
 func step(dt: float) -> void:
@@ -446,6 +449,46 @@ func deliver(id: StringName) -> bool:
 
 
 # ===========================================================================
+# BINGKAI MODE FOTO
+# ===========================================================================
+
+static func photo_frame_defs() -> Array:
+	var raw: Variant = DataRegistry.idle("photo_frames")
+	return raw if raw is Array else []
+
+
+static func photo_frame_def(frame_id: StringName) -> Dictionary:
+	for x: Variant in photo_frame_defs():
+		if x is Dictionary and StringName(str((x as Dictionary).get("id", ""))) == frame_id:
+			return x as Dictionary
+	return {}
+
+
+func owns_photo_frame(frame_id: StringName) -> bool:
+	if frame_id == &"" or frame_id == &"none":
+		return true
+	var d: Dictionary = photo_frame_def(frame_id)
+	if d.is_empty():
+		return false
+	if int(d.get("price_crumbs", 0)) <= 0:
+		return true
+	return photo_frames.has(String(frame_id))
+
+
+func buy_photo_frame(frame_id: StringName) -> bool:
+	var d: Dictionary = photo_frame_def(frame_id)
+	if d.is_empty() or owns_photo_frame(frame_id):
+		return false
+	var cost: int = maxi(0, int(d.get("price_crumbs", 0)))
+	if not spend(cost, &"photo_frame"):
+		return false
+	photo_frames.append(String(frame_id))
+	SaveManager.request_autosave("photo_frame", true)
+	changed.emit()
+	return true
+
+
+# ===========================================================================
 # SAVE
 # ===========================================================================
 
@@ -453,7 +496,7 @@ func capture() -> Dictionary:
 	return {"crumbs": crumbs, "earned_total": earned_total, "spent_total": spent_total, "ad_boost_left": ad_boost_left,
 		"pass": {"season": pass_season, "xp": pass_xp, "premium": pass_premium, "claimed_free": pass_claimed_free.duplicate(),
 			"claimed_premium": pass_claimed_premium.duplicate()},
-		"club_claim_date": club_claim_date, "delivered": delivered.duplicate()}
+		"club_claim_date": club_claim_date, "delivered": delivered.duplicate(), "photo_frames": photo_frames.duplicate()}
 
 
 ## Save dari sebelum monetisasi (tanpa kunci "premium") mulai dengan crumbs awal.
@@ -479,3 +522,7 @@ func restore(d: Dictionary) -> void:
 	for x: Variant in d.get("delivered", []):
 		if not delivered.has(str(x)):
 			delivered.append(str(x))
+	for f: Variant in d.get("photo_frames", []):
+		var fs: String = str(f)
+		if not fs.is_empty() and not photo_frames.has(fs):
+			photo_frames.append(fs)

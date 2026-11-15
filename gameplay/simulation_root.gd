@@ -303,7 +303,8 @@ func plain_price(recipe_id: StringName) -> float:
 	var r: RecipeDefinition = DataRegistry.recipe(recipe_id)
 	if r == null:
 		return 0.0
-	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * cravings.favorite_mult(recipe_id) * events.featured_mult(recipe_id) \
+	return r.base_sell_price_kr * upgrades.recipe_price_mult(recipe_id) * upgrades.equipment_price_mult() \
+		* cravings.favorite_mult(recipe_id) * events.featured_mult(recipe_id) \
 		* decoration.bonus_mult(&"price") * prestige.income_mult() * prestige.town_mult() * prestige.signature_mult(recipe_id) * mastery.price_mult(recipe_id) \
 		* premium.income_mult()
 
@@ -332,7 +333,7 @@ func unit_price(recipe_id: StringName, display_iid: int) -> float:
 ## Pengali harga di luar resep dan rak: dekorasi × waralaba × kota × pembelian
 ## permanen × variasi rak × boost.
 func price_mult() -> float:
-	return decoration.bonus_mult(&"price") * prestige.income_mult() * prestige.town_mult() * premium.income_mult() * variety_mult() * boost_income_mult()
+	return upgrades.equipment_price_mult() * decoration.bonus_mult(&"price") * prestige.income_mult() * prestige.town_mult() * premium.income_mult() * variety_mult() * boost_income_mult()
 
 
 ## KR per detik nyata (GDD idle 9.1) untuk HUD, dari model IdleEconomyManager.

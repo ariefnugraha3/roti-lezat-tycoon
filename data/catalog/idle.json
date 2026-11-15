@@ -30,10 +30,10 @@
   "model_tier_thresholds": [10, 25, 50, 75],
   "level_cap_by_location": [25, 50, 75, 100, 150],
   "extra_instance_cost_mult": 3,
-  "mixer": {"cost_base": 1.94, "cost_growth": 1.15, "speed_per_level": 0.05, "milestone_mult": 2},
-  "oven": {"cost_base": 2.59, "cost_growth": 1.15, "speed_per_level": 0.05, "milestone_mult": 2},
+  "mixer": {"cost_base": 1.94, "cost_growth": 1.15, "speed_per_level": 0.05, "milestone_mult": 2, "price_per_level": 0.01},
+  "oven": {"cost_base": 2.59, "cost_growth": 1.15, "speed_per_level": 0.05, "milestone_mult": 2, "price_per_level": 0.01},
   "display": {"cost_base": 3.23, "cost_growth": 1.15, "capacity_per_level": 0.04, "price_per_level": 0.01},
-  "counter": {"cost_base": 3.88, "cost_growth": 1.15, "checkout_base_seconds": 3.0, "checkout_factor": 0.97, "checkout_min_seconds": 1.0},
+  "counter": {"cost_base": 3.88, "cost_growth": 1.15, "checkout_base_seconds": 3.0, "checkout_factor": 0.97, "checkout_min_seconds": 1.0, "price_per_level": 0.01},
   "open_cost": {"mixer": 9.7, "oven": 12.93, "display": 12.93},
   "open_growth": 8
  },
@@ -73,6 +73,7 @@
   "_gdd": "5.5, 8.6",
   "hire_cost": [291, 6460, 129000, 646000],
   "speed_per_level": 0.04,
+  "price_per_level": 0.01,
   "level_cost_base": 6.46,
   "level_cost_growth": 1.15
  },
@@ -503,5 +504,13 @@
   {"id": "global_tap_power", "cost_base": 32.32, "cost_growth": 3, "max_level": 20, "per_level": 0.25},
   {"id": "global_walk_speed", "cost_base": 64.64, "cost_growth": 4, "max_level": 10, "per_level": 0.05},
   {"id": "global_fast_checkout", "cost_base": 129, "cost_growth": 4, "max_level": 10, "per_level": 0.05}
+ ],
+ "photo_frames": [
+  {"id": "polaroid", "price_crumbs": 0},
+  {"id": "wood", "price_crumbs": 0},
+  {"id": "golden", "price_crumbs": 0},
+  {"id": "stamp", "price_crumbs": 0},
+  {"id": "gingham", "price_crumbs": 60},
+  {"id": "lights", "price_crumbs": 80}
  ]
 }

@@ -584,6 +584,28 @@ func _photo() -> void:
 	check(not frame.visible, "no frame at first")
 	(p.find_child("FrameToggle", true, false) as Button).pressed.emit()
 	check(frame.visible, "Frame adds the polaroid border")
+	# 3 bingkai gratis tambahan (total 4 gratis) dan 2 bingkai berbayar (Remah Emas).
+	eq(PremiumManager.photo_frame_defs().size(), 6, "6 total photo frames defined")
+	for free_id: String in ["polaroid", "wood", "golden", "stamp"]:
+		check(sim.premium.owns_photo_frame(StringName(free_id)), "%s frame is free" % free_id)
+		var fb: Button = p.find_child("Frame_" + free_id, true, false) as Button
+		check(fb != null, "chip exists for %s frame" % free_id)
+		fb.pressed.emit()
+		check(frame.visible and (frame as PhotoModeScreen.PolaroidFrame).style == StringName(free_id), "selecting %s updates the frame" % free_id)
+	for paid_id: String in ["gingham", "lights"]:
+		check(not sim.premium.owns_photo_frame(StringName(paid_id)), "%s frame starts locked" % paid_id)
+	sim.premium.crumbs = 0
+	(p.find_child("Frame_gingham", true, false) as Button).pressed.emit()
+	check((frame as PhotoModeScreen.PolaroidFrame).style != &"gingham", "locked gingham frame is not equipped without crumbs")
+	sim.premium.earn(200, &"test")
+	check(sim.premium.buy_photo_frame(&"gingham"), "can buy gingham photo frame with crumbs")
+	check(sim.premium.owns_photo_frame(&"gingham"), "gingham frame is owned")
+	(p.find_child("Frame_gingham", true, false) as Button).pressed.emit()
+	check(frame.visible and (frame as PhotoModeScreen.PolaroidFrame).style == &"gingham", "purchased gingham frame equips cleanly")
+	var saved_photo: Dictionary = json_copy(sim.capture_save())
+	var u: SimulationRoot = load_sim(saved_photo)
+	check(u.premium.owns_photo_frame(&"gingham") and not u.premium.owns_photo_frame(&"lights"), "purchased photo frames survive save/restore")
+	free_sim(u)
 	var img: Image = await p.capture()
 	var vs: Vector2 = game.get_viewport().get_visible_rect().size
 	check(img != null and img.get_width() == int(vs.x) and img.get_height() == int(vs.y), "Capture takes the whole screen")

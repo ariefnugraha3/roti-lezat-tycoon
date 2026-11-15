@@ -113,6 +113,22 @@ func display_price_bonus(iid: int) -> float:
 	return DataRegistry.idlef("station.display.price_per_level") * float(station_level(iid) - 1)
 
 
+## Pengali harga jual dari level meja kasir, mixer, oven, dan staf agar setiap
+## upgrade perabotan dan staf selalu menaikkan pemasukan per penjualan & KR/s.
+func equipment_price_mult() -> float:
+	var bonus: float = DataRegistry.idlef("station.counter.price_per_level") * float(maxi(0, counter_level - 1))
+	for cat: StringName in [&"mixer", &"oven"]:
+		var per: float = DataRegistry.idlef("station.%s.price_per_level" % cat)
+		for e: EquipmentInstance in sim.equipment.placed_list(cat):
+			bonus += per * float(maxi(0, station_level(e.iid) - 1))
+	var staff_per: float = DataRegistry.idlef("staff.price_per_level")
+	for sid: Variant in staff_levels.keys():
+		var sname: StringName = StringName(str(sid))
+		if sim.staff.is_employed(sname):
+			bonus += staff_per * float(maxi(0, staff_level(sname) - 1))
+	return 1.0 + bonus
+
+
 ## Lama satu transaksi kasir (detik-simulasi, GDD idle 8.2).
 ## Lama satu transaksi di kasir (dan satu pengemasan RotiFood) sekarang: level
 ## meja kasir, dipercepat Faster Checkout (GDD idle 8.9).
