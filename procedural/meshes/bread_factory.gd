@@ -125,6 +125,25 @@ static func slot_cached(visual_profile: String, bake_quality: float, freshness: 
 	return (_slot_cache[key] as Node3D).duplicate()
 
 
+## Kembalikan `[ArrayMesh, Material]` hasil panggang satu petak tanpa menduplikasi node.
+static func slot_mesh_and_mat(visual_profile: String, bake_quality: float, freshness: StringName, count: int) -> Array:
+	var bucket: int = int(round(bake_quality * 20.0))
+	var key: String = "%s|%d|%s|%d" % [visual_profile, bucket, freshness, count]
+	if not _slot_cache.has(key):
+		var tmp: Node3D = slot_cached(visual_profile, bake_quality, freshness, count)
+		tmp.free()
+	var proto: Node3D = _slot_cache.get(key) as Node3D
+	if proto == null:
+		return [null, null]
+	var mi: MeshInstance3D = proto.get_node_or_null(MeshBake.BAKED_NAME) as MeshInstance3D
+	if mi == null or mi.mesh == null:
+		return [null, null]
+	var mat: Material = mi.material_override
+	if mat == null and mi.mesh.get_surface_count() > 0:
+		mat = mi.mesh.surface_get_material(0)
+	return [mi.mesh, mat]
+
+
 ## Bangun satu roti utuh. Selalu mengembalikan Node3D; profil tak dikenal jatuh
 ## ke bun polos.
 static func build(visual_profile: String, bake_quality: float, freshness: StringName = &"FRESH") -> Node3D:
@@ -238,6 +257,17 @@ static func build_paper_bag() -> Node3D:
 	_place(root, _sphere(0.045, Palette.GOLDEN_CRUST, 0.62, 10, 3), Vector3(0.0, 0.208, 0.0),
 			Vector3.ZERO, Vector3(1.28, 0.70, 0.95), "Peek")
 	return root
+
+
+## Kantong kertas statis hasil panggang MeshBake (1 draw call untuk tangan
+## pelanggan pulang). Mengembalikan duplikat yang berbagi mesh & material.
+static func build_paper_bag_cached() -> Node3D:
+	var key: String = "paper_bag"
+	if not _slot_cache.has(key):
+		var bag: Node3D = build_paper_bag()
+		MeshBake.bake(bag, [], true)
+		_slot_cache[key] = bag
+	return (_slot_cache[key] as Node3D).duplicate()
 
 
 ## Kemasan premium Tier 5: kotak gift box cokelat elegan berpita emas

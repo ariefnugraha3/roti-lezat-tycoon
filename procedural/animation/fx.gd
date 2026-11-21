@@ -65,6 +65,22 @@ static var _mat_soft: StandardMaterial3D = null
 static var _mat_glint: StandardMaterial3D = null
 static var _tex_coin: GradientTexture2D = null
 static var _tex_rain: GradientTexture2D = null
+static var _mesh_steam: SphereMesh = null
+static var _mesh_grain: BoxMesh = null
+static var _mesh_sweat: SphereMesh = null
+static var _curve_steam: Curve = null
+static var _curve_sparkle: Curve = null
+static var _curve_sweat: Curve = null
+static var _curve_coin_x: Curve = null
+static var _curve_coin_y: Curve = null
+static var _curve_shower_x: Curve = null
+static var _curve_unit_flat: Curve = null
+static var _grad_steam: Gradient = null
+static var _grad_sparkle: Gradient = null
+static var _grad_sweat: Gradient = null
+static var _grad_coin: Gradient = null
+static var _grad_shower: Gradient = null
+static var _grad_rain: Gradient = null
 
 
 ## Emitter/efek transien yang sedang hidup (GDD 129: maks. 256). Di atas batas,
@@ -80,6 +96,10 @@ static func live_effects() -> int:
 	return _live
 
 
+static func _scaled_amount(base: int) -> int:
+	return maxi(1, int(round(float(base) * SettingsManager.particle_scale())))
+
+
 static func _track(node: Node) -> void:
 	_live += 1
 	node.tree_exited.connect(func() -> void: _live = maxi(0, _live - 1), CONNECT_ONE_SHOT)
@@ -90,6 +110,22 @@ static func clear_caches() -> void:
 	_mat_glint = null
 	_tex_coin = null
 	_tex_rain = null
+	_mesh_steam = null
+	_mesh_grain = null
+	_mesh_sweat = null
+	_curve_steam = null
+	_curve_sparkle = null
+	_curve_sweat = null
+	_curve_coin_x = null
+	_curve_coin_y = null
+	_curve_shower_x = null
+	_curve_unit_flat = null
+	_grad_steam = null
+	_grad_sparkle = null
+	_grad_sweat = null
+	_grad_coin = null
+	_grad_shower = null
+	_grad_rain = null
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +144,7 @@ static func steam(parent: Node3D, pos: Vector3) -> CPUParticles3D:
 	p.name = "SteamFX"
 	p.emitting = false
 	p.one_shot = false
-	p.amount = STEAM_AMOUNT
+	p.amount = _scaled_amount(STEAM_AMOUNT)
 	p.lifetime = STEAM_LIFETIME
 	p.lifetime_randomness = 0.35
 	p.explosiveness = 0.0
@@ -129,24 +165,30 @@ static func steam(parent: Node3D, pos: Vector3) -> CPUParticles3D:
 	p.damping_max = 0.55
 	p.scale_amount_min = 0.55
 	p.scale_amount_max = 0.95
-	p.scale_amount_curve = _curve(PackedVector2Array([
-		Vector2(0.0, 0.30), Vector2(0.30, 1.00), Vector2(1.0, 1.35),
-	]))
+	if _curve_steam == null:
+		_curve_steam = _curve(PackedVector2Array([
+			Vector2(0.0, 0.30), Vector2(0.30, 1.00), Vector2(1.0, 1.35),
+		]))
+	p.scale_amount_curve = _curve_steam
 
 	# Putih gandum yang dihangatkan cahaya golden hour, timbul lalu larut.
-	var warm: Color = Palette.FLOUR_WHITE.lerp(Palette.GOLDEN_HOUR, 0.45)
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.18, 0.60, 1.0]),
-		PackedColorArray([
-			Color(warm.r, warm.g, warm.b, 0.0),
-			Color(warm.r, warm.g, warm.b, 0.42),
-			Color(warm.r, warm.g, warm.b, 0.26),
-			Color(warm.r, warm.g, warm.b, 0.0),
-		])
-	)
+	if _grad_steam == null:
+		var warm: Color = Palette.FLOUR_WHITE.lerp(Palette.GOLDEN_HOUR, 0.45)
+		_grad_steam = _gradient(
+			PackedFloat32Array([0.0, 0.18, 0.60, 1.0]),
+			PackedColorArray([
+				Color(warm.r, warm.g, warm.b, 0.0),
+				Color(warm.r, warm.g, warm.b, 0.42),
+				Color(warm.r, warm.g, warm.b, 0.26),
+				Color(warm.r, warm.g, warm.b, 0.0),
+			])
+		)
+	p.color_ramp = _grad_steam
 
-	p.mesh = _puff_mesh(0.075, 0.15, 8, 3, _particle_material(false))
+	if _mesh_steam == null:
+		_mesh_steam = _puff_mesh(0.075, 0.15, 8, 3, _particle_material(false))
+	p.mesh = _mesh_steam
 
 	parent.add_child(p)
 	_track(p)
@@ -167,7 +209,7 @@ static func sugar_sparkle(parent: Node3D, pos: Vector3) -> CPUParticles3D:
 	p.name = "SugarSparkleFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = SPARKLE_AMOUNT
+	p.amount = _scaled_amount(SPARKLE_AMOUNT)
 	p.lifetime = SPARKLE_LIFETIME
 	p.lifetime_randomness = 0.4
 	p.explosiveness = 0.9
@@ -188,30 +230,36 @@ static func sugar_sparkle(parent: Node3D, pos: Vector3) -> CPUParticles3D:
 	p.scale_amount_min = 0.7
 	p.scale_amount_max = 1.3
 	# Kurva bergelombang = kelip-kelip butiran gula yang memantulkan cahaya.
-	p.scale_amount_curve = _curve(PackedVector2Array([
-		Vector2(0.0, 0.25), Vector2(0.18, 1.30), Vector2(0.42, 0.55),
-		Vector2(0.66, 1.15), Vector2(1.0, 0.0),
-	]))
+	if _curve_sparkle == null:
+		_curve_sparkle = _curve(PackedVector2Array([
+			Vector2(0.0, 0.25), Vector2(0.18, 1.30), Vector2(0.42, 0.55),
+			Vector2(0.66, 1.15), Vector2(1.0, 0.0),
+		]))
+	p.scale_amount_curve = _curve_sparkle
 
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.25, 0.70, 1.0]),
-		PackedColorArray([
-			Color(Palette.FLOUR_WHITE.r, Palette.FLOUR_WHITE.g, Palette.FLOUR_WHITE.b, 1.0),
-			Color(Palette.BUTTER_YELLOW.r, Palette.BUTTER_YELLOW.g, Palette.BUTTER_YELLOW.b, 1.0),
-			Color(Palette.CUSTARD.r, Palette.CUSTARD.g, Palette.CUSTARD.b, 0.75),
-			Color(Palette.CUSTARD.r, Palette.CUSTARD.g, Palette.CUSTARD.b, 0.0),
-		])
-	)
+	if _grad_sparkle == null:
+		_grad_sparkle = _gradient(
+			PackedFloat32Array([0.0, 0.25, 0.70, 1.0]),
+			PackedColorArray([
+				Color(Palette.FLOUR_WHITE.r, Palette.FLOUR_WHITE.g, Palette.FLOUR_WHITE.b, 1.0),
+				Color(Palette.BUTTER_YELLOW.r, Palette.BUTTER_YELLOW.g, Palette.BUTTER_YELLOW.b, 1.0),
+				Color(Palette.CUSTARD.r, Palette.CUSTARD.g, Palette.CUSTARD.b, 0.75),
+				Color(Palette.CUSTARD.r, Palette.CUSTARD.g, Palette.CUSTARD.b, 0.0),
+			])
+		)
+	p.color_ramp = _grad_sparkle
 
 	# Butir gula = kubus mungil (12 tris) supaya kilaunya tajam dan murah.
-	var grain := BoxMesh.new()
-	grain.size = Vector3(0.035, 0.035, 0.035)
-	grain.subdivide_width = 0
-	grain.subdivide_height = 0
-	grain.subdivide_depth = 0
-	grain.material = _particle_material(true)
-	p.mesh = grain
+	if _mesh_grain == null:
+		var grain := BoxMesh.new()
+		grain.size = Vector3(0.035, 0.035, 0.035)
+		grain.subdivide_width = 0
+		grain.subdivide_height = 0
+		grain.subdivide_depth = 0
+		grain.material = _particle_material(true)
+		_mesh_grain = grain
+	p.mesh = _mesh_grain
 
 	parent.add_child(p)
 	_track(p)
@@ -243,7 +291,7 @@ static func sweat_drop(actor: Node3D) -> void:
 	p.name = "SweatDropFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = SWEAT_AMOUNT
+	p.amount = _scaled_amount(SWEAT_AMOUNT)
 	p.lifetime = SWEAT_LIFETIME
 	p.lifetime_randomness = 0.25
 	p.explosiveness = 0.55
@@ -263,24 +311,30 @@ static func sweat_drop(actor: Node3D) -> void:
 	p.damping_max = 0.2
 	p.scale_amount_min = 0.75
 	p.scale_amount_max = 1.15
-	p.scale_amount_curve = _curve(PackedVector2Array([
-		Vector2(0.0, 0.2), Vector2(0.15, 1.0), Vector2(0.8, 1.0), Vector2(1.0, 0.35),
-	]))
+	if _curve_sweat == null:
+		_curve_sweat = _curve(PackedVector2Array([
+			Vector2(0.0, 0.2), Vector2(0.15, 1.0), Vector2(0.8, 1.0), Vector2(1.0, 0.35),
+		]))
+	p.scale_amount_curve = _curve_sweat
 
-	var drop: Color = Palette.FLOUR_WHITE.lerp(Palette.PASTEL_PERIWINKLE, 0.65)
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.15, 0.75, 1.0]),
-		PackedColorArray([
-			Color(drop.r, drop.g, drop.b, 0.0),
-			Color(drop.r, drop.g, drop.b, 0.90),
-			Color(drop.r, drop.g, drop.b, 0.80),
-			Color(drop.r, drop.g, drop.b, 0.0),
-		])
-	)
+	if _grad_sweat == null:
+		var drop: Color = Palette.FLOUR_WHITE.lerp(Palette.PASTEL_PERIWINKLE, 0.65)
+		_grad_sweat = _gradient(
+			PackedFloat32Array([0.0, 0.15, 0.75, 1.0]),
+			PackedColorArray([
+				Color(drop.r, drop.g, drop.b, 0.0),
+				Color(drop.r, drop.g, drop.b, 0.90),
+				Color(drop.r, drop.g, drop.b, 0.80),
+				Color(drop.r, drop.g, drop.b, 0.0),
+			])
+		)
+	p.color_ramp = _grad_sweat
 
 	# Bulir memanjang: bola dengan tinggi lebih besar dari diameternya.
-	p.mesh = _puff_mesh(0.030, 0.095, 6, 3, _particle_material(false))
+	if _mesh_sweat == null:
+		_mesh_sweat = _puff_mesh(0.030, 0.095, 6, 3, _particle_material(false))
+	p.mesh = _mesh_sweat
 
 	actor.add_child(p)
 	_track(p)
@@ -305,7 +359,7 @@ static func coin_pop(parent: CanvasItem, pos: Vector2, amount: float) -> void:
 	p.name = "CoinPopFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = COIN_AMOUNT
+	p.amount = _scaled_amount(COIN_AMOUNT)
 	p.lifetime = COIN_LIFETIME
 	p.lifetime_randomness = 0.25
 	p.explosiveness = 0.92
@@ -331,23 +385,29 @@ static func coin_pop(parent: CanvasItem, pos: Vector2, amount: float) -> void:
 	# Lebar menyempit-melebar berulang = keping koin yang berjungkir di udara,
 	# sementara tinggi memakai kurva pop biasa.
 	p.split_scale = true
-	p.scale_curve_x = _curve(PackedVector2Array([
-		Vector2(0.0, 1.0), Vector2(0.22, 0.14), Vector2(0.44, 1.0),
-		Vector2(0.66, 0.14), Vector2(0.88, 1.0), Vector2(1.0, 0.6),
-	]))
-	p.scale_curve_y = _curve(PackedVector2Array([
-		Vector2(0.0, 0.35), Vector2(0.16, 1.15), Vector2(0.75, 1.0), Vector2(1.0, 0.45),
-	]))
+	if _curve_coin_x == null:
+		_curve_coin_x = _curve(PackedVector2Array([
+			Vector2(0.0, 1.0), Vector2(0.22, 0.14), Vector2(0.44, 1.0),
+			Vector2(0.66, 0.14), Vector2(0.88, 1.0), Vector2(1.0, 0.6),
+		]))
+	if _curve_coin_y == null:
+		_curve_coin_y = _curve(PackedVector2Array([
+			Vector2(0.0, 0.35), Vector2(0.16, 1.15), Vector2(0.75, 1.0), Vector2(1.0, 0.45),
+		]))
+	p.scale_curve_x = _curve_coin_x
+	p.scale_curve_y = _curve_coin_y
 
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.70, 1.0]),
-		PackedColorArray([
-			Color(1.0, 1.0, 1.0, 1.0),
-			Color(1.0, 1.0, 1.0, 0.95),
-			Color(1.0, 1.0, 1.0, 0.0),
-		])
-	)
+	if _grad_coin == null:
+		_grad_coin = _gradient(
+			PackedFloat32Array([0.0, 0.70, 1.0]),
+			PackedColorArray([
+				Color(1.0, 1.0, 1.0, 1.0),
+				Color(1.0, 1.0, 1.0, 0.95),
+				Color(1.0, 1.0, 1.0, 0.0),
+			])
+		)
+	p.color_ramp = _grad_coin
 	p.texture = _coin_texture()
 
 	parent.add_child(p)
@@ -374,7 +434,7 @@ static func coin_shower(parent: CanvasItem, area: Vector2) -> void:
 	p.name = "CoinShowerFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = SHOWER_AMOUNT
+	p.amount = _scaled_amount(SHOWER_AMOUNT)
 	p.lifetime = SHOWER_LIFETIME
 	p.lifetime_randomness = 0.2
 	p.explosiveness = 0.55
@@ -393,13 +453,19 @@ static func coin_shower(parent: CanvasItem, area: Vector2) -> void:
 	p.scale_amount_min = 1.0
 	p.scale_amount_max = 1.6
 	p.split_scale = true
-	p.scale_curve_x = _curve(PackedVector2Array([
-		Vector2(0.0, 1.0), Vector2(0.25, 0.14), Vector2(0.5, 1.0), Vector2(0.75, 0.14), Vector2(1.0, 1.0),
-	]))
-	p.scale_curve_y = _curve(PackedVector2Array([Vector2(0.0, 1.0), Vector2(1.0, 1.0)]))
+	if _curve_shower_x == null:
+		_curve_shower_x = _curve(PackedVector2Array([
+			Vector2(0.0, 1.0), Vector2(0.25, 0.14), Vector2(0.5, 1.0), Vector2(0.75, 0.14), Vector2(1.0, 1.0),
+		]))
+	if _curve_unit_flat == null:
+		_curve_unit_flat = _curve(PackedVector2Array([Vector2(0.0, 1.0), Vector2(1.0, 1.0)]))
+	p.scale_curve_x = _curve_shower_x
+	p.scale_curve_y = _curve_unit_flat
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(PackedFloat32Array([0.0, 0.8, 1.0]),
-		PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]))
+	if _grad_shower == null:
+		_grad_shower = _gradient(PackedFloat32Array([0.0, 0.8, 1.0]),
+			PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]))
+	p.color_ramp = _grad_shower
 	p.texture = _coin_texture()
 	parent.add_child(p)
 	_track(p)
@@ -424,7 +490,7 @@ static func rain_overlay(parent: Node) -> CPUParticles2D:
 	p.name = "RainOverlay"
 	p.emitting = false
 	p.one_shot = false
-	p.amount = RAIN_AMOUNT
+	p.amount = _scaled_amount(RAIN_AMOUNT)
 	p.lifetime = RAIN_LIFETIME
 	p.lifetime_randomness = 0.2
 	p.explosiveness = 0.0
@@ -452,17 +518,19 @@ static func rain_overlay(parent: Node) -> CPUParticles2D:
 	p.scale_amount_min = 0.8
 	p.scale_amount_max = 1.5
 
-	var drizzle: Color = Palette.FLOUR_WHITE.lerp(Palette.PASTEL_PERIWINKLE, 0.7)
 	p.color = Color.WHITE
-	p.color_ramp = _gradient(
-		PackedFloat32Array([0.0, 0.12, 0.85, 1.0]),
-		PackedColorArray([
-			Color(drizzle.r, drizzle.g, drizzle.b, 0.0),
-			Color(drizzle.r, drizzle.g, drizzle.b, 0.50),
-			Color(drizzle.r, drizzle.g, drizzle.b, 0.45),
-			Color(drizzle.r, drizzle.g, drizzle.b, 0.0),
-		])
-	)
+	if _grad_rain == null:
+		var drizzle: Color = Palette.FLOUR_WHITE.lerp(Palette.PASTEL_PERIWINKLE, 0.7)
+		_grad_rain = _gradient(
+			PackedFloat32Array([0.0, 0.12, 0.85, 1.0]),
+			PackedColorArray([
+				Color(drizzle.r, drizzle.g, drizzle.b, 0.0),
+				Color(drizzle.r, drizzle.g, drizzle.b, 0.50),
+				Color(drizzle.r, drizzle.g, drizzle.b, 0.45),
+				Color(drizzle.r, drizzle.g, drizzle.b, 0.0),
+			])
+		)
+	p.color_ramp = _grad_rain
 	p.texture = _raindrop_texture()
 
 	parent.add_child(p)

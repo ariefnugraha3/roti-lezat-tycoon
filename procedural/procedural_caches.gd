@@ -18,3 +18,4 @@ static func clear_all() -> void:
 	DecorFactory.clear_caches()
 	BreadArt.clear_cache()
 	CritterFactory.clear_caches()
+	StationMarker.clear_caches()

@@ -17,6 +17,17 @@ extends RefCounted
 const INTERACT_SECONDS: float = 0.3
 ## Langkah yang mengklaim job selama pekerja berjalan ke alatnya.
 const CLAIM_TASKS: Array[String] = ["fetch", "start_mixing", "pickup_dough", "pickup_tray", "take_table"]
+static var _mults_desc: Array[int] = []
+
+
+static func _sorted_mults_desc() -> Array[int]:
+	if _mults_desc.is_empty():
+		var raw: Array = DataRegistry.bal("production.batch_multipliers").duplicate()
+		raw.sort()
+		raw.reverse()
+		for m: Variant in raw:
+			_mults_desc.append(int(m))
+	return _mults_desc
 
 
 # ===========================================================================
@@ -82,9 +93,15 @@ static func _free_for(j: ProductionJob, wid: StringName) -> bool:
 static func plan_batch(sim: SimulationRoot, focus: int = -1) -> Dictionary:
 	if not sim.production.can_create_job():
 		return {}
-	var mults: Array = DataRegistry.bal("production.batch_multipliers").duplicate()
-	mults.sort()
-	mults.reverse()
+	var mults: Array[int] = _sorted_mults_desc()
+	# Satu kali lintas seluruh job aktif untuk menghitung unit in-flight per petak.
+	var inflight_map: Dictionary = {}
+	for j: ProductionJob in sim.production.sorted_jobs():
+		if not j.is_on_table():
+			var skey: int = (j.target_display << 8) | j.target_slot
+			var add_u: int = j.carried_units if j.stage == ProductionJob.CARRIED_TO_DISPLAY else j.quantity_output
+			inflight_map[skey] = int(inflight_map.get(skey, 0)) + add_u
+	var mixer_cache: Dictionary = {}
 	var best: Dictionary = {}
 	var best_key: Array = []
 	for e: EquipmentInstance in sim.equipment.placed_list(&"display"):
@@ -98,16 +115,24 @@ static func plan_batch(sim: SimulationRoot, focus: int = -1) -> Dictionary:
 			var units: int = sim.display.slot_units(e.iid, i)
 			if units > 0 and sim.display.slot_content(e.iid, i) != rid:
 				continue
+			var inflight: int = int(inflight_map.get((e.iid << 8) | i, 0))
+			var room: int = cap - units - inflight
 			var r: RecipeDefinition = DataRegistry.recipe(rid)
-			var mixer: EquipmentInstance = sim.production.free_mixer_for(r)
+			if room < r.batch_yield:
+				continue
+			var req_tier: int = r.required_mixer_tier
+			var mixer: EquipmentInstance
+			if mixer_cache.has(req_tier):
+				mixer = mixer_cache[req_tier]
+			else:
+				mixer = sim.production.free_mixer_for(r)
+				mixer_cache[req_tier] = mixer
 			if mixer == null or (focus >= 0 and mixer.iid != focus and e.iid != focus):
 				continue
-			var inflight: int = sim.production.in_flight_units(e.iid, i)
-			var room: int = cap - units - inflight
 			var batch: int = 0
-			for m: Variant in mults:
-				if r.batch_yield * int(m) <= room and sim.economy.can_afford(ProductionManager.batch_cost(r, int(m))):
-					batch = int(m)
+			for m: int in mults:
+				if r.batch_yield * m <= room and sim.economy.can_afford(ProductionManager.batch_cost(r, m)):
+					batch = m
 					break
 			if batch <= 0:
 				continue

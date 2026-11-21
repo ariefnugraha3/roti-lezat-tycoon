@@ -218,9 +218,13 @@ func _show_step() -> void:
 
 
 func _process(delta: float) -> void:
+	if _steps.is_empty() or not is_visible_in_tree():
+		return
 	_t += delta
+	var prev_hole: Rect2 = _hole
 	_layout()
-	_ring.queue_redraw()
+	if not SettingsManager.reduced_motion() or _hole != prev_hole:
+		_ring.queue_redraw()
 
 
 ## Kotak gabungan sasaran langkah ini (lokal), tanpa jarak PAD. Rect2 kosong

@@ -29,7 +29,7 @@ func build() -> void:
 		b.pressed.connect(c[1])
 		b.custom_minimum_size = Vector2(280, 48)
 		grid.add_child(b)
-	var sc := ScrollContainer.new()
+	var sc := TouchScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(sc)
 	_out = ProceduralUIFactory.label("", 12, Palette.TEXT)

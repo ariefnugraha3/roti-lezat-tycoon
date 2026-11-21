@@ -27,6 +27,9 @@ const WARM_AUDIO_FRAME_USEC: int = 12000
 ## Frame dunia pertama (shader dikompilasi) dianggap stabil di bawah ini (ms).
 const STABLE_FRAME_MS: float = 80.0
 const MAX_SETTLE_FRAMES: int = 12
+## Splash di bawah ModalHost (20), supaya popup konfirmasi keluar saat menekan
+## tombol Back tetap tampak di depan layar pembuka.
+const SPLASH_LAYER: int = 15
 var sim: SimulationRoot = null
 ## Nama toko di save yang dibaca halaman start; papan layar loading memakainya
 ## saat save itu dimuat.
@@ -94,7 +97,7 @@ func _ready() -> void:
 
 func _show_splash() -> void:
 	var layer := CanvasLayer.new()
-	layer.layer = 50
+	layer.layer = SPLASH_LAYER
 	add_child(layer)
 	# Halaman start bergambar (Seksi 20 no. 105): toko roti di sore hari dengan
 	# nama toko di save pada papannya, logo di langit, "Tap to Start" di trotoar.
@@ -147,12 +150,13 @@ static func _splash_name() -> String:
 ## Ketukan dihitung saat jari/klik DILEPAS: browser baru mengizinkan layar penuh
 ## dari gestur yang selesai (touchend/mouseup), bukan saat jari baru menempel.
 func _on_splash_input(event: InputEvent, layer: CanvasLayer) -> void:
-	if _splash == null:
+	if _splash == null or modals.top() != null:
 		return
+	var key_ev: InputEventKey = event as InputEventKey
 	var tapped: bool = (event is InputEventMouseButton and not (event as InputEventMouseButton).pressed \
 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) \
 		or (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed) \
-		or (event is InputEventKey and (event as InputEventKey).pressed)
+		or (key_ev != null and key_ev.pressed and key_ev.keycode != KEY_ESCAPE and key_ev.keycode != KEY_BACK)
 	if not tapped:
 		return
 	if WebPlatform.is_mobile_web():
@@ -458,6 +462,15 @@ func quit_game() -> void:
 	get_tree().quit()
 
 
+## Konfirmasi keluar game dari tombol Back (bukan Web): simpan toko bila sedang
+## aktif sebelum menutup aplikasi.
+func confirm_exit() -> void:
+	if OS.has_feature("web") or modals.is_open(&"confirm"):
+		return
+	var key: String = "ui_quit_game_confirm" if sim != null else "ui_exit_confirm"
+	modals.confirm(Tx.t(key), quit_game)
+
+
 ## Reset Game di Settings (GDD idle 20 no. 68): toko yang sedang dimainkan tidak
 ## disimpan lagi, semua slot save dihapus, lalu popup toko baru seperti install
 ## baru. Pengaturan dan jatah iklan per perangkat tetap.
@@ -593,10 +606,11 @@ func _on_back() -> void:
 		return
 	if hud != null and hud.decoration_active:
 		return
-	if playing:
-		modals.open(&"pause")
-	else:
-		modals.confirm(Tx.t("ui_exit_confirm"), func() -> void: get_tree().quit())
+	if OS.has_feature("web"):
+		if playing:
+			modals.open(&"pause")
+		return
+	confirm_exit()
 
 
 func _on_pause_key() -> void:
@@ -814,8 +828,23 @@ func _on_settings_changed(key: String) -> void:
 		ProceduralUIFactory.text_scale = SettingsManager.text_scale()
 	if (key == "language" or key == "") and SettingsManager.language() != _language_built:
 		relocalize()
-	if key == "resolution_scale" or key == "":
-		get_viewport().scaling_3d_scale = float(SettingsManager.get_int("resolution_scale")) / 100.0
+	if key == "resolution_scale" or key == "quality" or key == "":
+		_apply_3d_resolution_scale()
+
+
+func _apply_3d_resolution_scale() -> void:
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return
+	if not vp.size_changed.is_connected(_apply_3d_resolution_scale):
+		vp.size_changed.connect(_apply_3d_resolution_scale)
+	var base_scale: float = SettingsManager.effective_resolution_scale()
+	if OS.has_feature("mobile") or WebPlatform.is_mobile_web():
+		var vp_w: float = vp.get_visible_rect().size.x
+		var max_w: float = float(DataRegistry.bali("limits.mobile_max_3d_width"))
+		if max_w > 0.0 and vp_w > max_w:
+			base_scale = minf(base_scale, maxf(0.5, max_w / vp_w))
+	vp.scaling_3d_scale = base_scale
 
 
 # ===========================================================================

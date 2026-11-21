@@ -59,12 +59,16 @@ const PASS_SHADOW: int = 2
 	"clipboard", "plant", "lamp", "rug", "apron", "bell", "book", "calculator"
 ) var icon_name: String = "coin":
 	set(value):
+		if icon_name == value:
+			return
 		icon_name = value
 		queue_redraw()
 
 ## Warna utama ikon; detail diturunkan otomatis (lebih gelap / lebih terang).
 @export var icon_color: Color = Color.WHITE:
 	set(value):
+		if icon_color == value:
+			return
 		icon_color = value
 		queue_redraw()
 
@@ -72,7 +76,10 @@ const PASS_SHADOW: int = 2
 ## memperbarui `custom_minimum_size` agar tata letak container tetap benar.
 @export_range(8.0, 256.0, 1.0, "or_greater") var icon_size: float = 32.0:
 	set(value):
-		icon_size = maxf(value, MIN_SIZE)
+		var clamped: float = maxf(value, MIN_SIZE)
+		if is_equal_approx(icon_size, clamped):
+			return
+		icon_size = clamped
 		custom_minimum_size = Vector2(icon_size, icon_size)
 		queue_redraw()
 
@@ -80,12 +87,16 @@ const PASS_SHADOW: int = 2
 ## siluet + bayangan lembut di bawahnya. Otomatis mati di bawah OUTLINE_MIN_SIZE.
 @export var outlined: bool = true:
 	set(value):
+		if outlined == value:
+			return
 		outlined = value
 		queue_redraw()
 
 ## Warna garis tepi; alfa 0 = diturunkan dari warna ikon.
 @export var outline_color: Color = Color(0.0, 0.0, 0.0, 0.0):
 	set(value):
+		if outline_color == value:
+			return
 		outline_color = value
 		queue_redraw()
 
@@ -162,7 +173,7 @@ func _shade(col: Color, amount: float) -> Color:
 func _glint(c: Vector2, s: float, x: float, y: float, r: float) -> void:
 	if ProceduralUIFactory.flat_style or _pass != PASS_FILL or _base.get_luminance() > 0.85:
 		return
-	draw_circle(c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a), true, -1.0, true)
+	ProceduralUIFactory.circle_aa(self, c + Vector2(x, y) * s, r * s, Color(1.0, 1.0, 1.0, 0.55 * _base.a), 10)
 
 
 ## Setel nama + warna + ukuran sekaligus (satu kali `queue_redraw`).
@@ -262,15 +273,17 @@ func _lit(col: Color) -> Color:
 	return col.lightened(0.52)
 
 
-## Lingkaran penuh berpusat di (x, y).
+## Lingkaran penuh berpusat di (x, y) dalam batch segitiga.
 func _dot(c: Vector2, s: float, x: float, y: float, r: float, col: Color) -> void:
+	var pr: float = r * s
+	var segs: int = 20 if pr >= 10.0 else 12
 	if _pass == PASS_FILL:
-		draw_circle(c + Vector2(x, y) * s, r * s, col, true, -1.0, true)
+		ProceduralUIFactory.circle_aa(self, c + Vector2(x, y) * s, pr, col, segs)
 	elif _silhouette(col):
-		draw_circle(c + Vector2(x, y) * s, r * s + _ow, _pass_col, true, -1.0, true)
+		ProceduralUIFactory.circle_aa(self, c + Vector2(x, y) * s, pr + _ow, _pass_col, segs)
 
 
-## Garis tebal berujung bulat (kesan empuk khas GDD 4.1).
+## Garis tebal berujung bulat (kesan empuk khas GDD 4.1) dalam batch segitiga.
 func _bar(c: Vector2, s: float, ax: float, ay: float, bx: float, by: float,
 		w: float, col: Color) -> void:
 	var pa: Vector2 = c + Vector2(ax, ay) * s
@@ -282,16 +295,13 @@ func _bar(c: Vector2, s: float, ax: float, ay: float, bx: float, by: float,
 			return
 		grow = _ow
 		tint = _pass_col
-	draw_line(pa, pb, tint, w * s + grow * 2.0, true)
-	var cap: float = w * s * 0.5 + grow
-	draw_circle(pa, cap, tint, true, -1.0, true)
-	draw_circle(pb, cap, tint, true, -1.0, true)
+	ProceduralUIFactory.capsule_aa(self, pa, pb, w * s * 0.5 + grow, tint, 5)
 
 
-## Busur dengan jumlah ruas otomatis mengikuti panjang sudutnya.
+## Busur dengan jumlah ruas otomatis mengikuti panjang sudutnya dalam batch segitiga.
 func _arcline(c: Vector2, s: float, x: float, y: float, r: float,
 		a0: float, a1: float, w: float, col: Color) -> void:
-	var steps: int = maxi(8, int(absf(a1 - a0) / 0.30))
+	var steps: int = maxi(6, int(absf(a1 - a0) / 0.35))
 	var grow: float = 0.0
 	var tint: Color = col
 	if _pass != PASS_FILL:
@@ -300,12 +310,15 @@ func _arcline(c: Vector2, s: float, x: float, y: float, r: float,
 		grow = _ow
 		tint = _pass_col
 	var ctr: Vector2 = c + Vector2(x, y) * s
-	draw_arc(ctr, r * s, a0, a1, steps, tint, w * s + grow * 2.0, true)
-	# Ujung busur membulat (kesan empuk), kecuali lingkaran penuh.
-	if absf(a1 - a0) < TAU - 0.01:
-		var cap: float = w * s * 0.5 + grow
-		draw_circle(ctr + Vector2(cos(a0), sin(a0)) * r * s, cap, tint, true, -1.0, true)
-		draw_circle(ctr + Vector2(cos(a1), sin(a1)) * r * s, cap, tint, true, -1.0, true)
+	var line := PackedVector2Array()
+	line.resize(steps + 1)
+	for i in steps + 1:
+		var a: float = lerpf(a0, a1, float(i) / float(steps))
+		line[i] = ctr + Vector2(cos(a), sin(a)) * (r * s)
+	var end_mode: int = Geometry2D.END_JOINED if absf(a1 - a0) >= TAU - 0.01 else Geometry2D.END_ROUND
+	for poly: PackedVector2Array in Geometry2D.offset_polyline(line, w * s * 0.5 + grow, Geometry2D.JOIN_ROUND, end_mode):
+		if poly.size() >= 3:
+			ProceduralUIFactory.fill_aa(self, poly, tint)
 
 
 ## Poligon terisi dari daftar Vector2 satuan.

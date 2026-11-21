@@ -155,6 +155,32 @@ var daylight: Dictionary = {}
 ## Orang yang baru keluar pintu dan berjalan pulang (GDD 20.1): [{view, actor}].
 var _leavers: Array[Dictionary] = []
 var _leaver_sim: float = -1.0
+var _offfloor_acc: float = 0.0
+var _offfloor_step: float = 0.0
+var _player_spec_gender: String = ""
+var _player_spec_outfit: String = ""
+var _player_spec_key: String = ""
+var _staff_keys: Dictionary = {}
+## Cache node Slot0..SlotN per iid display supaya _update_bread tidak memanggil
+## find_child() setiap pembaruan.
+var _display_slots: Dictionary = {}
+## Bayangan lembut lantai seluruh perabot & aktor aktif dalam satu MultiMeshInstance3D
+## (1 draw call, bukan puluhan MeshInstance3D transparan).
+var _furn_shadows: Dictionary = {}
+var _shadow_mm: MultiMeshInstance3D = null
+var _shadow_dirty: bool = true
+var _last_marker_basis: Basis = Basis()
+var _has_marker_basis: bool = false
+var _frame_seq: int = 0
+var _active_actor_count: int = 0
+var _bread_mm_root: Node3D = null
+var _bread_mms: Dictionary = {}
+var _last_bread_ver: int = -1
+var _last_bread_cfg_ver: int = -1
+var _last_bread_held: int = -1
+var _last_bread_floor: StringName = &""
+var _held_had_bread: int = -1
+var _last_table_ver: int = -1
 
 
 func setup(s: SimulationRoot) -> void:
@@ -162,6 +188,10 @@ func setup(s: SimulationRoot) -> void:
 	name = "WorldRoot"
 	_env = EquipmentFactory.build_environment()
 	add_child(_env)
+	_ensure_shadow_mm()
+	_bread_mm_root = Node3D.new()
+	_bread_mm_root.name = "BreadMultiMeshes"
+	add_child(_bread_mm_root)
 	camera_rig = CameraRig.new()
 	add_child(camera_rig)
 	camera_rig.active_floor_changed.connect(_on_camera_floor_changed)
@@ -299,6 +329,8 @@ func rebuild_furniture() -> void:
 	for n: Variant in furniture.values():
 		(n as Node3D).queue_free()
 	furniture.clear()
+	_furn_shadows.clear()
+	_display_slots.clear()
 	# Penanda menempel di node lantai, bukan di perabot: tanpa dibebaskan di sini
 	# penanda lama tertinggal membeku (bar progres yang tidak pernah hilang).
 	for m: Variant in markers.values():
@@ -306,7 +338,11 @@ func rebuild_furniture() -> void:
 			(m as Node3D).queue_free()
 	markers.clear()
 	_bread_sig.clear()
+	_last_bread_ver = -1
+	_last_bread_cfg_ver = -1
+	_held_had_bread = -1
 	_table_sig = ""
+	_last_table_ver = -1
 	_aabbs.clear()
 	for e: EquipmentInstance in sim.equipment.placed_list():
 		var parent: Node3D = floors.get(e.floor_id)
@@ -316,6 +352,12 @@ func rebuild_furniture() -> void:
 		parent.add_child(node)
 		node.visible = not hidden_furniture.has(e.iid)
 		furniture[e.iid] = node
+		if e.category() == &"display":
+			var slot_arr: Array[Node3D] = []
+			var scount: int = sim.display.slot_count(e.iid)
+			for si in scount:
+				slot_arr.append(node.find_child("Slot%d" % si, true, false) as Node3D)
+			_display_slots[e.iid] = slot_arr
 		if e.category() != &"storage" and e.category() != &"chair":
 			var m := StationMarker.new()
 			parent.add_child(m)
@@ -325,6 +367,7 @@ func rebuild_furniture() -> void:
 		# Sesudah kotak pilih dan penanda, supaya cakram bayangan tidak ikut
 		# memperlebar keduanya.
 		_add_ground_shadow(node, e)
+	_shadow_dirty = true
 	_update_counter_aabbs()
 	_rebuild_decor()
 	_apply_hold()
@@ -362,32 +405,42 @@ func _rebuild_decor() -> void:
 			"aabb": node.transform * EquipmentFactory._mesh_bounds(node), "base": node.position}
 
 
-## Bayangan lembut di lantai di bawah perabot `node` (GDD idle §20 no. 86):
-## cakram gradasi selebar jejaknya, anak node itu, jadi ikut tersembunyi saat
-## dipegang di Decoration Mode, ikut memantul, dan ikut tumbuh saat evolusi.
-## Satu mesh dan material SHADOW bersama: tanpa shader baru.
-func _add_ground_shadow(node: Node3D, e: EquipmentInstance) -> void:
+func _ensure_shadow_mm() -> void:
 	if _ground_mesh == null:
 		var mb := MeshBuilder.new()
 		var col := Color(CharacterFactory.SHADOW_COLOR, GROUND_SHADOW_ALPHA)
-		mb.disc(Transform3D(), 0.5, col, Color(col, 0.0), 24)
+		mb.disc(Transform3D(), 0.5, col, Color(col, 0.0), 20)
 		var proto: MeshInstance3D = mb.commit("GroundShadow", MeshBuilder.SHADOW)
 		_ground_mesh = proto.mesh
 		_ground_mat = proto.material_override
 		proto.free()
+	if _shadow_mm != null and is_instance_valid(_shadow_mm):
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = _ground_mesh
+	mm.instance_count = 64
+	mm.visible_instance_count = 0
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "ShadowsMultiMesh"
+	mmi.multimesh = mm
+	mmi.material_override = _ground_mat
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	_shadow_mm = mmi
+
+
+## Bayangan lembut di lantai di bawah perabot: disimpan untuk digambar terpadu
+## lewat satu MultiMeshInstance3D (`_shadow_mm`) per frame agar ratusan aktor dan
+## perabot tetap 1 draw call bayangan.
+func _add_ground_shadow(_node: Node3D, e: EquipmentInstance) -> void:
+	_ensure_shadow_mm()
 	var def: EquipmentDefinition = e.def()
 	var fp: Vector2i = GridMath.rotated_footprint(def.footprint_tiles, e.rotation)
 	var t: float = GridMath.WORLD_METERS_PER_TILE
 	var center := Vector3((float(e.anchor.x) + float(fp.x) * 0.5) * t, 0.006, (float(e.anchor.y) + float(fp.y) * 0.5) * t)
 	var world_xf := Transform3D(Basis.from_scale(Vector3(float(fp.x) * t * GROUND_SHADOW_PAD, 1.0, float(fp.y) * t * GROUND_SHADOW_PAD)), center)
-	var mi := MeshInstance3D.new()
-	mi.name = "GroundShadow"
-	mi.set_meta(EquipmentFactory.META_NO_BOUNDS, true)
-	mi.mesh = _ground_mesh
-	mi.material_override = _ground_mat
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.add_child(mi)
-	mi.transform = node.transform.affine_inverse() * world_xf
+	_furn_shadows[e.iid] = {"floor": e.floor_id, "xf": world_xf}
 
 
 func _build_furniture(e: EquipmentInstance) -> Node3D:
@@ -484,10 +537,19 @@ func _process(delta: float) -> void:
 		camera_rig.follow(_v3(player.pos), delta)
 	else:
 		camera_rig.follow(camera_rig.follow_target, delta)
-	_sync_actors(delta)
+	var off_interval: float = 1.0 / SettingsManager.offfloor_visual_hz()
+	_offfloor_acc += delta
+	if _offfloor_acc >= off_interval:
+		_offfloor_step = _offfloor_acc
+		_offfloor_acc = 0.0
+	else:
+		_offfloor_step = 0.0
+	var customers_sorted: Array[Customer] = sim.customers.sorted()
+	_sync_actors(delta, customers_sorted)
 	_step_leavers(delta)
+	_update_shadows()
 	_update_thoughts(delta)
-	_update_shopper_lines()
+	_update_shopper_lines(customers_sorted)
 	_update_staff_lines(delta)
 	surprises.update(delta)
 	street_life.update(delta)
@@ -495,6 +557,7 @@ func _process(delta: float) -> void:
 	if _marker_timer <= 0.0:
 		_marker_timer = 1.0 / MARKER_HZ
 		_update_markers()
+	_sync_marker_camera()
 	_bread_timer -= delta
 	if _bread_timer <= 0.0:
 		_bread_timer = 1.0 / BREAD_HZ
@@ -510,6 +573,54 @@ func _process(delta: float) -> void:
 		apply_daylight()
 
 
+func _sync_marker_camera() -> void:
+	var cam: Camera3D = camera_rig.camera if camera_rig != null else null
+	if cam == null or not cam.is_inside_tree():
+		return
+	var b: Basis = cam.global_transform.basis
+	if _has_marker_basis and b.is_equal_approx(_last_marker_basis):
+		return
+	_last_marker_basis = b
+	_has_marker_basis = true
+	for m: Variant in markers.values():
+		if is_instance_valid(m):
+			(m as StationMarker).sync_camera_basis(b)
+
+
+func _update_shadows() -> void:
+	if _shadow_mm == null or not is_instance_valid(_shadow_mm) or camera_rig == null:
+		return
+	var mm: MultiMesh = _shadow_mm.multimesh
+	var af: StringName = camera_rig.active_floor
+	var held: int = lifted_iid()
+	var need: int = _furn_shadows.size() + views.size() + _leavers.size()
+	if need > mm.instance_count:
+		mm.instance_count = maxi(need + 32, mm.instance_count * 2)
+	var idx: int = 0
+	for iid: Variant in _furn_shadows.keys():
+		var fs: Dictionary = _furn_shadows[iid]
+		if fs["floor"] != af or hidden_furniture.has(int(iid)) or int(iid) == held:
+			continue
+		mm.set_instance_transform(idx, fs["xf"])
+		idx += 1
+	for av: Variant in views.values():
+		var v: ActorView = av as ActorView
+		if v == null or not v.visible or v.model == null or not v.world_shadow:
+			continue
+		var sd: float = v.shadow_diam
+		mm.set_instance_transform(idx, Transform3D(Basis.from_scale(Vector3(sd, 1.0, sd)), Vector3(v.global_position.x, 0.005, v.global_position.z)))
+		idx += 1
+	for lv: Dictionary in _leavers:
+		var lv_view: ActorView = lv["view"] as ActorView
+		if lv_view == null or not is_instance_valid(lv_view) or not lv_view.visible or lv_view.model == null or not lv_view.world_shadow:
+			continue
+		var lsd: float = lv_view.shadow_diam
+		mm.set_instance_transform(idx, Transform3D(Basis.from_scale(Vector3(lsd, 1.0, lsd)), Vector3(lv_view.global_position.x, 0.005, lv_view.global_position.z)))
+		idx += 1
+	mm.visible_instance_count = idx
+	_shadow_mm.visible = idx > 0 and not cutscene
+
+
 ## Mulai/akhiri cutscene pindah lokasi (GDD idle §20 no. 70): kamera ke lantai
 ## toko, aktor simulasi, penanda, gelembung, kejutan, pejalan pulang, dan pejalan
 ## kaki disembunyikan atau dibersihkan (semuanya kosmetik; simulasi di-pause).
@@ -519,6 +630,9 @@ func set_cutscene(on: bool) -> void:
 	cutscene = on
 	if _thought_layer != null:
 		_thought_layer.visible = not on
+	if _bread_mm_root != null:
+		_bread_mm_root.visible = not on
+	_update_shadows()
 	if not on:
 		return
 	view_floor_override = &""
@@ -569,11 +683,22 @@ func _v3(p: Vector2) -> Vector3:
 	return Vector3(p.x, 0.0, p.y)
 
 
-func _sync_actors(delta: float) -> void:
+func _sync_actors(delta: float, customers_sorted: Array[Customer]) -> void:
+	_frame_seq += 1
+	var cam: Camera3D = camera_rig.camera if camera_rig != null else null
+	var do_cull: bool = DisplayServer.get_name() != "headless" and cam != null and cam.is_inside_tree()
+	var frustum: Array[Plane] = cam.get_frustum() if do_cull else ([] as Array[Plane])
+	var crowd_stagger: bool = customers_sorted.size() > 18
+	_active_actor_count = 0
 	var live: Dictionary = {}
 	var packers: Dictionary = _update_packing()
 	var player: SimActor = sim.player.actor
-	var pkey: String = "player|%s|%s" % [sim.player.appearance.get("gender", "male"), sim.decoration.equipped.get("outfit", "")]
+	var pg: String = str(sim.player.appearance.get("gender", "male"))
+	var po: String = str(sim.decoration.equipped.get("outfit", ""))
+	if _player_spec_key == "" or pg != _player_spec_gender or po != _player_spec_outfit:
+		_player_spec_gender = pg
+		_player_spec_outfit = po
+		_player_spec_key = "player|%s|%s" % [pg, po]
 	var pv: ActorView = views.get(player.id)
 	if pv != null:
 		# Aksi & status sibuk diatur sebelum sync supaya animasinya frame ini juga.
@@ -583,37 +708,59 @@ func _sync_actors(delta: float) -> void:
 		pv.set_doze_blocked(_player_doze_blocked())
 		pv.set_action(&"pack" if packers.has(player.id) else &"")
 		_apply_pack(pv, packers.get(player.id))
-	_sync_one(player, pkey, _player_spec, delta, live, false)
-	pv = views.get(player.id)
+	pv = _ensure_view(player, _player_spec_key, _player_spec, delta, live, false)
 	if pv != null:
 		var pj: ProductionJob = sim.player.carried_job()
 		_apply_carry(pv, player, pj)
+	var gestures: Array[int] = ActorView.staff_gestures()
 	for sid: Variant in sim.staff.actors.keys():
+		var sid_sn: StringName = sid as StringName if sid is StringName else StringName(str(sid))
 		var a: SimActor = sim.staff.actors[sid]
 		var sv0: ActorView = views.get(a.id)
+		var skey: String = _staff_keys.get(sid_sn, "")
+		if skey == "":
+			skey = "staff|" + String(sid_sn)
+			_staff_keys[sid_sn] = skey
 		if sv0 != null:
 			sv0.set_idle_enabled(true)
-			sv0.set_busy(_staff_busy(StringName(str(sid)), a))
+			sv0.set_busy(_staff_busy(sid_sn, a))
 			# Gerak menganggur bergiliran (GDD 31.6), digeser per urutan roster supaya
 			# dua staf yang sama-sama diam tidak bergerak kembar.
-			var sdef: StaffDefinition = DataRegistry.staff(StringName(str(sid)))
-			sv0.set_idle_gestures(ActorView.staff_gestures(), staff_index(StringName(str(sid))), sdef != null and sdef.is_baker())
+			var sdef: StaffDefinition = DataRegistry.staff(sid_sn)
+			sv0.set_idle_gestures(gestures, staff_index(sid_sn), sdef != null and sdef.is_baker())
 			sv0.set_action(&"pack" if packers.has(a.id) else &"")
 			_apply_pack(sv0, packers.get(a.id))
 			sv0.set_seat(_seat_of(a))
-		_sync_one(a, "staff|" + String(sid), _staff_spec.bind(String(sid)), delta, live, false)
 		var sv: ActorView = views.get(a.id)
+		if sv == null or sv.spec_key != skey:
+			sv = _ensure_view_dict(a, skey, _staff_spec(String(sid_sn)), delta, live, false)
+		else:
+			_sync_view(sv, a, delta, live, false)
 		if sv != null:
 			_apply_carry(sv, a, sim.production.get_job(int(a.carried.get("job_id", -1))) if not a.carried.is_empty() else null)
 	var rainy: bool = sim.weather.is_rain()
-	for c: Customer in sim.customers.sorted():
+	var cust_i: int = 0
+	for c: Customer in customers_sorted:
 		var a2: SimActor = c.actor
-		if c.regular_id != &"":
-			_sync_one(a2, "reg|" + String(c.regular_id), CharacterFactory.spec_for_regular.bind(String(c.regular_id)), delta, live, true)
-		else:
-			_sync_one(a2, "cust|%s|%d" % [c.archetype, a2.visual_seed], _npc_spec.bind(String(c.archetype), a2.visual_seed, false), delta, live, true)
 		var v: ActorView = views.get(a2.id)
-		if v == null:
+		if v == null or v.cust_reg != c.regular_id or v.cust_arch != c.archetype or v.cust_seed != a2.visual_seed:
+			var key2: String
+			var spec2: Dictionary
+			if c.regular_id != &"":
+				key2 = "reg|" + String(c.regular_id)
+				spec2 = CharacterFactory.spec_for_regular(String(c.regular_id))
+			else:
+				key2 = "cust|%s|%d" % [c.archetype, a2.visual_seed]
+				spec2 = _npc_spec(String(c.archetype), a2.visual_seed, false)
+			v = _ensure_view_dict(a2, key2, spec2, delta, live, true)
+			if v != null:
+				v.cust_reg = c.regular_id
+				v.cust_arch = c.archetype
+				v.cust_seed = a2.visual_seed
+		else:
+			_sync_view(v, a2, delta, live, false, frustum, cust_i if crowd_stagger else -1)
+		cust_i += 1
+		if v == null or not v.visible:
 			continue
 		_apply_customer_carry(v, c)
 		v.set_receive(_receive_amount(c))
@@ -625,9 +772,16 @@ func _sync_actors(delta: float) -> void:
 	for o: DeliveryOrder in sim.rotifood.orders.values():
 		if o.driver == null:
 			continue
-		_sync_one(o.driver, "drv|%d|%s" % [o.driver.visual_seed, rainy], _npc_spec.bind("driver_rotifood", o.driver.visual_seed, rainy), delta, live, true)
 		var dv: ActorView = views.get(o.driver.id)
-		if dv != null:
+		if dv == null or dv.drv_seed != o.driver.visual_seed or dv.drv_rain != rainy:
+			var dkey: String = "drv|%d|%s" % [o.driver.visual_seed, rainy]
+			dv = _ensure_view_dict(o.driver, dkey, _npc_spec("driver_rotifood", o.driver.visual_seed, rainy), delta, live, true)
+			if dv != null:
+				dv.drv_seed = o.driver.visual_seed
+				dv.drv_rain = rainy
+		else:
+			_sync_view(dv, o.driver, delta, live, false, frustum)
+		if dv != null and dv.visible:
 			dv.set_carry("bag" if o.driver_phase == &"leaving" and o.state == DeliveryOrder.COMPLETED else "")
 	# Aktor yang hilang di pintu berjalan pulang di trotoar dulu (GDD 20.1), lalu
 	# body-nya kembali ke pool (GDD 83.2).
@@ -652,17 +806,17 @@ func _release_view(old: ActorView) -> void:
 ## trotoar saat toko tutup) berjalan ke ujung trotoar. Murni tampilan: aktornya
 ## sudah tidak ada di simulasi. false bila tidak perlu (atau sudah terlalu ramai).
 func _start_leaver(v: ActorView) -> bool:
-	var kind: StringName = StringName(str(v.get_meta("kind", "")))
+	var kind: StringName = v.sim_kind
 	if not kind in [&"customer", &"driver"] or _leavers.size() >= MAX_LEAVERS:
 		return false
-	if not v.has_meta("pos") or StringName(str(v.get_meta("floor", ""))) != sim.world.store_floor():
+	if v.sim_floor != sim.world.store_floor():
 		return false
 	var a := SimActor.new()
 	a.id = StringName("leaving_%s" % v.actor_id)
 	a.kind = kind
-	a.speed_mps = float(v.get_meta("speed", 1.2))
+	a.speed_mps = v.sim_speed
 	var side: int = 1 if posmod(hash(String(v.actor_id)), 2) == 0 else -1
-	a.walk_path(sim.world.store_floor(), StreetPaths.leave_from(sim.world.location, side, v.get_meta("pos")))
+	a.walk_path(sim.world.store_floor(), StreetPaths.leave_from(sim.world.location, side, v.sim_pos))
 	v.set_thought("")
 	v.set_look_around(false)
 	_leavers.append({"view": v, "actor": a})
@@ -742,9 +896,16 @@ static func owner_spec(gender: String, outfit: String) -> Dictionary:
 	return sp
 
 
-func _sync_one(a: SimActor, key: String, spec_fn: Callable, delta: float, live: Dictionary, pooled: bool) -> void:
-	live[a.id] = true
+func _ensure_view(a: SimActor, key: String, spec_fn: Callable, delta: float, live: Dictionary, pooled: bool) -> ActorView:
 	var v: ActorView = views.get(a.id)
+	if v != null and v.spec_key == key:
+		return _sync_view(v, a, delta, live, false)
+	return _ensure_view_dict(a, key, spec_fn.call(), delta, live, pooled)
+
+
+func _ensure_view_dict(a: SimActor, key: String, spec: Dictionary, delta: float, live: Dictionary, pooled: bool) -> ActorView:
+	var v: ActorView = views.get(a.id)
+	var fresh: bool = false
 	if v == null:
 		if pooled and not _pool.is_empty():
 			v = _pool.pop_back()
@@ -752,26 +913,58 @@ func _sync_one(a: SimActor, key: String, spec_fn: Callable, delta: float, live: 
 			# Pool berhenti tumbuh di batas GDD 129; aktor tetap ada secara logis,
 			# hanya tidak digambar sampai ada body yang kembali ke pool.
 			if pooled and _pooled_bodies >= DataRegistry.bali("limits.pooled_customer_bodies"):
-				return
+				live[a.id] = true
+				return null
 			v = ActorView.new()
+			v.world_shadow = true
 			add_child(v)
 			v.set_meta("pooled", pooled)
 			if pooled:
 				_pooled_bodies += 1
 		views[a.id] = v
-		v.bind(a.id, key, spec_fn.call())
+		v.world_shadow = true
+		v.bind(a.id, key, spec)
 		v.visible = true
 		v.global_position = _v3(a.pos)
+		fresh = true
 	elif v.spec_key != key:
-		v.bind(a.id, key, spec_fn.call())
+		v.world_shadow = true
+		v.bind(a.id, key, spec)
+		fresh = true
+	return _sync_view(v, a, delta, live, fresh)
+
+
+func _sync_view(v: ActorView, a: SimActor, delta: float, live: Dictionary, fresh: bool, frustum: Array[Plane] = [], stagger_idx: int = -1) -> ActorView:
+	live[a.id] = true
 	var on_floor: bool = a.floor_id == camera_rig.active_floor
-	v.visible = on_floor and not cutscene and not hidden_actors.has(a.id)
-	v.sync(a, delta, on_floor)
-	# Data terakhir aktornya, untuk berjalan pulang setelah ia hilang di pintu.
-	v.set_meta("kind", a.kind)
-	v.set_meta("speed", a.speed_mps)
-	v.set_meta("pos", a.pos)
-	v.set_meta("floor", a.floor_id)
+	var show: bool = on_floor and not cutscene and not hidden_actors.has(a.id)
+	if show and not fresh and not frustum.is_empty() and not _point_near_frustum(frustum, Vector3(a.pos.x, 0.5, a.pos.y), 1.8):
+		v.visible = false
+		v.global_position = Vector3(a.pos.x, 0.0, a.pos.y)
+		v.sim_kind = a.kind
+		v.sim_speed = a.speed_mps
+		v.sim_pos = a.pos
+		v.sim_floor = a.floor_id
+		return v
+	v.visible = show
+	if show:
+		_active_actor_count += 1
+	var step_delta: float = delta if on_floor else _offfloor_step
+	if fresh or on_floor or step_delta > 0.0 or v.sim_floor != a.floor_id:
+		var anim_pose: bool = on_floor and (fresh or stagger_idx < 0 or ((_frame_seq + stagger_idx) & 1) == 0)
+		v.sync(a, step_delta if not on_floor and not fresh else delta, anim_pose)
+		v.sim_kind = a.kind
+		v.sim_speed = a.speed_mps
+		v.sim_pos = a.pos
+		v.sim_floor = a.floor_id
+	return v
+
+
+static func _point_near_frustum(planes: Array[Plane], p: Vector3, margin: float) -> bool:
+	for pl: Plane in planes:
+		if pl.distance_to(p) > margin:
+			return false
+	return true
 
 
 func _apply_carry(v: ActorView, a: SimActor, j: ProductionJob) -> void:
@@ -959,10 +1152,10 @@ func quiet_seconds() -> float:
 ## orang, tampil sejak tatapan terakhirnya sampai ia keluar pintu. Murni
 ## presentasi; tidak menangkap ketukan dan disembunyikan di Decoration Mode atau
 ## bila ia di lantai lain.
-func _update_shopper_lines() -> void:
+func _update_shopper_lines(customers_sorted: Array[Customer]) -> void:
 	var live: Dictionary = {}
 	if not decoration_mode:
-		for c: Customer in sim.customers.sorted():
+		for c: Customer in customers_sorted:
 			if not shopper_speaking(c):
 				continue
 			var v: ActorView = views.get(c.id)
@@ -977,6 +1170,8 @@ func _update_shopper_lines() -> void:
 				_shopper_bubbles[c.id] = b
 			b.show_key(shopper_line_key(c))
 			b.point_at(camera_rig.world_to_screen(v.global_position + Vector3(0.0, v.head_top() + THOUGHT_ANCHOR_GAP, 0.0)))
+	if _shopper_bubbles.is_empty():
+		return
 	for id: Variant in _shopper_bubbles.keys():
 		if not live.has(id):
 			(_shopper_bubbles[id] as ThoughtBubble).queue_free()
@@ -1152,34 +1347,144 @@ func _update_markers() -> void:
 
 
 func _update_bread() -> void:
+	if _bread_mm_root == null or not is_instance_valid(_bread_mm_root):
+		return
+	var held: int = lifted_iid()
+	var af: StringName = camera_rig.active_floor if camera_rig != null else &""
+	var sver: int = sim.display.stock_version
+	var cver: int = sim.display.version
+	if sver == _last_bread_ver and cver == _last_bread_cfg_ver and held == _last_bread_held and af == _last_bread_floor:
+		return
+	_last_bread_ver = sver
+	_last_bread_cfg_ver = cver
+	_last_bread_held = held
+	_last_bread_floor = af
+
+	if _held_had_bread >= 0 and _held_had_bread != held and furniture.has(_held_had_bread):
+		_clear_direct_slot_bread(_held_had_bread)
+	_held_had_bread = -1
+
+	var groups: Dictionary = {}
 	for iid: Variant in furniture.keys():
 		var e: EquipmentInstance = sim.equipment.get_inst(int(iid))
 		if e == null or e.category() != &"display":
 			continue
-		var sig: String = _display_signature(e.iid)
-		if _bread_sig.get(e.iid, "") == sig:
+		if e.floor_id != af or hidden_furniture.has(e.iid):
 			continue
-		_bread_sig[e.iid] = sig
 		var node: Node3D = furniture[iid]
+		var cached_slots: Variant = _display_slots.get(e.iid)
 		var slots: Array = sim.display.slots(e.iid)
+		var is_held: bool = e.iid == held
+		if is_held:
+			_held_had_bread = e.iid
 		for i in slots.size():
-			var slot_node: Node3D = node.find_child("Slot%d" % i, true, false) as Node3D
+			var slot_node: Node3D = null
+			if cached_slots is Array and i < (cached_slots as Array).size():
+				slot_node = (cached_slots as Array)[i] as Node3D
+			if slot_node == null:
+				slot_node = node.find_child("Slot%d" % i, true, false) as Node3D
 			if slot_node == null:
 				continue
-			for c: Node in slot_node.get_children():
-				c.queue_free()
 			var s: Dictionary = slots[i]
 			var units: int = sim.display.slot_units(e.iid, i)
-			if units <= 0 or s["recipe"] == &"":
+			if is_held:
+				for c: Node in slot_node.get_children():
+					slot_node.remove_child(c)
+					c.queue_free()
+				if units > 0 and s["recipe"] != &"":
+					var r: RecipeDefinition = DataRegistry.recipe(s["recipe"])
+					var n: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
+					slot_node.add_child(BreadFactory.slot_cached(String(r.visual_profile_id), 1.0, &"FRESH", n))
 				continue
-			var r: RecipeDefinition = DataRegistry.recipe(s["recipe"])
-			var n: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
-			slot_node.add_child(BreadFactory.slot_cached(String(r.visual_profile_id), 1.0, &"FRESH", n))
+			if units <= 0 or s["recipe"] == &"":
+				if slot_node.get_child_count() > 0:
+					for c2: Node in slot_node.get_children():
+						slot_node.remove_child(c2)
+						c2.queue_free()
+				continue
+			if slot_node.get_child_count() != 1 or slot_node.get_child(0).name != &"BreadProxy":
+				for c3: Node in slot_node.get_children():
+					slot_node.remove_child(c3)
+					c3.queue_free()
+				var proxy := Node3D.new()
+				proxy.name = &"BreadProxy"
+				slot_node.add_child(proxy)
+			var r2: RecipeDefinition = DataRegistry.recipe(s["recipe"])
+			var prof: String = String(r2.visual_profile_id)
+			var n2: int = mini(MAX_BREAD_PER_SLOT, int(ceil(float(units) / 4.0)))
+			var bkey: String = "%s|%d" % [prof, n2]
+			var list: Array
+			if groups.has(bkey):
+				list = groups[bkey]["xfs"]
+			else:
+				list = []
+				groups[bkey] = {"prof": prof, "n": n2, "xfs": list}
+			list.append(_slot_floor_xf(node, slot_node))
+
+	for bkey_old: Variant in _bread_mms.keys():
+		if not groups.has(bkey_old):
+			var old_mmi: MultiMeshInstance3D = _bread_mms[bkey_old]
+			if is_instance_valid(old_mmi):
+				old_mmi.visible = false
+				old_mmi.multimesh.visible_instance_count = 0
+
+	for bkey_new: Variant in groups.keys():
+		var g: Dictionary = groups[bkey_new]
+		var xfs: Array = g["xfs"]
+		var mmi: MultiMeshInstance3D = _bread_mms.get(bkey_new)
+		if mmi == null or not is_instance_valid(mmi):
+			var pair: Array = BreadFactory.slot_mesh_and_mat(str(g["prof"]), 1.0, &"FRESH", int(g["n"]))
+			var mesh: Mesh = pair[0] as Mesh
+			if mesh == null:
+				continue
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = mesh
+			mm.instance_count = maxi(xfs.size(), 8)
+			mmi = MultiMeshInstance3D.new()
+			mmi.name = "BreadMM_%s" % String(bkey_new).replace("|", "_").replace(".", "_")
+			mmi.multimesh = mm
+			mmi.material_override = pair[1] as Material
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_bread_mm_root.add_child(mmi)
+			_bread_mms[bkey_new] = mmi
+		var mm2: MultiMesh = mmi.multimesh
+		if xfs.size() > mm2.instance_count:
+			mm2.instance_count = xfs.size()
+		for k in xfs.size():
+			mm2.set_instance_transform(k, xfs[k])
+		mm2.visible_instance_count = xfs.size()
+		mmi.visible = true
+
+
+func _clear_direct_slot_bread(iid: int) -> void:
+	var cached_slots: Variant = _display_slots.get(iid)
+	if not (cached_slots is Array):
+		return
+	for sn: Variant in (cached_slots as Array):
+		var slot_node: Node3D = sn as Node3D
+		if slot_node != null and is_instance_valid(slot_node):
+			for c: Node in slot_node.get_children():
+				slot_node.remove_child(c)
+				c.queue_free()
+
+
+static func _slot_floor_xf(node: Node3D, slot_node: Node3D) -> Transform3D:
+	var rel: Transform3D = slot_node.transform
+	var cur: Node = slot_node.get_parent()
+	while cur != null and cur != node:
+		if cur is Node3D:
+			rel = (cur as Node3D).transform * rel
+		cur = cur.get_parent()
+	return node.transform * rel
 
 
 ## Isi Meja Tunggu (GDD idle 4.7): mangkuk adonan dan loyang di atas daun meja,
 ## maksimal `limits.table_items_visible`. Roti idle tidak pernah basi.
 func _update_table() -> void:
+	if sim.production.table_version == _last_table_ver:
+		return
+	_last_table_ver = sim.production.table_version
 	var table: EquipmentInstance = sim.equipment.table_instance()
 	if table == null or not furniture.has(table.iid):
 		return
@@ -1220,15 +1525,17 @@ func _display_signature(iid: int) -> String:
 
 
 func _animate_stations(_delta: float) -> void:
-	for iid: Variant in furniture.keys():
-		var e: EquipmentInstance = sim.equipment.get_inst(int(iid))
-		if e == null or e.job_id < 0:
+	if PauseManager.is_paused():
+		return
+	var active: StringName = camera_rig.active_floor
+	for e: EquipmentInstance in sim.equipment.placed_list(&"mixer"):
+		if e.floor_id != active or e.job_id < 0:
 			continue
 		var j: ProductionJob = sim.production.get_job(e.job_id)
-		if j == null:
+		if j == null or j.stage != ProductionJob.MIXING:
 			continue
-		var node: Node3D = furniture[iid]
-		if e.category() == &"mixer" and j.stage == ProductionJob.MIXING and not PauseManager.is_paused():
+		var node: Node3D = furniture.get(e.iid)
+		if node != null:
 			ProceduralAnimationSystem.mixer_spin(node, _t)
 
 
@@ -1252,6 +1559,8 @@ func _apply_floor_visibility() -> void:
 		street_life.set_store_view(camera_rig.active_floor == sim.world.location.store_floor())
 	if _slot_markers != null:
 		_slot_markers.visible = camera_rig.active_floor == sim.world.location.store_floor()
+	_update_bread()
+	_update_shadows()
 
 
 func _on_storage_door(iid: int, open: bool) -> void:
@@ -1576,10 +1885,14 @@ func release_hold() -> void:
 		var e: EquipmentInstance = sim.equipment.get_inst(id)
 		var parent: Node3D = floors.get(e.floor_id) if e != null else null
 		if e == null or not e.placed or parent == null:
+			_update_bread()
+			_update_shadows()
 			return
 		_reparent(node, parent)
 		_pose_furniture(node, e.def(), e.anchor, e.rotation)
 		_aabbs[id] = {"floor": e.floor_id, "aabb": _world_aabb(node)}
+		_update_bread()
+		_update_shadows()
 	else:
 		var o: Dictionary = sim.decoration.item(id)
 		var dd: Variant = _decor.get(id)
@@ -1650,6 +1963,8 @@ func _apply_hold() -> void:
 			(dd as Dictionary)["base"] = _hold_base
 			(dd as Dictionary)["aabb"] = _hold_aabb
 	_animate_lift()
+	_update_bread()
+	_update_shadows()
 
 
 ## Model untuk barang yang dipegang: model aslinya bila terpasang, selain itu
@@ -1815,9 +2130,12 @@ func decor_node(uid: int) -> Node3D:
 
 func _animate_swing() -> void:
 	var a: float = 0.0 if SettingsManager.reduced_motion() else sin(_t * SWING_SPEED) * SWING_ANGLE
-	for p: Node3D in _swing + _room_swing:
+	for p: Node3D in _swing:
 		if is_instance_valid(p):
 			p.rotation.z = a
+	for p2: Node3D in _room_swing:
+		if is_instance_valid(p2):
+			p2.rotation.z = a
 
 
 ## Decoration Mode (GDD 72.3): tandai slot dinding/meja `indexes`; `current`

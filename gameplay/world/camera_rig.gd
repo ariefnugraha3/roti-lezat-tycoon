@@ -28,6 +28,9 @@ var _fade_layer: CanvasLayer = null
 var _pan_idle: float = 0.0
 var _nudge: Vector3 = Vector3.ZERO
 var _nudge_left: float = 0.0
+var _applied_focus: Vector3 = Vector3.INF
+var _applied_ortho: float = -1.0
+var _applied_vp_x: float = -1.0
 ## Cutscene pindah lokasi (GDD idle §20 no. 70): titik fokus yang dipegang
 ## sutradara (MovingDay), tanpa batas lantai; INF = kamera gameplay biasa.
 var cutscene_focus: Vector3 = Vector3.INF
@@ -115,6 +118,13 @@ func snap_to(target: Vector3) -> void:
 
 
 func _apply() -> void:
+	var vp_x: float = get_viewport().get_visible_rect().size.x
+	if _applied_focus != Vector3.INF and _focus.is_equal_approx(_applied_focus) \
+			and is_equal_approx(ortho_size, _applied_ortho) and is_equal_approx(vp_x, _applied_vp_x):
+		return
+	_applied_focus = _focus
+	_applied_ortho = ortho_size
+	_applied_vp_x = vp_x
 	var yaw: float = deg_to_rad(DataRegistry.balf("camera.yaw_degrees"))
 	var pitch: float = deg_to_rad(DataRegistry.balf("camera.pitch_degrees"))
 	var dist: float = 30.0

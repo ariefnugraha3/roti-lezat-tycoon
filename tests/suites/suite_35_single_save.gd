@@ -14,6 +14,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_SINGLE_SAVE_ADOPT", "name": "idle 20 no. 68 saves from the three-profile version become one: the latest bakery moves into the save and the old one swaps into its slot; an unplayable save there moves to a free slot, and a new game never overwrites a classic save silently", "fn": _adopt},
 		{"id": "ACC_IDLE_RESET_GAME", "name": "idle 20 no. 68 Pause has Credits and, off the web, Quit Game but no Main Menu; Settings > Reset Game asks first, then deletes every save without saving the shop again and opens the new bakery popup like a fresh install", "fn": _reset},
 		{"id": "ACC_IDLE_SAVE_UNREADABLE", "name": "idle 20 no. 68, v3.1 132 a save that cannot be read shows Try Again and Start a New Bakery (asking first) on the opening backdrop, and Back cannot leave an empty screen; a classic save alone counts as no save", "fn": _unreadable},
+		{"id": "ACC_IDLE_BACK_EXIT_CONFIRM", "name": "Android Back shows exit confirmation cleanly over splash, new bakery, and gameplay (closing open sheets first, saving before quitting)", "fn": _back_exit_confirm},
 	]
 
 
@@ -206,4 +207,66 @@ func _unreadable() -> void:
 	game.modals.close_all()
 	game.queue_free()
 	await runner.get_tree().process_frame
+	_done()
+
+
+func _back_exit_confirm() -> void:
+	var was_unlocked: bool = AudioManager.unlocked
+	_clean()
+	var game: GameRoot = (load("res://scenes/game_root.tscn") as PackedScene).instantiate()
+	runner.add_child(game)
+	await runner.get_tree().process_frame
+	# 1. Layar pembuka (Tap to Start): popup konfirmasi harus tampil di atas splash.
+	check(game._splash != null, "starts at splash")
+	var splash_layer: CanvasLayer = game._splash.get_parent() as CanvasLayer if game._splash != null else null
+	check(splash_layer != null and splash_layer.layer < game.modals.layer, "splash stays below ModalHost so confirm dialog is visible")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	var conf: UIScreen = game.modals.screen(&"confirm")
+	check(conf != null and str(conf.params.get("text", "")) == Tx.t("ui_exit_confirm"), "Back on splash opens exit confirmation")
+	if splash_layer != null:
+		var release := InputEventMouseButton.new()
+		release.button_index = MOUSE_BUTTON_LEFT
+		release.pressed = false
+		game._on_splash_input(release, splash_layer)
+		check(game._splash != null, "tapping while confirm is open does not dismiss splash")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	check(not game.modals.is_open(&"confirm"), "second Back on splash closes the confirm dialog")
+	# 2. Popup toko baru (langkah pertama).
+	game.skip_splash_for_tests()
+	game.open_new_game()
+	await runner.get_tree().process_frame
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	check(game.modals.is_open(&"confirm"), "Back on new bakery step 0 asks to exit")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	check(not game.modals.is_open(&"confirm") and game.modals.is_open(&"new_game"), "second Back returns to new bakery popup")
+	# 3. Gameplay: tutup lembar terbuka lebih dulu, lalu konfirmasi keluar yang menyimpan game.
+	await game.start_new_game(SaveManager.SAVE_ID, "female", "Back Bakery")
+	game.sim.tutorial.skip()
+	game.modals.close_all()
+	await runner.get_tree().process_frame
+	game.hud.open_tab(&"shop")
+	await runner.get_tree().process_frame
+	check(game.modals.is_open(&"shop"), "shop sheet opens")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	check(not game.modals.is_open(&"shop") and not game.modals.is_open(&"confirm"), "Back first closes the open sheet")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	var gp_conf: UIScreen = game.modals.screen(&"confirm")
+	check(gp_conf != null and str(gp_conf.params.get("text", "")) == Tx.t("ui_quit_game_confirm"), "Back during gameplay asks to save and quit")
+	check(PauseManager.is_paused(), "simulation pauses while exit confirmation is shown")
+	if gp_conf != null:
+		eq(gp_conf.params.get("on_yes"), game.quit_game, "confirming quit uses GameRoot.quit_game so the save is written")
+	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await runner.get_tree().process_frame
+	check(not game.modals.is_open(&"confirm") and not PauseManager.is_paused(), "cancelling via Back resumes gameplay")
+	game.playing = false
+	game.end_session(false)
+	game.queue_free()
+	await runner.get_tree().process_frame
+	AudioManager.unlocked = was_unlocked
 	_done()

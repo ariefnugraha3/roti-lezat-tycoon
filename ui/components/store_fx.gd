@@ -21,7 +21,7 @@ static func confetti(parent: CanvasItem, pos: Vector2, amount: int = 70, power: 
 	p.name = "ConfettiFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = amount
+	p.amount = FX._scaled_amount(amount)
 	p.lifetime = 2.2
 	p.lifetime_randomness = 0.3
 	p.explosiveness = 0.95
@@ -75,7 +75,7 @@ static func sparkle_burst(parent: CanvasItem, pos: Vector2, amount: int = 26, ra
 	p.name = "SparkleFX"
 	p.emitting = false
 	p.one_shot = true
-	p.amount = amount
+	p.amount = FX._scaled_amount(amount)
 	p.lifetime = 0.9
 	p.explosiveness = 1.0
 	p.randomness = 0.4
@@ -105,7 +105,7 @@ static func twinkles(parent: CanvasItem, pos: Vector2, ring: float) -> CPUPartic
 		return null
 	var p := CPUParticles2D.new()
 	p.name = "TwinkleFX"
-	p.amount = 12
+	p.amount = FX._scaled_amount(12)
 	p.lifetime = 1.4
 	p.randomness = 0.6
 	p.local_coords = true

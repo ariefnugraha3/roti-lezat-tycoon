@@ -46,11 +46,33 @@ const Z_SCALE: float = 1.6
 var actor_id: StringName = &""
 var model: Node3D = null
 var spec_key: String = ""
+## Data aktor logis terakhir dari WorldView (menghindari get_meta/set_meta tiap frame).
+var sim_kind: StringName = &""
+var sim_speed: float = 1.2
+var sim_pos: Vector2 = Vector2.ZERO
+var sim_floor: StringName = &""
+var cust_reg: StringName = &""
+var cust_arch: StringName = &""
+var cust_seed: int = -1
+var drv_seed: int = -1
+var drv_rain: bool = false
+var _last_fx: float = 0.0
+var _last_fz: float = -1.0
+var _has_facing_cache: bool = false
+## Pelanggan aktif memakai MultiMesh bayangan terpusat dari WorldView.
+var world_shadow: bool = false
+var shadow_diam: float = 0.36
+var _carry_kind: String = ""
+var _carry_prof: String = ""
+var _carry_count: int = 1
 var _t: float = 0.0
 var _carry: Node3D = null
 var _carry_key: String = ""
 var _thought: Label3D = null
 var _sparkle_cd: float = 0.0
+## Cache meta spec untuk menghindari has_meta/get_meta pada set_carry/mood.
+var _spec_mood: String = "netral"
+var _spec_bag_side: float = 1.0
 ## Gerak menganggur hanya untuk pemain & staf (diaktifkan WorldView).
 var _idle_enabled: bool = false
 var _busy: bool = true
@@ -107,6 +129,7 @@ func bind(id: StringName, key: String, spec: Dictionary) -> void:
 	_clear_idle_fx()
 	model = CharacterFactory.build(spec)
 	add_child(model)
+	_init_model_cache()
 	_apply_carry_pose()
 
 
@@ -120,9 +143,30 @@ func bind_model(id: StringName, key: String, m: Node3D) -> void:
 	_clear_idle_fx()
 	model = m
 	add_child(model)
+	_init_model_cache()
 	ProceduralAnimationSystem.stand_up(model)
 	ProceduralAnimationSystem.end_pose(model)
 	_apply_carry_pose()
+
+
+func _init_model_cache() -> void:
+	_spec_mood = "netral"
+	_spec_bag_side = 1.0
+	shadow_diam = 0.36
+	if model == null or not is_instance_valid(model):
+		return
+	if model.has_meta("spec"):
+		var sp: Dictionary = model.get_meta("spec") as Dictionary
+		_spec_mood = str(sp.get("mood", "netral"))
+		var props: PackedStringArray = sp.get("prop", PackedStringArray())
+		if props.has("tas_belanja") or props.has("koper"):
+			_spec_bag_side = -1.0
+	var sb: MeshInstance3D = model.get_node_or_null("ShadowBlob") as MeshInstance3D
+	if sb != null:
+		if sb.mesh != null:
+			shadow_diam = maxf(0.2, sb.mesh.get_aabb().size.x * model.scale.x)
+		if world_shadow:
+			sb.visible = false
 
 
 ## Salinan model ini dalam pose istirahat dan tanpa kain lap gerak menganggur,
@@ -166,12 +210,16 @@ func sync(a: SimActor, delta: float, animate: bool) -> void:
 	if _seat != Vector3.INF:
 		target = Vector3(_seat.x, 0.0, _seat.z)
 	var before: Vector3 = global_position
-	var jumped: bool = global_position.distance_to(target) > 1.5
+	var jumped: bool = global_position.distance_squared_to(target) > 2.25
 	global_position = target if jumped else global_position.lerp(target, minf(1.0, delta * 18.0))
 	_update_walk(a, before, jumped, delta)
 	if a.facing.length_squared() > 0.0001:
+		if not _has_facing_cache or not is_equal_approx(a.facing.x, _last_fx) or not is_equal_approx(a.facing.y, _last_fz):
+			_last_fx = a.facing.x
+			_last_fz = a.facing.y
+			_has_facing_cache = true
 		# Wajah karakter menghadap -Z (CharacterFactory.FRONT).
-		var want: float = atan2(-a.facing.x, -a.facing.y)
+		var want: float = atan2(-_last_fx, -_last_fz)
 		rotation.y = lerp_angle(rotation.y, want, minf(1.0, TURN_SPEED * delta))
 	if model == null or not animate:
 		return
@@ -444,9 +492,7 @@ func _set_gesture(g: int) -> void:
 
 
 func _base_mood() -> String:
-	if model != null and model.has_meta("spec"):
-		return str((model.get_meta("spec") as Dictionary).get("mood", "netral"))
-	return "netral"
+	return _spec_mood
 
 
 func _show_cloth(on: bool) -> void:
@@ -618,10 +664,12 @@ func _clear_idle_fx() -> void:
 ## Barang bawaan terlihat di depan torso (GDD 4.2, 31.2): "dough", "tray",
 ## "bag", "package", "bread" (roti lepas di tangan pembeli), atau "" (kosong).
 func set_carry(kind: String, recipe_profile: String = "", quality: float = 1.0, count: int = 1) -> void:
-	var key: String = _carry_key_for(kind, recipe_profile, count)
-	if key == _carry_key:
+	if kind == _carry_kind and recipe_profile == _carry_prof and count == _carry_count:
 		return
-	_carry_key = key
+	_carry_kind = kind
+	_carry_prof = recipe_profile
+	_carry_count = count
+	_carry_key = _carry_key_for(kind, recipe_profile, count)
 	_set_carry(kind, recipe_profile, quality, count)
 
 
@@ -636,6 +684,9 @@ func _set_carry(kind: String, recipe_profile: String = "", quality: float = 1.0,
 		_carry.queue_free()
 	_carry = null
 	if kind == "":
+		_carry_kind = ""
+		_carry_prof = ""
+		_carry_count = 1
 		_carry_key = _carry_key_for("", "", 1)
 		_apply_carry_pose()
 		return
@@ -653,7 +704,7 @@ func _set_carry(kind: String, recipe_profile: String = "", quality: float = 1.0,
 			tray.position = Vector3(0.0, -0.0125, 0.0)
 			_carry.add_child(tray)
 		"bag":
-			var bag: Node3D = BreadFactory.build_paper_bag()
+			var bag: Node3D = BreadFactory.build_paper_bag_cached()
 			bag.scale = Vector3(0.8, 0.8, 0.8)
 			_carry.add_child(bag)
 			_carry.position = Vector3(0.14 * _bag_side(), 0.18, -0.10)
@@ -675,11 +726,7 @@ func _set_carry(kind: String, recipe_profile: String = "", quality: float = 1.0,
 ## Kantong kertas dijinjing di tangan kanan, kecuali tangan itu sudah memegang
 ## tas belanja atau koper bawaan karakter (+1 kanan, -1 kiri).
 func _bag_side() -> float:
-	if model != null and model.has_meta("spec"):
-		var props: PackedStringArray = (model.get_meta("spec") as Dictionary).get("prop", PackedStringArray())
-		if props.has("tas_belanja") or props.has("koper"):
-			return -1.0
-	return 1.0
+	return _spec_bag_side
 
 
 ## Kedua lengan memeluk barang yang dibawa di depan badan; tas kertas dijinjing
@@ -687,8 +734,7 @@ func _bag_side() -> float:
 func _apply_carry_pose() -> void:
 	if model == null or not is_instance_valid(model):
 		return
-	var kind: String = _carry_key.get_slice("|", 0)
-	ProceduralAnimationSystem.set_carry_pose(model, kind in ["dough", "tray", "package", "bread"])
+	ProceduralAnimationSystem.set_carry_pose(model, _carry_kind in ["dough", "tray", "package", "bread"])
 
 
 ## Balon pikiran (GDD 7): jam pasir saat antre lama, koin saat harga mahal.

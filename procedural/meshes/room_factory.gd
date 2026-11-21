@@ -614,15 +614,17 @@ static func _lighting(root: Node3D, w: float, d: float, h: float) -> void:
 	sun.shadow_enabled = false
 	sun.rotation_degrees = Vector3(-52.0, -135.0, 0.0)
 	root.add_child(sun)
-	var lamp_count: int = maxi(1, int((w * d) / 9.0))
+	# Maksimal 2 OmniLight3D ruangan agar shader GLES3 Compatibility tetap ringan
+	# di HP meski toko meluas sampai Tier 5.
+	var lamp_count: int = mini(2, maxi(1, int((w * d) / 40.0)))
+	var span_range: float = maxf(4.0, maxf(w, d) * 0.85)
 	for i in lamp_count:
 		var omni := OmniLight3D.new()
 		omni.name = "Lamp%d" % i
 		omni.light_color = Palette.WARMER_LAMP
-		omni.light_energy = 0.55
-		omni.omni_range = maxf(3.0, maxf(w, d) * 0.6)
+		omni.light_energy = 0.65 if lamp_count == 1 else 0.55
+		omni.omni_range = span_range
 		omni.shadow_enabled = false
 		root.add_child(omni)
-		var fx: float = (float(i % 3) + 0.5) / 3.0
-		var fz: float = (float(i / 3) + 0.5) / float(maxi(1, lamp_count / 3 + 1))
-		omni.position = Vector3(w * fx, h * 0.9, d * fz)
+		var fz: float = 0.5 if lamp_count == 1 else (0.28 if i == 0 else 0.72)
+		omni.position = Vector3(w * 0.5, h * 0.9, d * fz)

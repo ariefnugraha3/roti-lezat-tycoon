@@ -2171,34 +2171,15 @@ static func _oven_window(parent: Node3D, node_name: String, size: Vector2, pos: 
 	return pane
 
 
-## Bara oven: OmniLight3D hangat berenergi rendah, tanpa bayangan.
-static func _oven_glow(parent: Node3D, pos: Vector3, energy: float, radius: float) -> OmniLight3D:
-	var lamp := OmniLight3D.new()
-	lamp.name = "GlowLight"
-	parent.add_child(lamp)
-	lamp.position = pos
-	lamp.light_color = Palette.WARMER_LAMP
-	lamp.light_energy = energy
-	lamp.light_specular = 0.15
-	lamp.omni_range = radius
-	lamp.omni_attenuation = 1.5
-	lamp.shadow_enabled = false
-	return lamp
+## Bara oven: hanya aktif jika tidak di renderer Compatibility mobile; mesh
+## emissive "Glow" sudah memberi kesan hangat tanpa puluhan OmniLight3D per frame.
+static func _oven_glow(_parent: Node3D, _pos: Vector3, _energy: float, _radius: float) -> OmniLight3D:
+	return null
 
 
-## Lampu penghangat etalase #FFAA44 (GDD 4.1), lembut dan tanpa bayangan.
-static func _warm_lamp(parent: Node3D, pos: Vector3, energy: float, radius: float) -> OmniLight3D:
-	var lamp := OmniLight3D.new()
-	lamp.name = "WarmLamp"
-	parent.add_child(lamp)
-	lamp.position = pos
-	lamp.light_color = Palette.WARMER_LAMP
-	lamp.light_energy = energy
-	lamp.light_specular = 0.1
-	lamp.omni_range = radius
-	lamp.omni_attenuation = 1.4
-	lamp.shadow_enabled = false
-	return lamp
+## Lampu penghangat etalase: strip emissive sudah menyala tanpa OmniLight3D tambahan.
+static func _warm_lamp(_parent: Node3D, _pos: Vector3, _energy: float, _radius: float) -> OmniLight3D:
+	return null
 
 
 ## Kotak kaca etalase: empat tiang sudut, rangka atas, dan panel kaca tembus

@@ -86,7 +86,7 @@ func make_popup(title_text: String, size_v: Vector2 = ProceduralUIFactory.POPUP_
 
 ## Helper: area gulir vertikal yang mengisi sisa ruang.
 static func scroll_box(parent: Control) -> VBoxContainer:
-	var sc := ScrollContainer.new()
+	var sc := TouchScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

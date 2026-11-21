@@ -154,6 +154,13 @@ func recipe_level(recipe_id: StringName) -> int:
 	return int(recipe_levels.get(recipe_id, 1))
 
 
+func recipe_sig() -> int:
+	var h: int = recipe_levels.size() * 1000003
+	for k: Variant in recipe_levels.keys():
+		h += (int((k as StringName).hash()) & 0x7fffffff) * int(recipe_levels[k])
+	return h
+
+
 func unlocked_recipes() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for r: RecipeDefinition in DataRegistry.recipes():

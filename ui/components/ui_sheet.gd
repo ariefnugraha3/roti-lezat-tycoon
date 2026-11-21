@@ -184,6 +184,7 @@ static func section(parent: Control, text: String) -> Label:
 ## Kartu kosong selebar daftar di `parent` (baris dengan tata letak sendiri).
 static func card(parent: Control) -> PanelContainer:
 	var pc := PanelContainer.new()
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
 	pc.add_theme_stylebox_override("panel", ProceduralUIFactory.card_box())
 	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(pc)

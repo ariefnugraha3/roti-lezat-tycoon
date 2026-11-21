@@ -264,5 +264,8 @@ func on_back() -> bool:
 		_step -= 1
 		_render()
 	elif not OS.has_feature("web"):
-		host.confirm(Tx.t("ui_exit_confirm"), func() -> void: get_tree().quit())
+		if game != null:
+			game.confirm_exit()
+		else:
+			host.confirm(Tx.t("ui_exit_confirm"), func() -> void: get_tree().quit())
 	return true

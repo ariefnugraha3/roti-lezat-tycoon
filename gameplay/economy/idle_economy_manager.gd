@@ -333,14 +333,20 @@ static func _owner_need(x: float, cashier_units: float, owner_serve_units: float
 	return maxf(0.0, x - cashier_units) / maxf(owner_serve_units, 0.000001) + maxf(0.0, x - baker_units) / maxf(owner_kitchen_units, 0.000001)
 
 
+static var _idle_mults_desc: Array[int] = []
+
+
 ## Ukuran batch tunak resep `r` di petak berkapasitas `cap`: terbesar yang muat.
 static func _batch_for(r: RecipeDefinition, cap: int) -> int:
-	var mults: Array = DataRegistry.bal("production.batch_multipliers").duplicate()
-	mults.sort()
-	mults.reverse()
-	for m: Variant in mults:
-		if r.batch_yield * int(m) <= cap:
-			return int(m)
+	if _idle_mults_desc.is_empty():
+		var mults: Array = DataRegistry.bal("production.batch_multipliers").duplicate()
+		mults.sort()
+		mults.reverse()
+		for mv: Variant in mults:
+			_idle_mults_desc.append(int(mv))
+	for m: int in _idle_mults_desc:
+		if r.batch_yield * m <= cap:
+			return m
 	return 1
 
 

@@ -39,6 +39,9 @@ var mode: String = MODE_NONE
 
 ## Mesh persegi membulat per ukuran ("w|h|r" -> ArrayMesh), dipakai bersama.
 static var _round_meshes: Dictionary = {}
+## Material statis bersama untuk latar dan alur semua penanda (hemat alokasi &
+## material/shader). `Isi` tetap unik per penanda karena warnanya berubah-ubah.
+static var _shared_mats: Dictionary = {}
 ## Segmen per sudut membulat.
 const CORNER_SEGMENTS: int = 6
 
@@ -47,9 +50,17 @@ var _isi: MeshInstance3D = null
 var _isi_mat: StandardMaterial3D = null
 var _nilai: float = 0.0
 var _hc_scale: float = 1.0
+var _last_cam_basis: Basis = Basis()
+var _has_cam_basis: bool = false
+
+
+static func clear_caches() -> void:
+	_round_meshes.clear()
+	_shared_mats.clear()
 
 
 func _ready() -> void:
+	set_process(false)
 	_bar = _build_bar()
 	add_child(_bar)
 	_apply_mode()
@@ -62,23 +73,47 @@ func _ready() -> void:
 
 ## Penanda besar untuk opsi High Contrast Interaction Markers (GDD 75.4).
 func set_high_contrast(on: bool) -> void:
-	_hc_scale = 1.3 if on else 1.0
+	var want: float = 1.3 if on else 1.0
+	if is_equal_approx(_hc_scale, want):
+		return
+	_hc_scale = want
 	if _bar != null and is_instance_valid(_bar):
 		_bar.scale = Vector3(_hc_scale, _hc_scale, _hc_scale)
 
 
 ## Menampilkan bar progres terisi `nilai` (0..1).
 func show_progress(nilai: float) -> void:
+	var clamped: float = clampf(nilai, 0.0, 1.0)
+	if mode == MODE_PROGRESS and is_equal_approx(_nilai, clamped):
+		return
+	var was_none: bool = mode == MODE_NONE
 	mode = MODE_PROGRESS
-	_nilai = clampf(nilai, 0.0, 1.0)
+	_nilai = clamped
 	_apply_mode()
 	_apply_progress()
+	if was_none:
+		_hadap_kamera()
 
 
 ## Menyembunyikan penanda sepenuhnya.
 func hide_marker() -> void:
+	if mode == MODE_NONE:
+		return
 	mode = MODE_NONE
 	_apply_mode()
+
+
+## Orientasikan penanda saat basis kamera berubah (dipanggil WorldView).
+func sync_camera_basis(b: Basis) -> void:
+	if mode == MODE_NONE:
+		return
+	if _has_cam_basis and b.is_equal_approx(_last_cam_basis):
+		return
+	_last_cam_basis = b
+	_has_cam_basis = true
+	var t: Transform3D = global_transform
+	t.basis = b
+	global_transform = t
 
 
 ## Memutar SELURUH penanda sejajar bidang layar.
@@ -91,9 +126,7 @@ func _hadap_kamera() -> void:
 	var cam: Camera3D = get_viewport().get_camera_3d()
 	if cam == null or not is_instance_valid(cam):
 		return
-	var t: Transform3D = global_transform
-	t.basis = cam.global_transform.basis
-	global_transform = t
+	sync_camera_basis(cam.global_transform.basis)
 
 
 ## Menaruh penanda tepat di atas puncak satu perabot.
@@ -105,12 +138,6 @@ func pasang_di(node: Node3D) -> void:
 	if b.size != Vector3.ZERO:
 		puncak = (b.position.y + b.size.y) * node.scale.y
 	position = Vector3(node.position.x, puncak + HOVER, node.position.z)
-
-
-func _process(_delta: float) -> void:
-	if mode == MODE_NONE:
-		return
-	_hadap_kamera()
 
 
 # ===========================================================================
@@ -165,13 +192,27 @@ func _build_bar() -> Node3D:
 ## node induknya, satu kali untuk seluruh lapisan (lihat catatan kepala berkas).
 func _quad(ukuran: Vector2, warna: Color, round: float = 1.0) -> MeshInstance3D:
 	var mesh: ArrayMesh = rounded_mesh(ukuran.x, ukuran.y, ukuran.y * 0.5 * clampf(round, 0.0, 1.0))
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = warna
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.emission_enabled = true
-	mat.emission = warna
-	mat.emission_energy_multiplier = 0.45
-	mat.disable_receive_shadows = true
+	var mat: StandardMaterial3D
+	if ukuran.y >= BAR_HEIGHT * 0.9:
+		var mkey: String = warna.to_html()
+		if not _shared_mats.has(mkey):
+			var sm := StandardMaterial3D.new()
+			sm.albedo_color = warna
+			sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			sm.emission_enabled = true
+			sm.emission = warna
+			sm.emission_energy_multiplier = 0.45
+			sm.disable_receive_shadows = true
+			_shared_mats[mkey] = sm
+		mat = _shared_mats[mkey]
+	else:
+		mat = StandardMaterial3D.new()
+		mat.albedo_color = warna
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.emission_enabled = true
+		mat.emission = warna
+		mat.emission_energy_multiplier = 0.45
+		mat.disable_receive_shadows = true
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.material_override = mat

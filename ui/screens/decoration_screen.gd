@@ -271,7 +271,7 @@ func _build_bottom(frame: Control) -> void:
 	_usage_row.add_theme_constant_override("h_separation", 6)
 	_usage_row.add_theme_constant_override("v_separation", 6)
 	_cat_body.add_child(_usage_row)
-	_list_scroll = ScrollContainer.new()
+	_list_scroll = TouchScrollContainer.new()
 	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_list_scroll.custom_minimum_size = Vector2(0.0, maxf(LIST_MIN_PX, get_viewport_rect().size.y * LIST_RATIO))
 	_cat_body.add_child(_list_scroll)

@@ -126,7 +126,7 @@ func _staff(c: Vector2, s: float) -> void:
 	# Jas putih dipotong lingkaran piring (kesan foto profil).
 	var coat: PackedVector2Array = ProceduralUIFactory.rounded_points(Rect2(c + Vector2(-0.33, 0.22) * s, Vector2(0.66, 0.40) * s), 0.17 * s, 6)
 	var pr: float = (PLATE_R_ACTIVE if active else PLATE_R) * s
-	for part: PackedVector2Array in Geometry2D.intersect_polygons(coat, _ellipse(c, Vector2(pr, pr), 48)):
+	for part: PackedVector2Array in Geometry2D.intersect_polygons(coat, _ellipse(c, Vector2(pr, pr), 24)):
 		ProceduralUIFactory.fill_aa(self, part, WHITE)
 	_disc(c, s, -0.07, 0.35, 0.022, Palette.CARAMEL)
 	_disc(c, s, 0.07, 0.35, 0.022, Palette.CARAMEL)
@@ -227,26 +227,32 @@ func _poly(c: Vector2, s: float, pts: Variant, col: Color) -> void:
 
 
 func _disc(c: Vector2, s: float, x: float, y: float, r: float, col: Color) -> void:
-	draw_circle(c + Vector2(x, y) * s, r * s, col, true, -1.0, true)
+	var pr: float = r * s
+	var segs: int = 24 if pr >= 12.0 else 12
+	ProceduralUIFactory.circle_aa(self, c + Vector2(x, y) * s, pr, col, segs)
 
 
 func _rrect(c: Vector2, s: float, x: float, y: float, w: float, h: float, r: float, col: Color) -> void:
-	ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(Rect2(c + Vector2(x, y) * s, Vector2(w, h) * s), r * s, 5), col)
+	ProceduralUIFactory.fill_aa(self, ProceduralUIFactory.rounded_points(Rect2(c + Vector2(x, y) * s, Vector2(w, h) * s), r * s, 4), col)
 
 
-## Garis tebal berujung bulat.
+## Garis tebal berujung bulat dalam satu batch segitiga.
 func _stroke(c: Vector2, s: float, a: Vector2, b: Vector2, w: float, col: Color) -> void:
-	draw_line(c + a * s, c + b * s, col, w * s, true)
-	draw_circle(c + a * s, w * s * 0.5, col, true, -1.0, true)
-	draw_circle(c + b * s, w * s * 0.5, col, true, -1.0, true)
+	ProceduralUIFactory.capsule_aa(self, c + a * s, c + b * s, w * s * 0.5, col, 5)
 
 
-## Busur tebal berujung bulat (senyum).
+## Busur tebal berujung bulat (senyum) dalam satu batch segitiga.
 func _arc(c: Vector2, s: float, ctr: Vector2, r: float, a0: float, a1: float, w: float, col: Color) -> void:
 	var p: Vector2 = c + ctr * s
-	draw_arc(p, r * s, a0, a1, 12, col, w * s, true)
-	draw_circle(p + Vector2(cos(a0), sin(a0)) * r * s, w * s * 0.5, col, true, -1.0, true)
-	draw_circle(p + Vector2(cos(a1), sin(a1)) * r * s, w * s * 0.5, col, true, -1.0, true)
+	var segs: int = 8
+	var line := PackedVector2Array()
+	line.resize(segs + 1)
+	for i in segs + 1:
+		var a: float = lerpf(a0, a1, float(i) / float(segs))
+		line[i] = p + Vector2(cos(a), sin(a)) * (r * s)
+	for poly: PackedVector2Array in Geometry2D.offset_polyline(line, w * s * 0.5, Geometry2D.JOIN_ROUND, Geometry2D.END_ROUND):
+		if poly.size() >= 3:
+			ProceduralUIFactory.fill_aa(self, poly, col)
 
 
 ## Kilau bintang empat sudut.

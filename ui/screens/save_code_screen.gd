@@ -28,6 +28,7 @@ func build() -> void:
 		lbl(list, Tx.t("ui_save_error"), 18, Palette.DANGER, true)
 		return
 	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 24, true)
 	sb.set_content_margin_all(16.0)
 	card.add_theme_stylebox_override("panel", sb)
@@ -37,6 +38,7 @@ func build() -> void:
 	# Potongan kode dan ukurannya, supaya terlihat apa yang disalin.
 	var chip := PanelContainer.new()
 	chip.name = "CodePreview"
+	chip.mouse_filter = Control.MOUSE_FILTER_PASS
 	var cs: StyleBoxFlat = ProceduralUIFactory.panel(Palette.UI_CREAM_DEEP, 16, false)
 	cs.set_content_margin_all(12.0)
 	chip.add_theme_stylebox_override("panel", cs)

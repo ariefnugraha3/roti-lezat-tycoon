@@ -107,6 +107,7 @@ func show_code(text: String) -> void:
 	_say("")
 	var card := PanelContainer.new()
 	card.name = "Preview"
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(Palette.CARD, 24, true)
 	sb.set_content_margin_all(16.0)
 	card.add_theme_stylebox_override("panel", sb)

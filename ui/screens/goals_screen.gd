@@ -202,6 +202,9 @@ class GoalBar:
 	var value: float = 0.0
 	var done: bool = false
 
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	func set_progress(v: float, is_done: bool) -> void:
 		var nv: float = clampf(v, 0.0, 1.0)
 		if is_equal_approx(nv, value) and is_done == done:

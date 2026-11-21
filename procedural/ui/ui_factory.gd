@@ -126,7 +126,7 @@ static func panel(color: Color, radius := 20, shadow := true) -> StyleBoxFlat:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = color
 	sb.set_corner_radius_all(maxi(radius, 0))
-	sb.corner_detail = 10
+	sb.corner_detail = 5
 	sb.anti_aliasing = true
 	sb.set_content_margin_all(14.0)
 	if flat_style:
@@ -153,6 +153,7 @@ static func rim_color(face: Color) -> Color:
 static func card(title_text: String, radius := 22) -> PanelContainer:
 	var root: PanelContainer = PanelContainer.new()
 	root.name = "Card"
+	root.mouse_filter = Control.MOUSE_FILTER_PASS
 	root.add_theme_stylebox_override("panel", panel(Palette.CARD, radius, true))
 
 	var pad: MarginContainer = MarginContainer.new()
@@ -1203,26 +1204,109 @@ static func toast(parent: CanvasLayer, text: String, icon_name: String) -> void:
 	tw.tween_callback(holder.queue_free)
 
 
-## Kartu toast (GDD 131): pil krem berbibir dengan lencana ikon bundar di kiri.
-## Prioritas 0 (kritis) memakai lencana stroberi dan tepi merah; prioritas 1
-## lencana madu; sisanya lencana krem.
 ## Isi poligon dengan tepi halus. Renderer Compatibility tidak punya MSAA 2D,
-## jadi `draw_colored_polygon` bergerigi di layar resolusi tinggi; garis tepi
-## antialias tipis berwarna sama (cara `Polygon2D.antialiased`) menghaluskannya.
-## Bidang tembus tidak diberi tepi, supaya pinggirnya tidak menebal.
+## jadi `draw_colored_polygon` bergerigi di layar resolusi tinggi; pinggiran 1 px
+## bening berbasis segitiga (`canvas_item_add_triangle_array`) menggantikan
+## `draw_polyline`, agar seluruh bentuk menggambar tetap satu batch segitiga tanpa
+## memecah draw call CanvasItem.
 static func fill_aa(ci: CanvasItem, pts: PackedVector2Array, col: Color) -> void:
-	if pts.size() < 3:
+	var n: int = pts.size()
+	if n < 3:
 		return
-	ci.draw_colored_polygon(pts, col)
 	if col.a < 0.99:
+		ci.draw_colored_polygon(pts, col)
 		return
-	var ring: PackedVector2Array = pts.duplicate()
-	ring.append(pts[0])
-	ci.draw_polyline(ring, col, AA_EDGE, true)
+	var tris: PackedInt32Array = Geometry2D.triangulate_polygon(pts)
+	if tris.is_empty():
+		ci.draw_colored_polygon(pts, col)
+		return
+	var area2: float = 0.0
+	for i in n:
+		var p: Vector2 = pts[i]
+		var q: Vector2 = pts[(i + 1) % n]
+		area2 += p.x * q.y - q.x * p.y
+	# Dalam koordinat UI (+Y ke bawah), area2 > 0 berarti searah jarum jam (CW):
+	# normal ke luar dari sisi d = (dx, dy) adalah (dy, -dx).
+	var sign_out: float = 1.0 if area2 >= 0.0 else -1.0
+	var verts := PackedVector2Array()
+	verts.resize(n * 2)
+	var cols := PackedColorArray()
+	cols.resize(n * 2)
+	var edge_col := Color(col.r, col.g, col.b, 0.0)
+	for i2 in n:
+		var p_prev: Vector2 = pts[(i2 + n - 1) % n]
+		var p_curr: Vector2 = pts[i2]
+		var p_next: Vector2 = pts[(i2 + 1) % n]
+		var e0: Vector2 = p_curr - p_prev
+		var e1: Vector2 = p_next - p_curr
+		var n0 := Vector2(e0.y * sign_out, -e0.x * sign_out).normalized()
+		var n1 := Vector2(e1.y * sign_out, -e1.x * sign_out).normalized()
+		var m: Vector2 = n0 + n1
+		if m.length_squared() > 0.0001:
+			m = m.normalized()
+		else:
+			m = n1 if n1.length_squared() > 0.0001 else n0
+		var miter: float = clampf(1.0 / maxf(n0.dot(m), 0.35), 1.0, 1.8)
+		verts[i2] = p_curr
+		verts[n + i2] = p_curr + m * (AA_FRINGE_PX * miter)
+		cols[i2] = col
+		cols[n + i2] = edge_col
+	var base_tris: int = tris.size()
+	tris.resize(base_tris + n * 6)
+	var k: int = base_tris
+	for i3 in n:
+		var j: int = (i3 + 1) % n
+		tris[k] = i3
+		tris[k + 1] = j
+		tris[k + 2] = n + j
+		tris[k + 3] = i3
+		tris[k + 4] = n + j
+		tris[k + 5] = n + i3
+		k += 6
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), tris, verts, cols)
 
 
-## Lebar garis tepi halus `fill_aa` (satuan kanvas).
+## Lingkaran halus dalam satu batch segitiga (pengganti `draw_circle(..., true)`
+## yang memutus batch poligon).
+static func circle_aa(ci: CanvasItem, ctr: Vector2, radius: float, col: Color, segs: int = 18) -> void:
+	if radius <= 0.1 or col.a <= 0.001:
+		return
+	var s: int = clampi(segs, 8, 32)
+	var pts := PackedVector2Array()
+	pts.resize(s)
+	var step: float = TAU / float(s)
+	for i in s:
+		var a: float = float(i) * step
+		pts[i] = ctr + Vector2(cos(a), sin(a)) * radius
+	fill_aa(ci, pts, col)
+
+
+## Kapsul / garis tebal berujung bulat dalam satu batch segitiga.
+static func capsule_aa(ci: CanvasItem, pa: Vector2, pb: Vector2, radius: float, col: Color, cap_segs: int = 6) -> void:
+	if radius <= 0.05 or col.a <= 0.001:
+		return
+	var d: Vector2 = pb - pa
+	if d.length_squared() < 0.25:
+		circle_aa(ci, (pa + pb) * 0.5, radius, col, cap_segs * 2)
+		return
+	var ang: float = atan2(d.y, d.x)
+	var pts := PackedVector2Array()
+	pts.resize((cap_segs + 1) * 2)
+	var k: int = 0
+	for i in cap_segs + 1:
+		var a: float = ang - PI * 0.5 + PI * float(i) / float(cap_segs)
+		pts[k] = pb + Vector2(cos(a), sin(a)) * radius
+		k += 1
+	for i2 in cap_segs + 1:
+		var a2: float = ang + PI * 0.5 + PI * float(i2) / float(cap_segs)
+		pts[k] = pa + Vector2(cos(a2), sin(a2)) * radius
+		k += 1
+	fill_aa(ci, pts, col)
+
+
+## Lebar pinggiran antialias `fill_aa` (piksel).
 const AA_EDGE: float = 1.0
+const AA_FRINGE_PX: float = 0.75
 
 
 ## Lebar teks toast paling besar sebelum dibungkus (px logis).
@@ -2060,7 +2144,9 @@ class CozyBackdrop extends Control:
 	var show_awning: bool = true
 	var show_table: bool = true
 
+	const START_ANIM_INTERVAL: float = 1.0 / 15.0
 	var _t: float = 0.0
+	var _anim_acc: float = 0.0
 	var _icons: Array[IconCanvas] = []
 	var _breads: Array[BreadArt] = []
 
@@ -2112,6 +2198,10 @@ class CozyBackdrop extends Control:
 		if SettingsManager.reduced_motion() or not is_visible_in_tree():
 			return
 		_t += delta
+		_anim_acc += delta
+		if _anim_acc < START_ANIM_INTERVAL:
+			return
+		_anim_acc = fmod(_anim_acc, START_ANIM_INTERVAL)
 		for i in _icons.size():
 			var f: Array = FLOATERS[i]
 			_icons[i].position.y = size.y * float(f[2]) - _icons[i].custom_minimum_size.y * 0.5 + sin(_t * 0.8 + float(i) * 1.7) * 6.0

@@ -9,6 +9,7 @@ func tests() -> Array:
 		{"id": "ACC_IDLE_PORTRAIT_UI_ID", "name": "idle 20 no. 109 in Indonesian, whose words run longer, the HUD and every screen still fit the 9:16 and 9:20 frames at 100/125/150% text with nothing cut off and no sideways scrolling", "fn": _portrait_ui_id},
 		{"id": "ACC_IDLE_PORTRAIT_UI", "name": "idle 12.0.7 on every size of the portrait matrix (phones, tablets, laptops) at 100/125/150% text, the HUD and every screen open with no visible control outside the frame and no sideways scrolling", "fn": _portrait_ui},
 		{"id": "ACC_IDLE_WHEEL_OVER_SHEET", "name": "idle 12.0.5 the mouse wheel over an open sheet (or any screen) scrolls its list and never zooms the camera, also at the top and bottom of the list; over the world it still zooms", "fn": _wheel_over_sheet},
+		{"id": "ACC_IDLE_TOUCH_SCROLL", "name": "touch swipe scrolls menus over cards and buttons without pressing buttons or leaking through modals", "fn": _touch_scroll},
 		{"id": "ACC_IDLE_PORTRAIT_CAMERA", "name": "idle 12.0.4 the camera keeps the world width (KEEP_WIDTH); Tier 1-3 floors show whole across the screen between the HUD bars on 9:16 and 9:21; bigger floors follow the owner", "fn": _camera},
 	]
 
@@ -164,6 +165,152 @@ func _click(at: Vector2) -> void:
 		e.global_position = at
 		e.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		runner.get_viewport().push_input(e, true)
+
+
+func _touch_swipe(from: Vector2, to: Vector2, steps: int = 8) -> void:
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = from
+	runner.get_viewport().push_input(down, true)
+	await runner.get_tree().process_frame
+	var prev: Vector2 = from
+	for i in range(1, steps + 1):
+		var p: Vector2 = from.lerp(to, float(i) / float(steps))
+		var drag := InputEventScreenDrag.new()
+		drag.index = 0
+		drag.position = p
+		drag.relative = p - prev
+		prev = p
+		runner.get_viewport().push_input(drag, true)
+		await runner.get_tree().process_frame
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = to
+	runner.get_viewport().push_input(up, true)
+	await runner.get_tree().process_frame
+
+
+func _touch_tap(at: Vector2) -> void:
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = at
+	runner.get_viewport().push_input(down, true)
+	await runner.get_tree().process_frame
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = at
+	runner.get_viewport().push_input(up, true)
+	await runner.get_tree().process_frame
+
+
+## Sentuhan geser vertikal di Android: harus menggulir daftar baik di atas kartu
+## maupun di atas tombol tanpa memicu klik tombol atau menembus modal atasnya.
+func _touch_scroll() -> void:
+	SaveManager.dir = "user://test_saves_ui"
+	for pid: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid)
+	PauseManager.clear_all()
+	var shell: PortraitShell = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	runner.add_child(shell)
+	await runner.get_tree().process_frame
+	shell.layout_for(Vector2(720.0, 1280.0), 1.0)
+	var game: GameRoot = shell.game
+	game.skip_splash_for_tests()
+	await game.start_new_game(&"profile_1", "male", "Touch Bakery")
+	await runner.get_tree().process_frame
+	game.modals.close_all()
+	game.sim.tutorial.skip()
+	PauseManager.clear_all()
+	# Beri kas cukup agar tombol upgrade/resep aktif bisa diuji pembatalan kliknya.
+	game.sim.economy.post(10000000.0, &"OTHER_ADJUSTMENT", &"test_touch_scroll", {})
+	var rig: CameraRig = game.world.camera_rig
+
+	for id: StringName in [&"upgrades", &"menu"]:
+		var scr: UIScreen = game.modals.open(id, {})
+		await runner.get_tree().process_frame
+		await runner.get_tree().process_frame
+		var sc: ScrollContainer = null
+		for n: Node in scr.find_children("*", "ScrollContainer", true, false):
+			if (n as ScrollContainer).is_visible_in_tree() and (n as ScrollContainer).get_v_scroll_bar().max_value > (n as ScrollContainer).size.y + 1.0:
+				sc = n as ScrollContainer
+				break
+		if not check(sc != null, "%s has a scrollable list" % id):
+			game.modals.close_all()
+			continue
+		check(sc is TouchScrollContainer, "%s uses TouchScrollContainer" % id)
+		var sc_rect: Rect2 = sc.get_global_rect()
+		var w0: float = rig.ortho_size
+		# 1) Geser di atas badan kartu (bukan tombol).
+		var card_pt: Vector2 = Vector2(sc_rect.position.x + sc_rect.size.x * 0.25, sc_rect.get_center().y)
+		for n: Node in sc.find_children("*", "PanelContainer", true, false):
+			var pc: PanelContainer = n as PanelContainer
+			if pc.is_visible_in_tree():
+				var r: Rect2 = pc.get_global_rect()
+				if sc_rect.intersects(r) and r.size.y > 40.0:
+					var inter: Rect2 = sc_rect.intersection(r)
+					card_pt = Vector2(inter.position.x + inter.size.x * 0.25, inter.get_center().y)
+					break
+		await _touch_swipe(card_pt, card_pt + Vector2(0.0, -240.0))
+		await runner.get_tree().process_frame
+		check(sc.scroll_vertical > 0, "%s: swipe over card body scrolls down (%d)" % [id, sc.scroll_vertical])
+		near(rig.ortho_size, w0, 0.0001, "%s: camera does not zoom on swipe" % id)
+
+		# 2) Kembalikan ke atas, lalu geser langsung dari atas tombol aktif di dalam daftar.
+		sc.scroll_vertical = 0
+		await runner.get_tree().process_frame
+		var btn: BaseButton = null
+		for n: Node in sc.find_children("*", "BaseButton", true, false):
+			var b: BaseButton = n as BaseButton
+			if not b.is_visible_in_tree() or b.disabled:
+				continue
+			var br: Rect2 = b.get_global_rect()
+			if sc_rect.has_point(br.get_center()) and br.size.x > 16.0 and br.size.y > 16.0:
+				btn = b
+				break
+		if check(btn != null, "%s has an enabled visible button inside scroll area" % id):
+			var hits: Dictionary = {"count": 0}
+			btn.pressed.connect(func() -> void: hits["count"] = int(hits["count"]) + 1)
+			var bpos: Vector2 = btn.get_global_rect().get_center()
+			await _touch_swipe(bpos, bpos + Vector2(0.0, -220.0))
+			await runner.get_tree().process_frame
+			check(sc.scroll_vertical > 0, "%s: swipe starting on button scrolls down (%d)" % [id, sc.scroll_vertical])
+			eq(int(hits["count"]), 0, "%s: swipe over button cancels click" % id)
+			eq(btn.is_pressed(), false, "%s: dragged button is not stuck pressed" % id)
+			# Ketukan singkat tanpa geser tetap menekan tombol seperti biasa.
+			sc.scroll_vertical = 0
+			await runner.get_tree().process_frame
+			await _touch_tap(btn.get_global_rect().get_center())
+			await runner.get_tree().process_frame
+			eq(int(hits["count"]), 1, "%s: short tap still activates button" % id)
+		game.modals.close_all()
+		await runner.get_tree().process_frame
+
+	# 3) Daftar tertutup modal di atasnya (Pause) tidak boleh ikut tergulir.
+	var upg: UIScreen = game.modals.open(&"upgrades", {})
+	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
+	var upg_sc: ScrollContainer = upg.find_children("*", "ScrollContainer", true, false)[0] as ScrollContainer
+	var occluded_scroll: int = upg_sc.scroll_vertical
+	var mid: Vector2 = upg_sc.get_global_rect().get_center()
+	game.modals.open(&"pause", {})
+	await runner.get_tree().process_frame
+	await runner.get_tree().process_frame
+	await _touch_swipe(mid, mid + Vector2(0.0, -220.0))
+	eq(upg_sc.scroll_vertical, occluded_scroll, "occluded scroll list behind Pause does not scroll")
+
+	game.modals.close_all()
+	game.end_session()
+	shell.queue_free()
+	await runner.get_tree().process_frame
+	for pid2: StringName in SaveManager.PROFILE_IDS:
+		SaveManager.delete_profile(pid2)
+	SaveManager.dir = "user://saves"
+	PauseManager.clear_all()
+	PauseManager.lifecycle_enabled = false
 
 
 func _tablecloth() -> void:

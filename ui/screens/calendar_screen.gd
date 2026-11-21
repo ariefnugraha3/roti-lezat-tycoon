@@ -82,6 +82,7 @@ static func strip(s: SimulationRoot, shown: int, next_ready: bool, big: bool) ->
 static func _tile(s: SimulationRoot, i: int, stamped: bool, next: bool, big: bool) -> PanelContainer:
 	var pc := PanelContainer.new()
 	pc.name = "Day%d" % (i + 1)
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
 	var face: Color = Palette.MATCHA_SOFT if stamped else (Palette.HONEY if next else Palette.CARD)
 	var sb: StyleBoxFlat = ProceduralUIFactory.panel(face, 16, false)
 	sb.set_content_margin_all(6.0)

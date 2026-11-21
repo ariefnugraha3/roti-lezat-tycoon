@@ -12,6 +12,7 @@ extends SimManager
 var jobs: Dictionary = {}
 var next_job_id: int = 1
 var next_table_seq: int = 1
+var table_version: int = 0
 
 var _min_stage: float = 1.0
 var _max_jobs: int = 64
@@ -30,6 +31,7 @@ func new_game() -> void:
 	_sorted_dirty = true
 	next_job_id = 1
 	next_table_seq = 1
+	table_version += 1
 
 
 func get_job(job_id: int) -> ProductionJob:
@@ -419,6 +421,7 @@ func put_on_table(job_id: int) -> bool:
 	j.claimed_by = &""
 	j.table_seq = next_table_seq
 	next_table_seq += 1
+	table_version += 1
 	EventBus.sfx.emit(&"bread_place_display", _table_floor())
 	return true
 
@@ -431,6 +434,7 @@ func take_from_table(job_id: int, actor_id: StringName) -> bool:
 	j.stage = ProductionJob.CARRIED_TO_OVEN if j.stage == ProductionJob.DOUGH_ON_TABLE else ProductionJob.CARRIED_TO_DISPLAY
 	j.carrier_id = actor_id
 	j.claimed_by = &""
+	table_version += 1
 	EventBus.sfx.emit(&"bread_place_display", _table_floor())
 	return true
 
@@ -482,6 +486,7 @@ func capture() -> Dictionary:
 func restore(d: Dictionary) -> void:
 	jobs.clear()
 	_sorted_dirty = true
+	table_version += 1
 	next_job_id = int(d.get("next_job_id", 1))
 	next_table_seq = int(d.get("next_table_seq", 1))
 	for item: Variant in d.get("jobs", []):

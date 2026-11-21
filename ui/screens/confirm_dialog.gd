@@ -56,3 +56,8 @@ func _accept() -> void:
 func _cancel() -> void:
 	EventBus.sfx.emit(&"ui_cancel", &"")
 	close()
+
+
+func on_back() -> bool:
+	_cancel()
+	return true

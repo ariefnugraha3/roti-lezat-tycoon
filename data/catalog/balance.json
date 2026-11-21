@@ -111,6 +111,7 @@
   "analytics_detailed_days": 1000,
   "decorations_per_floor": 24,
   "table_items_visible": 6,
-  "notification_coalesce_seconds": 2.0
+  "notification_coalesce_seconds": 2.0,
+  "mobile_max_3d_width": 720
  }
 }

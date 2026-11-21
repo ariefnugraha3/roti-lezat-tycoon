@@ -47,6 +47,7 @@ func build_page(body: VBoxContainer) -> void:
 	lbl(hv, Tx.t("ui_town_bonus_hint", {"t3": FranchiseScreen._pct(float(arr[2])), "t4": FranchiseScreen._pct(float(arr[3])),
 		"t5": FranchiseScreen._pct(float(arr[4])), "max": FranchiseScreen._pct(DataRegistry.idlef("town.max_bonus"))}), 13, Palette.TEXT_MUTED, true)
 	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	gap.custom_minimum_size = Vector2(0, 10)
 	list.add_child(gap)
 	var lots: Array[Dictionary] = branches(sim)
@@ -249,10 +250,12 @@ class StreetRow:
 	var index: int = 0
 
 	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_PASS
 		add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lots = HBoxContainer.new()
 		lots.name = "Lots"
+		lots.mouse_filter = Control.MOUSE_FILTER_PASS
 		lots.add_theme_constant_override("separation", 8)
 		add_child(lots)
 

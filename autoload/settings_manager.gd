@@ -162,6 +162,45 @@ func reduced_motion() -> bool:
 	return get_bool("reduced_motion")
 
 
+## Preset kualitas aktif dari katalog (`auto` mengikuti `auto_default`).
+func quality_preset() -> MiscDefinitions.QualityPresetDefinition:
+	var q: String = str(get_value("quality"))
+	if q == "auto" or q == "":
+		q = String(DataRegistry.quality_auto_default())
+	var fallback: MiscDefinitions.QualityPresetDefinition = null
+	for x: Variant in DataRegistry.quality_presets():
+		var p: MiscDefinitions.QualityPresetDefinition = x
+		if String(p.id) == q:
+			return p
+		if fallback == null:
+			fallback = p
+	return fallback
+
+
+## Pengali jumlah partikel kosmestik dari preset kualitas (GDD 109.2).
+func particle_scale() -> float:
+	var p: MiscDefinitions.QualityPresetDefinition = quality_preset()
+	return clampf(p.particle_scale, 0.2, 1.0) if p != null else 1.0
+
+
+## Frekuensi sinkronisasi visual aktor di lantai lain (Hz, GDD 109.2).
+func offfloor_visual_hz() -> float:
+	var p: MiscDefinitions.QualityPresetDefinition = quality_preset()
+	return clampf(p.offfloor_visual_hz, 1.0, 30.0) if p != null else 4.0
+
+
+## Skala resolusi 3D efektif: pilihan pengguna x preset kualitas (di ponsel mode
+## Auto membatasi ke 0.85 bila resolusi 100% agar fillrate GLES3 ringan, tanpa
+## menurunkan ketajaman UI 2D).
+func effective_resolution_scale() -> float:
+	var user_scale: float = float(get_int("resolution_scale")) / 100.0
+	var p: MiscDefinitions.QualityPresetDefinition = quality_preset()
+	var preset_scale: float = p.resolution_scale if p != null else 1.0
+	if str(get_value("quality")) == "auto" and (OS.has_feature("mobile") or WebPlatform.is_mobile_web()):
+		preset_scale = minf(preset_scale, 0.85)
+	return clampf(user_scale * preset_scale, 0.5, 1.0)
+
+
 ## MSAA tepi 3D dari preset kualitas (Auto: 4x di desktop; nonaktif di HP dan
 ## browser HP karena bug Godot 4.7 GLES3 RenderSceneBuffersGLES3::_check_render_buffers
 ## yang membocorkan FBO setiap frame saat GL_EXT_multisampled_render_to_texture
@@ -228,9 +267,10 @@ func _apply(key: String) -> void:
 		"resolution_scale":
 			# Dunia 3D dirender di SubViewport bingkai potret (GDD idle 12.0.2).
 			var vp: Viewport = PortraitShell.current.viewport if PortraitShell.current != null else get_tree().root
-			vp.scaling_3d_scale = float(get_int(key)) / 100.0
+			vp.scaling_3d_scale = effective_resolution_scale()
 		"quality":
 			var vq: Viewport = PortraitShell.current.viewport if PortraitShell.current != null else get_tree().root
 			vq.msaa_3d = msaa_3d()
+			vq.scaling_3d_scale = effective_resolution_scale()
 		_:
 			pass

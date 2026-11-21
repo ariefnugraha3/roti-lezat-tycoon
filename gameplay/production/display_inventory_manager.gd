@@ -20,11 +20,14 @@ var displays: Dictionary = {}
 ## Naik setiap kali rak, jumlah petak, atau pilihan resep petak berubah: kunci
 ## cache rencana petak Auto (`SimulationRoot.auto_slot_recipe`, GDD idle §20 no. 83).
 var version: int = 0
+## Naik setiap kali isi/stok rak berubah (place, take, return_lots, restore).
+var stock_version: int = 0
 
 
 func new_game() -> void:
 	displays.clear()
 	version += 1
+	stock_version += 1
 
 
 ## Rak `iid` dengan model tier `tier`: jumlah petaknya mengikuti model itu
@@ -38,17 +41,20 @@ func ensure_display(iid: int, tier: int) -> void:
 		while slots_a.size() < def.slot_count:
 			slots_a.append({"recipe": &"", "stacks": [], "assign": &""})
 			version += 1
+			stock_version += 1
 		return
 	var new_slots: Array = []
 	for i in def.slot_count:
 		new_slots.append({"recipe": &"", "stacks": [], "assign": &""})
 	displays[iid] = {"tier": tier, "slots": new_slots}
 	version += 1
+	stock_version += 1
 
 
 func remove_display(iid: int) -> void:
 	displays.erase(iid)
 	version += 1
+	stock_version += 1
 
 
 func has_display(iid: int) -> bool:
@@ -179,6 +185,7 @@ func place(iid: int, index: int, recipe_id: StringName, qty: int, produced_at: f
 	for st: BreadStack in stacks:
 		if st.source_job_id == job_id:
 			st.quantity += n
+			stock_version += 1
 			EventBus.bread_added_to_display.emit(iid, recipe_id, n)
 			return n
 	var b := BreadStack.new()
@@ -188,6 +195,7 @@ func place(iid: int, index: int, recipe_id: StringName, qty: int, produced_at: f
 	b.source_job_id = job_id
 	b.produced_at_game_time = produced_at
 	stacks.append(b)
+	stock_version += 1
 	EventBus.bread_added_to_display.emit(iid, recipe_id, n)
 	return n
 
@@ -273,6 +281,8 @@ func take(recipe_id: StringName, qty: int, only_iid: int, unit_price: float, all
 		left -= n
 		lots.append({"stack": piece, "display_id": c2["display_id"], "slot_index": c2["slot_index"], "unit_price": unit_price})
 	_cleanup()
+	if not lots.is_empty():
+		stock_version += 1
 	return lots
 
 
@@ -307,6 +317,7 @@ func return_lots(lots: Array) -> void:
 		var back: BreadStack = st.duplicate_stack()
 		back.slot_id = StringName("%d:%d" % [target.x, target.y])
 		(slot["stacks"] as Array).append(back)
+		stock_version += 1
 		EventBus.bread_added_to_display.emit(target.x, st.recipe_id, st.quantity)
 
 
@@ -361,6 +372,7 @@ func capture() -> Dictionary:
 func restore(d: Dictionary) -> void:
 	displays.clear()
 	version += 1
+	stock_version += 1
 	for k: Variant in d.keys():
 		var dd: Dictionary = d[k]
 		var sl: Array = []

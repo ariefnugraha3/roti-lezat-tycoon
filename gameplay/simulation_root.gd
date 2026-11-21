@@ -422,9 +422,9 @@ static func _slot_key(iid: int, index: int) -> String:
 
 
 func _auto_plan(live: bool) -> Dictionary:
-	var key: String = "%s|%d|%d|%d|%s|%d|%d|%d|%d|%s|%s|%s" % [str(upgrades.recipe_levels), production.best_tier(&"mixer"), production.best_tier(&"oven"),
+	var key: String = "%d|%d|%d|%d|%s|%d|%d|%d|%d|%s|%s|%.6f|%d|%d|%.6f" % [upgrades.recipe_sig(), production.best_tier(&"mixer"), production.best_tier(&"oven"),
 		prestige.stars, cravings.active() if live else &"", world.location.tier if world.location != null else 0, mastery.version,
-		equipment.list_version, display.version, events.date, EventManager.enabled, "%s|%d|%s|%s" % [decoration.bonus_mult(&"price"), prestige.branch_no, prestige.town_bonus(), premium.income_mult()]]
+		equipment.list_version, display.version, events.date, EventManager.enabled, decoration.bonus_mult(&"price"), prestige.branch_no, prestige.town_bonus(), premium.income_mult()]
 	var cur: Dictionary = _plan_live if live else _plan_plain
 	if not cur.is_empty() and String(cur["key"]) == key:
 		return cur

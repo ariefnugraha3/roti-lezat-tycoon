@@ -91,6 +91,21 @@ var _tab_bar: HBoxContainer = null
 var _tabs: Dictionary = {}
 ## Tab yang lembarnya sedang terbuka (&"" = tidak ada).
 var _active_tab: StringName = &""
+var _last_rate_text_val: float = -1.0
+var _last_stars_shown: int = -1
+var _last_crumbs_shown: float = -1.0
+var _last_clock_day: int = -1
+var _last_clock_min: int = -1
+var _last_weather_kind: int = -1
+var _last_craving_id: StringName = &""
+var _last_craving_text: String = ""
+var _last_craving_locked: int = -1
+var _last_event_on: int = -1
+var _last_event_text: String = ""
+var _last_boost_texts: Dictionary = {}
+var _afford_tick: int = 0
+var _afford_dirty: bool = true
+var _last_afford_bal: float = -1.0
 var _hint: PanelContainer = null
 var _hint_label: Label = null
 var _hint_ok: Button = null
@@ -468,17 +483,35 @@ func _build_craving(col: Control) -> void:
 
 func _refresh_craving() -> void:
 	var rid: StringName = sim.cravings.today()
-	_craving.visible = rid != &""
-	if rid == &"":
+	var on: bool = rid != &""
+	if _craving.visible != on:
+		_craving.visible = on
+	if not on:
+		_last_craving_id = &""
 		return
+	var locked: bool = not sim.upgrades.is_unlocked(rid)
+	var lock_i: int = 1 if locked else 0
+	if rid == _last_craving_id and lock_i == _last_craving_locked:
+		return
+	_last_craving_id = rid
+	_last_craving_locked = lock_i
 	var r: RecipeDefinition = DataRegistry.recipe(rid)
 	var prof: String = String(r.visual_profile_id) if r != null else ""
 	if _craving_art.profile != prof:
 		_craving_art.profile = prof
 		_craving_art.queue_redraw()
-	_craving_label.text = Tx.t("ui_craving_chip", {"recipe": Tx.recipe_name(rid)})
-	_craving_lock.visible = not sim.upgrades.is_unlocked(rid)
+	var txt: String = Tx.t("ui_craving_chip", {"recipe": Tx.recipe_name(rid)})
+	if _craving_text_changed(txt):
+		_craving_label.text = txt
+	_craving_lock.visible = locked
 	_craving.custom_minimum_size = Vector2(_craving_label.get_combined_minimum_size().x + 34.0 + 18.0 + 52.0, 48.0)
+
+
+func _craving_text_changed(txt: String) -> bool:
+	if txt == _last_craving_text:
+		return false
+	_last_craving_text = txt
+	return true
 
 
 ## Pil event musiman: ikon pesta dan "{event} · until {date}". Dibuat sekali.
@@ -503,10 +536,16 @@ func _build_event(col: Control) -> void:
 
 func _refresh_event() -> void:
 	var on: bool = not sim.events.active().is_empty()
-	_event.visible = on
+	if _event.visible != on:
+		_event.visible = on
 	if not on:
+		_last_event_text = ""
 		return
-	_event_label.text = Tx.t("ui_event_chip", {"name": sim.events.names(), "date": Tx.short_date(sim.events.last_end())})
+	var txt: String = Tx.t("ui_event_chip", {"name": sim.events.names(), "date": Tx.short_date(sim.events.last_end())})
+	if txt == _last_event_text:
+		return
+	_last_event_text = txt
+	_event_label.text = txt
 	_event.custom_minimum_size = Vector2(_event_label.get_combined_minimum_size().x + 24.0 + 52.0, 48.0)
 
 
@@ -835,47 +874,77 @@ func _refresh_all() -> void:
 	_place_toasts(game != null and game.modals != null and game.modals.has_sheet())
 	_set_kr(sim.economy.balance)
 	var rate: float = sim.income_rate()
-	_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
+	if not is_equal_approx(rate, _last_rate_text_val):
+		_last_rate_text_val = rate
+		_rate.text = Tx.t("ui_kr_per_second", {"amount": Tx.rate(rate)}) if rate > 0.0 else ""
+		_afford_dirty = true
 	_rate_shown = rate
-	_stars_chip.visible = sim.prestige.stars > 0
-	_stars.text = Tx.big(float(sim.prestige.stars))
-	if not _crumbs_anim:
+	if sim.prestige.stars != _last_stars_shown:
+		_last_stars_shown = sim.prestige.stars
+		_stars_chip.visible = _last_stars_shown > 0
+		_stars.text = Tx.big(float(_last_stars_shown))
+	if not _crumbs_anim and not is_equal_approx(sim.premium.crumbs, _last_crumbs_shown):
+		_last_crumbs_shown = sim.premium.crumbs
 		_crumbs.text = Tx.big(float(sim.premium.crumbs))
-	(_store.get_node("Dot") as Control).visible = sim.premium.claimable_count() > 0 or not Monetization.live_offers().is_empty()
+	var store_dot: bool = sim.premium.claimable_count() > 0 or not Monetization.live_offers().is_empty()
+	var sdot: Control = _store.get_node("Dot") as Control
+	if sdot.visible != store_dot:
+		sdot.visible = store_dot
 	_refresh_boosts()
 	_refresh_craving()
 	_refresh_event()
 	_refresh_regular()
 	_refresh_goals()
-	_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
-	_weather_icon.configure("rain" if sim.weather.is_rain() else ("moon" if sim.time.is_night() else "sun"), 22,
-		Palette.PASTEL_PERIWINKLE if sim.weather.is_rain() or sim.time.is_night() else Palette.GOLD_STAR)
-	for id: Variant in _tabs.keys():
-		var b: Button = _tabs[id]
-		(b.get_node("Dot") as Control).visible = b.visible and has_affordable(StringName(str(id)))
+	var clock_min: int = int(floor(sim.time.time_seconds / 60.0))
+	if sim.time.day != _last_clock_day or clock_min != _last_clock_min:
+		_last_clock_day = sim.time.day
+		_last_clock_min = clock_min
+		_clock.text = "%s · %s" % [Tx.t("ui_hud_day", {"day": sim.time.day}), Tx.clock(sim.time.time_seconds)]
+	var wkind: int = 2 if sim.weather.is_rain() else (1 if sim.time.is_night() else 0)
+	if wkind != _last_weather_kind:
+		_last_weather_kind = wkind
+		_weather_icon.configure("rain" if wkind == 2 else ("moon" if wkind == 1 else "sun"), 22,
+			Palette.PASTEL_PERIWINKLE if wkind >= 1 else Palette.GOLD_STAR)
+	_afford_tick = (_afford_tick + 1) % 3
+	if _afford_dirty or _afford_tick == 0 or not is_equal_approx(sim.economy.balance, _last_afford_bal):
+		_afford_dirty = false
+		_last_afford_bal = sim.economy.balance
+		for id: Variant in _tabs.keys():
+			var b: Button = _tabs[id]
+			var show_dot: bool = b.visible and has_affordable(StringName(str(id)))
+			var dot: Control = b.get_node("Dot") as Control
+			if dot.visible != show_dot:
+				dot.visible = show_dot
 	level_chips.refresh()
+
+
+func _set_boost_chip(chip_ctrl: PanelContainer, key: String, on: bool, text: String) -> void:
+	if chip_ctrl.visible != on:
+		chip_ctrl.visible = on
+	if on and str(_last_boost_texts.get(key, "")) != text:
+		_last_boost_texts[key] = text
+		(chip_ctrl.get_meta("value") as Label).text = text
 
 
 func _refresh_boosts() -> void:
 	var b: BoostManager = sim.boosts
-	_income_boost.visible = b.income_left > 0.0
-	if _income_boost.visible:
-		(_income_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.income_mult), "time": Tx.timer(b.income_left)})
-	_frenzy_boost.visible = b.frenzy_left > 0.0
-	if _frenzy_boost.visible:
-		(_frenzy_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.frenzy_mult), "time": Tx.timer(b.frenzy_left)})
+	_set_boost_chip(_income_boost, "income", b.income_left > 0.0,
+		Tx.t("ui_boost_left", {"mult": Tx.mult(b.income_mult), "time": Tx.timer(b.income_left)}) if b.income_left > 0.0 else "")
+	_set_boost_chip(_frenzy_boost, "frenzy", b.frenzy_left > 0.0,
+		Tx.t("ui_boost_left", {"mult": Tx.mult(b.frenzy_mult), "time": Tx.timer(b.frenzy_left)}) if b.frenzy_left > 0.0 else "")
 	var pr: PremiumManager = sim.premium
-	_ad_boost.visible = pr.ad_boost_left > 0.0
-	if _ad_boost.visible:
-		(_ad_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(pr.ad_boost_mult()), "time": Tx.timer(pr.ad_boost_left)})
-	_rush_boost.visible = b.rush_left > 0.0
-	if _rush_boost.visible:
-		(_rush_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(b.rush_mult), "time": Tx.timer(b.rush_left)})
-	_promo_boost.visible = b.promo_left > 0.0
-	if _promo_boost.visible:
+	_set_boost_chip(_ad_boost, "ad", pr.ad_boost_left > 0.0,
+		Tx.t("ui_boost_left", {"mult": Tx.mult(pr.ad_boost_mult()), "time": Tx.timer(pr.ad_boost_left)}) if pr.ad_boost_left > 0.0 else "")
+	_set_boost_chip(_rush_boost, "rush", b.rush_left > 0.0,
+		Tx.t("ui_boost_left", {"mult": Tx.mult(b.rush_mult), "time": Tx.timer(b.rush_left)}) if b.rush_left > 0.0 else "")
+	_set_boost_chip(_promo_boost, "promo", b.promo_left > 0.0, "")
+	if b.promo_left > 0.0:
 		var p: Dictionary = BoostManager.promo(b.promo_id)
-		(_promo_boost.get_meta("value") as Label).text = Tx.t("ui_boost_left", {"mult": Tx.mult(float(p.get("arrival_mult", 1.0))), "time": Tx.timer(b.promo_left)})
-		_promo_boost.tooltip_text = Tx.t(String(b.promo_id))
+		var txt: String = Tx.t("ui_boost_left", {"mult": Tx.mult(float(p.get("arrival_mult", 1.0))), "time": Tx.timer(b.promo_left)})
+		_set_boost_chip(_promo_boost, "promo", true, txt)
+		var tip: String = Tx.t(String(b.promo_id))
+		if _promo_boost.tooltip_text != tip:
+			_promo_boost.tooltip_text = tip
 
 
 ## Titik di tombol Goals dan toast saat tujuan baru selesai (GDD idle 21.2).
@@ -884,7 +953,10 @@ func _refresh_goals() -> void:
 	if _last_claimable >= 0 and n > _last_claimable:
 		EventBus.notify.emit(2, "ui_goals_ready", {}, &"flag")
 	_last_claimable = n
-	(_goals.get_node("Dot") as Control).visible = n > 0 or sim.calendar.available(BoostManager.today())
+	var gdot: Control = _goals.get_node("Dot") as Control
+	var show_gdot: bool = n > 0 or sim.calendar.available(BoostManager.today())
+	if gdot.visible != show_gdot:
+		gdot.visible = show_gdot
 
 
 ## Tombol Goals (tes).
@@ -910,9 +982,26 @@ func tutorial_target(target_name: String) -> Control:
 	return null
 
 
+var _next_cost_cache: Dictionary = {}
+
+
+func _can_afford_next(up: UpgradeManager, kind: StringName, id: Variant, lvl: int, tier: int) -> bool:
+	var ckey: String = "%s:%s" % [kind, id]
+	var e: Variant = _next_cost_cache.get(ckey)
+	if not (e is Array) or int((e as Array)[0]) != lvl or int((e as Array)[1]) != tier:
+		var o: Dictionary = up.offer(kind, id)
+		var room: int = int(o.get("cap", 0)) - int(o.get("level", 0)) if not o.is_empty() else 0
+		var cost: float = Money.round_cents(UpgradeManager.series_cost(float(o["base"]), float(o["growth"]), int(o["steps"]), 1)) if room >= 1 else 0.0
+		_next_cost_cache[ckey] = [lvl, tier, room, cost]
+		return room >= 1 and sim.economy.can_afford(cost)
+	var arr: Array = e
+	return int(arr[2]) >= 1 and sim.economy.can_afford(float(arr[3]))
+
+
 ## Ada sesuatu yang terjangkau di tab `id` (titik hijau, GDD idle 12.1).
 func has_affordable(id: StringName) -> bool:
 	var up: UpgradeManager = sim.upgrades
+	var tier: int = sim.world.location.tier if sim.world.location != null else 1
 	match id:
 		&"upgrades":
 			for pid: StringName in BoostManager.promo_ids():
@@ -920,12 +1009,12 @@ func has_affordable(id: StringName) -> bool:
 					return true
 			for cat: StringName in [&"mixer", &"oven", &"display"]:
 				for e: EquipmentInstance in sim.equipment.placed_list(cat):
-					if up.offer_count(up.offer(&"station", e.iid), &"x1") > 0:
+					if _can_afford_next(up, &"station", e.iid, up.station_level(e.iid), tier):
 						return true
-			if up.offer_count(up.offer(&"counter", &"counter"), &"x1") > 0:
+			if _can_afford_next(up, &"counter", &"counter", up.counter_level, tier):
 				return true
-			for rid: StringName in up.unlocked_recipes():
-				if up.offer_count(up.offer(&"recipe", rid), &"x1") > 0:
+			for rid: StringName in up.recipe_levels.keys():
+				if _can_afford_next(up, &"recipe", rid, up.recipe_level(rid), tier):
 					return true
 			return false
 		&"menu":
@@ -950,7 +1039,7 @@ func has_affordable(id: StringName) -> bool:
 			return false
 		&"staff":
 			for sid: StringName in sim.staff.employed_ids():
-				if up.offer_count(up.offer(&"staff", sid), &"x1") > 0:
+				if _can_afford_next(up, &"staff", sid, up.staff_level(sid), tier):
 					return true
 			var cost: float = sim.staff.next_hire_cost()
 			if cost < 0.0 or not sim.economy.can_afford(cost):

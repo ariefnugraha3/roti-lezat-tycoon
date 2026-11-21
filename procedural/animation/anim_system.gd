@@ -43,6 +43,8 @@ const CARRY_SWING: float = 0.15
 const META_TWEEN_POP: String = "rlt_tween_pop"
 const META_TWEEN_UI: String = "rlt_tween_ui"
 const META_TWEEN_ACTOR: String = "rlt_tween_actor"
+## Cache referensi node & pose istirahat per instance model (`owner == actor`).
+const META_RIG: String = "rlt_rig"
 const META_TWEEN_DOOR: String = "rlt_tween_door"
 
 # ---------------------------------------------------------------------------
@@ -271,48 +273,55 @@ static func walk_steps_per_second(speed_real: float) -> float:
 static func walk_cycle(actor: Node3D, phase: float, weight: float) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return
+	var r: Dictionary = _rig(actor)
 	var w: float = clampf(weight, 0.0, 1.0)
 	var swing: float = sin(phase)
 	var arm_swing: float = sin(phase - WALK_ARM_LAG)
 	var lift: float = 0.5 + 0.5 * cos(phase * 2.0)
 
 	# Kaki berlawanan fase satu sama lain.
-	var leg_l: Node3D = _part(actor, "LegL")
+	var leg_l: Node3D = r["leg_l"]
 	if leg_l != null:
-		leg_l.rotation.x = _rest_rot(leg_l).x + swing * WALK_LEG_SWING * w
-	var leg_r: Node3D = _part(actor, "LegR")
+		leg_l.rotation.x = (r["leg_l_r"] as Vector3).x + swing * WALK_LEG_SWING * w
+	var leg_r: Node3D = r["leg_r"]
 	if leg_r != null:
-		leg_r.rotation.x = _rest_rot(leg_r).x - swing * WALK_LEG_SWING * w
+		leg_r.rotation.x = (r["leg_r_r"] as Vector3).x - swing * WALK_LEG_SWING * w
 
 	# Lengan berlawanan fase terhadap kaki di sisi yang sama.
-	var arm_l: Node3D = _part(actor, "ArmL")
+	var arm_l: Node3D = r["arm_l"]
 	if arm_l != null:
-		arm_l.rotation.x = _rest_rot(arm_l).x - arm_swing * WALK_ARM_SWING * w * _swing_of(arm_l)
-	var arm_r: Node3D = _part(actor, "ArmR")
+		arm_l.rotation.x = (r["arm_l_r"] as Vector3).x - arm_swing * WALK_ARM_SWING * w * float(r["arm_l_sw"])
+	var arm_r: Node3D = r["arm_r"]
 	if arm_r != null:
-		arm_r.rotation.x = _rest_rot(arm_r).x + arm_swing * WALK_ARM_SWING * w * _swing_of(arm_r)
+		arm_r.rotation.x = (r["arm_r_r"] as Vector3).x + arm_swing * WALK_ARM_SWING * w * float(r["arm_r_sw"])
 
 	# Badan naik saat kaki lurus di bawahnya, turun saat melangkah lebar.
-	var body: Node3D = _part(actor, "Body")
+	var body: Node3D = r["body"]
 	if body != null:
-		body.position.y = _rest_pos(body).y + lift * WALK_BOB * w
-		body.rotation.z = _rest_rot(body).z + swing * WALK_SWAY * w
+		body.position.y = (r["body_p"] as Vector3).y + lift * WALK_BOB * w
+		body.rotation.z = (r["body_r"] as Vector3).z + swing * WALK_SWAY * w
 
 	# Kepala ikut naik-turun dan mengangguk pelan sedikit di belakang badan.
 	var head_dy: float = lift * WALK_BOB * 1.1 * w
 	var head_roll: float = -arm_swing * WALK_HEAD_TILT * w
-	var head: Node3D = _part(actor, "Head")
+	var head: Node3D = r["head"]
 	if head != null:
-		var head_rot: Vector3 = _rest_rot(head)
-		head.position.y = _rest_pos(head).y + head_dy
+		var head_rot: Vector3 = r["head_r"]
+		head.position.y = (r["head_p"] as Vector3).y + head_dy
 		head.rotation.x = head_rot.x + sin(phase * 2.0 - 0.6) * WALK_HEAD_NOD * w
 		head.rotation.z = head_rot.z + head_roll
-	_follow_head(actor, head_dy, head_roll * HAT_FOLLOW_THROUGH)
+	var face: Node3D = r["face"]
+	if face != null:
+		face.position.y = (r["face_p"] as Vector3).y + head_dy
+	var hat: Node3D = r["hat"]
+	if hat != null:
+		hat.position.y = (r["hat_p"] as Vector3).y + head_dy
+		hat.rotation.z = (r["hat_r"] as Vector3).z + head_roll * HAT_FOLLOW_THROUGH
 
 	# Celemek ikut berayun menyusul badan (GDD 4.1 -- kesan kain empuk).
-	var apron: Node3D = _part(actor, "Apron")
+	var apron: Node3D = r["apron"]
 	if apron != null:
-		apron.rotation.z = _rest_rot(apron).z + sin(phase - WALK_APRON_LAG) * WALK_APRON_SWAY * w
+		apron.rotation.z = (r["apron_r"] as Vector3).z + sin(phase - WALK_APRON_LAG) * WALK_APRON_SWAY * w
 
 
 ## Napas tenang saat aktor berdiri diam. Juga mengembalikan tangan & kaki ke pose
@@ -321,44 +330,49 @@ static func walk_cycle(actor: Node3D, phase: float, weight: float) -> void:
 static func idle_bob(actor: Node3D, t: float) -> void:
 	if actor == null or not is_instance_valid(actor):
 		return
+	var r: Dictionary = _rig(actor)
 
 	var phase: float = t * IDLE_FREQ
 	var breathe: float = sin(phase)
 
-	var body: Node3D = _part(actor, "Body")
+	var body: Node3D = r["body"]
 	if body != null:
-		var body_rest: Vector3 = _rest_pos(body)
-		body.position.y = body_rest.y + breathe * IDLE_BOB
-		body.rotation.z = _rest_rot(body).z
+		body.position.y = (r["body_p"] as Vector3).y + breathe * IDLE_BOB
+		body.rotation.z = (r["body_r"] as Vector3).z
 
 	var head_dy: float = sin(phase + 0.6) * IDLE_BOB * 1.4
 	var head_roll: float = sin(phase * 0.5) * IDLE_HEAD_TILT
-	var head: Node3D = _part(actor, "Head")
+	var head: Node3D = r["head"]
 	if head != null:
-		var head_rest: Vector3 = _rest_pos(head)
-		var head_rot: Vector3 = _rest_rot(head)
-		head.position.y = head_rest.y + head_dy
+		var head_rot: Vector3 = r["head_r"]
+		head.position.y = (r["head_p"] as Vector3).y + head_dy
 		head.rotation.x = head_rot.x + breathe * IDLE_HEAD_TILT * 0.5
 		head.rotation.z = head_rot.z + head_roll
-	_follow_head(actor, head_dy, head_roll * HAT_FOLLOW_THROUGH)
+	var face: Node3D = r["face"]
+	if face != null:
+		face.position.y = (r["face_p"] as Vector3).y + head_dy
+	var hat: Node3D = r["hat"]
+	if hat != null:
+		hat.position.y = (r["hat_p"] as Vector3).y + head_dy
+		hat.rotation.z = (r["hat_r"] as Vector3).z + head_roll * HAT_FOLLOW_THROUGH
 
-	var apron: Node3D = _part(actor, "Apron")
+	var apron: Node3D = r["apron"]
 	if apron != null:
-		apron.rotation.z = _rest_rot(apron).z + breathe * WALK_APRON_SWAY * 0.4
+		apron.rotation.z = (r["apron_r"] as Vector3).z + breathe * WALK_APRON_SWAY * 0.4
 
-	var arm_l: Node3D = _part(actor, "ArmL")
+	var arm_l: Node3D = r["arm_l"]
 	if arm_l != null:
-		arm_l.rotation.x = _rest_rot(arm_l).x + breathe * IDLE_ARM * _swing_of(arm_l)
-	var arm_r: Node3D = _part(actor, "ArmR")
+		arm_l.rotation.x = (r["arm_l_r"] as Vector3).x + breathe * IDLE_ARM * float(r["arm_l_sw"])
+	var arm_r: Node3D = r["arm_r"]
 	if arm_r != null:
-		arm_r.rotation.x = _rest_rot(arm_r).x - breathe * IDLE_ARM * _swing_of(arm_r)
+		arm_r.rotation.x = (r["arm_r_r"] as Vector3).x - breathe * IDLE_ARM * float(r["arm_r_sw"])
 
-	var leg_l: Node3D = _part(actor, "LegL")
+	var leg_l: Node3D = r["leg_l"]
 	if leg_l != null:
-		leg_l.rotation.x = _rest_rot(leg_l).x
-	var leg_r: Node3D = _part(actor, "LegR")
+		leg_l.rotation.x = (r["leg_l_r"] as Vector3).x
+	var leg_r: Node3D = r["leg_r"]
 	if leg_r != null:
-		leg_r.rotation.x = _rest_rot(leg_r).x
+		leg_r.rotation.x = (r["leg_r_r"] as Vector3).x
 
 
 ## Batas babak membungkus untuk `n` roti: x = akhir membuka kantong, y = akhir
@@ -1280,6 +1294,7 @@ static func set_carry_pose(actor: Node3D, carrying: bool) -> void:
 		arm.set_meta(META_REST_ROT, rest)
 		arm.set_meta(META_SWING, swing_k)
 		arm.rotation = rest
+	_invalidate_rig(actor)
 
 
 ## Kedua lengan terangkat menahan tumpukan perabot di atas kepala (cutscene
@@ -1306,6 +1321,44 @@ static func set_overhead_pose(actor: Node3D, on: bool) -> void:
 		arm.set_meta(META_REST_ROT, rest)
 		arm.set_meta(META_SWING, swing_k)
 		arm.rotation = rest
+	_invalidate_rig(actor)
+
+
+static func _invalidate_rig(actor: Node3D) -> void:
+	if actor != null and is_instance_valid(actor) and actor.has_meta(META_RIG):
+		actor.remove_meta(META_RIG)
+
+
+## Cache sekali semua simpul badan & pose istirahat per instance `actor` supaya
+## `walk_cycle` dan `idle_bob` bebas pencarian NodePath & metadata tiap frame.
+static func _rig(actor: Node3D) -> Dictionary:
+	if actor.has_meta(META_RIG):
+		var c: Dictionary = actor.get_meta(META_RIG) as Dictionary
+		if c.get("owner") == actor:
+			return c
+	var leg_l: Node3D = _part(actor, "LegL")
+	var leg_r: Node3D = _part(actor, "LegR")
+	var arm_l: Node3D = _part(actor, "ArmL")
+	var arm_r: Node3D = _part(actor, "ArmR")
+	var body: Node3D = _part(actor, "Body")
+	var head: Node3D = _part(actor, "Head")
+	var apron: Node3D = _part(actor, "Apron")
+	var face: Node3D = actor.get_node_or_null(NodePath("Face")) as Node3D
+	var hat: Node3D = actor.get_node_or_null(NodePath("Hat")) as Node3D
+	var d: Dictionary = {
+		"owner": actor,
+		"leg_l": leg_l, "leg_l_r": _rest_rot(leg_l) if leg_l != null else Vector3.ZERO,
+		"leg_r": leg_r, "leg_r_r": _rest_rot(leg_r) if leg_r != null else Vector3.ZERO,
+		"arm_l": arm_l, "arm_l_r": _rest_rot(arm_l) if arm_l != null else Vector3.ZERO, "arm_l_sw": _swing_of(arm_l) if arm_l != null else 1.0,
+		"arm_r": arm_r, "arm_r_r": _rest_rot(arm_r) if arm_r != null else Vector3.ZERO, "arm_r_sw": _swing_of(arm_r) if arm_r != null else 1.0,
+		"body": body, "body_p": _rest_pos(body) if body != null else Vector3.ZERO, "body_r": _rest_rot(body) if body != null else Vector3.ZERO,
+		"head": head, "head_p": _rest_pos(head) if head != null else Vector3.ZERO, "head_r": _rest_rot(head) if head != null else Vector3.ZERO,
+		"apron": apron, "apron_r": _rest_rot(apron) if apron != null else Vector3.ZERO,
+		"face": face, "face_p": _rest_pos(face) if face != null else Vector3.ZERO,
+		"hat": hat, "hat_p": _rest_pos(hat) if hat != null else Vector3.ZERO, "hat_r": _rest_rot(hat) if hat != null else Vector3.ZERO,
+	}
+	actor.set_meta(META_RIG, d)
+	return d
 
 
 ## Ambil bagian tubuh sebagai anak langsung; bila hierarki aktor menaruhnya di

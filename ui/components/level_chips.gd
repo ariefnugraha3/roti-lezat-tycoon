@@ -50,16 +50,23 @@ var _t: float = 0.0
 ## ukuran layar): sama = tata letak dan garis tidak dihitung ulang (GDD idle
 ## §20 no. 87).
 var _last_sig: PackedFloat32Array = PackedFloat32Array()
+var _sig_buf: PackedFloat32Array = PackedFloat32Array()
+var _shown_buf: Array[Dictionary] = []
 ## Hambatan terlihat (GDD idle §20 no. 88): pembeli terakhir yang ditolak karena
 ## antrean penuh (statistik dan waktu nyata), dan giliran chip yang dinilai
 ## kenaikan KR/s-nya (satu chip per refresh, supaya tidak ada lonjakan kerja).
 var _missed_seen: float = -1.0
 var _missed_at_msec: int = -1000000
 var _gain_turn: int = 0
+var _gain_timer: float = 0.0
+var _gain_cache: Dictionary = {}
+var _counter_local_top: Vector3 = Vector3.INF
+var _counter_ref: Node3D = null
 ## Pembeli yang ditolak dalam sekian detik nyata terakhir menyalakan "Queue full".
 const QUEUE_FULL_SECONDS: float = 10.0
 ## Kenaikan KR/s di bawah bagian ini dari KR/s sekarang dianggap nol: panah abu-abu.
 const NO_GAIN_RATIO: float = 0.001
+const GAIN_CHECK_SECONDS: float = 1.0
 
 
 func _init() -> void:
@@ -101,9 +108,27 @@ func refresh() -> void:
 			_chips[k2] = _make(want[k2][0], want[k2][1])
 			_last_sig = PackedFloat32Array()
 		var c: Dictionary = _chips[k2]
-		var o: Dictionary = sim.upgrades.offer(c["kind"], c["id"])
-		(c["label"] as Label).text = Tx.t("ui_level_chip", {"level": int(o.get("level", 1))})
-		(c["arrow"] as Control).visible = not o.is_empty() and sim.upgrades.offer_count(o, &"x1") > 0
+		var lvl: int = sim.upgrades.station_level(int(c["id"])) if c["kind"] == &"station" else sim.upgrades.counter_level
+		var tier_now: int = sim.world.location.tier
+		var o: Dictionary = c.get("offer_cache", {}) as Dictionary
+		if o.is_empty() or int(c.get("offer_lvl", -1)) != lvl or int(c.get("offer_tier", -1)) != tier_now or int(c.get("offer_cnt", -1)) != _chips.size():
+			o = sim.upgrades.offer(c["kind"], c["id"])
+			c["offer_cache"] = o
+			c["offer_lvl"] = lvl
+			c["offer_tier"] = tier_now
+			c["offer_cnt"] = _chips.size()
+			var room: int = int(o.get("cap", 0)) - int(o.get("level", 0)) if not o.is_empty() else 0
+			c["next_room"] = room
+			c["next_cost"] = Money.round_cents(UpgradeManager.series_cost(float(o["base"]), float(o["growth"]), int(o["steps"]), 1)) if room >= 1 else 0.0
+		if int(c.get("last_lvl", -1)) != lvl:
+			c["last_lvl"] = lvl
+			(c["label"] as Label).text = Tx.t("ui_level_chip", {"level": lvl})
+			c["sz_dirty"] = true
+		var show_arrow: bool = int(c.get("next_room", 0)) >= 1 and sim.economy.can_afford(float(c.get("next_cost", 0.0)))
+		var arrow: Control = c["arrow"] as Control
+		if arrow.visible != show_arrow:
+			arrow.visible = show_arrow
+			c["sz_dirty"] = true
 	_refresh_queue_full()
 	_refresh_gain_turn()
 
@@ -123,6 +148,7 @@ func _refresh_queue_full() -> void:
 		var tag: Control = (c as Dictionary)["full"]
 		if tag.visible != full:
 			tag.visible = full
+			(c as Dictionary)["sz_dirty"] = true
 			_last_sig = PackedFloat32Array()
 
 
@@ -152,10 +178,22 @@ func _refresh_gain_turn() -> void:
 	var arrow: IconCanvas = c["arrow"]
 	if not arrow.visible:
 		return
-	var o: Dictionary = sim.upgrades.offer(c["kind"], c["id"])
-	var gain: float = sim.idle_economy.delta_rate(o, 1)
+	var o: Dictionary = c.get("offer_cache", {}) as Dictionary
+	if o.is_empty():
+		o = sim.upgrades.offer(c["kind"], c["id"])
 	var rate: float = sim.idle_economy.rate(false)
-	var useful: bool = gain > maxf(rate, 0.000001) * NO_GAIN_RATIO
+	var gsig: String = "%d|%.4f|%d" % [int(o.get("level", 1)), rate, _chips.size()]
+	var ck: String = str(c["key"])
+	var useful: bool
+	if _gain_cache.has(ck) and str((_gain_cache[ck] as Array)[0]) == gsig:
+		useful = bool((_gain_cache[ck] as Array)[1])
+	else:
+		var gain: float = sim.idle_economy.delta_rate(o, 1)
+		useful = gain > maxf(rate, 0.000001) * NO_GAIN_RATIO
+		_gain_cache[ck] = [gsig, useful]
+	if bool(c.get("useful_set", false)) and bool(c.get("useful", true)) == useful:
+		return
+	c["useful_set"] = true
 	c["useful"] = useful
 	arrow.configure("up", ARROW_PX, Palette.MATCHA if useful else Palette.TEXT_MUTED)
 
@@ -233,14 +271,20 @@ func open_card(kind: StringName, id: Variant) -> void:
 
 
 func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
 	_t += delta
 	if game == null or game.world == null or sim == null:
 		return
 	var rig: CameraRig = game.world.camera_rig
 	var view: Vector2 = get_viewport_rect().size
 	var pulse: float = 1.0 if SettingsManager.reduced_motion() else 1.0 + 0.12 * sin(_t * TAU * 1.2)
-	var shown: Array[Dictionary] = []
-	var sig := PackedFloat32Array([view.x, view.y])
+	_shown_buf.clear()
+	var n_floats: int = 2
+	if _sig_buf.size() < 2:
+		_sig_buf.resize(2)
+	_sig_buf[0] = roundf(view.x * 2.0)
+	_sig_buf[1] = roundf(view.y * 2.0)
 	for k: Variant in _chips.keys():
 		var c: Dictionary = _chips[k]
 		var b: Button = c["button"]
@@ -250,21 +294,49 @@ func _process(delta: float) -> void:
 		if not b.visible:
 			continue
 		c["tip"] = s
-		shown.append(c)
-		var sz: Vector2 = (c["pill"] as Control).get_combined_minimum_size()
-		sig.append_array(PackedFloat32Array([s.x, s.y, sz.x, sz.y]))
+		_shown_buf.append(c)
+		var sz: Vector2
+		if bool(c.get("sz_dirty", true)):
+			sz = (c["pill"] as Control).get_combined_minimum_size()
+			c["sz"] = sz
+			c["sz_dirty"] = false
+		else:
+			sz = c["sz"]
+		if _sig_buf.size() < n_floats + 4:
+			_sig_buf.resize(n_floats + 4)
+		_sig_buf[n_floats] = roundf(s.x * 2.0)
+		_sig_buf[n_floats + 1] = roundf(s.y * 2.0)
+		_sig_buf[n_floats + 2] = sz.x
+		_sig_buf[n_floats + 3] = sz.y
+		n_floats += 4
 		var arrow: Control = c["arrow"]
 		if arrow.visible:
 			arrow.pivot_offset = arrow.size * 0.5
 			arrow.scale = Vector2(pulse, pulse)
 	if blockers.is_valid():
 		for r: Rect2 in blockers.call():
-			sig.append_array(PackedFloat32Array([r.position.x, r.position.y, r.size.x, r.size.y]))
-	if sig == _last_sig:
+			if _sig_buf.size() < n_floats + 4:
+				_sig_buf.resize(n_floats + 4)
+			_sig_buf[n_floats] = r.position.x
+			_sig_buf[n_floats + 1] = r.position.y
+			_sig_buf[n_floats + 2] = r.size.x
+			_sig_buf[n_floats + 3] = r.size.y
+			n_floats += 4
+	if _sig_buf.size() != n_floats:
+		_sig_buf.resize(n_floats)
+	if _sig_buf == _last_sig:
 		return
-	_last_sig = sig
-	_layout(shown, view)
+	_last_sig = _sig_buf.duplicate()
+	_layout(_shown_buf, view)
 	queue_redraw()
+
+
+static func _cmp_chip(a: Dictionary, b: Dictionary) -> bool:
+	var ya: float = (a["tip"] as Vector2).y
+	var yb: float = (b["tip"] as Vector2).y
+	if ya != yb:
+		return ya > yb
+	return str(a["key"]) < str(b["key"])
 
 
 ## Tata chip yang tampak: mulai dari yang paling depan (puncak stasiunnya paling
@@ -272,18 +344,13 @@ func _process(delta: float) -> void:
 ## atas sampai berjarak GAP_PX; bila itu membuatnya keluar dari atas layar, ia
 ## didorong ke bawah saja. Pil juga digeser masuk ke layar di kiri-kanan.
 func _layout(shown: Array[Dictionary], view: Vector2) -> void:
-	shown.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var ya: float = (a["tip"] as Vector2).y
-		var yb: float = (b["tip"] as Vector2).y
-		if ya != yb:
-			return ya > yb
-		return str(a["key"]) < str(b["key"]))
+	shown.sort_custom(_cmp_chip)
 	var placed: Array[Rect2] = []
 	if blockers.is_valid():
 		placed.assign(blockers.call())
 	for c: Dictionary in shown:
 		var pill: Control = c["pill"]
-		var sz: Vector2 = pill.get_combined_minimum_size()
+		var sz: Vector2 = c["sz"]
 		var tip: Vector2 = c["tip"]
 		var r := Rect2(Vector2(tip.x - sz.x * 0.5, tip.y - LIFT_PX - sz.y), sz)
 		r.position.x = clampf(r.position.x, EDGE_PX, maxf(EDGE_PX, view.x - sz.x - EDGE_PX))
@@ -329,8 +396,8 @@ func _draw() -> void:
 		var foot := Vector2(r.get_center().x, r.end.y if r.get_center().y < tip.y else r.position.y)
 		if foot.distance_to(tip - Vector2(0.0, LIFT_PX)) <= LEADER_MIN_PX:
 			continue
-		draw_line(foot, tip, col, 2.0, true)
-		draw_circle(tip, 3.5, col, true, -1.0, true)
+		draw_line(foot, tip, col, 2.0, false)
+		ProceduralUIFactory.circle_aa(self, tip, 3.5, col)
 
 
 ## Kotak pil chip di layar setelah ditata (kosong bila tidak tampak).
@@ -350,8 +417,11 @@ func _anchor(c: Dictionary) -> Vector3:
 		var n: Node3D = game.world.main_counter()
 		if n == null:
 			return Vector3.INF
-		var b: AABB = EquipmentFactory._mesh_bounds(n)
-		return n.global_transform * Vector3(b.get_center().x, b.end.y, b.get_center().z)
+		if n != _counter_ref or _counter_local_top == Vector3.INF:
+			_counter_ref = n
+			var b: AABB = EquipmentFactory._mesh_bounds(n)
+			_counter_local_top = Vector3(b.get_center().x, b.end.y, b.get_center().z)
+		return n.global_transform * _counter_local_top
 	var e: EquipmentInstance = sim.equipment.get_inst(int(c["id"]))
 	if e == null or not e.placed or e.floor_id != rig.active_floor:
 		return Vector3.INF

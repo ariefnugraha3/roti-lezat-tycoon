@@ -476,6 +476,7 @@ func _tier_row(list: VBoxContainer, tier: int) -> void:
 	var reached: bool = tier <= p.pass_tier()
 	var face: Color = Palette.SIGN_PURPLE if reached else Palette.UI_CREAM_DEEP
 	var num := PanelContainer.new()
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var nsb: StyleBoxFlat = ProceduralUIFactory.panel(face, 24, false)
 	nsb.content_margin_left = 6.0
 	nsb.content_margin_right = 6.0
